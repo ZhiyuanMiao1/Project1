@@ -3,9 +3,19 @@ node_modules/
 
 # 忽略前端 React 打包输出目录
 my-app/build/
+backend/build/
 
 # 忽略日志文件
 *.log
+
+# 忽略重复的 package-lock.json 文件（仅保留项目根目录的版本）
+**/package-lock.json
+!my-app/package-lock.json
+
+# 忽略未使用的默认 React 图片
+my-app/public/logo192.png
+my-app/public/logo512.png
+my-app/public/favicon.ico
 
 # 忽略环境变量文件
 .env
