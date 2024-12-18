@@ -1,0 +1,22 @@
+# 忽略 node_modules 文件夹（前端和后端）
+node_modules/
+
+# 忽略前端 React 打包输出目录
+my-app/build/
+
+# 忽略日志文件
+*.log
+
+# 忽略环境变量文件
+.env
+
+# 忽略临时和缓存文件
+*.tmp
+*.cache
+
+# 忽略编辑器配置文件（如 VSCode）
+.vscode/
+.idea/
+
+# 忽略项目文档 Word 文件
+*.docx
