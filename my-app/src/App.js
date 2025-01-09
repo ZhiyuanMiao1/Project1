@@ -16,27 +16,31 @@ function Home() {
 
 function App() {
   return (
-      <Router>
-          <div className="App">
-              <header className="App-header">
-                  <p>欢迎来到我的应用!</p>
-                  <nav>
-                      <Link to="/">主页</Link> |{' '}
-                      <Link to="/register">注册</Link> |{' '}
-                      <Link to="/login">登录</Link>
-                  </nav>
-              </header>
-              <div className="App-content">
-                  <Routes>
-                      <Route path="/" element={<Home />} />
-                      <Route path="/register" element={<Register />} />
-                      <Route path="/login" element={<Login />} />
-                  </Routes>
-              </div>
-          </div>
-      </Router>
+    <div className="home-page">
+      {/* 顶部导航栏 */}
+      <nav className="navbar">
+        <div className="logo">Better Network Acceleration</div>
+        <ul className="nav-links">
+          <li>首页</li>
+          <li>产品</li>
+          <li>特点</li>
+          <li>联系我们</li>
+          <li>推广返佣</li>
+          <li>
+            <div className="user-icon">👤</div>
+          </li>
+        </ul>
+      </nav>
+
+      {/* 中间内容 */}
+      <div className="hero-section">
+        <h1>Internet Acceleration Service</h1>
+        <p>快速体验高速网络！</p>
+        <button className="primary-button">查看产品</button>
+      </div>
+    </div>
   );
 }
 
-
 export default App;
+
