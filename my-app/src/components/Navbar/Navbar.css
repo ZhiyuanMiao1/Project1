@@ -1,0 +1,174 @@
+/***** 整体容器 ******/
+.navbar {
+  width: 100%;
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  padding: 20px 0 0px 0; /* 增加底部留白，使下沿向下移动 */
+}
+
+.navbar-top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-bottom {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/***** 第一行： Logo (文字) + Tabs + 右侧菜单 *****/
+.navbar-left {
+  display: flex;
+  align-items: center;
+}
+
+/* LOGO 替换为文字样式 */
+.nav-logo-text {
+  font-size: 24px;
+  font-weight: bold;
+  color: #000; /* 设置为 MentorX 的黑色品牌颜色 */
+  margin-right: 24px;
+  cursor: pointer;
+}
+
+/* 居中 Students 和 Teacher */
+.nav-tabs {
+  display: flex;
+  gap: 16px;
+  justify-content: center; /* 居中对齐 */
+  flex: 1; /* 占据剩余空间，使其居中 */
+}
+
+.nav-tab {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 8px 16px;
+  position: relative;
+  color: #000; /* 设置为 MentorX 的黑色品牌颜色 */
+  border-radius: 24px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-tab:hover {
+  background-color: rgba(0, 0, 0, 0.1); /* 鼠标悬停时显示圆圈效果 */
+}
+
+.nav-tab.active {
+  font-weight: bold;
+}
+
+.nav-tab.active::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #000; /* 设置为 MentorX 的黑色品牌颜色 */
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+}
+
+/***** 右侧菜单样式 *****/
+.navbar-right .nav-link {
+  margin-left: 24px;
+  font-size: 15px;
+  cursor: pointer;
+  color: #000; /* 设置为 MentorX 的黑色品牌颜色 */
+}
+
+/***** 搜索框容器 *****/
+.search-bar {
+  display: flex;
+  width: 70%;               /* 搜索框宽度占据父容器的 70% */
+  max-width: 1200px;        /* 设置搜索框的最大宽度为 1200px */
+  height: 60px;             /* 设置搜索框的固定高度为 60px */
+  display: flex;            /* 使用 Flexbox 布局 */
+  align-items: center;      /* 垂直方向上居中对齐 */
+  margin: 30px auto 20px auto; /* 上: 30px, 右: auto, 下: 20px, 左: auto */
+  background-color: #fff;   /* 背景颜色为白色 */
+  border: 1px solid #ddd;   /* 边框为 1px 的浅灰色实线 */
+  border-radius: 40px;      /* 设置圆角半径为 40px，形成圆润的外观 */
+  padding: 0 16px;          /* 上下内边距为 0，左右内边距为 16px */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+  position: relative;       /* 定位方式为相对定位，为内部绝对定位元素提供参考 */
+  justify-content: space-between;
+}
+
+/***** 搜索条件样式 *****/
+.search-item {
+  display: flex;            /* 使用 Flexbox 布局 */
+  flex-direction: column;   /* 子元素垂直排列：上方是标签，下面是输入框 */
+  justify-content: center;  /* 垂直方向上居中对齐 */
+}
+
+.search-item label {
+  font-size: 12px;          /* 标签字体大小为 12px */
+  color: #757575;           /* 字体颜色为灰色 */
+  margin-bottom: 4px;       /* 底部外边距为 4px，与输入框保持间距 */
+}
+
+.search-item input {
+  padding: 12px 16px;       /* 输入框内边距：上下 12px，左右 16px */
+  border: none;             /* 无边框 */
+  border-radius: 8px;       /* 圆角半径为 8px */
+  background-color: #f7f7f7;/* 背景颜色为浅灰色 */
+  font-size: 14px;          /* 输入框字体大小为 14px */
+  width: 80%;              /* 输入框宽度占满父容器 */
+}
+
+/***** 竖线分隔 *****/
+.search-item + .search-item {
+  position: relative;       /* 为伪元素定位提供参考 */
+}
+
+.search-item + .search-item::before {
+  content: '';              /* 插入一个空内容的伪元素 */
+  position: absolute;       /* 绝对定位 */
+  left: 0;                  /* 左侧位置为 0 */
+  top: 10%;                 /* 上边距为容器高度的 10% */
+  bottom: 10%;              /* 下边距为容器高度的 10% */
+  width: 1px;               /* 分隔线宽度为 1px */
+  background-color: #ddd;   /* 分隔线颜色为浅灰色 */
+  z-index: 1;               /* 堆叠顺序为 1，确保分隔线在其他内容之上 */
+}
+
+/***** 控制每个筛选条件的宽度比例 *****/
+.search-item.timezone {
+  flex: 0 0 40%;
+}
+
+.search-item.course-type {
+  flex: 0 0 35%;
+}
+
+.search-item.subject {
+  flex: 0 0 20%;
+}
+
+/***** 搜索按钮 *****/
+.search-btn {
+  background-color: #ff385c;/* 按钮背景颜色为红色 */
+  color: #fff;              /* 按钮文字颜色为白色 */
+  border: none;             /* 无边框 */
+  border-radius: 50%;       /* 设置为圆形按钮 */
+  padding: 12px;            /* 内边距为 12px */
+  width: 48px;              /* 按钮宽度为 48px */
+  height: 48px;             /* 按钮高度为 48px */
+  display: flex;            /* 使用 Flexbox 布局 */
+  justify-content: center;  /* 水平方向上居中对齐 */
+  align-items: center;      /* 垂直方向上居中对齐 */
+  cursor: pointer;          /* 鼠标悬停时显示为手型 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* 添加按钮阴影效果 */
+  margin-left: 16px;        /* 左侧外边距为 16px，与前一个元素保持间距 */
+}
+
+.search-btn:hover {
+  background-color: #ff1744;/* 鼠标悬停时，按钮背景颜色变为深红色 */
+}
