@@ -1,80 +1,92 @@
 /***** 整体容器 *****/
 .navbar {
-  width: 100%; /* 设置导航栏宽度为100% */
-  background-color: #fff; /* 背景颜色为白色 */
-  border-bottom: 1px solid #eee; /* 设置底部边框为浅灰色实线 */
-  position: sticky; /* 导航栏在页面滚动时固定在顶部 */
-  top: 0; /* 顶部对齐 */
-  z-index: 999; /* 提高堆叠层级，确保导航栏位于最上层 */
-  padding: 20px 0 0px 0; /* 增加顶部和底部的留白 */
+  width: 100%;
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+  position: sticky; 
+  top: 20px;
+  z-index: 999;
 }
 
-/***** 导航栏顶部样式 *****/
+/***** 顶部部分 *****/
 .navbar-top {
-  display: flex; /* 使用 Flexbox 布局 */
-  align-items: center; /* 子元素在垂直方向上居中对齐 */
-  justify-content: space-between; /* 子元素均匀分布在两端 */
+  display: flex;           /* 三段式布局 */
+  align-items: center;     /* 垂直居中 */
+  padding: 20px 0;         /* 上下留白 */
 }
 
-/***** 导航栏底部样式 *****/
-.navbar-bottom {
-  display: flex; /* 使用 Flexbox 布局 */
-  justify-content: center; /* 子元素水平居中对齐 */
-  align-items: center; /* 子元素垂直方向居中 */
-}
-
-/***** 第一行： LOGO + Tabs + 右侧菜单 *****/
+/* 左侧：LOGO */
 .navbar-left {
-  display: flex; /* 使用 Flexbox 布局 */
-  align-items: center; /* 子元素垂直方向居中 */
+  flex: 0 0 auto;          /* 固定宽度或自动，根据内容定宽，不占用剩余空间 */
 }
 
-/* LOGO 替换为文字样式 */
 .nav-logo-text {
-  font-size: 24px; /* 设置文字大小 */
-  font-weight: bold; /* 加粗字体 */
-  color: #000; /* 字体颜色为黑色 */
-  margin-right: 24px; /* LOGO与Tabs之间的间距 */
-  cursor: pointer; /* 鼠标悬停时显示为手型 */
+  font-size: 24px;
+  font-weight: bold;
+  color: #000;
+  margin-right: 24px;
+  cursor: pointer;
 }
 
-/* 居中 Students 和 Teacher */
+/* 中间：导航标签(学生/教师) */
+.navbar-center {
+  flex: 1;                 /* 占据剩余空间 */
+  display: flex;
+  justify-content: center; /* 水平居中 */
+  padding: 0 0 0 100px;
+  align-items: center;     /* 垂直居中 */
+}
+
+/* 右侧：发布课程需求 + 用户头像 */
+.navbar-right {
+  flex: 0 0 auto;          /* 固定(或自动)宽度 */
+  display: flex;
+  align-items: center;
+}
+
+/***** 底部搜索部分 *****/
+.navbar-bottom {
+  display: flex;
+  justify-content: center;  /* 让搜索栏居中 */
+  align-items: center;
+  padding: 10px 0;
+}
+
+/***** Tabs 按钮样式 *****/
 .nav-tabs {
-  display: flex; /* 使用 Flexbox 布局 */
-  gap: 16px; /* Tabs之间的间距 */
-  justify-content: center; /* 居中对齐 */
-  flex: 1; /* 占据剩余空间以保持居中 */
+  display: flex;
+  gap: 16px;  /* Tabs之间的间距 */
 }
 
 .nav-tab {
-  background: none; /* 无背景颜色 */
-  border: none; /* 无边框 */
-  font-size: 16px; /* 字体大小 */
-  cursor: pointer; /* 鼠标悬停时显示为手型 */
-  padding: 8px 16px; /* 内边距 */
-  position: relative; /* 为伪元素定位提供参考 */
-  color: #000; /* 字体颜色为黑色 */
-  border-radius: 24px; /* 设置圆角 */
-  transition: background-color 0.2s ease, color 0.2s ease; /* 添加背景和字体颜色变化的过渡效果 */
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 8px 16px;
+  position: relative;
+  color: #000;
+  border-radius: 24px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .nav-tab:hover {
-  background-color: rgba(0, 0, 0, 0.1); /* 鼠标悬停时背景颜色变为浅黑色 */
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .nav-tab.active {
-  font-weight: bold; /* 激活状态字体加粗 */
+  font-weight: bold;
 }
 
 .nav-tab.active::after {
-  content: ""; /* 添加伪元素，作为下划线 */
-  display: block; /* 设置为块元素 */
-  width: 100%; /* 下划线宽度为100% */
-  height: 2px; /* 下划线高度 */
-  background: #000; /* 下划线颜色为黑色 */
-  position: absolute; /* 绝对定位 */
-  bottom: -2px; /* 向下偏移 */
-  left: 0; /* 从左对齐 */
+  content: "";
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: #000;
+  position: absolute;
+  bottom: -2px;
+  left: 0;
 }
 
 /***** 右侧菜单样式 *****/
@@ -134,7 +146,7 @@
   width: 68%; /* 搜索框宽度占父容器70% */
   max-width: 1200px; /* 最大宽度设置为1200px */
   height: 60px; /* 固定高度为60px */
-  margin: 28px auto 20px auto; /* 设置上下左右外边距 */
+  margin: 20px auto 20px auto; /* 设置上下左右外边距 */
   background-color: #fff; /* 背景颜色为白色 */
   border: 1px solid #ddd; /* 设置边框颜色为浅灰色 */
   border-radius: 40px; /* 圆角设置为40px */

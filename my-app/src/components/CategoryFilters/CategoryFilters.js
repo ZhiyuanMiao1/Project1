@@ -15,10 +15,9 @@ import {
   FaBullhorn, 
   FaCogs,  
   FaGlobe,  
-  FaBalanceScale,
-  FaChevronLeft,
-  FaChevronRight
+  FaBalanceScale
 } from 'react-icons/fa';
+import { IoIosArrowBack, IoIosArrowForward } from 'react-icons/io'; // 替代图标
 
 function CategoryFilters() {
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -47,20 +46,20 @@ function CategoryFilters() {
   const scrollLeft = () => {
     if (containerRef.current) {
       // 可以根据实际需求调整滚动距离
-      containerRef.current.scrollLeft -= 200;
+      containerRef.current.scrollLeft -= 900;
     }
   };
 
   const scrollRight = () => {
     if (containerRef.current) {
-      containerRef.current.scrollLeft += 200;
+      containerRef.current.scrollLeft += 900;
     }
   };
 
   return (
     <div className="category-filters">
       <button className="arrow left" onClick={scrollLeft}>
-        <FaChevronLeft />
+        <IoIosArrowBack />
       </button>
 
       <div className="container category-container" ref={containerRef}>
@@ -77,7 +76,7 @@ function CategoryFilters() {
       </div>
 
       <button className="arrow right" onClick={scrollRight}>
-        <FaChevronRight />
+        <IoIosArrowForward />
       </button>
     </div>
   );

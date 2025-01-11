@@ -41,19 +41,33 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background-color: transparent;
   border: none;
-  font-size: 24px;
+  font-size: 16px;
   cursor: pointer;
   z-index: 1;
+  background-color: #fff; /* 圆圈背景色 */
+  border: 1px solid #ccc; /* 圆圈的边框 */
+  width: 30px; /* 圆圈宽度 */
+  height: 30px; /* 圆圈高度 */
+  border-radius: 50%; /* 圆角设置为50%实现圆形 */
+  display: flex; /* 让箭头居中 */
+  align-items: center; /* 垂直居中 */
+  justify-content: center; /* 水平居中 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 添加阴影效果 */
+  transition: background-color 0.3s ease, transform 0.3s ease; /* 添加交互动画 */
+}
+
+.arrow:hover {
+  background-color: rgba(0, 0, 0, 0.1); /* 悬停时改变背景颜色 */
+  transform: translateY(-50%) scale(1.1); /* 悬停时放大 */
 }
 
 .arrow.left {
-  left: 0;
+  left: 120px;
 }
 
 .arrow.right {
-  right: 0;
+  right: 120px;
 }
 
 /* 让每个分类项占据 1/10 的可视宽度 (仅作示例) 
@@ -107,10 +121,10 @@
 }
 
 .category-item:hover::after {
-  width: 60%;
+  width: 30%;
 }
 
 .category-item.selected::after {
-  width: 60%;
+  width: 30%;
   background-color: #000;
 }
