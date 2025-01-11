@@ -1,15 +1,15 @@
 .listings {
-    margin-top: 32px;
-  }
+    margin-top: 36px;
+}
   
-  .listings h2 {
-    margin-bottom: 16px;
-    font-size: 24px;
-  }
+.listings h2 {
+  margin-bottom: 16px;
+  font-size: 24px;
+}
   
-  .listing-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
-  }
+.listing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
   
