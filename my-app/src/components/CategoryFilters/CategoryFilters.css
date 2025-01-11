@@ -1,39 +1,87 @@
 .category-filters {
+  position: relative;
   width: 100%;
   background-color: #fff;
   margin-top: 10px;
   margin-bottom: 10px;
-  padding: 16px 0;
+  padding: 6px 0;
+  height: auto; /* 确保父容器高度自动适应内容 */
+  overflow: visible; /* 防止裁剪子元素 */
 }
 
+/* 容器可横向滚动、且让项目单行排布 */
 .category-container {
   display: flex;
-  justify-content: space-between;
+  justify-content: start;
   align-items: center;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 16px 0;
+  padding: 12px 0;
+  /* 原本就有的属性 */
+  height: 80px; /* 增大滚动板块高度（值可根据需求调整） */
+  white-space: nowrap; 
+  scroll-behavior: smooth;
+
+  /* 重点：只允许横向滚动，禁止纵向滚动 */
+  overflow-x: auto;
+  overflow-y: auto;
+
+  /* 重点：隐藏滚动条 */
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE、Edge */
 }
 
+.category-container::-webkit-scrollbar {
+  display: none; /* Chrome、Safari、Opera 等 */
+}
+
+
+/* 两侧箭头的基本定位样式 */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.arrow.left {
+  left: 0;
+}
+
+.arrow.right {
+  right: 0;
+}
+
+/* 让每个分类项占据 1/10 的可视宽度 (仅作示例) 
+   如果一屏只显示10个，就可以这样: flex: 0 0 10% 
+   如果你更想用固定宽度(比如 120px)，也行。 */
 .category-item {
+  flex: 0 0 10%;    /* 保证一屏可显示10个 */
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   cursor: pointer;
-  color: #888; /* 默认图标和文字颜色较灰 */
-  transition: color 0.3s ease, transform 0.2s ease; /* 颜色和放大动画 */
-  position: relative; /* 为下划线定位做准备 */
+  color: #888;
+  transition: color 0.3s ease, transform 0.2s ease;
+  position: relative; 
+  white-space: normal; /* 如果想让文字可换行就用 normal */
 }
 
+/* 下面都是你原本的样式，不改，只是移了位置方便展示 */
 .category-item:hover {
-  color: #000; /* 鼠标悬停时文字和图标变黑 */
-  transform: scale(1.05); /* 鼠标悬停时轻微放大 */
+  color: #000;
+  transform: scale(1.05);
 }
 
 .category-item.selected {
-  color: #000; /* 选中时图标和文字变黑 */
+  color: #000;
 }
 
 .category-item .category-icon {
@@ -45,23 +93,24 @@
   font-size: 13px;
 }
 
+/* 下划线伪元素 */
 .category-item::after {
-  content: ''; /* 伪元素表示下划线 */
+  content: '';
   position: absolute;
-  bottom: -10px; /* 下划线的位置 */
+  bottom: -10px;
   left: 50%;
   transform: translateX(-50%);
-  width: 0; /* 初始宽度为 0，未选中时不显示 */
+  width: 0; 
   height: 2px;
-  background-color: #ccc; /* 默认灰色下划线 */
-  transition: width 0.3s ease, background-color 0.3s ease; /* 动画过渡效果 */
+  background-color: #ccc;
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 
 .category-item:hover::after {
-  width: 60%; /* 鼠标悬停时下划线宽度扩展 */
+  width: 60%;
 }
 
 .category-item.selected::after {
-  width: 60%; /* 选中时的下划线宽度 */
-  background-color: #000; /* 选中时下划线为黑色 */
+  width: 60%;
+  background-color: #000;
 }

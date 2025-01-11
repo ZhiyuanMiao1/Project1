@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import './CategoryFilters.css';
 import { 
   FaCode, 
@@ -16,10 +16,13 @@ import {
   FaCogs,  
   FaGlobe,  
   FaBalanceScale,
+  FaChevronLeft,
+  FaChevronRight
 } from 'react-icons/fa';
 
 function CategoryFilters() {
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const containerRef = useRef(null);
 
   const categories = [
     { name: '编程基础', icon: <FaCode /> },
@@ -41,23 +44,43 @@ function CategoryFilters() {
     { name: '其它', icon: <FaEllipsisH /> },
   ];
 
+  const scrollLeft = () => {
+    if (containerRef.current) {
+      // 可以根据实际需求调整滚动距离
+      containerRef.current.scrollLeft -= 200;
+    }
+  };
+
+  const scrollRight = () => {
+    if (containerRef.current) {
+      containerRef.current.scrollLeft += 200;
+    }
+  };
+
   return (
     <div className="category-filters">
-      <div className="container category-container">
+      <button className="arrow left" onClick={scrollLeft}>
+        <FaChevronLeft />
+      </button>
+
+      <div className="container category-container" ref={containerRef}>
         {categories.map((cat, idx) => (
           <div
             key={idx}
             className={`category-item ${selectedCategory === idx ? 'selected' : ''}`}
-            onClick={() => setSelectedCategory(idx)} // 点击时设置选中状态
+            onClick={() => setSelectedCategory(idx)}
           >
             <div className="category-icon">{cat.icon}</div>
             <div className="category-text">{cat.name}</div>
           </div>
         ))}
       </div>
+
+      <button className="arrow right" onClick={scrollRight}>
+        <FaChevronRight />
+      </button>
     </div>
   );
 }
 
 export default CategoryFilters;
-
