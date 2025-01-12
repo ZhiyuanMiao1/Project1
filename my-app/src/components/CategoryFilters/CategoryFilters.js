@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './CategoryFilters.css';
 import { 
   FaCode, 
@@ -21,6 +21,8 @@ import { IoIosArrowBack, IoIosArrowForward } from 'react-icons/io'; // 替代图
 
 function CategoryFilters() {
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false); // 控制左侧按钮
+  const [showRightArrow, setShowRightArrow] = useState(true); // 控制右侧按钮
   const containerRef = useRef(null);
 
   const categories = [
@@ -33,7 +35,7 @@ function CategoryFilters() {
     { name: '数据分析', icon: <FaChartBar /> },
     { name: '金融学', icon: <FaDollarSign /> },
     { name: '论文润色', icon: <FaFileAlt /> },
-    { name: '会计基础', icon: <FaCalculator /> },
+    { name: '会计学', icon: <FaCalculator /> },
     { name: '企业管理', icon: <FaBuilding /> },
     { name: '市场营销', icon: <FaBullhorn /> },
     { name: '运营管理', icon: <FaCogs /> },
@@ -56,11 +58,37 @@ function CategoryFilters() {
     }
   };
 
+  const handleScroll = () => {
+    if (containerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = containerRef.current;
+
+      // 检查是否到达左侧或右侧
+      setShowLeftArrow(scrollLeft > 0); // 如果滚动位置大于 0，显示左箭头
+      setShowRightArrow(scrollLeft < scrollWidth - clientWidth); // 如果还可以滚动，显示右箭头
+    }
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+    }
+
+    // 清理事件监听器
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
   return (
     <div className="category-filters">
+      {showLeftArrow && (
       <button className="arrow left" onClick={scrollLeft}>
         <IoIosArrowBack />
       </button>
+      )}
 
       <div className="container category-container" ref={containerRef}>
         {categories.map((cat, idx) => (
@@ -75,9 +103,11 @@ function CategoryFilters() {
         ))}
       </div>
 
+      {showRightArrow && (
       <button className="arrow right" onClick={scrollRight}>
         <IoIosArrowForward />
       </button>
+      )}
     </div>
   );
 }
