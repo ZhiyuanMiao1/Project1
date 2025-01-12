@@ -149,7 +149,7 @@
   width: 68%; /* 搜索框宽度占父容器70% */
   max-width: 1200px; /* 最大宽度设置为1200px */
   height: 60px; /* 固定高度为60px */
-  margin: 5px auto 10px auto; /* 设置上下左右外边距 */
+  margin: 20px auto 20px auto; /* 设置上下左右外边距 */
   background-color: #fff; /* 背景颜色为白色 */
   border: 1px solid #ddd; /* 设置边框颜色为浅灰色 */
   border-radius: 40px; /* 圆角设置为40px */
@@ -199,6 +199,7 @@
   width: 80%; /* 宽度为父容器的80% */
   background-color: transparent; /* 设置背景颜色为透明 */
   outline: none; /* 移除默认的焦点边框 */
+  cursor: pointer; /* 强制鼠标悬停显示为手型 */
 }
 
 /***** 竖线分隔：相邻列之间加一条分割线 *****/
@@ -223,11 +224,11 @@
 }
 
 .search-item.course-type {
-  flex: 0 0 20%; /* 固定占比20% */
+  flex: 0 0 25%; /* 固定占比20% */
 }
 
 .search-item.tutor {
-  flex: 0 0 30%; /* 固定占比20% */
+  flex: 0 0 25%; /* 固定占比20% */
 }
 
 /***** 搜索按钮 *****/
@@ -263,109 +264,4 @@
   justify-content: center; /* 水平居中弹窗内容 */
   align-items: center; /* 垂直居中弹窗内容 */
   z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
-}
-
-/* 弹窗内容 */
-.modal-content {
-  position: relative;
-  background: #fff; /* 弹窗的背景颜色设置为白色 */
-  border-radius: 30px; /* 设置圆角，提升视觉美感 */
-  padding: 25px; /* 添加内边距，使内容与边框保持距离 */
-  width: 360px; /* 弹窗的固定宽度 */
-  height: 345px;
-  left: -204px;
-  top: -44px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影，使弹窗看起来有立体感 */
-}
-
-/* 弹窗标题 */
-.modal-content h3 {
-  margin-bottom: 20px; /* 标题下方的外边距，用于分隔标题和内容 */
-  font-size: 14px;
-}
-
-/* 外层容器样式 */
-.regions {
-  display: flex; /* 使用 flex 布局 */
-  flex-wrap: wrap; /* 允许换行 */
-  justify-content: center; /* 水平居中对齐 */
-  row-gap: 10px; /* 按钮之间的间距 */
-  margin-top: 20px; /* 添加顶部间距 */
-}
-
-/* 按钮样式 */
-.regions button {
-  display: flex; /* 使用 flex 布局 */
-  flex-direction: column; /* 垂直排列内容 */
-  justify-content: center; /* 垂直居中对齐 */
-  width: 120px; /* 按钮固定宽度 */
-  height: 150px; /* 按钮固定高度 */
-  padding: 5px; /* 内边距 */
-  background-color: transparent; /* 按钮背景色 */
-  border: none; /* 去掉按钮边框 */
-  border-radius: 16px; /* 设置圆角 */
-  cursor: pointer; /* 鼠标悬停显示手型指针 */
-  transition: background-color 0.2s ease; /* 背景色变化动画 */
-}
-
-/* 按钮中的图片样式 */
-.regions button img {
-  width: 105px; /* 图片宽度 */
-  height: 105px; /* 图片高度 */
-  align-self: center;
-  border-radius: 16px;
-  margin-top: -5px;
-  margin-bottom: 5px; /* 图片和文字的间距 */
-  transition: transform 0.2s ease; /* 放大动画 */
-  border: 0.5px solid #ccc; /* 边框宽度为 1px，颜色为浅灰色 */
-}
-
-/* 按钮中的文字样式 */
-.regions button span {
-  font-size: 14px; /* 文字大小 */
-  color: #333; /* 文字颜色 */
-  text-align: left; /* 设置文字左对齐 */
-  margin-left: 5px;
-}
-
-/* 鼠标悬停时按钮样式 */
-.regions button:hover {
-  background-color: #f0f0f0; /* 改变背景颜色 */
-}
-
-/* 课程类型弹窗内容 */
-.course-types-modal-content {
-  position: relative;
-  background: #fff;
-  border-radius: 20px;
-  padding: 20px;
-  width: 400px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-/* 课程类型外层容器 */
-.course-types {
-  display: flex;
-  flex-direction: column; /* 垂直排列 */
-  gap: 15px; /* 每个按钮的垂直间距 */
-}
-
-/* 课程类型按钮 */
-.course-type-button {
-  display: flex;
-  align-items: center; /* 图标和文字垂直居中 */
-  justify-content: space-between; /* 图标和文字两端对齐 */
-  padding: 10px 15px;
-  background-color: #f9f9f9;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #333;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-/* 鼠标悬停时的按钮样式 */
-.course-type-button:hover {
-  background-color: #f0f0f0;
 }

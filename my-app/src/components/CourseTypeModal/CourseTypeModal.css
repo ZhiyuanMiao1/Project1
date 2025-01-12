@@ -1,0 +1,68 @@
+/* 弹窗遮罩层 */
+.modal-overlay {
+  position: fixed; /* 固定定位，使遮罩层始终覆盖整个屏幕 */
+  top: 0; /* 遮罩层从页面顶部开始 */
+  left: 0; /* 遮罩层从页面左侧开始 */
+  width: 100%; /* 宽度设置为100%，覆盖整个屏幕 */
+  height: 100%; /* 高度设置为100%，覆盖整个屏幕 */
+  display: flex; /* 使用弹性布局，便于居中弹窗内容 */
+  justify-content: center; /* 水平居中弹窗内容 */
+  align-items: center; /* 垂直居中弹窗内容 */
+  z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
+}
+
+/* 弹窗内容的整体样式 */
+.course-types-modal-content {
+    position: relative;
+    background: #fff; /* 背景色 */
+    border-radius: 20px; /* 圆角边框 */
+    padding: 10px; /* 内边距 */
+    width: 280px; /* 弹窗宽度 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影 */
+    max-height: 80%; /* 限制弹窗高度，防止超出屏幕 */
+    margin-top: -112px;
+    overflow-y: auto; /* 内容超出时添加滚动条 */
+  }
+  
+  /* 课程类型外层容器 */
+  .course-types {
+    display: flex;
+    flex-direction: column; /* 垂直排列按钮 */
+  }
+  
+  /* 课程类型按钮 */
+  .course-type-button {
+    display: flex;
+    align-items: center; /* 图标和文字垂直居中 */
+    justify-content: space-between; /* 图标和文字两端对齐 */
+    padding: 20px 30px; /* 按钮内边距 */
+    border-radius: 20px; /* 圆角边框 */
+    background-color: transparent; /* 按钮背景色 */
+    border: none; /* 去掉按钮边框 */
+    font-size: 16px; /* 文字大小 */
+    color: #333; /* 文字颜色 */
+    cursor: pointer; /* 鼠标悬停时显示手型 */
+    transition: background-color 0.2s ease; /* 背景色变化动画 */
+    position: relative; /* 使伪元素定位有效 */
+  }
+  
+  /* 为每个按钮添加横线分割 */
+  .course-type-button::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 30px;
+    right: 30px;
+    height: 0.5px;
+    background-color: #ddd; /* 分割线颜色 */
+  }
+  
+  /* 去掉最后一个按钮的横线 */
+  .course-type-button:last-child::after {
+    display: none;
+  }
+  
+  /* 鼠标悬停时的按钮样式 */
+  .course-type-button:hover {
+    background-color: #f0f0f0; /* 鼠标悬停时的背景色 */
+  }
