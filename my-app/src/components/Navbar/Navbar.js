@@ -13,6 +13,8 @@ function Navbar() {
   const [selectedCourseType, setSelectedCourseType] = useState(''); // 当前选中的课程类型
   const [showStartDateModal, setShowStartDateModal] = useState(false); // 控制首课日期弹窗显示
   const [selectedStartDate, setSelectedStartDate] = useState(''); // 当前选中的首课日期
+  const [activeFilter, setActiveFilter] = useState(''); // 当前激活的搜索框
+  const [isSearchBarActive, setIsSearchBarActive] = useState(false); // 搜索栏是否被激活
 
   return (
     <header className="navbar">
@@ -47,38 +49,59 @@ function Navbar() {
 
       {/* 第二行：搜索框 */}
       <div className="navbar-bottom container">
-        <div className="search-bar">
+        <div className={`search-bar ${isSearchBarActive ? 'active' : ''}`}>
           <div className="search-filters">
-            <div className="search-item timezone">
+            <div
+              className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
+              onClick={() => {
+                setShowTimezoneModal(true);
+                setActiveFilter('timezone'); // 设置当前激活的搜索框
+                setIsSearchBarActive(true); // 激活搜索栏
+              }}
+            >
               <label>时区</label>
               <input
                 type="text"
                 placeholder="选择时区"
                 value={selectedRegion}
                 readOnly
-                onClick={() => setShowTimezoneModal(true)}
               />
             </div>
-            <div className="search-item course-type">
+            
+            <div
+              className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
+              onClick={() => {
+                setShowCourseTypeModal(true);
+                setActiveFilter('courseType'); // 设置当前激活的搜索框
+                setIsSearchBarActive(true); // 激活搜索栏
+              }}
+            >
               <label>课程类型</label>
               <input
                 type="text"
                 placeholder="选择课程类型"
                 value={selectedCourseType}
                 readOnly
-                onClick={() => setShowCourseTypeModal(true)}
               />
             </div>
-            <div className="search-item start-date">
+            
+            <div
+              className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
+              onClick={() => {
+                setShowStartDateModal(true);
+                setActiveFilter('startDate'); // 设置当前激活的搜索框
+                setIsSearchBarActive(true); // 激活搜索栏
+              }}
+            >
               <label>首课日期</label>
               <input
                 type="text"
                 placeholder="选择首课日期"
                 value={selectedStartDate}
                 readOnly
-                onClick={() => setShowStartDateModal(true)}
               />
-            </div>
+            </div>     
+
           </div>
           <button className="search-btn">
             <i className="fas fa-search"></i>
@@ -86,26 +109,38 @@ function Navbar() {
         </div>
       </div>
 
-      {/* 时区选择弹窗 */}
+      {/* 时区选择弹窗 不用遮罩层*/}
       {showTimezoneModal && (
         <TimezoneModal
-          onClose={() => setShowTimezoneModal(false)}
+          onClose={() => {
+            setShowTimezoneModal(false);
+            setActiveFilter(''); // 关闭时清空激活状态
+            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+          }}
           onSelect={(region) => setSelectedRegion(region)}
         />
       )}
-
+      
       {/* 课程类型选择弹窗 */}
       {showCourseTypeModal && (
         <CourseTypeModal
-          onClose={() => setShowCourseTypeModal(false)}
+          onClose={() => {
+            setShowCourseTypeModal(false);
+            setActiveFilter(''); // 关闭时清空激活状态
+            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+          }}
           onSelect={(courseType) => setSelectedCourseType(courseType)}
         />
       )}
-
+      
       {/* 首课日期选择弹窗 */}
       {showStartDateModal && (
         <StartDateModal
-          onClose={() => setShowStartDateModal(false)}
+          onClose={() => {
+            setShowStartDateModal(false);
+            setActiveFilter(''); // 关闭时清空激活状态
+            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+          }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
         />
       )}
