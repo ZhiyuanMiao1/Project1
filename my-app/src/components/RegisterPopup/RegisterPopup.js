@@ -5,9 +5,11 @@ const RegisterPopup = ({ onClose }) => {
   return (
     <div className="register-modal-overlay" onClick={onClose}>
       <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="register-modal-close" onClick={onClose}>
+          &times;
+        </button>
         <h2>注册</h2>
         <p>这里是注册功能的占位内容。</p>
-        <button onClick={onClose}>关闭</button>
       </div>
     </div>
   );
