@@ -15,13 +15,13 @@ const AuthModal = ({ onClose }) => {
             className="auth-modal-option-button"
             onClick={() => handleAuthAction('登录')}
           >
-            登录
+            注册
           </button>
           <button
             className="auth-modal-option-button auth-divider"
             onClick={() => handleAuthAction('注册')}
           >
-            注册
+            登录
           </button>
           <button
             className="auth-modal-option-button"
