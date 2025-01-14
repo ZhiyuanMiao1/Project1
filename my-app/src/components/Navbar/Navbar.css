@@ -149,7 +149,7 @@
   width: 68%; /* 搜索框宽度占父容器70% */
   max-width: 1200px; /* 最大宽度设置为1200px */
   height: 60px; /* 固定高度为60px */
-  margin: 8px auto 8px auto; /* 设置上下左右外边距 */
+  margin: 20px auto 20px auto; /* 设置上下左右外边距 */
   background-color: #fff; /* 背景颜色为白色 */
   border: 1px solid #ddd; /* 设置边框颜色为浅灰色 */
   border-radius: 40px; /* 圆角设置为40px */

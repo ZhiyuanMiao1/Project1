@@ -1,0 +1,71 @@
+/* CSS */
+.modal-overlay {
+    position: fixed; /* Fixed position to cover the entire screen */
+    top: 0; /* Start from the top of the page */
+    left: 0; /* Start from the left of the page */
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    display: flex; /* Flex layout for centering */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+    z-index: 1000; /* High z-index to stay on top */
+}
+  
+.auth-modal-content {
+    position: relative;
+    background: #fff;
+    border-radius: 15px;
+    padding: 10px 0;
+    width: 200px;
+    margin-left: 1000px;
+    margin-bottom: 440px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    max-height: 80%;
+    overflow-y: auto;
+    overflow-x: hidden; /* 禁用水平滚动 */
+}
+  
+.auth-modal-options {
+    display: flex;
+    flex-direction: column; /* Stack buttons vertically */
+}
+  
+.auth-modal-option-button {
+    display: flex;
+    align-items: center;
+    justify-content: left; /* Align text to the left */
+    padding: 15px 20px;
+    background-color: transparent;
+    border: none;
+    font-size: 15px;
+    color: #333;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+  
+.auth-modal-option-button.auth-divider::after {
+    content: ''; /* Divider line */
+    position: absolute;
+    bottom: 0;
+    width: 80%;
+    height: 0.5px;
+    background-color: #ddd;
+}
+  
+.auth-modal-option-button:hover {
+    background-color: #f0f0f0;
+}
+  
+.auth-modal-option-button:last-child::after {
+    display: none; /* Remove line for the last button */
+}
+  
+.auth-modal-option-button:not(.auth-divider) {
+    position: relative;
+}
+  
+.auth-modal-option-button.auth-divider:last-child {
+    border-bottom: none; /* No border for the last button */
+}
+  

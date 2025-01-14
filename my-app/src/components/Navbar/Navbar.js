@@ -1,12 +1,14 @@
+// 引入必要的库和组件
 import React, { useState } from 'react';
 import './Navbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
-import StartDateModal from '../StartDateModal/StartDateModal'; // 引入 StartDate 弹窗
+import StartDateModal from '../StartDateModal/StartDateModal';
+import AuthModal from '../AuthModal/AuthModal'; // 引入注册和登录弹窗组件
 
 function Navbar() {
-  const [activeTab, setActiveTab] = useState('学生'); // 默认选中
+  const [activeTab, setActiveTab] = useState('学生'); // 默认选中学生
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -15,6 +17,7 @@ function Navbar() {
   const [selectedStartDate, setSelectedStartDate] = useState(''); // 当前选中的首课日期
   const [activeFilter, setActiveFilter] = useState(''); // 当前激活的搜索框
   const [isSearchBarActive, setIsSearchBarActive] = useState(false); // 搜索栏是否被激活
+  const [showAuthModal, setShowAuthModal] = useState(false); // 控制注册和登录弹窗显示
 
   return (
     <header className="navbar">
@@ -41,7 +44,12 @@ function Navbar() {
         </div>
         <div className="navbar-right">
           <span className="nav-link nav-text">发布课程需求</span>
-          <span className="icon-circle">
+          <span
+            className="icon-circle"
+            onClick={() => {
+              setShowAuthModal(true)}
+            } // 点击打开注册和登录弹窗
+          >
             <i className="fa fa-user"></i>
           </span>
         </div>
@@ -55,8 +63,8 @@ function Navbar() {
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
                 setShowTimezoneModal(true);
-                setActiveFilter('timezone'); // 设置当前激活的搜索框
-                setIsSearchBarActive(true); // 激活搜索栏
+                setActiveFilter('timezone');
+                setIsSearchBarActive(true);
               }}
             >
               <label>时区</label>
@@ -67,13 +75,12 @@ function Navbar() {
                 readOnly
               />
             </div>
-            
             <div
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
                 setShowCourseTypeModal(true);
-                setActiveFilter('courseType'); // 设置当前激活的搜索框
-                setIsSearchBarActive(true); // 激活搜索栏
+                setActiveFilter('courseType');
+                setIsSearchBarActive(true);
               }}
             >
               <label>课程类型</label>
@@ -84,13 +91,12 @@ function Navbar() {
                 readOnly
               />
             </div>
-            
             <div
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
                 setShowStartDateModal(true);
-                setActiveFilter('startDate'); // 设置当前激活的搜索框
-                setIsSearchBarActive(true); // 激活搜索栏
+                setActiveFilter('startDate');
+                setIsSearchBarActive(true);
               }}
             >
               <label>首课日期</label>
@@ -100,8 +106,7 @@ function Navbar() {
                 value={selectedStartDate}
                 readOnly
               />
-            </div>     
-
+            </div>
           </div>
           <button className="search-btn">
             <i className="fas fa-search"></i>
@@ -109,39 +114,43 @@ function Navbar() {
         </div>
       </div>
 
-      {/* 时区选择弹窗 不用遮罩层*/}
+      {/* 弹窗部分 */}
       {showTimezoneModal && (
         <TimezoneModal
           onClose={() => {
             setShowTimezoneModal(false);
-            setActiveFilter(''); // 关闭时清空激活状态
-            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+            setActiveFilter('');
+            setIsSearchBarActive(false);
           }}
           onSelect={(region) => setSelectedRegion(region)}
         />
       )}
-      
-      {/* 课程类型选择弹窗 */}
+
       {showCourseTypeModal && (
         <CourseTypeModal
           onClose={() => {
             setShowCourseTypeModal(false);
-            setActiveFilter(''); // 关闭时清空激活状态
-            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+            setActiveFilter('');
+            setIsSearchBarActive(false);
           }}
           onSelect={(courseType) => setSelectedCourseType(courseType)}
         />
       )}
-      
-      {/* 首课日期选择弹窗 */}
+
       {showStartDateModal && (
         <StartDateModal
           onClose={() => {
             setShowStartDateModal(false);
-            setActiveFilter(''); // 关闭时清空激活状态
-            setIsSearchBarActive(false); // 搜索栏恢复默认状态
+            setActiveFilter('');
+            setIsSearchBarActive(false);
           }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
+        />
+      )}
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
         />
       )}
     </header>
