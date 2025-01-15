@@ -9,7 +9,8 @@ const RegisterPopup = ({ onClose }) => {
           &times;
         </button>
         <h2>注册</h2>
-        <p>这里是注册功能的占位内容。</p>
+        <div className="register-modal-divider"></div>
+        <h3>MentorX欢迎您</h3>
       </div>
     </div>
   );
