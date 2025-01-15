@@ -35,9 +35,9 @@ const TimezoneModal = ({ onClose, onSelect }) => {
             <img src="/images/日韩.png" alt="日韩" />
             <span>日韩</span>
           </button>
-          <button onClick={() => handleRegionSelect('南美')}>
-            <img src="/images/南美.png" alt="南美" />
-            <span>南美</span>
+          <button onClick={() => handleRegionSelect('中国')}>
+            <img src="/images/中国.png" alt="中国" />
+            <span>中国</span>
           </button>
         </div>
       </div>
