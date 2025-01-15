@@ -1,0 +1,241 @@
+/* LoginPopup.css */
+.login-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
+.login-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 40%;
+    height: 88%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: relative; /* 相对定位，用于定位子元素 */
+  }
+
+.login-modal-content h2 {
+    margin-top: 25px;
+    font-size: 18px;
+    text-align: center;
+  }
+
+.login-modal-content h3 {
+    margin: 30px 33px;
+    font-size: 24px;
+    font-weight: normal;
+    text-align: left;
+  }
+
+/* 关闭按钮样式 */
+.login-modal-close {
+    position: absolute;
+    width: 30px; /* 设置按钮宽度 */
+    height: 30px; /* 设置按钮高度 */
+    background: none;
+    border: none;
+    margin-top: 23px;
+    margin-left: 26px;
+    font-size: 30px;
+    font-weight: 100;
+    color: #000000; /* 叉号颜色 */
+    cursor: pointer;
+    border-radius: 50%; /* 圆形按钮 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.3s ease; /* 平滑过渡效果 */
+  }
+
+/* 分割线样式 */
+.login-modal-divider {
+    margin: 20px 0; /* 上下外边距 */
+    border-top: 1px solid rgba(0, 0, 0, 0.1); /* 浅灰色分割线 */
+    width: 100%; /* 占满容器宽度 */
+}
+
+/* 鼠标悬浮时的效果 */
+.login-modal-close:hover {
+    background-color: rgba(0, 0, 0, 0.05); /* 浅灰色背景 */
+    color: #000000; /* 叉号颜色保持不变 */
+  }
+
+/* 输入区域容器样式 */
+.login-input-area {
+    display: flex;
+    flex-direction: column; /* 竖直排列 */
+    width: 88%; /* 设置宽度 */
+    margin: 0 auto; /* 居中 */
+    border: 1px solid #000000; /* 黑色边框 */
+    border-radius: 10px; /* 整体容器的圆角 */
+    background-color: #ffffff; /* 背景颜色 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 阴影效果 */
+    box-sizing: border-box; /* 确保所有内容计算在宽度内 */
+}
+
+/* 输入框样式 */
+.login-input {
+    width: 100%; /* 输入框宽度填满容器 */
+    padding: 18px; /* 内边距 */
+    font-size: 16px; /* 字体大小 */
+    border: none; /* 去掉单独输入框的边框 */
+    outline: none; /* 去掉聚焦时的高亮边框 */
+    background: transparent; /* 背景透明，融入容器背景 */
+    box-sizing: border-box; /* 包括 padding 在宽度计算内 */
+    transition: border-color 0.3s ease; /* 平滑过渡效果 */
+}
+
+/* 父容器：让相邻的 .login-input 元素之间显示分割线 */
+.login-input-area > .login-input + .login-input {
+    border-top: 1px solid #000; 
+}
+
+/* 鼠标悬浮时的效果 */
+.login-input:hover {
+    border: 1px solid #000000; /* 鼠标悬浮时边框变粗 */
+    border-radius: 10px; /* 给选中框增加圆角 */
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); /* 添加阴影效果 */
+}
+
+/* 焦点状态（正在输入时）的效果 */
+.login-input:focus {
+    outline: 2px solid #000;
+    border-radius: 10px; /* 给选中框增加圆角 */
+}
+
+/* 父容器上的 :focus-within，可以在“其中某个子元素获得焦点”时触发。 */
+.login-input-area:focus-within > .login-input:focus {
+    border-top: none;
+}
+
+.login-input:focus + .login-input {
+    border-top: none;
+}
+
+/* 选中时状态 */
+.login-button:focus {
+    border-width: 3px; /* 选中时边框保持加粗 */
+    outline: none; /* 去掉默认的焦点样式 */
+}
+
+/* 继续按钮容器 */
+.login-continue-area {
+    display: flex; /* 使用 flex 以确保按钮居中 */
+    justify-content: center; /* 水平居中 */
+    margin-top: 20px; /* 与上方保持适当间距 */
+    width: 88%; /* 按钮宽度与输入框对齐 */
+    margin: 0 auto; /* 确保整个容器居中 */
+}
+
+/* 继续按钮样式 */
+.login-continue-button {
+    width: 100%; /* 按钮宽度填满父容器 */
+    margin-top: 30px;
+    padding: 15px 0; /* 按钮上下内边距 */
+    font-size: 16px; /* 字体大小 */
+    font-weight: bold; /* 字体加粗 */
+    color: #ffffff; /* 按钮文字为白色 */
+    background-color: #222222; /* 浅黑色背景 */
+    border: none; /* 去掉边框 */
+    border-radius: 10px; /* 圆角边框 */
+    cursor: pointer; /* 鼠标变为指针 */
+    text-align: center; /* 文字居中 */
+    transition: background-color 0.3s ease, transform 0.3s ease; /* 平滑过渡效果 */
+}
+
+/* 鼠标悬浮时的效果 */
+.login-continue-button:hover {
+    background-color: #444444; /* 鼠标悬停时背景变浅 */
+    transform: scale(1.02); /* 稍微放大按钮 */
+}
+
+/* 鼠标点击时的效果 */
+.login-continue-button:active {
+    background-color: #666666; /* 点击时背景更深 */
+    transform: scale(0.98); /* 稍微缩小按钮 */
+}
+
+/* 分割线样式 */
+.login-modal-divider-with-text {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    width: 88%; /* 与其他部分宽度对齐 */
+    margin: 20px auto; /* 居中显示 */
+}
+
+/* 分割线本体 */
+.login-modal-divider-with-text::before,
+.login-modal-divider-with-text::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid rgba(0, 0, 0, 0.1); /* 浅灰色分割线 */
+}
+
+/* 中间的文字 */
+.divider-text {
+    margin: 0 10px; /* 左右间距 */
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.6); /* 浅黑色文字 */
+    white-space: nowrap; /* 防止换行 */
+}
+
+/* 社交登录按钮容器 */
+.social-login-buttons {
+    display: flex;
+    flex-direction: column; /* 竖直排列 */
+    align-items: center;
+    gap: 10px; /* 按钮之间的间距 */
+    margin-top: 20px; /* 与上方内容的间距 */
+}
+
+/* 社交登录按钮样式 */
+.social-button {
+    display: flex;
+    align-items: center; /* 图标和文字垂直居中 */
+    justify-content: center; /* 文字水平居中 */
+    width: 88%; /* 按钮宽度与输入框一致 */
+    padding: 12px; /* 按钮内边距 */
+    font-size: 14px; /* 字体大小 */
+    font-weight: normal; /* 字体加粗 */
+    color: #000; /* 按钮文字颜色为黑色 */
+    border: 1px solid #000; /* 黑色边框 */
+    border-radius: 10px; /* 圆角边框 */
+    background-color: transparent; /* 背景透明 */
+    cursor: not-allowed; /* 鼠标指针 */
+    transition: all 0.3s ease; /* 平滑过渡效果 */
+    position: relative; /* 方便调整图标 */
+}
+
+/* 微信登录按钮样式 */
+.wechat-login {
+    color: #000; /* 文字为黑色 */
+}
+
+/* Google 登录按钮样式 */
+.google-login {
+    color: #000; /* 文字为黑色 */
+}
+
+/* 图标样式 */
+.social-icon {
+    position: absolute;
+    width: 24px; /* 图标宽度 */
+    height: 24px; /* 图标高度 */
+    left: 20px;
+    display: block; /* 确保图标是块级元素 */
+}
+
+/* 鼠标悬浮效果 */
+.social-button:hover {
+    background-color: rgba(0, 0, 0, 0.05); /* 背景变浅 */
+    border-color: rgba(0, 0, 0, 0.8); /* 边框变深 */
+}
