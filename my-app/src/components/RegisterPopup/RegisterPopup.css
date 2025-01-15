@@ -252,7 +252,7 @@
     border: 1px solid #000; /* 黑色边框 */
     border-radius: 10px; /* 圆角边框 */
     background-color: transparent; /* 背景透明 */
-    cursor: pointer; /* 鼠标指针 */
+    cursor: not-allowed; /* 鼠标指针 */
     transition: all 0.3s ease; /* 平滑过渡效果 */
     position: relative; /* 方便调整图标 */
 }
