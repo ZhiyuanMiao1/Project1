@@ -1,14 +1,14 @@
 // 引入必要的库和组件
 import React, { useState } from 'react';
-import './Navbar.css';
+import { useNavigate, useLocation } from 'react-router-dom';
+import './TeacherNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
 import AuthModal from '../AuthModal/AuthModal'; // 引入注册和登录弹窗组件
 
-function Navbar() {
-  const [activeTab, setActiveTab] = useState('学生'); // 默认选中学生
+function TeacherNavbar() {
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -18,6 +18,12 @@ function Navbar() {
   const [activeFilter, setActiveFilter] = useState(''); // 当前激活的搜索框
   const [isSearchBarActive, setIsSearchBarActive] = useState(false); // 搜索栏是否被激活
   const [showAuthModal, setShowAuthModal] = useState(false); // 控制注册和登录弹窗显示
+  const navigate = useNavigate(); // 获取 navigate 函数
+  const location = useLocation(); // 获取当前路径
+
+  // 判断当前路由，确定哪个按钮应该高亮
+  const isStudentActive = location.pathname === '/student';
+  const isTeacherActive = location.pathname === '/teacher';
 
   return (
     <header className="navbar">
@@ -29,21 +35,20 @@ function Navbar() {
         <div className="navbar-center">
           <nav className="nav-tabs">
             <button
-              className={`nav-tab ${activeTab === '学生' ? 'active' : ''}`}
-              onClick={() => setActiveTab('学生')}
+              className={`nav-tab ${isStudentActive ? 'active' : ''}`}
+              onClick={() => navigate('/student')}
             >
               学生
             </button>
             <button
-              className={`nav-tab ${activeTab === '教师' ? 'active' : ''}`}
-              onClick={() => setActiveTab('教师')}
+              className={`nav-tab ${isTeacherActive ? 'active' : ''}`}
+              onClick={() => navigate('/teacher')}
             >
               教师
             </button>
           </nav>
         </div>
         <div className="navbar-right">
-          <span className="nav-link nav-text">发布课程需求</span>
           <span
             className="icon-circle"
             onClick={() => {
@@ -157,4 +162,4 @@ function Navbar() {
   );
 }
 
-export default Navbar;
+export default TeacherNavbar;

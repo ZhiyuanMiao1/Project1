@@ -1,22 +1,24 @@
 import React from 'react';
-import Navbar from './components/Navbar/Navbar';
-import CategoryFilters from './components/CategoryFilters/CategoryFilters';
-import Listings from './components/Listings/Listings';
-import './App.css';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import StudentPage from './components/StudentPage/StudentPage';
+import TeacherPage from './components/TeacherPage/TeacherPage';
 
 function App() {
   return (
-    <div className="app">
-      {/* 顶部双层导航 */}
-      <Navbar />
-      
-      {/* 分类标签 */}
-      <CategoryFilters />
+    <Router>
+      <Routes>
+        {/* 默认路径重定向到 /student */}
+        <Route path="/" element={<Navigate to="/student" />} />
 
-      {/* 房源列表 */}
-      <Listings />
-    </div>
+        {/* 学生页面 */}
+        <Route path="/student" element={<StudentPage />} />
+
+        {/* 教师页面 */}
+        <Route path="/teacher" element={<TeacherPage />} />
+      </Routes>
+    </Router>
   );
 }
 
 export default App;
+

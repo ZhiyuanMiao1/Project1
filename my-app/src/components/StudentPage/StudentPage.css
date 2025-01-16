@@ -1,0 +1,38 @@
+/* App整体样式 */
+.app {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    background-color: #fff; /* Airbnb 以白色为主 */
+  }
+  
+  /* 通用：最大宽度、居中 */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px; /* Airbnb 顶部、两边会有一定留白 */
+  }
+  
+  ul, li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* 清除默认margin/padding */
+  body, h1, h2, h3, h4, p, div, section {
+    margin: 0;
+    padding: 0;
+  }
+  
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  /* 示例：卡片简单悬浮效果 */
+  .card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  
