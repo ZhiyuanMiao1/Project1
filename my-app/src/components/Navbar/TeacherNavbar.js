@@ -24,7 +24,7 @@ function TeacherNavbar() {
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname === '/student';
   const isTeacherActive = location.pathname === '/teacher';
-
+  
   return (
     <header className="navbar">
       {/* 第一行：LOGO + Students/Teacher + 右侧菜单 */}
@@ -49,6 +49,7 @@ function TeacherNavbar() {
           </nav>
         </div>
         <div className="navbar-right">
+          <span className="nav-link nav-text">编辑个人名片</span>
           <span
             className="icon-circle"
             onClick={() => {
