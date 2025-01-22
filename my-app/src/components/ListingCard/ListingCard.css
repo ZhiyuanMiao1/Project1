@@ -7,6 +7,7 @@
   transition: transform 0.3s ease;
   min-height: 320px; /* 设置高度 */
   cursor: pointer; /* 鼠标悬停时显示为手型 */
+  position: relative;
 }
 
 .listing-card:hover {
@@ -138,4 +139,29 @@
 .法语-tag {
   background-color: rgba(0, 0, 139, 0.15); /* 浅深蓝色，代表法国 */
   color: #303f9f;
+}
+
+
+.favorite-icon {
+  position: absolute; /* 绝对定位 */
+  top: 10px; /* 距离顶部 */
+  right: 10px; /* 距离右侧 */
+  width: 24px; /* 图标宽度 */
+  height: 24px; /* 图标高度 */
+  cursor: pointer; /* 鼠标悬停时显示手形光标 */
+  transition: fill 0.2s ease, stroke 0.2s ease; /* 平滑过渡效果 */
+}
+
+.favorite-icon:hover {
+  transform: scale(1.2); /* 悬停时放大效果 */
+}
+
+.favorite-icon .heart-icon {
+  stroke: gray; /* 默认灰色线条 */
+  fill: none; /* 默认透明中间 */
+}
+
+.favorite-icon.favorited .heart-icon {
+  stroke: red; /* 收藏状态的红色线条 */
+  fill: red; /* 收藏状态的红色填充 */
 }
