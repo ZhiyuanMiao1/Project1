@@ -3,7 +3,7 @@ import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹�
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
 
-const AuthModal = ({ onClose }) => {
+const TeacherAuthModal = ({ onClose }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
 
@@ -36,9 +36,9 @@ const AuthModal = ({ onClose }) => {
           </button>
           <button
             className="auth-modal-option-button"
-            onClick={() => handleAuthAction('发布课程需求')}
+            onClick={() => handleAuthAction('编辑个人名片')}
           >
-            发布课程需求
+            编辑个人名片
           </button>
           <button
             className="auth-modal-option-button"
@@ -62,5 +62,4 @@ const AuthModal = ({ onClose }) => {
   );
 };
 
-export default AuthModal;
-
+export default TeacherAuthModal;

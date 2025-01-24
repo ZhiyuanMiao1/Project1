@@ -6,7 +6,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
-import AuthModal from '../AuthModal/AuthModal'; // 引入注册和登录弹窗组件
+import TeacherAuthModal from '../AuthModal/TeacherAuthModal'; // 引入学生版本的注册和登录弹窗组件
 
 function TeacherNavbar() {
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
@@ -155,7 +155,7 @@ function TeacherNavbar() {
       )}
 
       {showAuthModal && (
-        <AuthModal
+        <TeacherAuthModal
           onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
         />
       )}
