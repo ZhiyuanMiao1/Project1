@@ -1,0 +1,71 @@
+.teacher-listing-name {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  margin-top: -10px;
+}
+
+.teacher-listing-tags {
+  display: flex;
+  gap: 6px; /* 两个 tag 之间的间距 */
+  margin-bottom: 10px;
+}
+
+.teacher-listing-tag {
+  font-size: 14px;
+  color: #888;
+  background-color: #f0f0f0; /* 添加背景颜色，作为 Tag */
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  line-height: 1; /* 确保行高与字体大小一致 */
+  vertical-align: middle; /* 垂直居中对齐 */
+}
+
+.phd-tag {
+  background-color: rgba(30, 144, 255, 0.15); /* 很淡的蓝色 */
+  color: #1e90ff; /* 蓝色字体，突出博士 */
+}
+
+.硕士-tag {
+  background-color: rgba(50, 205, 50, 0.15); /* 很淡的绿色 */
+  color: #32cd32; /* 绿色字体，突出硕士 */
+}
+
+.bachelor-tag {
+  background-color: #99ff99;
+}
+
+.highschool-tag {
+  background-color: #ff9999;
+}
+
+.teacher-listing-timezone {
+  display: flex;
+  align-items: center; /* 垂直居中对齐 */
+  gap: 8px; /* 时区和语言之间的间距 */
+  font-size: 14px;
+  color: #333;
+  margin: 4px 0; /* 调整上下间距 */
+  text-align: left;
+}
+
+.teacher-timezone {
+  font-size: 14px;
+  color: #333; /* 时区文字颜色 */
+}
+
+.teacher-listing-courses {
+  font-size: 14px;
+  color: #333; /* 设置为主文字颜色 */
+  margin: 8px 0; /* 增加上下间距 */
+  text-align: left; /* 左对齐 */
+  line-height: 1.5; /* 增加行高以便更易读 */
+}
+
+.teacher-listing-duration,
+.teacher-listing-expected-time,
+.teacher-listing-requirements {
+  font-size: 14px;
+  margin-bottom: 10px;
+}

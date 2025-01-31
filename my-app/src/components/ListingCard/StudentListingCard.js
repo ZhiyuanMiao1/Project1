@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import './ListingCard.css';
+import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 
-function ListingCard({ data }) {
+function StudentListingCard({ data }) {
   // 添加一个 state 用于管理收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
 
@@ -61,4 +61,4 @@ function ListingCard({ data }) {
   );
 }
 
-export default ListingCard;
+export default StudentListingCard;

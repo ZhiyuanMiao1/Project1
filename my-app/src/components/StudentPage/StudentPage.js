@@ -1,7 +1,7 @@
 import React from 'react';
 import StudentNavbar from '../Navbar/StudentNavbar';
 import CategoryFilters from '../CategoryFilters/CategoryFilters';
-import Listings from '../Listings/Listings';
+import StudentListings from '../Listings/StudentListings';
 import './StudentPage.css';
 
 function StudentPage() {
@@ -13,8 +13,7 @@ function StudentPage() {
       {/* 分类标签 */}
       <CategoryFilters />
 
-      {/* 房源列表 */}
-      <Listings />
+      <StudentListings />
     </div>
   );
 }

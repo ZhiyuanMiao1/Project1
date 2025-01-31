@@ -1,5 +1,5 @@
 import React from 'react';
-import ListingCard from '../ListingCard/ListingCard';
+import StudentListingCard from '../ListingCard/StudentListingCard';
 import './Listings.css';
 import tutor1Image from '../../assets/images/tutor1.jpg';
 import tutor2Image from '../../assets/images/tutor2.jpg';
@@ -8,7 +8,7 @@ import tutor4Image from '../../assets/images/tutor4.jpg';
 import tutor5Image from '../../assets/images/tutor5.jpg';
 import tutor6Image from '../../assets/images/tutor6.jpg';
 
-function Listings() {
+function StudentListings() {
   const listingData = [
     {
       id: 1,
@@ -136,12 +136,12 @@ function Listings() {
     <div className="listings container">
       <div className="listing-grid">
         {listingData.map((item) => (
-          <ListingCard key={item.id} data={item} />
+          <StudentListingCard key={item.id} data={item} />
         ))}
       </div>
     </div>
   );
 }
 
-export default Listings;
+export default StudentListings;
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import TeacherNavbar from '../Navbar/TeacherNavbar';
 import CategoryFilters from '../CategoryFilters/CategoryFilters';
-import Listings from '../Listings/Listings';
+import TeacherListings from '../Listings/TeacherListings';
 import './TeacherPage.css';
 
 function TeacherPage() {
@@ -13,8 +13,7 @@ function TeacherPage() {
       {/* 分类标签 */}
       <CategoryFilters />
 
-      {/* 房源列表 */}
-      <Listings />
+      <TeacherListings />
     </div>
   );
 }

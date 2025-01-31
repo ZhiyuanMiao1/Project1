@@ -1,7 +1,7 @@
 .listing-card {
   background-color: #fff;
   border: 1px solid #eee;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 20px 10px 20px; /* 增加上下内边距 */
   text-align: left;
   transition: transform 0.3s ease;
