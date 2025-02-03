@@ -12,7 +12,7 @@ function TeacherListings() {
       timezone: 'UTC+8 (北京)',
       expectedDuration: '2小时',
       expectedTime: '2025-02-01',
-      requirements: '需要详细讲解算法原理，最好有课件',
+      requirements: '需要详细讲解算法原理，最好有课件，能够手把手编写代码debug',
     },
     {
       id: 32,

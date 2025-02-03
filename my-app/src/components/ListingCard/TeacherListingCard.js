@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './TeacherListingCard.css';
+import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 
 function TeacherListingCard({ data }) {
   // 添加一个 state 用于管理收藏状态
@@ -27,6 +28,11 @@ function TeacherListingCard({ data }) {
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
         </svg>
       </div>
+      <img
+        className="teacher-listing-avatar"
+        src={data.imageUrl ? data.imageUrl : defaultImage} // 如果没有头像，使用默认头像
+        alt={data.name}
+      />
       <h3 className="teacher-listing-name">Student{data.id}</h3>
       <div className="teacher-listing-tags">
         <span className={`teacher-listing-tag ${data.degree.toLowerCase()}-tag`}>
