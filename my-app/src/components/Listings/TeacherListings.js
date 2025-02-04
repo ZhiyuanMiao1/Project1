@@ -13,6 +13,7 @@ function TeacherListings() {
       expectedDuration: '2小时',
       expectedTime: '2025-02-01',
       requirements: '需要详细讲解算法原理，最好有课件，能够手把手编写代码debug',
+      courseType: "Programming"  // 手动指定课程类型
     },
     {
       id: 32,
@@ -23,6 +24,7 @@ function TeacherListings() {
       expectedDuration: '1.5小时',
       expectedTime: '2025-02-02',
       requirements: '希望使用案例教学，提供相关代码',
+      courseType: "Assignment"  // 手动指定课程类型
     },
     {
       id: 3,
@@ -33,6 +35,7 @@ function TeacherListings() {
       expectedDuration: '2小时',
       expectedTime: '2025-02-03',
       requirements: '讲解统计建模方法，并提供实战练习',
+      courseType: "Exam Review"  // 手动指定课程类型
     },
     {
       id: 24,
@@ -43,6 +46,7 @@ function TeacherListings() {
       expectedDuration: '1小时',
       expectedTime: '2025-02-04',
       requirements: '讲解微积分基础，提供练习题',
+      courseType: "Pre-class Preparation"  // 手动指定课程类型
     },
     {
       id: 35,
@@ -53,6 +57,7 @@ function TeacherListings() {
       expectedDuration: '2.5小时',
       expectedTime: '2025-02-05',
       requirements: '需要详细讲解矩阵运算和概率分布',
+      courseType: "Graduation Thesis"  // 手动指定课程类型
     },
   ];
 

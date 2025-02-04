@@ -10,7 +10,7 @@ function TeacherListingCard({ data }) {
   const toggleFavorite = () => {
     setIsFavorited(!isFavorited);
   };
-
+  
   return (
     <div className="listing-card">
       {/* 右上角的爱心图标 */}
@@ -51,7 +51,7 @@ function TeacherListingCard({ data }) {
       {/* 最近期望上课时间 */}
       <p className="teacher-listing-expected-time">📅 最近期望上课: {data.expectedTime}</p>
       {/* 具体需求 */}
-      <p className="teacher-listing-requirements">📝 {data.requirements}</p>
+      <p className="teacher-listing-requirements">📝 {data.courseType} | {data.requirements}</p>
     </div>
   );
 }
