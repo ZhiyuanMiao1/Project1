@@ -1,80 +1,63 @@
 import React, { useState } from 'react';
-import RegisterPopup from '../RegisterPopup/RegisterPopup';
-import LoginPopup from '../LoginPopup/LoginPopup';
+import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹窗组件
+import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
 
-const StudentAuthModal = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // 用户是否登录
-  const [user, setUser] = useState(null); // 存储用户信息
-  const [showAuthModal, setShowAuthModal] = useState(false); // 控制主弹窗显示
-  const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗
-  const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗
+const StudentAuthModal = ({ onClose }) => {
+  const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
+  const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
 
-  // 打开/关闭弹窗
-  const toggleAuthModal = () => {
-    setShowAuthModal(!showAuthModal);
-  };
-
-  // 处理用户登录
-  const handleLoginSuccess = (userData) => {
-    setUser(userData); // 存储用户信息
-    setIsLoggedIn(true);
-    setShowAuthModal(false); // 关闭弹窗
-  };
-
-  // 处理退出登录
-  const handleLogout = () => {
-    setUser(null);
-    setIsLoggedIn(false);
-    setShowAuthModal(false);
+  const handleAuthAction = (action) => {
+    if (action === '注册') {
+      setShowRegisterPopup(true); // 显示注册弹窗
+    } else if (action === '登录') {
+      setShowLoginPopup(true); // 显示登录弹窗
+    } else {
+      console.log(`User selected: ${action}`); // 其他操作日志
+      onClose(); // 关闭主弹窗
+    }
   };
 
   return (
-    <div>
-      {/* 右上角按钮，控制弹窗 */}
-      <button className="auth-btn" onClick={toggleAuthModal}>
-        {isLoggedIn ? (
-          <div className="user-info">
-            <img src={user?.avatar || "/default-avatar.jpg"} alt="User Avatar" className="avatar" />
-            <span>{user?.name || "用户"}</span>
-          </div>
-        ) : (
-          <span>登录/注册</span>
-        )}
-      </button>
-
-      {/* 弹窗内容 */}
-      {showAuthModal && (
-        <div className="modal-overlay" onClick={toggleAuthModal}>
-          <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
-            {isLoggedIn ? (
-              // 已登录时的内容
-              <div className="user-menu">
-                <h2>欢迎，{user.name}!</h2>
-                <button onClick={handleLogout}>退出登录</button>
-              </div>
-            ) : (
-              // 未登录时的内容
-              <div className="auth-modal-options">
-                <button className="auth-modal-option-button" onClick={() => setShowRegisterPopup(true)}>
-                  注册
-                </button>
-                <button className="auth-modal-option-button auth-divider" onClick={() => setShowLoginPopup(true)}>
-                  登录
-                </button>
-                <button className="auth-modal-option-button">发布课程需求</button>
-                <button className="auth-modal-option-button">帮助中心</button>
-              </div>
-            )}
-          </div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="auth-modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="auth-modal-options">
+          <button
+            className="auth-modal-option-button"
+            onClick={() => handleAuthAction('注册')}
+          >
+            注册
+          </button>
+          <button
+            className="auth-modal-option-button auth-divider"
+            onClick={() => handleAuthAction('登录')}
+          >
+            登录
+          </button>
+          <button
+            className="auth-modal-option-button"
+            onClick={() => handleAuthAction('发布课程需求')}
+          >
+            发布课程需求
+          </button>
+          <button
+            className="auth-modal-option-button"
+            onClick={() => handleAuthAction('帮助中心')}
+          >
+            帮助中心
+          </button>
         </div>
-      )}
+      </div>
 
       {/* 注册弹窗 */}
-      {showRegisterPopup && <RegisterPopup onClose={() => setShowRegisterPopup(false)} />}
+      {showRegisterPopup && (
+        <RegisterPopup onClose={() => setShowRegisterPopup(false)} />
+      )}
 
       {/* 登录弹窗 */}
-      {showLoginPopup && <LoginPopup onClose={() => setShowLoginPopup(false)} onLoginSuccess={handleLoginSuccess} />}
+      {showLoginPopup && (
+        <LoginPopup onClose={() => setShowLoginPopup(false)} />
+      )}
     </div>
   );
 };
