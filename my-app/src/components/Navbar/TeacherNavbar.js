@@ -139,7 +139,8 @@ function TeacherNavbar() {
             setActiveFilter('');
             setIsSearchBarActive(false);
           }}
-          onSelect={(courseType) => setSelectedCourseType(courseType)}
+          // 允许从弹窗传回 null/undefined 表示清空
+          onSelect={(courseType) => setSelectedCourseType(courseType || '')}
         />
       )}
 
