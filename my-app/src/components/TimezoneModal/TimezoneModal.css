@@ -9,6 +9,9 @@
   justify-content: center; /* 水平居中弹窗内容 */
   align-items: center; /* 垂直居中弹窗内容 */
   z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
+  background-color: rgba(15, 23, 42, 0.2); /* 轻微遮罩，强调弹窗 */
+  backdrop-filter: blur(2px); /* 轻微虚化背景 */
+  animation: modalOverlayFade 200ms ease-out both; /* 遮罩淡入动画 */
 }
 
 /* 弹窗内容 */
@@ -22,6 +25,7 @@
     left: -204px;
     top: -44px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影，使弹窗看起来有立体感 */
+    animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
   }
   
   /* 弹窗标题 */
@@ -73,8 +77,28 @@
     text-align: left; /* 设置文字左对齐 */
     margin-left: 5px;
   }
-  
+
   /* 鼠标悬停时按钮样式 */
   .regions button:hover {
     background-color: #f0f0f0; /* 改变背景颜色 */
   }
+
+@keyframes modalOverlayFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalContentPop {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

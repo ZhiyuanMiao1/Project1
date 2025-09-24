@@ -9,6 +9,9 @@
     justify-content: center; /* Center horizontally */
     align-items: center; /* Center vertically */
     z-index: 1000; /* High z-index to stay on top */
+    background-color: rgba(15, 23, 42, 0.2); /* Light overlay tint */
+    backdrop-filter: blur(2px); /* Slightly blur background */
+    animation: modalOverlayFade 200ms ease-out both; /* Overlay fade-in */
 }
   
 .auth-modal-content {
@@ -23,6 +26,7 @@
     max-height: 80%;
     overflow-y: auto;
     overflow-x: hidden; /* 禁用水平滚动 */
+    animation: modalContentPop 220ms ease-out both; /* Modal entrance animation */
 }
   
 .auth-modal-options {
@@ -69,3 +73,22 @@
     border-bottom: none; /* No border for the last button */
 }
   
+@keyframes modalOverlayFade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes modalContentPop {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
