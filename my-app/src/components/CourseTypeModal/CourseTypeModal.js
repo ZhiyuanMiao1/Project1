@@ -59,7 +59,7 @@ const CourseTypeModal = ({ onClose, onSelect }) => {
             onClick={() => handleCourseTypeSelect('')}
             aria-label="清空课程类型选择"
           >
-            清空
+            Reset
             <i className="fas fa-eraser"></i>
           </button>
         </div>

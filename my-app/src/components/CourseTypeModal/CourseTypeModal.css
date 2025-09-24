@@ -20,7 +20,7 @@
     width: 280px; /* 弹窗宽度 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影 */
     max-height: 80%; /* 限制弹窗高度，防止超出屏幕 */
-    margin-top: -112px;
+    margin-top: -60px;
     overflow-y: auto; /* 内容超出时添加滚动条 */
   }
   
