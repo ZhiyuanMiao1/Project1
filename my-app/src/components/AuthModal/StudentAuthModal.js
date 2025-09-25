@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
-import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹窗组件
-import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
+import { useNavigate } from 'react-router-dom';
+import RegisterPopup from '../RegisterPopup/RegisterPopup';
+import LoginPopup from '../LoginPopup/LoginPopup';
 import './AuthModal.css';
 
 const StudentAuthModal = ({ onClose }) => {
-  const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
-  const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
+  const [showRegisterPopup, setShowRegisterPopup] = useState(false);
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const navigate = useNavigate();
 
   const handleAuthAction = (action) => {
     if (action === '注册') {
-      setShowRegisterPopup(true); // 显示注册弹窗
+      setShowRegisterPopup(true);
     } else if (action === '登录') {
-      setShowLoginPopup(true); // 显示登录弹窗
+      setShowLoginPopup(true);
+    } else if (action === '发布课程需求') {
+      onClose();
+      navigate('/student/course-request');
     } else {
-      console.log(`User selected: ${action}`); // 其他操作日志
-      onClose(); // 关闭主弹窗
+      console.log(`User selected: ${action}`);
+      onClose();
     }
   };
 
@@ -49,12 +54,10 @@ const StudentAuthModal = ({ onClose }) => {
         </div>
       </div>
 
-      {/* 注册弹窗 */}
       {showRegisterPopup && (
         <RegisterPopup onClose={() => setShowRegisterPopup(false)} />
       )}
 
-      {/* 登录弹窗 */}
       {showLoginPopup && (
         <LoginPopup onClose={() => setShowLoginPopup(false)} />
       )}

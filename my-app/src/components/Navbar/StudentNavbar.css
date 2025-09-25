@@ -104,8 +104,21 @@
   .navbar-right .nav-link.nav-text { /* 发布课程需求的样式 */
     padding: 8px 16px; /* 添加内边距 */
     border-radius: 24px; /* 添加圆角 */
+    background: transparent;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    outline: none;
   }
   
+
+  .navbar-right .nav-link.nav-text:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.6);
+    outline-offset: 2px;
+  }
+
   .navbar-right .nav-link.nav-text:hover {
     background-color: rgba(0, 0, 0, 0.1); /* 鼠标悬停时背景色 */
     color: #333; /* 鼠标悬停时字体颜色 */

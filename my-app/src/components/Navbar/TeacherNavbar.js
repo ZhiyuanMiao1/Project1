@@ -22,15 +22,28 @@ function TeacherNavbar() {
   const location = useLocation(); // 获取当前路径
 
   // 判断当前路由，确定哪个按钮应该高亮
-  const isStudentActive = location.pathname === '/student';
-  const isTeacherActive = location.pathname === '/teacher';
+  const isStudentActive = location.pathname.startsWith('/student');
+  const isTeacherActive = location.pathname.startsWith('/teacher');
   
   return (
     <header className="navbar">
       {/* 第一行：LOGO + Students/Teacher + 右侧菜单 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          <span className="nav-logo-text">MentorX</span>
+          <span
+            className="nav-logo-text"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate('/')}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigate('/');
+              }
+            }}
+          >
+            MentorX
+          </span>
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">
@@ -49,12 +62,18 @@ function TeacherNavbar() {
           </nav>
         </div>
         <div className="navbar-right">
-          <span className="nav-link nav-text">编辑个人名片</span>
+          <button
+            type="button"
+            className="nav-link nav-text"
+            onClick={() => navigate('/teacher/profile-editor')}
+          >
+            编辑个人名片
+          </button>
           <span
             className="icon-circle"
             onClick={() => {
-              setShowAuthModal(true)}
-            } // 点击打开注册和登录弹窗
+              setShowAuthModal(true);
+            }}
           >
             <i className="fa fa-user"></i>
           </span>
@@ -165,3 +184,6 @@ function TeacherNavbar() {
 }
 
 export default TeacherNavbar;
+
+
+
