@@ -12,13 +12,14 @@
   .navbar-top {
     display: flex;           /* 三段式布局 */
     align-items: center;     /* 垂直居中 */
-    padding: 3px 0;         /* 上下留白 */
+    gap: 24px;               /* ��Ԫ������� */
+    padding: 12px 0;         /* �������� */
   }
   
   /* 左侧：LOGO */
   .navbar-left {
     flex: 0 0 auto;          /* 固定宽度或自动，根据内容定宽，不占用剩余空间 */
-    margin: 20px 0 0 0;
+    margin: 0;
   }
   
   .nav-logo-text {
@@ -27,6 +28,9 @@
     color: #000;
     margin-right: 24px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
   }
   
   /* 中间：导航标签(学生/教师) */
@@ -35,7 +39,7 @@
     display: flex;
     justify-content: center; /* 水平居中 */
     padding: 0 0 0 100px;
-    margin: 20px 0 0 0;
+    margin: 0;
     align-items: center;     /* 垂直居中 */
   }
   
@@ -44,7 +48,7 @@
     flex: 0 0 auto;          /* 固定(或自动)宽度 */
     display: flex;
     align-items: center;
-    margin: 20px 0 0 0;
+    margin: 0;
   }
   
   /***** 底部搜索部分 *****/

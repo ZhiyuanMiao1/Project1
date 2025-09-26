@@ -3,9 +3,12 @@
   font-weight: 700;
   color: #000000;
   cursor: pointer;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
   text-transform: none;
   letter-spacing: normal;
+  white-space: nowrap;
 }
 
 .brand-mark:focus-visible {

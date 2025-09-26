@@ -6,7 +6,7 @@
 }
 
 .request-flow {
-  padding: 32px 0 72px;
+  padding: 24px 0 64px;
 }
 
 .request-shell {
@@ -203,39 +203,9 @@
 
 .progress-bar {
   height: 100%;
-  background-color: #111827;
+  background-color: #000000;
   border-radius: 999px;
   transition: width 0.3s ease;
-}
-
-.progress-steps {
-  display: flex;
-  justify-content: space-between;
-}
-
-.progress-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.progress-dot span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: transparent;
-}
-
-.progress-dot.active {
-  border-color: #111827;
-}
-
-.progress-dot.active span {
-  background: #111827;
 }
 
 .step-actions {
@@ -244,8 +214,9 @@
   align-items: center;
 }
 
-.primary-button {
-  background-color: #111827;
+.course-request-page .primary-button {
+  background: #000000;
+  background-color: #000000;
   color: #ffffff;
   border: none;
   border-radius: 999px;
@@ -256,9 +227,10 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.primary-button:hover {
+.course-request-page .primary-button:hover {
+  background: #000000;
   transform: translateY(-2px);
-  box-shadow: 0 16px 28px rgba(17, 24, 39, 0.2);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
 }
 
 .ghost-button {
@@ -380,6 +352,7 @@
     padding: 40px 32px;
   }
 }
+
 
 
 

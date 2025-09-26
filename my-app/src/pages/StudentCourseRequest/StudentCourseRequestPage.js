@@ -227,7 +227,6 @@ function StudentCourseRequestPage() {
           <header className="step-header">
             <BrandMark to="/student" />
             <div className="step-header-actions">
-              <button type="button" className="ghost-button">有疑问？</button>
               <button type="button" className="ghost-button">保存并退出</button>
             </div>
           </header>
@@ -250,13 +249,6 @@ function StudentCourseRequestPage() {
             <div className="step-progress">
               <div className="progress-track">
                 <div className="progress-bar" style={{ width: `${progress}%` }} />
-              </div>
-              <div className="progress-steps">
-                {STEPS.map((step, index) => (
-                  <div key={step.id} className={`progress-dot ${index <= currentStepIndex ? 'active' : ''}`}>
-                    <span />
-                  </div>
-                ))}
               </div>
             </div>
 
