@@ -9,7 +9,7 @@ const STEPS = [
     label: '第 1 步',
     title: '明确你的学习方向',
     description:
-      '选择你当前最关注的学习目标，我们会据此定制导师推荐与课程方案。',
+      '在这一步，我们会让你选择当前最需要的学习方向，我们会据此推荐导师与课程方案。',
   },
   {
     id: 'details',
@@ -82,24 +82,7 @@ function StudentCourseRequestPage() {
   const renderStepContent = () => {
     switch (currentStep.id) {
       case 'direction':
-        return (
-          <div className="step-field-group">
-            <label className="field-label">学习目标方向</label>
-            <div className="pill-options">
-              {['国际课程 / 升学', '语言能力提升', '标准化考试冲刺', '兴趣与拓展'].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`pill-option ${formData.learningGoal === option ? 'active' : ''}`}
-                  onClick={() => setFormData((previous) => ({ ...previous, learningGoal: option }))}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <p className="helper-text">你可以稍后在提案阶段进一步调整具体项目。</p>
-          </div>
-        );
+        return null;
       case 'details':
         return (
           <div className="step-field-stack">
@@ -232,12 +215,14 @@ function StudentCourseRequestPage() {
           </header>
 
           <section className="step-layout">
-            <div className="step-content">
+            <div className={`step-content ${currentStep.id === 'direction' ? 'direction-layout' : ''}`}>
+              <div className="step-intro">
               <span className="step-label">{currentStep.label}</span>
               <h1>{currentStep.title}</h1>
               <p className="step-description">{currentStep.description}</p>
+              </div>
 
-              <div className="step-fields">{renderStepContent()}</div>
+              {currentStep.id !== 'direction' && <div className="step-fields">{renderStepContent()}</div>}
             </div>
 
             <div className="step-illustration" aria-label="插图预留区域">
@@ -246,19 +231,21 @@ function StudentCourseRequestPage() {
           </section>
 
           <footer className="step-footer">
-            <div className="step-progress">
-              <div className="progress-track">
-                <div className="progress-bar" style={{ width: `${progress}%` }} />
+            <div className="step-footer-shell">
+              <div className="step-progress">
+                <div className="progress-track">
+                  <div className="progress-bar" style={{ width: `${progress}%` }} />
+                </div>
               </div>
-            </div>
 
-            <div className="step-actions">
-              <button type="button" className="ghost-button" onClick={handleBack}>
-                返回
-              </button>
-              <button type="button" className="primary-button" onClick={handleNext}>
-                {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
-              </button>
+              <div className="step-actions">
+                <button type="button" className="ghost-button" onClick={handleBack}>
+                  返回
+                </button>
+                <button type="button" className="primary-button" onClick={handleNext}>
+                  {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
+                </button>
+              </div>
             </div>
           </footer>
         </div>

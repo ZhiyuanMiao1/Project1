@@ -3,10 +3,12 @@
   color: #1f1f1f;
   background-color: #ffffff;
   min-height: 100vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .request-flow {
-  padding: 24px 0 64px;
+  padding: 24px 0 140px;
 }
 
 .request-shell {
@@ -37,16 +39,67 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 48px;
   align-items: center;
-  margin-bottom: 64px;
+  margin-bottom: 32px;
+  min-height: calc(100vh - 280px);
+  align-content: center;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 600px;
+  margin-right: auto;
 }
 
 .step-content .step-label {
   font-size: 14px;
   letter-spacing: 3px;
   text-transform: uppercase;
-  color: #6b7280;
+  color: #000000;
   margin-bottom: 12px;
   display: inline-block;
+}
+
+.step-content .step-intro {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.step-content.direction-layout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+  padding: 96px 0;
+}
+
+.step-content.direction-layout .step-intro {
+  gap: 24px;
+}
+
+.step-content.direction-layout .step-label {
+  margin-bottom: 0;
+  font-weight: 700;
+}
+
+.step-label {
+  font-weight: 700;
+}
+
+.step-content.direction-layout h1 {
+  font-size: 44px;
+  line-height: 1.15;
+  margin-bottom: 0;
+}
+
+.step-content.direction-layout .step-description {
+  margin-bottom: 0;
+  font-size: 18px;
+  line-height: 1.8;
+  color: #1f2937;
 }
 
 .step-content h1 {
@@ -66,6 +119,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  width: 100%;
 }
 
 .step-field-group,
@@ -79,28 +133,6 @@
   font-weight: 600;
   font-size: 14px;
   color: #1f2937;
-}
-
-.pill-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.pill-option {
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  padding: 10px 18px;
-  background: #ffffff;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.pill-option.active {
-  border-color: #111827;
-  background: #111827;
-  color: #ffffff;
 }
 
 .inline-fields {
@@ -180,10 +212,23 @@
   text-align: center;
 }
 
-.step-footer {
+.course-request-page .step-footer {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  background: #ffffff;
+  padding: 16px 0 24px;
+  z-index: 1000;
+}
+
+.step-footer-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
 }
 
 .step-progress {
@@ -299,12 +344,13 @@
 
 @media (max-width: 1024px) {
   .request-flow {
-    padding: 40px 24px 64px;
+    padding: 40px 24px 160px;
   }
 
   .step-layout {
     grid-template-columns: 1fr;
     gap: 32px;
+    min-height: auto;
   }
 
   .step-illustration {
@@ -317,6 +363,14 @@
 }
 
 @media (max-width: 600px) {
+  .course-request-page .step-footer {
+    padding: 12px 0 20px;
+  }
+
+  .step-footer-shell {
+    padding: 0 16px;
+  }
+
   .step-header {
     flex-direction: column;
     gap: 16px;
@@ -335,6 +389,10 @@
 
   .inline-fields {
     grid-template-columns: 1fr;
+  }
+
+  .step-footer-shell {
+    gap: 18px;
   }
 
   .step-actions {
