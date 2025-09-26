@@ -1,0 +1,15 @@
+.brand-mark {
+  font-size: 24px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+  display: inline-block;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.brand-mark:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.4);
+  outline-offset: 4px;
+  border-radius: 6px;
+}

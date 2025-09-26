@@ -6,6 +6,7 @@ import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
 import StudentAuthModal from '../AuthModal/StudentAuthModal';
+import BrandMark from '../common/BrandMark/BrandMark';
 
 function StudentNavbar() {
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
@@ -28,20 +29,7 @@ function StudentNavbar() {
       {/* 顶部双层导航 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          <span
-            className="nav-logo-text"
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate('/')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                navigate('/');
-              }
-            }}
-          >
-            MentorX
-          </span>
+          <BrandMark className="nav-logo-text" to="/" />
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">

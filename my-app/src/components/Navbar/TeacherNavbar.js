@@ -7,6 +7,7 @@ import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
 import TeacherAuthModal from '../AuthModal/TeacherAuthModal'; // 引入学生版本的注册和登录弹窗组件
+import BrandMark from '../common/BrandMark/BrandMark';
 
 function TeacherNavbar() {
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
@@ -30,20 +31,7 @@ function TeacherNavbar() {
       {/* 第一行：LOGO + Students/Teacher + 右侧菜单 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          <span
-            className="nav-logo-text"
-            role="button"
-            tabIndex={0}
-            onClick={() => navigate('/')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                navigate('/');
-              }
-            }}
-          >
-            MentorX
-          </span>
+          <BrandMark className="nav-logo-text" to="/" />
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">

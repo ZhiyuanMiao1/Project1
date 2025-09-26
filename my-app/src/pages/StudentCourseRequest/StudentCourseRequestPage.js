@@ -1,23 +1,58 @@
-import React, { useState } from 'react';
-import StudentNavbar from '../../components/Navbar/StudentNavbar';
+import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
+import BrandMark from '../../components/common/BrandMark/BrandMark';
+
+const STEPS = [
+  {
+    id: 'direction',
+    label: '第 1 步',
+    title: '明确你的学习方向',
+    description:
+      '选择你当前最关注的学习目标，我们会据此定制导师推荐与课程方案。',
+  },
+  {
+    id: 'details',
+    label: '第 2 步',
+    title: '补充课程细节',
+    description:
+      '告诉我们课程类型、希望的授课方式以及你期望达成的里程碑。',
+  },
+  {
+    id: 'schedule',
+    label: '第 3 步',
+    title: '告知时间与预算',
+    description:
+      'MentorX 会根据你的可授课时间与预算，为你匹配最适合的导师。',
+  },
+  {
+    id: 'contact',
+    label: '第 4 步',
+    title: '留下联系方式',
+    description:
+      '我们的学习顾问将在 24 小时内联系你，确认课程安排细节。',
+  },
+];
 
 const INITIAL_FORM_STATE = {
-  subject: '',
-  proficiency: '',
-  goal: '',
-  startTimeframe: '',
+  learningGoal: '国际课程 / 升学',
+  courseFocus: '',
+  format: '线上授课',
+  milestone: '',
   availability: '',
-  frequency: '',
-  expectedBudget: '',
-  preferredTeacher: '',
-  contactMethod: 'email',
-  notes: '',
+  budgetRange: '',
+  contactName: '',
+  contactMethod: '微信',
+  contactValue: '',
 };
 
 function StudentCourseRequestPage() {
+  const navigate = useNavigate();
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
-  const [submitted, setSubmitted] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+
+  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
 
   const handleChange = (field) => (event) => {
     setFormData((previous) => ({
@@ -26,262 +61,223 @@ function StudentCourseRequestPage() {
     }));
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    setSubmitted(true);
+  const handleNext = () => {
+    if (currentStepIndex === STEPS.length - 1) {
+      setIsCompleted(true);
+      return;
+    }
+    setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
   };
 
-  const handleReset = () => {
-    setFormData(INITIAL_FORM_STATE);
-    setSubmitted(false);
+  const handleBack = () => {
+    if (currentStepIndex === 0) {
+      navigate('/student');
+      return;
+    }
+    setCurrentStepIndex((index) => Math.max(index - 1, 0));
   };
+
+  const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
+
+  const renderStepContent = () => {
+    switch (currentStep.id) {
+      case 'direction':
+        return (
+          <div className="step-field-group">
+            <label className="field-label">学习目标方向</label>
+            <div className="pill-options">
+              {['国际课程 / 升学', '语言能力提升', '标准化考试冲刺', '兴趣与拓展'].map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`pill-option ${formData.learningGoal === option ? 'active' : ''}`}
+                  onClick={() => setFormData((previous) => ({ ...previous, learningGoal: option }))}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            <p className="helper-text">你可以稍后在提案阶段进一步调整具体项目。</p>
+          </div>
+        );
+      case 'details':
+        return (
+          <div className="step-field-stack">
+            <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
+            <textarea
+              id="courseFocus"
+              placeholder="例如：A-Level 数学中函数与微积分模块需要查漏补缺。"
+              value={formData.courseFocus}
+              onChange={handleChange('courseFocus')}
+              rows={4}
+            />
+
+            <div className="inline-fields">
+              <div className="inline-field">
+                <label className="field-label" htmlFor="format">授课形式</label>
+                <select id="format" value={formData.format} onChange={handleChange('format')}>
+                  <option value="线上授课">线上授课</option>
+                  <option value="线下面授">线下面授</option>
+                  <option value="线上 + 线下">线上 + 线下</option>
+                </select>
+              </div>
+              <div className="inline-field">
+                <label className="field-label" htmlFor="milestone">希望达成的里程碑</label>
+                <input
+                  id="milestone"
+                  type="text"
+                  placeholder="例如：6 周后雅思总分达到 7.5"
+                  value={formData.milestone}
+                  onChange={handleChange('milestone')}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      case 'schedule':
+        return (
+          <div className="step-field-stack">
+            <label className="field-label" htmlFor="availability">可上课时间</label>
+            <input
+              id="availability"
+              type="text"
+              placeholder="例如：工作日晚 7-9 点；周六全天可安排"
+              value={formData.availability}
+              onChange={handleChange('availability')}
+            />
+
+            <label className="field-label" htmlFor="budgetRange">预算期望</label>
+            <input
+              id="budgetRange"
+              type="text"
+              placeholder="例如：350-450 元/小时"
+              value={formData.budgetRange}
+              onChange={handleChange('budgetRange')}
+            />
+          </div>
+        );
+      case 'contact':
+        return (
+          <div className="step-field-stack">
+            <div className="inline-fields">
+              <div className="inline-field">
+                <label className="field-label" htmlFor="contactName">称呼</label>
+                <input
+                  id="contactName"
+                  type="text"
+                  placeholder="填写你的姓名或昵称"
+                  value={formData.contactName}
+                  onChange={handleChange('contactName')}
+                />
+              </div>
+              <div className="inline-field">
+                <label className="field-label" htmlFor="contactMethod">联系偏好</label>
+                <select id="contactMethod" value={formData.contactMethod} onChange={handleChange('contactMethod')}>
+                  <option value="微信">微信</option>
+                  <option value="邮箱">邮箱</option>
+                  <option value="手机号">手机号</option>
+                </select>
+              </div>
+            </div>
+
+            <label className="field-label" htmlFor="contactValue">联系方式</label>
+            <input
+              id="contactValue"
+              type="text"
+              placeholder="请输入你的微信号、邮箱或手机号"
+              value={formData.contactValue}
+              onChange={handleChange('contactValue')}
+            />
+
+            <p className="helper-text">信息仅用于 MentorX 学习顾问联系你，不会对外公开。</p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (isCompleted) {
+    return (
+      <div className="course-request-page">        <main className="completion-content">
+          <div className="completion-card">
+            <h2>提交成功！</h2>
+            <p>我们已经收到你的课程需求，学习顾问会在 24 小时内与你取得联系。</p>
+            <div className="completion-actions">
+              <button type="button" onClick={() => navigate('/student')}>
+                返回学生首页
+              </button>
+              <button type="button" onClick={() => {
+                setIsCompleted(false);
+                setCurrentStepIndex(0);
+              }}>
+                重新填写
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="course-request-page">
-      <StudentNavbar />
-
-      <main className="course-request-content">
-        <section className="request-hero">
-          <div className="container hero-grid">
-            <div className="hero-copy">
-              <span className="hero-eyebrow">定制化学习从这里开始</span>
-              <h1>发布课程需求，匹配理想导师</h1>
-              <p>
-                填写几项关键信息，MentorX 即可为你推荐合适的导师与课程方案。
-                我们的顾问团队会在 24 小时内与你联系确认细节。
-              </p>
-              <ul className="hero-highlights">
-                <li>
-                  <span className="highlight-icon">🎯</span>
-                  明确学习目标与时间安排，平台为你做智能匹配。
-                </li>
-                <li>
-                  <span className="highlight-icon">🧑‍🏫</span>
-                  海量认证导师实时响应，支持多语种与考试项目。
-                </li>
-                <li>
-                  <span className="highlight-icon">🤝</span>
-                  专属顾问一对一跟进，确保课程顺利落地。
-                </li>
-              </ul>
+      <main className="request-flow">
+        <div className="request-shell">
+          <header className="step-header">
+            <BrandMark to="/student" />
+            <div className="step-header-actions">
+              <button type="button" className="ghost-button">有疑问？</button>
+              <button type="button" className="ghost-button">保存并退出</button>
             </div>
-            <div className="hero-card">
-              <h3>提交流程</h3>
-              <ol>
-                <li><span>1</span> 填写需求表单</li>
-                <li><span>2</span> 顾问回访确认</li>
-                <li><span>3</span> 匹配导师方案</li>
-                <li><span>4</span> 安排首课体验</li>
-              </ol>
-              <p className="hero-card-tip">平均匹配时间小于 12 小时</p>
+          </header>
+
+          <section className="step-layout">
+            <div className="step-content">
+              <span className="step-label">{currentStep.label}</span>
+              <h1>{currentStep.title}</h1>
+              <p className="step-description">{currentStep.description}</p>
+
+              <div className="step-fields">{renderStepContent()}</div>
             </div>
-          </div>
-        </section>
 
-        <section className="request-form-section">
-          <div className="container form-grid">
-            <div className="form-column">
-              <div className="form-card">
-                <h2>填写课程需求</h2>
-                <p className="form-subtitle">请尽量详细描述你的学习偏好，方便我们精准匹配。</p>
+            <div className="step-illustration" aria-label="插图预留区域">
+              <div className="illustration-frame">在此替换为你的插画或课程视觉</div>
+            </div>
+          </section>
 
-                <form onSubmit={handleSubmit}>
-                  <div className="form-row">
-                    <label htmlFor="subject">学习科目 / 项目</label>
-                    <input
-                      id="subject"
-                      type="text"
-                      placeholder="例如：IB HL Mathematics、雅思口语、商务英语"
-                      value={formData.subject}
-                      onChange={handleChange('subject')}
-                      required
-                    />
+          <footer className="step-footer">
+            <div className="step-progress">
+              <div className="progress-track">
+                <div className="progress-bar" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="progress-steps">
+                {STEPS.map((step, index) => (
+                  <div key={step.id} className={`progress-dot ${index <= currentStepIndex ? 'active' : ''}`}>
+                    <span />
                   </div>
-
-                  <div className="form-row">
-                    <label htmlFor="proficiency">目前水平</label>
-                    <select
-                      id="proficiency"
-                      value={formData.proficiency}
-                      onChange={handleChange('proficiency')}
-                      required
-                    >
-                      <option value="">选择一个选项</option>
-                      <option value="beginner">入门 / 零基础</option>
-                      <option value="intermediate">中级</option>
-                      <option value="advanced">高级 / 备考冲刺</option>
-                    </select>
-                  </div>
-
-                  <div className="form-row">
-                    <label htmlFor="goal">学习目标</label>
-                    <textarea
-                      id="goal"
-                      placeholder="描述你希望达成的成果，例如目标分数、技能提升、学校面试等"
-                      value={formData.goal}
-                      onChange={handleChange('goal')}
-                      rows="4"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-row inline">
-                    <div className="inline-field">
-                      <label htmlFor="startTimeframe">希望开课时间</label>
-                      <select
-                        id="startTimeframe"
-                        value={formData.startTimeframe}
-                        onChange={handleChange('startTimeframe')}
-                        required
-                      >
-                        <option value="">请选择</option>
-                        <option value="week">一周内</option>
-                        <option value="month">一月内</option>
-                        <option value="flexible">时间灵活</option>
-                      </select>
-                    </div>
-                    <div className="inline-field">
-                      <label htmlFor="frequency">每周上课频率</label>
-                      <select
-                        id="frequency"
-                        value={formData.frequency}
-                        onChange={handleChange('frequency')}
-                        required
-                      >
-                        <option value="">请选择</option>
-                        <option value="1-2">每周 1-2 次</option>
-                        <option value="3-4">每周 3-4 次</option>
-                        <option value="intensive">密集冲刺</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row inline">
-                    <div className="inline-field">
-                      <label htmlFor="availability">可上课时间段</label>
-                      <input
-                        id="availability"
-                        type="text"
-                        placeholder="例如：工作日晚 7-9 点；周末全天"
-                        value={formData.availability}
-                        onChange={handleChange('availability')}
-                        required
-                      />
-                    </div>
-                    <div className="inline-field">
-                      <label htmlFor="expectedBudget">预算范围</label>
-                      <input
-                        id="expectedBudget"
-                        type="text"
-                        placeholder="例如：300-400 元/小时"
-                        value={formData.expectedBudget}
-                        onChange={handleChange('expectedBudget')}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <label htmlFor="preferredTeacher">导师偏好（可选）</label>
-                    <input
-                      id="preferredTeacher"
-                      type="text"
-                      placeholder="学历背景、授课语言或授课风格等"
-                      value={formData.preferredTeacher}
-                      onChange={handleChange('preferredTeacher')}
-                    />
-                  </div>
-
-                  <div className="form-row">
-                    <label htmlFor="contactMethod">联系方式</label>
-                    <div className="contact-options">
-                      <label className={`contact-option ${formData.contactMethod === 'email' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="contactMethod"
-                          value="email"
-                          checked={formData.contactMethod === 'email'}
-                          onChange={handleChange('contactMethod')}
-                        />
-                        邮箱联系
-                      </label>
-                      <label className={`contact-option ${formData.contactMethod === 'phone' ? 'active' : ''}`}>
-                        <input
-                          type="radio"
-                          name="contactMethod"
-                          value="phone"
-                          checked={formData.contactMethod === 'phone'}
-                          onChange={handleChange('contactMethod')}
-                        />
-                        电话/微信
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <label htmlFor="notes">补充说明（可选）</label>
-                    <textarea
-                      id="notes"
-                      placeholder="还有什么想让导师或顾问了解的吗？"
-                      value={formData.notes}
-                      onChange={handleChange('notes')}
-                      rows="3"
-                    />
-                  </div>
-
-                  <div className="form-actions">
-                    <button type="submit" className="submit-button">
-                      提交需求
-                    </button>
-                    <button type="button" className="reset-button" onClick={handleReset}>
-                      清空表单
-                    </button>
-                  </div>
-
-                  {submitted && (
-                    <div className="submit-feedback">
-                      <h3>提交成功！</h3>
-                      <p>我们的顾问会在 24 小时内与你取得联系，请保持通讯畅通。</p>
-                    </div>
-                  )}
-                </form>
+                ))}
               </div>
             </div>
 
-            <aside className="info-column">
-              <div className="info-card">
-                <h3>MentorX 服务承诺</h3>
-                <ul>
-                  <li>导师资质严格筛选，平均通过率低于 15%。</li>
-                  <li>课前提供试听或试教，满意后再确认正式课。</li>
-                  <li>全程顾问陪伴，帮你追踪学习进度与成果。</li>
-                </ul>
-              </div>
-
-              <div className="info-card">
-                <h3>热门课程项目</h3>
-                <div className="tag-grid">
-                  <span className="tag">AP 物理</span>
-                  <span className="tag">IB TOK</span>
-                  <span className="tag">A-Level Chemistry</span>
-                  <span className="tag">雅思口语</span>
-                  <span className="tag">托福写作</span>
-                  <span className="tag">GMAT</span>
-                  <span className="tag">K12 数学</span>
-                  <span className="tag">竞赛辅导</span>
-                </div>
-              </div>
-
-              <div className="support-card">
-                <h3>需要帮助？</h3>
-                <p>我们在线客服团队 9:00 - 23:00 随时待命，欢迎扫码添加微信或直接拨打顾问热线。</p>
-                <button className="support-button">联系顾问</button>
-              </div>
-            </aside>
-          </div>
-        </section>
+            <div className="step-actions">
+              <button type="button" className="ghost-button" onClick={handleBack}>
+                返回
+              </button>
+              <button type="button" className="primary-button" onClick={handleNext}>
+                {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
+              </button>
+            </div>
+          </footer>
+        </div>
       </main>
     </div>
   );
 }
 
 export default StudentCourseRequestPage;
+
+
+
+
+
