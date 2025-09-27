@@ -90,7 +90,7 @@
   align-items: center;
   text-align: center;
   margin: 0 auto;
-  gap: 48px;
+  gap: 24px;
   padding: 0px 0;
 }
 
@@ -167,10 +167,10 @@
 
 .direction-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
   width: 100%;
-  max-width: 640px;
+  max-width: 720px;
 }
 
 .direction-card {
@@ -185,7 +185,7 @@
   text-align: left;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  min-height: 124px;
+  min-height: 110px;
 }
 
 .direction-card:hover {
