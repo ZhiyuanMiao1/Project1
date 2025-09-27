@@ -71,7 +71,6 @@ function StudentCourseRequestPage() {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isDirectionSelection, setIsDirectionSelection] = useState(false);
-  const [directionError, setDirectionError] = useState(false);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
 
@@ -84,15 +83,20 @@ function StudentCourseRequestPage() {
 
   const handleNext = () => {
     if (currentStep.id === 'direction') {
+      // 进入方向选择阶段时，默认选中第一个选项
       if (!isDirectionSelection) {
         setIsDirectionSelection(true);
+        if (!formData.courseDirection && DIRECTION_OPTIONS.length > 0) {
+          const first = DIRECTION_OPTIONS[0];
+          setFormData((previous) => ({
+            ...previous,
+            courseDirection: first.id,
+            learningGoal: first.label,
+          }));
+        }
         return;
       }
-
-      if (!formData.courseDirection) {
-        setDirectionError(true);
-        return;
-      }
+      // 已在选择界面则直接继续
     }
 
     if (currentStepIndex === STEPS.length - 1) {
@@ -105,7 +109,6 @@ function StudentCourseRequestPage() {
   const handleBack = () => {
     if (currentStep.id === 'direction' && isDirectionSelection) {
       setIsDirectionSelection(false);
-      setDirectionError(false);
       return;
     }
 
@@ -145,7 +148,6 @@ function StudentCourseRequestPage() {
                         courseDirection: option.id,
                         learningGoal: option.label,
                       }));
-                      setDirectionError(false);
                     }}
                   >
                     <span className="direction-card__title">{option.label}</span>
@@ -154,11 +156,6 @@ function StudentCourseRequestPage() {
                 );
               })}
             </div>
-            {directionError && (
-              <p className="direction-error" role="alert">
-                请选择最符合你的课程方向后再继续。
-              </p>
-            )}
           </div>
         );
       case 'details':
