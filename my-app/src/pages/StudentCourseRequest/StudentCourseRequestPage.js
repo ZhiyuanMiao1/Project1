@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
@@ -30,6 +30,27 @@ import {
   FaBroadcastTower,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
+
+// 懒加载 dotlottie React 播放器
+
+const DotLottiePlayer = lazy(async () => {                                     // 懒加载定义
+  const mod = await import('@dotlottie/react-player');                         // 动态引入包
+  const Cmp =
+    // ① 常见：命名导出 Player
+    mod?.Player
+    // ② 有些版本：默认导出就是组件
+    || mod?.default
+    // ③ 少数版本：默认导出是对象，其中的 Player 才是组件
+    || mod?.default?.Player
+    // ④ 极少版本：导出名叫 DotLottiePlayer
+    || mod?.DotLottiePlayer;
+
+  if (!Cmp) {                                                                  // 若仍未命中
+    // 给出更明确的提示，方便你 ctrl+点击 node_modules 查看 package.json 的 "exports"
+    throw new Error('[dotlottie] 未找到可用导出（尝试了 Player/default/default.Player/DotLottiePlayer）');
+  }
+  return { default: Cmp };                                                     // 映射为 lazy 需要的 default
+});
 
 const STEPS = [
   {
@@ -393,7 +414,16 @@ function StudentCourseRequestPage() {
 
             {!isDirectionSelectionStage && (
               <div className="step-illustration" aria-label="插图预留区域">
-                <div className="illustration-frame">在此替换为你的插画或课程视觉</div>
+                <div className="illustration-frame">
+                  <Suspense fallback={<div />}> 
+                    <DotLottiePlayer
+                      src="/illustrations/Morphing.lottie"
+                      autoplay
+                      loop
+                      style={{ width: '100%', height: '100%', background: 'transparent' }}
+                    />
+                  </Suspense>
+                </div>
               </div>
             )}
           </section>
