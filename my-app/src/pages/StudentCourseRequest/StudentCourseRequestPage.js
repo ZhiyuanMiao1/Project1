@@ -309,7 +309,7 @@ function StudentCourseRequestPage() {
                 )}
                 <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
                   {isDirectionSelectionStage
-                    ? '以下哪一项最准确描述了你希望提升的课程或能力？'
+                    ? '以下哪一项最准确描述了你希望提升的课程？'
                     : currentStep.description}
                 </p>
               </div>
