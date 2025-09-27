@@ -108,10 +108,9 @@
 .step-description.direction-question {
   font-size: 32px;
   line-height: 1.8;
-  font-weight: 600;
+  font-weight: 500;
 }
 
-/* ���� StudentCourseRequestPage.css �Ϻ��� */
 .step-content.direction-layout .step-description.direction-question {
   font-size: 32px;
 }
@@ -167,10 +166,10 @@
 
 .direction-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
   width: 100%;
-  max-width: 720px;
+  max-width: 640px;
 }
 
 .direction-card {
@@ -186,7 +185,7 @@
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-  min-height: 140px;
+  min-height: 100px;
 }
 
 .direction-card:hover {
@@ -201,7 +200,7 @@
 }
 
 .direction-card__title {
-  font-weight: 600;
+  font-weight: 500;
   font-size: 16px;
 }
 
