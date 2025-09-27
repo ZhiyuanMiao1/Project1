@@ -1,10 +1,12 @@
-﻿.course-request-page {
+.course-request-page {
   font-family: "Helvetica Neue", Arial, sans-serif;
   color: #1f1f1f;
   background-color: #ffffff;
   min-height: 100vh;
   overflow-y: hidden;
   scrollbar-gutter: stable;
+
+  --page-transition-duration: 360ms;
 }
 
 .request-flow {
@@ -43,6 +45,25 @@
   min-height: calc(100vh - 280px);
   align-content: center;
 }
+.step-layout.page-transition-exit,
+.step-footer.page-transition-exit,
+.completion-content.page-transition-exit {
+  animation: stepFadeOut var(--page-transition-duration) ease forwards;
+}
+
+.step-layout.page-transition-enter,
+.step-footer.page-transition-enter,
+.completion-content.page-transition-enter {
+  animation: stepSlideIn var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.step-layout.page-transition-enter .step-intro,
+.step-layout.page-transition-enter .step-fields,
+.step-layout.page-transition-enter .step-illustration,
+.step-layout.page-transition-enter .direction-select {
+  animation: stepSlideIn var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 
 .step-content {
   display: flex;
@@ -178,6 +199,7 @@
   padding: 20px 24px;
   background: #ffffff;
   display: flex;
+  --card-index: 0;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -192,6 +214,13 @@
   border-color: #111827;
   box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
   transform: translateY(-2px);
+}
+
+.step-layout.page-transition-enter .direction-card {
+  animation: cardCascadeIn 0.42s ease forwards;
+  animation-delay: calc(var(--card-index, 0) * 70ms + 90ms);
+  opacity: 0;
+  transform-origin: top left;
 }
 
 .direction-card.active {
@@ -354,6 +383,15 @@
   align-items: center;
 }
 
+.ghost-button:disabled,
+.primary-button:disabled,
+.completion-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+
 .course-request-page .primary-button {
   background: #000000;
   background-color: #000000;
@@ -435,6 +473,64 @@
   background: #111827;
   color: #ffffff;
   border-color: #111827;
+}
+
+@keyframes stepFadeOut {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+  }
+}
+
+@keyframes stepSlideIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(-32px, -24px, 0);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(4px, 4px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes cardCascadeIn {
+  0% {
+    opacity: 0;
+    transform: translate3d(-28px, -24px, 0);
+  }
+  70% {
+    opacity: 1;
+    transform: translate3d(3px, 3px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step-layout.page-transition-enter,
+  .step-layout.page-transition-exit,
+  .step-footer.page-transition-enter,
+  .step-footer.page-transition-exit,
+  .completion-content.page-transition-enter,
+  .completion-content.page-transition-exit {
+    animation: none !important;
+  }
+
+  .step-layout.page-transition-enter .direction-card {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @media (max-width: 1024px) {

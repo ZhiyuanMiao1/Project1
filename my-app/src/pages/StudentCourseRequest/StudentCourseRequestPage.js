@@ -1,4 +1,4 @@
-import React, { useMemo, useState, lazy, Suspense } from 'react';
+﻿import React, { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
@@ -157,14 +157,70 @@ const INITIAL_FORM_STATE = {
   contactValue: '',
 };
 
+const PAGE_TRANSITION_DURATION = 360;
+
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isDirectionSelection, setIsDirectionSelection] = useState(false);
+  const [transitionStage, setTransitionStage] = useState('idle');
+  const pendingActionRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => () => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;   // 卸载时再关掉
+    };
+  }, []);
+
+  useEffect(() => {
+    if (transitionStage === 'exiting') {
+      const timeout = setTimeout(() => {
+        const action = pendingActionRef.current;
+        if (action) {
+          action();
+        }
+        pendingActionRef.current = null;
+        if (!isMountedRef.current) {
+          return;
+        }
+        setTransitionStage('entering');
+      }, PAGE_TRANSITION_DURATION);
+      return () => clearTimeout(timeout);
+    }
+
+    if (transitionStage === 'entering') {
+      const timeout = setTimeout(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+        setTransitionStage('idle');
+      }, PAGE_TRANSITION_DURATION);
+      return () => clearTimeout(timeout);
+    }
+
+    return undefined;
+  }, [transitionStage]);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  
+  const isDirectionStep = currentStep.id === 'direction';
+  
+  const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
+  
+  const startPageTransition = (action) => {
+    if (typeof action !== 'function') {
+      return;
+    }
+    if (transitionStage !== 'idle') {
+      return;
+    }
+    pendingActionRef.current = action;
+    setTransitionStage('exiting');
+  };
 
   const handleChange = (field) => (event) => {
     setFormData((previous) => ({
@@ -174,46 +230,75 @@ function StudentCourseRequestPage() {
   };
 
   const handleNext = () => {
-    if (currentStep.id === 'direction') {
-      // 进入方向选择阶段时，默认选中第一个选项
-      if (!isDirectionSelection) {
-        setIsDirectionSelection(true);
-        if (!formData.courseDirection && DIRECTION_OPTIONS.length > 0) {
-          const first = DIRECTION_OPTIONS[0];
-          setFormData((previous) => ({
-            ...previous,
-            courseDirection: first.id,
-            learningGoal: first.label,
-          }));
+    startPageTransition(() => {
+      if (currentStep.id === 'direction') {
+        // 进入方向选择阶段时，默认选中第一个选项
+        if (!isDirectionSelection) {
+          setIsDirectionSelection(true);
+          if (!formData.courseDirection && DIRECTION_OPTIONS.length > 0) {
+            const first = DIRECTION_OPTIONS[0];
+            setFormData((previous) => ({
+              ...previous,
+              courseDirection: first.id,
+              learningGoal: first.label,
+            }));
+          }
+          return;
         }
+        // 已在选择界面则直接继续
+      }
+
+      if (currentStepIndex === STEPS.length - 1) {
+        setIsCompleted(true);
         return;
       }
-      // 已在选择界面则直接继续
-    }
-
-    if (currentStepIndex === STEPS.length - 1) {
-      setIsCompleted(true);
-      return;
-    }
-    setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
+      setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
+    });
   };
 
   const handleBack = () => {
-    if (currentStep.id === 'direction' && isDirectionSelection) {
-      setIsDirectionSelection(false);
-      return;
-    }
+    startPageTransition(() => {
+      if (currentStep.id === 'direction' && isDirectionSelection) {
+        setIsDirectionSelection(false);
+        return;
+      }
 
-    if (currentStepIndex === 0) {
-      navigate('/student');
-      return;
-    }
+      if (currentStepIndex === 0) {
+        navigate('/student');
+        return;
+      }
 
-    if (currentStep.id === 'details') {
-      setIsDirectionSelection(true);
-    }
-    setCurrentStepIndex((index) => Math.max(index - 1, 0));
+      if (currentStep.id === 'details') {
+        setIsDirectionSelection(true);
+      }
+      setCurrentStepIndex((index) => Math.max(index - 1, 0));
+    });
   };
+
+  const transitionClassName =
+    transitionStage === 'exiting'
+      ? 'page-transition-exit'
+      : transitionStage === 'entering'
+        ? 'page-transition-enter'
+        : '';
+
+  const stepLayoutClassName = [
+    'step-layout',
+    isDirectionSelectionStage ? 'direction-selection-layout' : '',
+    transitionClassName,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const stepContentClassName = [
+    'step-content',
+    isDirectionStep ? 'direction-layout' : '',
+    isDirectionSelectionStage ? 'direction-selection' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const stepFooterClassName = ['step-footer', transitionClassName].filter(Boolean).join(' ');
 
   const units = currentStepIndex === 0 ? (isDirectionSelection ? 1 : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
@@ -228,7 +313,7 @@ function StudentCourseRequestPage() {
         return (
           <div className="direction-select">
             <div className="direction-grid" role="list">
-              {DIRECTION_OPTIONS.map((option) => {
+              {DIRECTION_OPTIONS.map((option, index) => {
                 const isActive = formData.courseDirection === option.id;
                 return (
                   <button
@@ -236,6 +321,7 @@ function StudentCourseRequestPage() {
                     type="button"
                     role="listitem"
                     className={`direction-card ${isActive ? 'active' : ''}`}
+                    style={{ '--card-index': index }}
                     onClick={() => {
                       setFormData((previous) => ({
                         ...previous,
@@ -352,8 +438,9 @@ function StudentCourseRequestPage() {
   };
 
   if (isCompleted) {
+    const completionClassName = ['completion-content', transitionClassName].filter(Boolean).join(' ');
     return (
-      <div className="course-request-page">        <main className="completion-content">
+      <div className="course-request-page">        <main className={completionClassName}>
           <div className="completion-card">
             <h2>提交成功！</h2>
             <p>我们已经收到你的课程需求，学习顾问会在 24 小时内与你取得联系。</p>
@@ -361,11 +448,17 @@ function StudentCourseRequestPage() {
               <button type="button" onClick={() => navigate('/student')}>
                 返回学生首页
               </button>
-              <button type="button" onClick={() => {
-                setIsCompleted(false);
-                setCurrentStepIndex(0);
-                setIsDirectionSelection(false);
-              }}>
+              <button
+                type="button"
+                onClick={() => {
+                  startPageTransition(() => {
+                    setIsCompleted(false);
+                    setCurrentStepIndex(0);
+                    setIsDirectionSelection(false);
+                  });
+                }}
+                disabled={transitionStage !== 'idle'}
+              >
                 重新填写
               </button>
             </div>
@@ -375,8 +468,8 @@ function StudentCourseRequestPage() {
     );
   }
 
-  const isDirectionStep = currentStep.id === 'direction';
-  const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
+  //const isDirectionStep = currentStep.id === 'direction';
+  //const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
 
   return (
     <div className="course-request-page">
@@ -389,10 +482,8 @@ function StudentCourseRequestPage() {
             </div>
           </header>
 
-          <section className={`step-layout ${isDirectionSelectionStage ? 'direction-selection-layout' : ''}`}>
-            <div
-              className={`step-content ${isDirectionStep ? 'direction-layout' : ''} ${isDirectionSelectionStage ? 'direction-selection' : ''}`}
-            >
+          <section className={stepLayoutClassName}>
+            <div className={stepContentClassName}>
               <div className="step-intro">
                 {!isDirectionSelectionStage && (
                   <React.Fragment>
@@ -430,7 +521,7 @@ function StudentCourseRequestPage() {
             )}
           </section>
 
-          <footer className="step-footer">
+          <footer className={stepFooterClassName}>
             <div className="step-footer-shell">
               <div className="step-progress">
                 <div className="progress-track">
@@ -439,10 +530,15 @@ function StudentCourseRequestPage() {
               </div>
 
               <div className="step-actions">
-                <button type="button" className="ghost-button" onClick={handleBack}>
+                <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle'}>
                   返回
                 </button>
-                <button type="button" className="primary-button" onClick={handleNext}>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={handleNext}
+                  disabled={transitionStage !== 'idle'}
+                >
                   {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
                 </button>
               </div>
@@ -455,6 +551,8 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
+
+
 
 
 
