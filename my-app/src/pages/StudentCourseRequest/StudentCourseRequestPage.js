@@ -21,7 +21,6 @@ import {
   FaUniversity,
   FaTasks,
   FaUserTie,
-  FaMicrochip,
   FaDna,
   FaFlask,
   FaCubes,
@@ -30,6 +29,7 @@ import {
   FaBrain,
   FaBroadcastTower,
 } from 'react-icons/fa';
+import { RiAiGenerate } from 'react-icons/ri';
 
 const STEPS = [
   {
@@ -97,7 +97,7 @@ const DIRECTION_ICONS = {
   'cs-foundation': <FaCode />,
   'algo': <FaProjectDiagram />,
   'ml': <FaRobot />,
-  'ai-large-model': <FaMicrochip />,
+  'ai-large-model': <RiAiGenerate />,
   'data-analysis': <FaChartBar />,
   'advanced-math': <FaCalculator />,
   'statistics': <FaChartPie />,
