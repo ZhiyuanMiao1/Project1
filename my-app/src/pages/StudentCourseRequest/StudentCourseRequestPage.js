@@ -301,9 +301,13 @@ function StudentCourseRequestPage() {
               className={`step-content ${isDirectionStep ? 'direction-layout' : ''} ${isDirectionSelectionStage ? 'direction-selection' : ''}`}
             >
               <div className="step-intro">
-                <span className="step-label">{currentStep.label}</span>
-                <h1>{isDirectionSelectionStage ? '选择课程方向' : currentStep.title}</h1>
-                <p className="step-description">
+                {!isDirectionSelectionStage && (
+                  <React.Fragment>
+                    <span className="step-label">{currentStep.label}</span>
+                    <h1>{currentStep.title}</h1>
+                  </React.Fragment>
+                )}
+                <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
                   {isDirectionSelectionStage
                     ? '以下哪一项最准确描述了你希望提升的课程或能力？'
                     : currentStep.description}

@@ -105,6 +105,12 @@
 .step-content.direction-selection .step-description {
   max-width: 640px;
 }
+.step-description.direction-question {
+  font-size: 22px;
+  line-height: 1.8;
+  font-weight: 600;
+}
+
 
 .step-layout.direction-selection-layout {
   grid-template-columns: 1fr;
