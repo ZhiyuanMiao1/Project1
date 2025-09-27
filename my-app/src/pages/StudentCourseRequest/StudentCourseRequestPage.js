@@ -215,7 +215,9 @@ function StudentCourseRequestPage() {
     setCurrentStepIndex((index) => Math.max(index - 1, 0));
   };
 
-  const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
+  const units = currentStepIndex === 0 ? (isDirectionSelection ? 1 : 0) : currentStepIndex + 1;
+  const progress = (units / STEPS.length) * 100;
+  //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
   const renderStepContent = () => {
     switch (currentStep.id) {
