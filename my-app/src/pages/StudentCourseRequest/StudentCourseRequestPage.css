@@ -1,4 +1,4 @@
-ï»¿.course-request-page {
+.course-request-page {
   font-family: "Helvetica Neue", Arial, sans-serif;
   color: #1f1f1f;
   background-color: #ffffff;
@@ -111,7 +111,7 @@
   font-weight: 600;
 }
 
-/* æ”¾åœ¨ StudentCourseRequestPage.css è¾ƒåé¢ */
+/* ·ÅÔÚ StudentCourseRequestPage.css ½ÏºóÃæ */
 .step-content.direction-layout .step-description.direction-question {
   font-size: 32px;
 }
@@ -196,9 +196,6 @@
 
 .direction-card.active {
   border-color: #111827;
-  background: #111827;
-  color: #ffffff;
-  box-shadow: 0 16px 36px rgba(17, 24, 39, 0.18);
 }
 
 .direction-card__title {
@@ -210,10 +207,6 @@
   font-size: 13px;
   line-height: 1.6;
   color: #4b5563;
-}
-
-.direction-card.active .direction-card__description {
-  color: rgba(255, 255, 255, 0.9);
 }
 
 .direction-error {
@@ -521,6 +514,10 @@
     padding: 40px 32px;
   }
 }
+
+
+
+
 
 
 
