@@ -208,6 +208,7 @@ function StudentCourseRequestPage() {
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
   
   const isDirectionStep = currentStep.id === 'direction';
+  const isDetailsStep = currentStep.id === 'details';
   
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
   
@@ -292,7 +293,7 @@ function StudentCourseRequestPage() {
 
   const stepContentClassName = [
     'step-content',
-    isDirectionStep ? 'direction-layout' : '',
+    (isDirectionStep || isDetailsStep) ? 'direction-layout' : '',
     isDirectionSelectionStage ? 'direction-selection' : '',
   ]
     .filter(Boolean)
@@ -349,29 +350,17 @@ function StudentCourseRequestPage() {
               placeholder="例如：A-Level 数学中函数与微积分模块需要查漏补缺。"
               value={formData.courseFocus}
               onChange={handleChange('courseFocus')}
-              rows={4}
+              rows={5}
             />
 
-            <div className="inline-fields">
-              <div className="inline-field">
-                <label className="field-label" htmlFor="format">授课形式</label>
-                <select id="format" value={formData.format} onChange={handleChange('format')}>
-                  <option value="线上授课">线上授课</option>
-                  <option value="线下面授">线下面授</option>
-                  <option value="线上 + 线下">线上 + 线下</option>
-                </select>
-              </div>
-              <div className="inline-field">
-                <label className="field-label" htmlFor="milestone">希望达成的里程碑</label>
-                <input
-                  id="milestone"
-                  type="text"
-                  placeholder="例如：6 周后雅思总分达到 7.5"
-                  value={formData.milestone}
-                  onChange={handleChange('milestone')}
-                />
-              </div>
-            </div>
+            <label className="field-label" htmlFor="milestone">希望达成的目标或里程碑</label>
+            <input
+              id="milestone"
+              type="text"
+              placeholder="例如：6 周后雅思总分达到 7.5"
+              value={formData.milestone}
+              onChange={handleChange('milestone')}
+            />
           </div>
         );
       case 'schedule':
@@ -501,23 +490,29 @@ function StudentCourseRequestPage() {
               {isDirectionStep ? (
                 isDirectionSelectionStage ? renderStepContent() : null
               ) : (
-                <div className="step-fields">{renderStepContent()}</div>
+                isDetailsStep ? null : <div className="step-fields">{renderStepContent()}</div>
               )}
             </div>
 
             {!isDirectionSelectionStage && (
-              <div className="step-illustration" aria-label="插图预留区域">
-                <div className="illustration-frame">
-                  <Suspense fallback={<div />}> 
-                    <DotLottiePlayer
-                      src="/illustrations/Morphing.lottie"
-                      autoplay
-                      loop
-                      style={{ width: '100%', height: '100%', background: 'transparent' }}
-                    />
-                  </Suspense>
+              isDetailsStep ? (
+                <div className="details-right-panel">
+                  {renderStepContent()}
                 </div>
-              </div>
+              ) : (
+                <div className="step-illustration" aria-label="插图预留区域">
+                  <div className="illustration-frame">
+                    <Suspense fallback={<div />}> 
+                      <DotLottiePlayer
+                        src="/illustrations/Morphing.lottie"
+                        autoplay
+                        loop
+                        style={{ width: '100%', height: '100%', background: 'transparent' }}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )
             )}
           </section>
 
