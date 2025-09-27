@@ -1,4 +1,4 @@
-.course-request-page {
+﻿.course-request-page {
   font-family: "Helvetica Neue", Arial, sans-serif;
   color: #1f1f1f;
   background-color: #ffffff;
@@ -6,8 +6,9 @@
   overflow-y: hidden;
   scrollbar-gutter: stable;
 
-  --page-transition-duration: 360ms;
+  --page-transition-duration: 600ms;
 }
+
 
 .request-flow {
   padding: 24px 0 140px;
@@ -42,7 +43,7 @@
   gap: 48px;
   align-items: center;
   margin-bottom: 32px;
-  min-height: calc(100vh - 280px);
+  min-height: calc(100vh - 300px);
   align-content: center;
 }
 .step-layout.page-transition-exit,
@@ -140,6 +141,7 @@
   grid-template-columns: 1fr;
   justify-items: center;
 }
+
 
 .step-label {
   font-weight: 700;

@@ -157,7 +157,7 @@ const INITIAL_FORM_STATE = {
   contactValue: '',
 };
 
-const PAGE_TRANSITION_DURATION = 360;
+const PAGE_TRANSITION_DURATION = 600;
 
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
