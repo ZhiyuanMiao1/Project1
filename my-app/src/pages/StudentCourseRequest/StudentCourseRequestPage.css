@@ -297,9 +297,8 @@
   padding-top: 0;
   height: 360px;
   border-radius: 26px;
-  border: 2px dashed rgba(209, 213, 219, 0.9);
-  background: linear-gradient(145deg, rgba(243, 244, 246, 0.6), rgba(255, 255, 255, 0.9));
-  color: #9ca3af;
+  border: none;
+  background: #ffffff;
   font-size: 16px;
   font-weight: 500;
   display: flex;
