@@ -2,6 +2,21 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import {
+  FaCode,
+  FaProjectDiagram,
+  FaCalculator,
+  FaChartPie,
+  FaRobot,
+  FaAtom,
+  FaChartBar,
+  FaDollarSign,
+  FaFileAlt,
+  FaEllipsisH,
+  FaBullhorn,
+  FaCogs,
+  FaBalanceScale,
+} from 'react-icons/fa';
 
 const STEPS = [
   {
@@ -51,6 +66,25 @@ const DIRECTION_OPTIONS = [
   { id: 'communication', label: '演讲与表达', description: '兴趣技能 / 职场软实力' },
   { id: 'others', label: '其它课程方向', description: '更多个性化课程需求' },
 ];
+
+// 方向图标映射
+const DIRECTION_ICONS = {
+  'cs-foundation': <FaCode />,
+  'algo': <FaProjectDiagram />,
+  'ml': <FaRobot />,
+  'data-analysis': <FaChartBar />,
+  'advanced-math': <FaCalculator />,
+  'statistics': <FaChartPie />,
+  'physics': <FaAtom />,
+  'finance': <FaDollarSign />,
+  'accounting': <FaCalculator />,
+  'marketing': <FaBullhorn />,
+  'operations': <FaCogs />,
+  'law': <FaBalanceScale />,
+  'writing': <FaFileAlt />,
+  'communication': <FaBullhorn />,
+  'others': <FaEllipsisH />,
+};
 
 const INITIAL_FORM_STATE = {
   learningGoal: '国际课程 / 升学',
@@ -150,8 +184,10 @@ function StudentCourseRequestPage() {
                       }));
                     }}
                   >
+                    <span className="direction-card__icon" aria-hidden="true">
+                      {DIRECTION_ICONS[option.id] || <FaEllipsisH />}
+                    </span>
                     <span className="direction-card__title">{option.label}</span>
-                    <span className="direction-card__description">{option.description}</span>
                   </button>
                 );
               })}
