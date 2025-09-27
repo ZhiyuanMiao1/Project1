@@ -3,7 +3,7 @@
   color: #1f1f1f;
   background-color: #ffffff;
   min-height: 100vh;
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-gutter: stable;
 }
 
@@ -294,7 +294,8 @@
 
 .illustration-frame {
   width: 100%;
-  padding-top: 70%;
+  padding-top: 0;
+  height: 360px;
   border-radius: 26px;
   border: 2px dashed rgba(209, 213, 219, 0.9);
   background: linear-gradient(145deg, rgba(243, 244, 246, 0.6), rgba(255, 255, 255, 0.9));
