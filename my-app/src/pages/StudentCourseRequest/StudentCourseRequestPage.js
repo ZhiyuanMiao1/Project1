@@ -347,7 +347,7 @@ function StudentCourseRequestPage() {
             <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
             <textarea
               id="courseFocus"
-              placeholder="例如：A-Level 数学中函数与微积分模块需要查漏补缺。"
+              placeholder="例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。"
               value={formData.courseFocus}
               onChange={handleChange('courseFocus')}
               rows={5}
@@ -357,7 +357,7 @@ function StudentCourseRequestPage() {
             <input
               id="milestone"
               type="text"
-              placeholder="例如：6 周后雅思总分达到 7.5"
+              placeholder="例如：6 周后期末考试稳分达到A"
               value={formData.milestone}
               onChange={handleChange('milestone')}
             />
