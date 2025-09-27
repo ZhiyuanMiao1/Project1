@@ -53,7 +53,7 @@ const DIRECTION_OPTIONS = [
 ];
 
 const INITIAL_FORM_STATE = {
-  learningGoal: '',
+  learningGoal: '国际课程 / 升学',
   courseDirection: '',
   courseFocus: '',
   format: '线上授课',
@@ -100,7 +100,6 @@ function StudentCourseRequestPage() {
       return;
     }
     setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
-    setDirectionError(false);
   };
 
   const handleBack = () => {
@@ -114,11 +113,11 @@ function StudentCourseRequestPage() {
       navigate('/student');
       return;
     }
+
     if (currentStep.id === 'details') {
       setIsDirectionSelection(true);
     }
     setCurrentStepIndex((index) => Math.max(index - 1, 0));
-    setDirectionError(false);
   };
 
   const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
@@ -273,8 +272,6 @@ function StudentCourseRequestPage() {
                 setIsCompleted(false);
                 setCurrentStepIndex(0);
                 setIsDirectionSelection(false);
-                setFormData(INITIAL_FORM_STATE);
-                setDirectionError(false);
               }}>
                 重新填写
               </button>
