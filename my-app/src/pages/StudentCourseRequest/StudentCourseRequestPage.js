@@ -9,7 +9,7 @@ const STEPS = [
     label: '第 1 步',
     title: '明确你的学习方向',
     description:
-      '在这一步，我们会让你选择当前最需要的学习方向，我们会据此推荐导师与课程方案。',
+      '在这一步，我们会帮助你快速对齐目标与期望，让后续填写更高效。',
   },
   {
     id: 'details',
@@ -34,8 +34,27 @@ const STEPS = [
   },
 ];
 
+const DIRECTION_OPTIONS = [
+  { id: 'cs-foundation', label: '编程基础', description: '计算机 / 技术方向' },
+  { id: 'algo', label: '数据结构与算法', description: '计算机 / 技术方向' },
+  { id: 'ml', label: '机器学习', description: '计算机 / 技术方向' },
+  { id: 'data-analysis', label: '数据分析', description: '数据科学 / 商业分析' },
+  { id: 'advanced-math', label: '高等数学', description: '理工 / 数学基础' },
+  { id: 'statistics', label: '概率与统计', description: '理工 / 数学基础' },
+  { id: 'physics', label: '物理学', description: '理工 / 自然科学' },
+  { id: 'finance', label: '金融学', description: '商科 / 金融管理' },
+  { id: 'accounting', label: '会计学', description: '商科 / 金融管理' },
+  { id: 'marketing', label: '市场营销', description: '商科 / 管理与运营' },
+  { id: 'operations', label: '运营管理', description: '商科 / 管理与运营' },
+  { id: 'law', label: '法律', description: '人文社科 / 法律与政策' },
+  { id: 'writing', label: '论文写作与润色', description: '人文社科 / 写作与表达' },
+  { id: 'communication', label: '演讲与表达', description: '兴趣技能 / 职场软实力' },
+  { id: 'others', label: '其它课程方向', description: '更多个性化课程需求' },
+];
+
 const INITIAL_FORM_STATE = {
-  learningGoal: '国际课程 / 升学',
+  learningGoal: '',
+  courseDirection: '',
   courseFocus: '',
   format: '线上授课',
   milestone: '',
@@ -51,6 +70,8 @@ function StudentCourseRequestPage() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isDirectionSelection, setIsDirectionSelection] = useState(false);
+  const [directionError, setDirectionError] = useState(false);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
 
@@ -62,19 +83,42 @@ function StudentCourseRequestPage() {
   };
 
   const handleNext = () => {
+    if (currentStep.id === 'direction') {
+      if (!isDirectionSelection) {
+        setIsDirectionSelection(true);
+        return;
+      }
+
+      if (!formData.courseDirection) {
+        setDirectionError(true);
+        return;
+      }
+    }
+
     if (currentStepIndex === STEPS.length - 1) {
       setIsCompleted(true);
       return;
     }
     setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
+    setDirectionError(false);
   };
 
   const handleBack = () => {
+    if (currentStep.id === 'direction' && isDirectionSelection) {
+      setIsDirectionSelection(false);
+      setDirectionError(false);
+      return;
+    }
+
     if (currentStepIndex === 0) {
       navigate('/student');
       return;
     }
+    if (currentStep.id === 'details') {
+      setIsDirectionSelection(true);
+    }
     setCurrentStepIndex((index) => Math.max(index - 1, 0));
+    setDirectionError(false);
   };
 
   const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
@@ -82,7 +126,42 @@ function StudentCourseRequestPage() {
   const renderStepContent = () => {
     switch (currentStep.id) {
       case 'direction':
-        return null;
+        if (!isDirectionSelection) {
+          return null;
+        }
+        return (
+          <div className="direction-select">
+            <div className="direction-grid" role="list">
+              {DIRECTION_OPTIONS.map((option) => {
+                const isActive = formData.courseDirection === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="listitem"
+                    className={`direction-card ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      setFormData((previous) => ({
+                        ...previous,
+                        courseDirection: option.id,
+                        learningGoal: option.label,
+                      }));
+                      setDirectionError(false);
+                    }}
+                  >
+                    <span className="direction-card__title">{option.label}</span>
+                    <span className="direction-card__description">{option.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {directionError && (
+              <p className="direction-error" role="alert">
+                请选择最符合你的课程方向后再继续。
+              </p>
+            )}
+          </div>
+        );
       case 'details':
         return (
           <div className="step-field-stack">
@@ -193,6 +272,9 @@ function StudentCourseRequestPage() {
               <button type="button" onClick={() => {
                 setIsCompleted(false);
                 setCurrentStepIndex(0);
+                setIsDirectionSelection(false);
+                setFormData(INITIAL_FORM_STATE);
+                setDirectionError(false);
               }}>
                 重新填写
               </button>
@@ -202,6 +284,9 @@ function StudentCourseRequestPage() {
       </div>
     );
   }
+
+  const isDirectionStep = currentStep.id === 'direction';
+  const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
 
   return (
     <div className="course-request-page">
@@ -214,20 +299,32 @@ function StudentCourseRequestPage() {
             </div>
           </header>
 
-          <section className="step-layout">
-            <div className={`step-content ${currentStep.id === 'direction' ? 'direction-layout' : ''}`}>
+          <section className={`step-layout ${isDirectionSelectionStage ? 'direction-selection-layout' : ''}`}>
+            <div
+              className={`step-content ${isDirectionStep ? 'direction-layout' : ''} ${isDirectionSelectionStage ? 'direction-selection' : ''}`}
+            >
               <div className="step-intro">
-              <span className="step-label">{currentStep.label}</span>
-              <h1>{currentStep.title}</h1>
-              <p className="step-description">{currentStep.description}</p>
+                <span className="step-label">{currentStep.label}</span>
+                <h1>{isDirectionSelectionStage ? '选择课程方向' : currentStep.title}</h1>
+                <p className="step-description">
+                  {isDirectionSelectionStage
+                    ? '以下哪一项最准确描述了你希望提升的课程或能力？'
+                    : currentStep.description}
+                </p>
               </div>
 
-              {currentStep.id !== 'direction' && <div className="step-fields">{renderStepContent()}</div>}
+              {isDirectionStep ? (
+                isDirectionSelectionStage ? renderStepContent() : null
+              ) : (
+                <div className="step-fields">{renderStepContent()}</div>
+              )}
             </div>
 
-            <div className="step-illustration" aria-label="插图预留区域">
-              <div className="illustration-frame">在此替换为你的插画或课程视觉</div>
-            </div>
+            {!isDirectionSelectionStage && (
+              <div className="step-illustration" aria-label="插图预留区域">
+                <div className="illustration-frame">在此替换为你的插画或课程视觉</div>
+              </div>
+            )}
           </section>
 
           <footer className="step-footer">
