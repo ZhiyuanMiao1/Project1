@@ -47,7 +47,7 @@ const DotLottiePlayer = lazy(async () => {                                     /
 
   if (!Cmp) {                                                                  // 若仍未命中
     // 给出更明确的提示，方便你 ctrl+点击 node_modules 查看 package.json 的 "exports"
-    throw new Error('[dotlottie] 未找到可用导出（尝试了 Player/default/default.Player/DotLottiePlayer）');
+    throw new Error('[dotlottie] no found（Tries Player/default/default.Player/DotLottiePlayer）');
   }
   return { default: Cmp };                                                     // 映射为 lazy 需要的 default
 });
