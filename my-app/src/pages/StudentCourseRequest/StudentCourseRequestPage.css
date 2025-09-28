@@ -328,12 +328,11 @@
 .details-right-panel {
   align-self: start;
   width: 100%;
-  max-width: 800px;
+  max-width: 600px;
   margin-left: auto;
   display: flex;
   flex-direction: column;
 }
-
 
 .illustration-frame {
   width: 100%;
