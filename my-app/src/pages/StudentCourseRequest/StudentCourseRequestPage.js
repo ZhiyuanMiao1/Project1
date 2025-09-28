@@ -144,14 +144,181 @@ const DIRECTION_ICONS = {
   'others': <FaEllipsisH />,
 };
 
+
+const TIMEZONE_NAME_OVERRIDES = {
+  'Asia/Shanghai': '??????',
+  'Asia/Hong_Kong': '??????',
+  'Asia/Taipei': '?????? - ??',
+  'Asia/Macau': '?????? - ??',
+  'Asia/Singapore': '???????',
+  'Asia/Kuala_Lumpur': '????????',
+  'Asia/Manila': '???????',
+  'Asia/Tokyo': '??????',
+  'Asia/Seoul': '??????',
+  'Asia/Bangkok': '????',
+  'Asia/Ho_Chi_Minh': '????',
+  'Asia/Jakarta': '???????',
+  'Asia/Kolkata': '??????',
+  'Asia/Dubai': '??????',
+  'Australia/Sydney': '??????????',
+  'Australia/Perth': '??????????',
+  'Europe/London': '????????',
+  'Europe/Paris': '??????',
+  'Europe/Berlin': '?????? - ??',
+  'Europe/Madrid': '?????? - ???',
+  'Europe/Moscow': '?????',
+  'Europe/Zurich': '?????? - ???',
+  'America/Los_Angeles': '???????',
+  'America/Denver': '??????',
+  'America/Chicago': '??????',
+  'America/New_York': '??????',
+  'America/Toronto': '???????',
+  'America/Vancouver': '????????',
+  'America/Mexico_City': '??????',
+  'America/Sao_Paulo': '??????',
+  'America/Santiago': '????',
+  'America/Argentina/Buenos_Aires': '?????',
+  'Etc/UTC': '?????',
+  'Pacific/Auckland': '???????',
+  'Pacific/Fiji': '????',
+};
+
+const FALLBACK_TIMEZONES = [
+  'Asia/Shanghai',
+  'Asia/Hong_Kong',
+  'Asia/Taipei',
+  'Asia/Macau',
+  'Asia/Singapore',
+  'Asia/Kuala_Lumpur',
+  'Asia/Manila',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Bangkok',
+  'Asia/Ho_Chi_Minh',
+  'Asia/Jakarta',
+  'Asia/Kolkata',
+  'Asia/Dubai',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Moscow',
+  'Europe/Zurich',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Chicago',
+  'America/New_York',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Mexico_City',
+  'America/Sao_Paulo',
+  'America/Santiago',
+  'America/Argentina/Buenos_Aires',
+  'Australia/Sydney',
+  'Australia/Perth',
+  'Pacific/Auckland',
+  'Pacific/Fiji',
+  'Etc/UTC',
+];
+
+const extractCityName = (timeZone) => {
+  if (!timeZone) {
+    return '';
+  }
+  const segments = timeZone.split('/');
+  if (segments.length <= 1) {
+    return timeZone.replace(/_/g, ' ');
+  }
+  return segments.slice(1).join(' / ').replace(/_/g, ' ');
+};
+
+const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(referenceDate).reduce((accumulator, part) => {
+      if (part.type !== 'literal') {
+        accumulator[part.type] = part.value;
+      }
+      return accumulator;
+    }, {});
+    const isoString = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(isoString);
+    const offsetMinutes = Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0');
+    const minutes = String(absMinutes % 60).padStart(2, '0');
+    return `(GMT${sign}${hours}:${minutes})`;
+  } catch (error) {
+    return '(GMT+00:00)';
+  }
+};
+
+const buildTimeZoneLabel = (timeZone, referenceDate) => {
+  const offset = formatTimeZoneOffset(timeZone, referenceDate);
+  const cityName = extractCityName(timeZone);
+  const overrideName = TIMEZONE_NAME_OVERRIDES[timeZone];
+  const baseName = overrideName || cityName || timeZone;
+  const suffix = overrideName && cityName && overrideName !== cityName ? ` - ${cityName}` : '';
+  return `${offset} ${baseName}${suffix}`;
+};
+
+const getDefaultTimeZone = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
+  } catch (error) {
+    return 'Asia/Shanghai';
+  }
+};
+
+const buildTimeZoneOptions = () => {
+  const referenceDate = new Date();
+  let timeZones = [];
+  if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+    try {
+      timeZones = Intl.supportedValuesOf('timeZone');
+    } catch (error) {
+      timeZones = [];
+    }
+  }
+  if (!Array.isArray(timeZones) || timeZones.length === 0) {
+    timeZones = FALLBACK_TIMEZONES;
+  }
+  const ordered = [...FALLBACK_TIMEZONES, ...timeZones];
+  const seen = new Set();
+  return ordered
+    .filter((timeZone) => {
+      if (!timeZone || seen.has(timeZone)) {
+        return false;
+      }
+      seen.add(timeZone);
+      return true;
+    })
+    .map((timeZone) => ({
+      value: timeZone,
+      label: buildTimeZoneLabel(timeZone, referenceDate),
+    }));
+};
+
+const DEFAULT_TIME_ZONE = getDefaultTimeZone();
+
+
 const INITIAL_FORM_STATE = {
   learningGoal: '国际课程 / 升学',
   courseDirection: '',
   courseFocus: '',
   format: '线上授课',
   milestone: '',
-  availability: '',
-  budgetRange: '',
+  availability: DEFAULT_TIME_ZONE,
   contactName: '',
   contactMethod: '微信',
   contactValue: '',
@@ -206,6 +373,7 @@ function StudentCourseRequestPage() {
   }, [transitionStage]);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const timeZoneOptions = useMemo(() => buildTimeZoneOptions(), []);
   
   const isDirectionStep = currentStep.id === 'direction';
   const isDetailsStep = currentStep.id === 'details';
@@ -363,28 +531,35 @@ function StudentCourseRequestPage() {
             />
           </div>
         );
-      case 'schedule':
+      case 'schedule': {
+        const hasTimeZoneOption = timeZoneOptions.some((option) => option.value === formData.availability);
+        const fallbackOptionLabel =
+          formData.availability && !hasTimeZoneOption
+            ? buildTimeZoneLabel(formData.availability, new Date())
+            : '';
         return (
           <div className="step-field-stack">
-            <label className="field-label" htmlFor="availability">可上课时间</label>
-            <input
+            <label className="field-label" htmlFor="availability">??????</label>
+            <select
               id="availability"
-              type="text"
-              placeholder="例如：工作日晚 7-9 点；周六全天可安排"
               value={formData.availability}
               onChange={handleChange('availability')}
-            />
+            >
+              <option value="" disabled>?????????</option>
+              {!hasTimeZoneOption && formData.availability && (
+                <option value={formData.availability}>{fallbackOptionLabel}</option>
+              )}
+              {timeZoneOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-            <label className="field-label" htmlFor="budgetRange">预算期望</label>
-            <input
-              id="budgetRange"
-              type="text"
-              placeholder="例如：350-450 元/小时"
-              value={formData.budgetRange}
-              onChange={handleChange('budgetRange')}
-            />
+            <span className="helper-text">???(GMT+08:00) ?????? - ??</span>
           </div>
         );
+      }
       case 'contact':
         return (
           <div className="step-field-stack">
