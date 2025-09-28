@@ -146,41 +146,41 @@ const DIRECTION_ICONS = {
 
 
 const TIMEZONE_NAME_OVERRIDES = {
-  'Asia/Shanghai': '??????',
-  'Asia/Hong_Kong': '??????',
-  'Asia/Taipei': '?????? - ??',
-  'Asia/Macau': '?????? - ??',
-  'Asia/Singapore': '???????',
-  'Asia/Kuala_Lumpur': '????????',
-  'Asia/Manila': '???????',
-  'Asia/Tokyo': '??????',
-  'Asia/Seoul': '??????',
-  'Asia/Bangkok': '????',
-  'Asia/Ho_Chi_Minh': '????',
-  'Asia/Jakarta': '???????',
-  'Asia/Kolkata': '??????',
-  'Asia/Dubai': '??????',
-  'Australia/Sydney': '??????????',
-  'Australia/Perth': '??????????',
-  'Europe/London': '????????',
-  'Europe/Paris': '??????',
-  'Europe/Berlin': '?????? - ??',
-  'Europe/Madrid': '?????? - ???',
-  'Europe/Moscow': '?????',
-  'Europe/Zurich': '?????? - ???',
-  'America/Los_Angeles': '???????',
-  'America/Denver': '??????',
-  'America/Chicago': '??????',
-  'America/New_York': '??????',
-  'America/Toronto': '???????',
-  'America/Vancouver': '????????',
-  'America/Mexico_City': '??????',
-  'America/Sao_Paulo': '??????',
-  'America/Santiago': '????',
-  'America/Argentina/Buenos_Aires': '?????',
-  'Etc/UTC': '?????',
-  'Pacific/Auckland': '???????',
-  'Pacific/Fiji': '????',
+  'Asia/Shanghai': '',
+  'Asia/Hong_Kong': '',
+  'Asia/Taipei': '',
+  'Asia/Macau': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4 - \u6fb3\u95e8',
+  'Asia/Singapore': '\u65b0\u52a0\u5761\u6807\u51c6\u65f6\u95f4',
+  'Asia/Kuala_Lumpur': '\u9a6c\u6765\u897f\u4e9a\u6807\u51c6\u65f6\u95f4',
+  'Asia/Manila': '\u83f2\u5f8b\u5bbe\u6807\u51c6\u65f6\u95f4',
+  'Asia/Tokyo': '\u65e5\u672c\u6807\u51c6\u65f6\u95f4',
+  'Asia/Seoul': '\u97e9\u56fd\u6807\u51c6\u65f6\u95f4',
+  'Asia/Bangkok': '\u6cf0\u56fd\u65f6\u95f4',
+  'Asia/Ho_Chi_Minh': '\u8d8a\u5357\u65f6\u95f4',
+  'Asia/Jakarta': '\u5370\u5ea6\u5c3c\u897f\u4e9a\u65f6\u95f4',
+  'Asia/Kolkata': '\u5370\u5ea6\u6807\u51c6\u65f6\u95f4',
+  'Asia/Dubai': '\u6d77\u6e7e\u6807\u51c6\u65f6\u95f4',
+  'Australia/Sydney': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u6807\u51c6\u65f6\u95f4',
+  'Australia/Perth': '\u6fb3\u5927\u5229\u4e9a\u897f\u90e8\u6807\u51c6\u65f6\u95f4',
+  'Europe/London': '\u683c\u6797\u5c3c\u6c0f\u6807\u51c6\u65f6\u95f4',
+  'Europe/Paris': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4',
+  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4 - \u67cf\u6797',
+  'Europe/Madrid': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4 - \u9a6c\u5fb7\u91cc',
+  'Europe/Moscow': '\u83ab\u65af\u79d1\u65f6\u95f4',
+  'Europe/Zurich': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4 - \u82cf\u9ece\u4e16',
+  'America/Los_Angeles': '\u7f8e\u56fd\u592a\u5e73\u6d0b\u65f6\u95f4',
+  'America/Denver': '\u7f8e\u56fd\u5c71\u5730\u65f6\u95f4',
+  'America/Chicago': '\u7f8e\u56fd\u4e2d\u90e8\u65f6\u95f4',
+  'America/New_York': '\u7f8e\u56fd\u4e1c\u90e8\u65f6\u95f4',
+  'America/Toronto': '\u52a0\u62ff\u5927\u4e1c\u90e8\u65f6\u95f4',
+  'America/Vancouver': '\u52a0\u62ff\u5927\u592a\u5e73\u6d0b\u65f6\u95f4',
+  'America/Mexico_City': '\u58a8\u897f\u54e5\u57ce\u65f6\u95f4',
+  'America/Sao_Paulo': '\u5df4\u897f\u5229\u4e9a\u65f6\u95f4',
+  'America/Santiago': '\u667a\u5229\u65f6\u95f4',
+  'America/Argentina/Buenos_Aires': '\u963f\u6839\u5ef7\u65f6\u95f4',
+  'Etc/UTC': '\u534f\u8c03\u4e16\u754c\u65f6',
+  'Pacific/Auckland': '\u65b0\u897f\u5170\u6807\u51c6\u65f6\u95f4',
+  'Pacific/Fiji': '\u6590\u6fdf\u65f6\u95f4',
 };
 
 const FALLBACK_TIMEZONES = [
@@ -539,13 +539,13 @@ function StudentCourseRequestPage() {
             : '';
         return (
           <div className="step-field-stack">
-            <label className="field-label" htmlFor="availability">??????</label>
+            <label className="field-label" htmlFor="availability">选择首课时区</label>
             <select
               id="availability"
               value={formData.availability}
               onChange={handleChange('availability')}
             >
-              <option value="" disabled>?????????</option>
+              <option value="" disabled>\u8bf7\u9009\u62e9\u9884\u8ba1\u9996\u8bfe\u65f6\u533a</option>
               {!hasTimeZoneOption && formData.availability && (
                 <option value={formData.availability}>{fallbackOptionLabel}</option>
               )}
@@ -556,7 +556,6 @@ function StudentCourseRequestPage() {
               ))}
             </select>
 
-            <span className="helper-text">???(GMT+08:00) ?????? - ??</span>
           </div>
         );
       }
