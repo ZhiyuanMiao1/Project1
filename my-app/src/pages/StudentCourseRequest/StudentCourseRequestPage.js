@@ -70,9 +70,9 @@ const STEPS = [
   {
     id: 'schedule',
     label: '第 3 步',
-    title: '告知时间与预算',
+    title: '告知时区与可授课时间',
     description:
-      'MentorX 会根据你的可授课时间与预算，为你匹配最适合的导师。',
+      'MentorX 会根据你的时区和可授课时间，为你匹配最适合的导师。',
   },
   {
     id: 'contact',
@@ -354,10 +354,10 @@ function StudentCourseRequestPage() {
             />
 
             <label className="field-label" htmlFor="milestone">希望达成的目标或里程碑</label>
-            <input
+            <textarea
               id="milestone"
               type="text"
-              placeholder="例如：6 周后期末考试稳分达到A"
+              placeholder="例如：6周后期末考试稳分达到A"
               value={formData.milestone}
               onChange={handleChange('milestone')}
             />

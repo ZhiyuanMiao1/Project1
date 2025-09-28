@@ -261,6 +261,8 @@
   color: #1f2937;
 }
 
+.step-field-stack textarea + .field-label[for="milestone"] { margin-top: 24px; }
+
 .inline-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -272,6 +274,8 @@
   flex-direction: column;
   gap: 8px;
 }
+
+#milestone { min-height: 120px; height: auto; line-height: 1.5; box-sizing: border-box; }
 
 .step-field-stack input,
 .step-field-stack select,
