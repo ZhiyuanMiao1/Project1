@@ -545,7 +545,7 @@ function StudentCourseRequestPage() {
               value={formData.availability}
               onChange={handleChange('availability')}
             >
-              <option value="" disabled>\u8bf7\u9009\u62e9\u9884\u8ba1\u9996\u8bfe\u65f6\u533a</option>
+              <option value="" disabled></option>
               {!hasTimeZoneOption && formData.availability && (
                 <option value={formData.availability}>{fallbackOptionLabel}</option>
               )}
