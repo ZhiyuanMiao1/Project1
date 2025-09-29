@@ -305,6 +305,7 @@
 .mx-select {
   position: relative;
   width: 100%;
+  max-width: 400px; 
 }
 
 .mx-select__button {
@@ -349,6 +350,15 @@
   border-radius: 14px;
   padding: 8px 0;
   box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+  /* Hide scrollbar visually while keeping scroll functionality */
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE 10+ / Edge legacy */
+}
+
+/* WebKit (Chrome/Safari/Edge Chromium) */
+.mx-select__list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .mx-select__option {
@@ -363,8 +373,11 @@
 }
 
 .mx-select__option.selected {
-  background: #111827;
-  color: #ffffff;
+  background: transparent;       /* no fill */
+  color: inherit;                /* keep text color */
+  outline: 2px solid #111827;    /* black border look */
+  outline-offset: -2px;          /* keep layout unchanged */
+  border-radius: 8px;
 }
 
 .step-field-stack input:focus,
