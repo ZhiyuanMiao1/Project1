@@ -337,6 +337,11 @@ function StudentCourseRequestPage() {
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
 
+  // ----- Schedule step local states -----
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [is24h, setIs24h] = useState(true);
+
   useEffect(() => () => {
     isMountedRef.current = true;
     return () => {
@@ -502,6 +507,7 @@ function StudentCourseRequestPage() {
   
   const isDirectionStep = currentStep.id === 'direction';
   const isDetailsStep = currentStep.id === 'details';
+  const isScheduleStep = currentStep.id === 'schedule';
   
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
   
@@ -588,6 +594,7 @@ function StudentCourseRequestPage() {
     'step-content',
     (isDirectionStep || isDetailsStep) ? 'direction-layout' : '',
     isDirectionSelectionStage ? 'direction-selection' : '',
+    isScheduleStep ? 'schedule-content' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -597,6 +604,108 @@ function StudentCourseRequestPage() {
   const units = currentStepIndex === 0 ? (isDirectionSelection ? 1 : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
+
+  // ----- Schedule helpers -----
+  const zhDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+  const monthLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    return fmt.format(viewMonth);
+  }, [viewMonth]);
+
+  const buildCalendarGrid = useMemo(() => {
+    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+    const startIdx = first.getDay(); // 0=Sun
+    const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+    const prevMonthDays = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 0).getDate();
+
+    const cells = [];
+    for (let i = startIdx - 1; i >= 0; i--) {
+      const dayNum = prevMonthDays - i;
+      const date = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, dayNum);
+      cells.push({ date, outside: true });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      cells.push({ date: new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d), outside: false });
+    }
+    while (cells.length % 7 !== 0) {
+      const last = cells[cells.length - 1].date;
+      const next = new Date(last);
+      next.setDate(last.getDate() + 1);
+      cells.push({ date: next, outside: true });
+    }
+    while (cells.length < 42) {
+      const last = cells[cells.length - 1].date;
+      const next = new Date(last);
+      next.setDate(last.getDate() + 1);
+      cells.push({ date: next, outside: next.getMonth() !== viewMonth.getMonth() });
+    }
+    return cells;
+  }, [viewMonth]);
+
+  const isSameDay = (a, b) => (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+
+  const handlePrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
+  const handleNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
+
+  const formatTime = (h, m) => {
+    if (is24h) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+    const hour12 = (h % 12) || 12;
+    const ampm = h < 12 ? 'AM' : 'PM';
+    return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  const timeSlots = useMemo(() => {
+    const arr = [];
+    for (let h = 9; h <= 23; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        arr.push({ h, m, label: formatTime(h, m) });
+      }
+    }
+    return arr;
+  }, [is24h]);
+
+  const ScheduleTimesPanel = () => {
+    const weekday = zhDays[selectedDate.getDay()];
+    const day = selectedDate.getDate();
+    return (
+      <div className="schedule-times-panel">
+        <div className="times-panel-header">
+          <div className="day-title">{weekday} {day}</div>
+          <div className="time-format-toggle" role="group" aria-label="时间格式">
+            <button
+              type="button"
+              className={`toggle-btn ${!is24h ? 'active' : ''}`}
+              onClick={() => setIs24h(false)}
+            >
+              12 小时
+            </button>
+            <button
+              type="button"
+              className={`toggle-btn ${is24h ? 'active' : ''}`}
+              onClick={() => setIs24h(true)}
+            >
+              24 小时
+            </button>
+          </div>
+        </div>
+        <div className="times-list" role="list">
+          {timeSlots.map((t, idx) => (
+            <div key={`${t.h}-${t.m}-${idx}`} role="listitem" className="time-slot">
+              <span className="dot" aria-hidden></span>
+              <span className="time-text">{t.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const renderStepContent = () => {
     switch (currentStep.id) {
@@ -666,7 +775,45 @@ function StudentCourseRequestPage() {
               onChange={handleChange('availability')}
               options={orderedTimeZoneOptions}
             />
-
+            <div className="calendar-card" aria-label="可授课时间日历">
+              <div className="calendar-header">
+                <div className="month-label">{monthLabel}</div>
+                <div className="calendar-nav">
+                  <button type="button" className="nav-btn" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} aria-label="上个月">‹</button>
+                  <button type="button" className="nav-btn" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} aria-label="下个月">›</button>
+                </div>
+              </div>
+              <div className="calendar-grid">
+                {zhDays.map((d) => (
+                  <div key={d} className="day-name">{d}</div>
+                ))}
+                {buildCalendarGrid.map(({ date, outside }) => {
+                  const isToday = isSameDay(date, new Date());
+                  const selected = isSameDay(date, selectedDate);
+                  const cls = [
+                    'date-cell',
+                    outside ? 'outside' : '',
+                    isToday ? 'today' : '',
+                    selected ? 'selected' : '',
+                  ].filter(Boolean).join(' ');
+                  return (
+                    <button
+                      key={date.toISOString()}
+                      type="button"
+                      className={cls}
+                      onClick={() => {
+                        setSelectedDate(date);
+                        if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
+                          setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+                        }
+                      }}
+                    >
+                      <span className="date-number">{date.getDate()}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       }
@@ -783,6 +930,10 @@ function StudentCourseRequestPage() {
               isDetailsStep ? (
                 <div className="details-right-panel">
                   {renderStepContent()}
+                </div>
+              ) : isScheduleStep ? (
+                <div className="schedule-right-panel">
+                  <ScheduleTimesPanel />
                 </div>
               ) : (
                 <div className="step-illustration" aria-label="插图预留区域">

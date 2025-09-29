@@ -75,6 +75,8 @@
   margin-right: auto;
 }
 
+.step-content.schedule-content { max-width: 820px; }
+
 .step-content .step-label {
   font-size: 14px;
   letter-spacing: 3px;
@@ -406,6 +408,148 @@
   justify-content: center;
   align-items: center;
 }
+
+/* ---- Schedule Layout (Calendar + Times) ---- */
+.schedule-left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calendar-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 16px 16px 20px;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 14px;
+}
+
+.calendar-header .month-label {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.calendar-nav { display: flex; gap: 8px; }
+.nav-btn {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 999px;
+  width: 36px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px 8px;
+}
+
+.calendar-grid .day-name {
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+  padding: 6px 0 10px;
+}
+
+.date-cell {
+  height: 72px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10px;
+  cursor: pointer;
+  transition: box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+.date-cell:hover { box-shadow: 0 8px 18px rgba(0,0,0,0.08); }
+.date-cell.outside { background: #f3f4f6; color: #9ca3af; }
+.date-cell.today { position: relative; }
+.date-cell.today::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  width: 6px;
+  height: 6px;
+  background: #111827;
+  border-radius: 999px;
+}
+.date-cell.selected {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+.date-number { font-weight: 700; font-size: 16px; }
+
+.schedule-right-panel {
+  align-self: stretch;
+  width: 100%;
+  max-width: 520px;
+  margin-left: auto;
+}
+
+.schedule-times-panel {
+  display: flex;
+  flex-direction: column;
+  height: 560px;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 24px;
+}
+
+.times-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 8px 18px;
+}
+.day-title { font-size: 22px; font-weight: 800; }
+
+.time-format-toggle { display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 999px; }
+.toggle-btn {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #6b7280;
+}
+.toggle-btn.active { background: #fff; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+.times-list {
+  overflow: auto;
+  padding-right: 4px;
+}
+.times-list::-webkit-scrollbar { width: 6px; }
+.times-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 999px; }
+
+.time-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 10px 4px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.time-slot .dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; display: inline-block; }
+.time-slot .time-text { font-weight: 700; color: #111827; }
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {
