@@ -146,12 +146,12 @@ const DIRECTION_ICONS = {
 
 
 const TIMEZONE_NAME_OVERRIDES = {
-  'Asia/Shanghai': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09',
+  'Asia/Shanghai': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4',
   'Asia/Tokyo': '\u65e5\u672c\u6807\u51c6\u65f6\u95f4',
   'Asia/Bangkok': '\u6cf0\u56fd\u65f6\u95f4',
   'Asia/Dubai': '\u6d77\u6e7e\u6807\u51c6\u65f6\u95f4',
   'Europe/London': '\u683c\u6797\u5c3c\u6c0f\u6807\u51c6\u65f6\u95f4',
-  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4 - \u67cf\u6797',
+  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4',
   'Europe/Moscow': '\u83ab\u65af\u79d1\u65f6\u95f4',
   'America/Los_Angeles': '\u7f8e\u56fd\u592a\u5e73\u6d0b\u65f6\u95f4',
   'America/Denver': '\u7f8e\u56fd\u5c71\u5730\u65f6\u95f4',
@@ -236,9 +236,9 @@ const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
     const absMinutes = Math.abs(offsetMinutes);
     const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0');
     const minutes = String(absMinutes % 60).padStart(2, '0');
-    return `(GMT${sign}${hours}:${minutes})`;
+    return `(UTC${sign}${hours}:${minutes})`;
   } catch (error) {
-    return '(GMT+00:00)';
+    return '(UTC+00:00)';
   }
 };
 
