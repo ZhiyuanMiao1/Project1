@@ -301,6 +301,72 @@
   min-height: 120px;
 }
 
+/* Custom Select (Time Zone) */
+.mx-select {
+  position: relative;
+  width: 100%;
+}
+
+.mx-select__button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px 40px 12px 16px;
+  font-size: 15px;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.mx-select__button:focus {
+  outline: none;
+  border-color: #111827;
+  box-shadow: none;
+}
+
+.mx-select__caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+.mx-select__popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2000;
+}
+
+.mx-select__list {
+  max-height: 300px;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px 0;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+}
+
+.mx-select__option {
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.mx-select__option:hover {
+  background: #f3f4f6;
+}
+
+.mx-select__option.selected {
+  background: #111827;
+  color: #ffffff;
+}
+
 .step-field-stack input:focus,
 .step-field-stack select:focus,
 .step-field-stack textarea:focus,
