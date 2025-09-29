@@ -75,6 +75,9 @@
   margin-right: auto;
 }
 
+/* Keep same width for schedule step */
+.step-content.schedule-content { max-width: 600px; }
+
 .step-content.schedule-content { max-width: 820px; }
 
 .step-content .step-label {
@@ -420,7 +423,7 @@
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 18px;
-  padding: 16px 16px 20px;
+  padding: 12px 12px 16px;
 }
 
 .calendar-header {
@@ -431,7 +434,7 @@
 }
 
 .calendar-header .month-label {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   color: #111827;
 }
@@ -441,9 +444,9 @@
   border: 1px solid #e5e7eb;
   background: #fff;
   border-radius: 999px;
-  width: 36px;
-  height: 32px;
-  font-size: 18px;
+  width: 32px;
+  height: 28px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
 }
@@ -455,21 +458,21 @@
 }
 
 .calendar-grid .day-name {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
   text-align: center;
-  padding: 6px 0 10px;
+  padding: 4px 0 8px;
 }
 
 .date-cell {
-  height: 72px;
+  height: 54px;
   border-radius: 12px;
   background: #fff;
   border: 1px solid #e5e7eb;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   cursor: pointer;
   transition: box-shadow .15s ease, border-color .15s ease, background .15s ease;
 }
@@ -492,21 +495,31 @@
   border-color: #111827;
 }
 
-.date-number { font-weight: 700; font-size: 16px; }
+.date-number { font-weight: 700; font-size: 14px; }
 
 .schedule-right-panel {
   align-self: stretch;
   width: 100%;
-  max-width: 520px;
+  max-width: 480px;
   margin-left: auto;
 }
+
+.schedule-sidebar {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 14px;
+}
+
+/* Keep left content intact: hide any calendar inside left content column */
+.step-content .calendar-card { display: none; }
+.schedule-right-panel .calendar-card { display: block; }
 
 .schedule-times-panel {
   display: flex;
   flex-direction: column;
-  height: 560px;
+  height: 520px;
   border-left: 1px solid #e5e7eb;
-  padding-left: 24px;
+  padding-left: 16px;
 }
 
 .times-panel-header {
@@ -515,14 +528,14 @@
   justify-content: space-between;
   padding: 10px 8px 18px;
 }
-.day-title { font-size: 22px; font-weight: 800; }
+.day-title { font-size: 18px; font-weight: 800; }
 
 .time-format-toggle { display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 999px; }
 .toggle-btn {
   border: none;
   background: transparent;
-  font-size: 13px;
-  padding: 6px 10px;
+  font-size: 12px;
+  padding: 5px 8px;
   border-radius: 999px;
   cursor: pointer;
   color: #6b7280;
@@ -543,13 +556,13 @@
   gap: 10px;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
-  padding: 14px 16px;
-  margin: 10px 4px;
+  padding: 10px 12px;
+  margin: 8px 2px;
   background: #fff;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
-.time-slot .dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; display: inline-block; }
-.time-slot .time-text { font-weight: 700; color: #111827; }
+.time-slot .dot { width: 7px; height: 7px; border-radius: 999px; background: #22c55e; display: inline-block; }
+.time-slot .time-text { font-weight: 700; color: #111827; font-size: 14px; }
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {

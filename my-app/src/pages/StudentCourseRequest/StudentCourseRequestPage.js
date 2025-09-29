@@ -933,7 +933,48 @@ function StudentCourseRequestPage() {
                 </div>
               ) : isScheduleStep ? (
                 <div className="schedule-right-panel">
-                  <ScheduleTimesPanel />
+                  <div className="schedule-sidebar">
+                    <div className="calendar-card slim" aria-label="可授课时间日历">
+                      <div className="calendar-header">
+                        <div className="month-label">{monthLabel}</div>
+                        <div className="calendar-nav">
+                          <button type="button" className="nav-btn" onClick={handlePrevMonth} aria-label="上个月">‹</button>
+                          <button type="button" className="nav-btn" onClick={handleNextMonth} aria-label="下个月">›</button>
+                        </div>
+                      </div>
+                      <div className="calendar-grid">
+                        {zhDays.map((d) => (
+                          <div key={d} className="day-name">{d}</div>
+                        ))}
+                        {buildCalendarGrid.map(({ date, outside }) => {
+                          const isToday = isSameDay(date, new Date());
+                          const selected = isSameDay(date, selectedDate);
+                          const cls = [
+                            'date-cell',
+                            outside ? 'outside' : '',
+                            isToday ? 'today' : '',
+                            selected ? 'selected' : '',
+                          ].filter(Boolean).join(' ');
+                          return (
+                            <button
+                              key={date.toISOString()}
+                              type="button"
+                              className={cls}
+                              onClick={() => {
+                                setSelectedDate(date);
+                                if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
+                                  setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+                                }
+                              }}
+                            >
+                              <span className="date-number">{date.getDate()}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <ScheduleTimesPanel />
+                  </div>
                 </div>
               ) : (
                 <div className="step-illustration" aria-label="插图预留区域">
