@@ -78,7 +78,6 @@
 /* Keep same width for schedule step */
 .step-content.schedule-content { max-width: 600px; }
 
-.step-content.schedule-content { max-width: 820px; }
 
 .step-content .step-label {
   font-size: 14px;
@@ -500,7 +499,7 @@
 .schedule-right-panel {
   align-self: stretch;
   width: 100%;
-  max-width: 480px;
+  max-width: 600px;
   margin-left: auto;
 }
 
