@@ -159,7 +159,7 @@ const TIMEZONE_NAME_OVERRIDES = {
   'America/New_York': '\u7f8e\u56fd\u4e1c\u90e8\u65f6\u95f4',
   'America/Sao_Paulo': '\u5df4\u897f\u5229\u4e9a\u65f6\u95f4',
   'Pacific/Auckland': '\u65b0\u897f\u5170\u6807\u51c6\u65f6\u95f4',
-  'Australia/Brisbane': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u65f6\u95f4 - \u5e03\u91cc\u65af\u73ed',
+  'Australia/Brisbane': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u65f6\u95f4',
   'America/Halifax': '\u52a0\u62ff\u5927\u5927\u897f\u6d0b\u65f6\u95f4',
   'America/Anchorage': '\u7f8e\u56fd\u963f\u62c9\u65af\u52a0\u65f6\u95f4',
   'Pacific/Honolulu': '\u590f\u5a01\u5937\u65f6\u95f4',
@@ -247,6 +247,7 @@ const buildTimeZoneLabel = (timeZone, referenceDate) => {
   const cityName = extractCityName(timeZone);
   const overrideName = TIMEZONE_NAME_OVERRIDES[timeZone];
   const baseName = overrideName || cityName || timeZone;
+  // Append English city name when available to keep clarity
   const suffix = overrideName && cityName && overrideName !== cityName ? ` - ${cityName}` : '';
   return `${offset} ${baseName}${suffix}`;
 };
