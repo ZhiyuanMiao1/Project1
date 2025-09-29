@@ -606,7 +606,7 @@ function StudentCourseRequestPage() {
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
   // ----- Schedule helpers -----
-  const zhDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const zhDays = ['日', '一', '二', '三', '四', '五', '六'];
 
   const monthLabel = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
