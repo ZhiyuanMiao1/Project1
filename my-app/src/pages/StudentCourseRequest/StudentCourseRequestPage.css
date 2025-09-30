@@ -466,17 +466,18 @@
 .date-cell {
   height: 54px;
   border-radius: 12px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: transparent;
+  border: none;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 8px;
-  cursor: pointer;
-  transition: box-shadow .15s ease, border-color .15s ease, background .15s ease;
+  cursor: default; /* default; will enable pointer for non-past */
+  transition: none;
 }
-.date-cell:hover { box-shadow: 0 8px 18px rgba(0,0,0,0.08); }
-.date-cell.outside { background: #f3f4f6; color: #9ca3af; }
+.date-cell:not(.past) { cursor: pointer; }
+.date-cell:hover { box-shadow: none; }
+.date-cell.outside { background: transparent; color: inherit; }
 .date-cell.today { position: relative; }
 .date-cell.today::before {
   content: '';
@@ -488,13 +489,13 @@
   background: #111827;
   border-radius: 999px;
 }
-.date-cell.selected {
-  background: #111827;
-  color: #fff;
-  border-color: #111827;
-}
+.date-cell.selected { background: transparent; color: inherit; border-color: transparent; }
 
-.date-number { font-weight: 700; font-size: 14px; }
+/* Past days: gray text + not clickable */
+.date-cell.past { pointer-events: none; cursor: default; }
+
+.date-number { font-weight: 700; font-size: 14px; color: #111827; }
+.date-cell.past .date-number { color: #9ca3af; }
 
 .schedule-right-panel {
   align-self: stretch;

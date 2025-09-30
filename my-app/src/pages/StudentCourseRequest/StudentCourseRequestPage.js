@@ -649,6 +649,13 @@ function StudentCourseRequestPage() {
     a.getDate() === b.getDate()
   );
 
+  // Start-of-today reference for past/future checks
+  const todayStart = useMemo(() => {
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    return t;
+  }, []);
+
   const handlePrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
   const handleNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
 
@@ -790,11 +797,17 @@ function StudentCourseRequestPage() {
                 {buildCalendarGrid.map(({ date, outside }) => {
                   const isToday = isSameDay(date, new Date());
                   const selected = isSameDay(date, selectedDate);
+                  const isPast = (() => {
+                    const d = new Date(date);
+                    d.setHours(0, 0, 0, 0);
+                    return d.getTime() < todayStart.getTime();
+                  })();
                   const cls = [
                     'date-cell',
                     outside ? 'outside' : '',
                     isToday ? 'today' : '',
                     selected ? 'selected' : '',
+                    isPast ? 'past' : '',
                   ].filter(Boolean).join(' ');
                   return (
                     <button
@@ -949,11 +962,17 @@ function StudentCourseRequestPage() {
                         {buildCalendarGrid.map(({ date, outside }) => {
                           const isToday = isSameDay(date, new Date());
                           const selected = isSameDay(date, selectedDate);
+                          const isPast = (() => {
+                            const d = new Date(date);
+                            d.setHours(0, 0, 0, 0);
+                            return d.getTime() < todayStart.getTime();
+                          })();
                           const cls = [
                             'date-cell',
                             outside ? 'outside' : '',
                             isToday ? 'today' : '',
                             selected ? 'selected' : '',
+                            isPast ? 'past' : '',
                           ].filter(Boolean).join(' ');
                           return (
                             <button
