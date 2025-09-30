@@ -795,6 +795,9 @@ function StudentCourseRequestPage() {
                   <div key={d} className="day-name">{d}</div>
                 ))}
                 {buildCalendarGrid.map(({ date, outside }) => {
+                  if (outside) {
+                    return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
+                  }
                   const isToday = isSameDay(date, new Date());
                   const selected = isSameDay(date, selectedDate);
                   const isPast = (() => {
@@ -804,7 +807,6 @@ function StudentCourseRequestPage() {
                   })();
                   const cls = [
                     'date-cell',
-                    outside ? 'outside' : '',
                     isToday ? 'today' : '',
                     selected ? 'selected' : '',
                     isPast ? 'past' : '',
@@ -960,6 +962,9 @@ function StudentCourseRequestPage() {
                           <div key={d} className="day-name">{d}</div>
                         ))}
                         {buildCalendarGrid.map(({ date, outside }) => {
+                          if (outside) {
+                            return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
+                          }
                           const isToday = isSameDay(date, new Date());
                           const selected = isSameDay(date, selectedDate);
                           const isPast = (() => {
@@ -969,7 +974,6 @@ function StudentCourseRequestPage() {
                           })();
                           const cls = [
                             'date-cell',
-                            outside ? 'outside' : '',
                             isToday ? 'today' : '',
                             selected ? 'selected' : '',
                             isPast ? 'past' : '',

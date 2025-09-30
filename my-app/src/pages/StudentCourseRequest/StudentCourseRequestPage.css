@@ -472,30 +472,27 @@
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 8px;
-  cursor: default; /* default; will enable pointer for non-past */
+  cursor: default; /* default; will enable pointer for eligible days */
   transition: none;
 }
-.date-cell:not(.past) { cursor: pointer; }
+.date-cell:not(.past):not(.outside) { cursor: pointer; }
 .date-cell:hover { box-shadow: none; }
-.date-cell.outside { background: transparent; color: inherit; }
-.date-cell.today { position: relative; }
-.date-cell.today::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 12px;
-  width: 6px;
-  height: 6px;
-  background: #111827;
-  border-radius: 999px;
+.date-cell.outside { background: transparent; color: inherit; pointer-events: none; }
+
+/* Hover frame for today and future dates */
+.date-cell:not(.past):not(.outside):hover {
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 12px;
 }
-.date-cell.selected { background: transparent; color: inherit; border-color: transparent; }
+.date-cell.selected { background: #111827; color: #fff; border-color: #111827; }
 
 /* Past days: gray text + not clickable */
 .date-cell.past { pointer-events: none; cursor: default; }
 
 .date-number { font-weight: 700; font-size: 14px; color: #111827; }
 .date-cell.past .date-number { color: #9ca3af; }
+.date-cell.selected .date-number { color: #ffffff; }
 
 .schedule-right-panel {
   align-self: stretch;
