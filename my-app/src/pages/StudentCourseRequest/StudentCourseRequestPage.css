@@ -440,15 +440,19 @@
 
 .calendar-nav { display: flex; gap: 8px; }
 .nav-btn {
-  border: 1px solid #e5e7eb;
-  background: #fff;
+  border: none;
+  background: transparent;
   border-radius: 999px;
-  width: 32px;
-  height: 28px;
-  font-size: 16px;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
+  color: #111827;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
+.nav-btn:hover:not(:disabled) { background: #f3f4f6; }
+.nav-btn:disabled { color: #9ca3af; cursor: not-allowed; background: transparent; }
 
 .calendar-grid {
   display: grid;

@@ -470,7 +470,7 @@ function StudentCourseRequestPage() {
           onKeyDown={handleKeyDown}
         >
           <span className="mx-select__label">{selectedLabel || '请选择'}</span>
-          <span className="mx-select__caret" aria-hidden>▾</span>
+          <span className="mx-select__caret" aria-hidden>?</span>
         </button>
         {open && (
           <div className="mx-select__popover">
@@ -786,8 +786,8 @@ function StudentCourseRequestPage() {
               <div className="calendar-header">
                 <div className="month-label">{monthLabel}</div>
                 <div className="calendar-nav">
-                  <button type="button" className="nav-btn" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} aria-label="上个月">‹</button>
-                  <button type="button" className="nav-btn" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))} aria-label="下个月">›</button>
+                  <button type="button" className="nav-btn" aria-label="Prev month" disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}>&lsaquo;</button>
+                  <button type="button" className="nav-btn" aria-label="Next month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}>&rsaquo;</button>
                 </div>
               </div>
               <div className="calendar-grid">
@@ -953,8 +953,8 @@ function StudentCourseRequestPage() {
                       <div className="calendar-header">
                         <div className="month-label">{monthLabel}</div>
                         <div className="calendar-nav">
-                          <button type="button" className="nav-btn" onClick={handlePrevMonth} aria-label="上个月">‹</button>
-                          <button type="button" className="nav-btn" onClick={handleNextMonth} aria-label="下个月">›</button>
+                          <button type="button" className="nav-btn" aria-label="Prev month" disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={handlePrevMonth}>&lsaquo;</button>
+                          <button type="button" className="nav-btn" aria-label="Next month" onClick={handleNextMonth}>&rsaquo;</button>
                         </div>
                       </div>
                       <div className="calendar-grid">
@@ -1046,6 +1046,11 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
+
+
+
+
+
 
 
 
