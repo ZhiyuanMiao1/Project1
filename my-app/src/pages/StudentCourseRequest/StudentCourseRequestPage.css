@@ -469,9 +469,9 @@
   background: transparent;
   border: none;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding-bottom: 8px;
+  padding-bottom: 0;
   cursor: default; /* default; will enable pointer for eligible days */
   transition: none;
 }
