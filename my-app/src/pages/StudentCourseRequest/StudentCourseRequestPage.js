@@ -28,6 +28,7 @@ import {
   FaLanguage,
   FaBrain,
   FaBroadcastTower,
+  FaChevronDown,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -470,7 +471,9 @@ function StudentCourseRequestPage() {
           onKeyDown={handleKeyDown}
         >
           <span className="mx-select__label">{selectedLabel || '请选择'}</span>
-          <span className="mx-select__caret" aria-hidden>?</span>
+          <span className="mx-select__caret" aria-hidden>
+            ▾
+          </span>
         </button>
         {open && (
           <div className="mx-select__popover">
