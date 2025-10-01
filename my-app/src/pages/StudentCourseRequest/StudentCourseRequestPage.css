@@ -6,7 +6,7 @@
   overflow-y: hidden;
   scrollbar-gutter: stable;
 
-  --page-transition-duration: 3000ms;
+  --page-transition-duration: 400ms;
 }
 
 
