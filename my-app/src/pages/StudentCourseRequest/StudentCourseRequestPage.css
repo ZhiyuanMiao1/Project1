@@ -6,7 +6,7 @@
   overflow-y: hidden;
   scrollbar-gutter: stable;
 
-  --page-transition-duration: 600ms;
+  --page-transition-duration: 3000ms;
 }
 
 
@@ -867,7 +867,58 @@
 }
 
 
+/* 让月历卡片裁掉滑动过程中的溢出内容，避免出现水平滚动条 */
+.calendar-card { /* 日历卡片容器 */
+  overflow: hidden; /* 隐藏超出内容，保证滑入效果干净 */
+}
 
+/* 给网格一个优化提示，让浏览器用更好的合成层渲染 */
+.calendar-grid {             /* 日期网格容器 */
+  will-change: transform;    /* 告诉浏览器这里会做位移动画，提升流畅度 */
+  backface-visibility: hidden; /* 防抖动小技巧，避免子像素抖动 */
+}
+
+/* “右箭头（下一月）”时，新月份从右侧滑入到中间 */
+.calendar-grid.slide-in-left { /* 类名语义：向左方向滑入（新网格从右进场） */
+  animation: calSlideInFromRight var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) both; /* 使用右进场关键帧 */
+}
+
+/* “左箭头（上一月）”时，新月份从左侧滑入到中间 */
+.calendar-grid.slide-in-right { /* 类名语义：向右方向滑入（新网格从左进场） */
+  animation: calSlideInFromLeft var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) both; /* 使用左进场关键帧 */
+}
+
+/* 关键帧：从右侧滑入（下一月） */
+@keyframes calSlideInFromRight { /* 定义新网格从右往中间的动画 */
+  0% {                           /* 起点：在容器右侧且透明 */
+    opacity: 0;                  /* 初始透明，避免突兀 */
+    transform: translateX(40px); /* 右侧 40px 作为入场偏移 */
+  }
+  60% {                          /* 前段稍微越界，制造“弹性” */
+    opacity: 1;                  /* 逐步出现 */
+    transform: translateX(-6px); /* 略微越界到左侧 6px，显得丝滑 */
+  }
+  100% {                         /* 终点：回到原位 */
+    opacity: 1;                  /* 完全不透明 */
+    transform: translateX(0);    /* 定格到中间 */
+  }
+}
+
+/* 关键帧：从左侧滑入（上一月） */
+@keyframes calSlideInFromLeft {  /* 定义新网格从左往中间的动画 */
+  0% {                           /* 起点：在容器左侧且透明 */
+    opacity: 0;                  /* 初始透明 */
+    transform: translateX(-40px);/* 左侧 40px 作为入场偏移 */
+  }
+  60% {                          /* 前段稍微越界，制造“弹性” */
+    opacity: 1;                  /* 逐步出现 */
+    transform: translateX(6px);  /* 略微越界到右侧 6px */
+  }
+  100% {                         /* 终点：回到原位 */
+    opacity: 1;                  /* 完全不透明 */
+    transform: translateX(0);    /* 定格到中间 */
+  }
+}
 
 
 

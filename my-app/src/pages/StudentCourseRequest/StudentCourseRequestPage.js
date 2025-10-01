@@ -326,7 +326,7 @@ const INITIAL_FORM_STATE = {
   contactValue: '',
 };
 
-const PAGE_TRANSITION_DURATION = 600;
+const PAGE_TRANSITION_DURATION = 3000;
 
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
@@ -343,6 +343,12 @@ function StudentCourseRequestPage() {
   const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [is24h, setIs24h] = useState(true);
 
+  // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
+  const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
+
+  // 每次切月自增 key，强制重挂载 calendar-grid 以触发入场动画
+  const [monthSlideKey, setMonthSlideKey] = useState(0);    // 初始为 0
+  
   useEffect(() => () => {
     isMountedRef.current = true;
     return () => {
@@ -659,8 +665,18 @@ function StudentCourseRequestPage() {
     return t;
   }, []);
 
-  const handlePrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
-  const handleNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
+  // 点“上一月”按钮时触发
+  const handlePrevMonth = () => {                                        // 定义上一月处理函数
+    setMonthSlideDir('right');                                            // 设置动画方向为从左滑入（上一月）
+    setMonthSlideKey((k) => k + 1);                                       // 自增 key 触发动画
+    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));  // 视图月份减一
+  };
+  // 点“下一月”按钮时触发
+  const handleNextMonth = () => {                                        // 定义下一月处理函数
+    setMonthSlideDir('left');                                            // 设置动画方向为从右滑入（下一月）
+    setMonthSlideKey((k) => k + 1);                                      // 自增 key 触发动画
+    setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1)); // 视图月份加一
+  };
 
   const formatTime = (h, m) => {
     if (is24h) {
@@ -789,8 +805,29 @@ function StudentCourseRequestPage() {
               <div className="calendar-header">
                 <div className="month-label">{monthLabel}</div>
                 <div className="calendar-nav">
-                  <button type="button" className="nav-btn" aria-label="Prev month" disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}>&lsaquo;</button>
-                  <button type="button" className="nav-btn" aria-label="Next month" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}>&rsaquo;</button>
+                  <button                                           // 上一月按钮
+                    type="button"                                   // 按钮类型
+                    className="nav-btn"                             // 样式类
+                    aria-label="Prev month"                         // 无障碍说明
+                    disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} // 禁用到本月前
+                    onClick={handlePrevMonth}                       // 使用封装好的上一月函数
+                  >&lsaquo;</button>
+
+                  <button                                           // 下一月按钮
+                    type="button"                                   // 按钮类型
+                    className="nav-btn"                             // 样式类
+                    aria-label="Next month"                         // 无障碍说明
+                    onClick={handleNextMonth}                       // 使用封装好的下一月函数
+                  >&rsaquo;</button>
+
+                  <div                                             // 日历网格容器
+                    key={monthSlideKey}                            // 每次切月强制重挂载以触发动画
+                    className={`calendar-grid ${                   // 基础类 + 动画方向类
+                      monthSlideDir === 'left' ? 'slide-in-left'   // 点“下一月” → 新网格从右滑入
+                      : monthSlideDir === 'right' ? 'slide-in-right' // 点“上一月” → 新网格从左滑入
+                      : ''                                         // 初始无动画
+                    }`}
+                  ></div>
                 </div>
               </div>
               <div className="calendar-grid">
@@ -960,7 +997,15 @@ function StudentCourseRequestPage() {
                           <button type="button" className="nav-btn" aria-label="Next month" onClick={handleNextMonth}>&rsaquo;</button>
                         </div>
                       </div>
-                      <div className="calendar-grid">
+                      <div key={monthSlideKey}                           // 每次切月都改变 key，强制重挂载以触发动画
+                        className={`calendar-grid ${                  // 绑定基础类与方向动画类
+                          monthSlideDir === 'left'                    // 如果方向是 'left'（点“下一月”）
+                            ? 'slide-in-left'                         // 新月份从右向中滑入
+                            : monthSlideDir === 'right'               // 如果方向是 'right'（点“上一月”）
+                            ? 'slide-in-right'                        // 新月份从左向中滑入
+                            : ''                                      // 没有方向时，不加动画类
+                        }`}
+                      >
                         {zhDays.map((d) => (
                           <div key={d} className="day-name">{d}</div>
                         ))}
@@ -1049,12 +1094,6 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
-
-
-
-
-
-
 
 
 
