@@ -867,58 +867,49 @@
 }
 
 
-/* 让月历卡片裁掉滑动过程中的溢出内容，避免出现水平滚动条 */
-.calendar-card { /* 日历卡片容器 */
-  overflow: hidden; /* 隐藏超出内容，保证滑入效果干净 */
+/* —— 仅月历使用的独立动画时长变量（可自由调整匀速速度） —— */
+.course-request-page {                                  /* 页面根容器 */
+  --calendar-slide-duration: 600ms;                     /* 月历切换时长（匀速），想更快就改小 */
 }
 
-/* 给网格一个优化提示，让浏览器用更好的合成层渲染 */
-.calendar-grid {             /* 日期网格容器 */
-  will-change: transform;    /* 告诉浏览器这里会做位移动画，提升流畅度 */
-  backface-visibility: hidden; /* 防抖动小技巧，避免子像素抖动 */
+/* —— 保持容器裁剪，防止动画时出现水平滚动条抖动 —— */
+.calendar-card {                                        /* 月历外框容器 */
+  overflow: hidden;                                     /* 裁掉溢出内容，视觉更干净 */
 }
 
-/* “右箭头（下一月）”时，新月份从右侧滑入到中间 */
-.calendar-grid.slide-in-left { /* 类名语义：向左方向滑入（新网格从右进场） */
-  animation: calSlideInFromRight var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) both; /* 使用右进场关键帧 */
+/* —— 提示浏览器合成层，匀速动画更丝滑 —— */
+.calendar-grid {                                        /* 日期网格容器 */
+  will-change: transform;                               /* 即将位移，提前优化渲染 */
+  backface-visibility: hidden;                          /* 避免子像素抖动和毛边 */
 }
 
-/* “左箭头（上一月）”时，新月份从左侧滑入到中间 */
-.calendar-grid.slide-in-right { /* 类名语义：向右方向滑入（新网格从左进场） */
-  animation: calSlideInFromLeft var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) both; /* 使用左进场关键帧 */
+/* —— 下一月：新网格“从右→中”匀速滑入 —— */
+.calendar-grid.slide-in-left {                          /* 当点击“下一月”时应用 */
+  animation: calSlideLinearFromRight                    /* 使用线性右→中关键帧 */
+             var(--calendar-slide-duration)             /* 使用独立的月历时长变量 */
+             linear                                      /* 线性缓动：全程匀速 */
+             both;                                       /* both：保留终态，避免闪回 */
 }
 
-/* 关键帧：从右侧滑入（下一月） */
-@keyframes calSlideInFromRight { /* 定义新网格从右往中间的动画 */
-  0% {                           /* 起点：在容器右侧且透明 */
-    opacity: 0;                  /* 初始透明，避免突兀 */
-    transform: translateX(40px); /* 右侧 40px 作为入场偏移 */
-  }
-  60% {                          /* 前段稍微越界，制造“弹性” */
-    opacity: 1;                  /* 逐步出现 */
-    transform: translateX(-6px); /* 略微越界到左侧 6px，显得丝滑 */
-  }
-  100% {                         /* 终点：回到原位 */
-    opacity: 1;                  /* 完全不透明 */
-    transform: translateX(0);    /* 定格到中间 */
-  }
+/* —— 上一月：新网格“从左→中”匀速滑入 —— */
+.calendar-grid.slide-in-right {                         /* 当点击“上一月”时应用 */
+  animation: calSlideLinearFromLeft                     /* 使用线性左→中关键帧 */
+             var(--calendar-slide-duration)             /* 使用独立的月历时长变量 */
+             linear                                      /* 线性缓动：全程匀速 */
+             both;                                       /* 保留终态 */
 }
 
-/* 关键帧：从左侧滑入（上一月） */
-@keyframes calSlideInFromLeft {  /* 定义新网格从左往中间的动画 */
-  0% {                           /* 起点：在容器左侧且透明 */
-    opacity: 0;                  /* 初始透明 */
-    transform: translateX(-40px);/* 左侧 40px 作为入场偏移 */
-  }
-  60% {                          /* 前段稍微越界，制造“弹性” */
-    opacity: 1;                  /* 逐步出现 */
-    transform: translateX(6px);  /* 略微越界到右侧 6px */
-  }
-  100% {                         /* 终点：回到原位 */
-    opacity: 1;                  /* 完全不透明 */
-    transform: translateX(0);    /* 定格到中间 */
-  }
+/* —— 关键帧（无回弹）：从边缘直接滑到位，全程线性 —— */
+@keyframes calSlideLinearFromRight {                    /* 右侧 → 中间（下一月） */
+  0%   { opacity: 0; transform: translateX(40px); }     /* 起点：在右侧 40px，且透明 */
+  100% { opacity: 1; transform: translateX(0); }        /* 终点：到位且不透明 */
 }
+
+@keyframes calSlideLinearFromLeft {                     /* 左侧 → 中间（上一月） */
+  0%   { opacity: 0; transform: translateX(-40px); }    /* 起点：在左侧 40px，且透明 */
+  100% { opacity: 1; transform: translateX(0); }        /* 终点：到位且不透明 */
+}
+
 
 
 
