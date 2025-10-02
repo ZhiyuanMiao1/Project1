@@ -531,18 +531,6 @@
 }
 .day-title { font-size: 18px; font-weight: 800; }
 
-.time-format-toggle { display: flex; gap: 8px; background: #f3f4f6; padding: 4px; border-radius: 999px; }
-.toggle-btn {
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  padding: 5px 8px;
-  border-radius: 999px;
-  cursor: pointer;
-  color: #6b7280;
-}
-.toggle-btn.active { background: #fff; color: #111827; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
-
 .times-list {
   overflow: auto;
   padding-right: 4px;

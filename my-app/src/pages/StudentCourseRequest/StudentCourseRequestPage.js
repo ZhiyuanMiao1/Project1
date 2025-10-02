@@ -340,7 +340,8 @@ function StudentCourseRequestPage() {
   // ----- Schedule step local states -----
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const [is24h, setIs24h] = useState(true);
+  const timesListRef = useRef(null);
+  const defaultTimesScrollDoneRef = useRef(false);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -677,24 +678,51 @@ function StudentCourseRequestPage() {
     setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1)); // 视图月份加一
   };
 
-  const formatTime = useCallback((h, m) => {
-    if (is24h) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    }
-    const hour12 = (h % 12) || 12;
-    const ampm = h < 12 ? 'AM' : 'PM';
-    return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-  }, [is24h]);
+  const formatTime = useCallback(
+    (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+    []
+  );
 
   const timeSlots = useMemo(() => {
     const arr = [];
-    for (let h = 9; h <= 23; h++) {
+    for (let h = 0; h < 24; h++) {
       for (let m = 0; m < 60; m += 15) {
         arr.push({ h, m, label: formatTime(h, m) });
       }
     }
     return arr;
   }, [formatTime]);
+
+  useEffect(() => {
+    if (currentStep.id !== 'schedule') {
+      defaultTimesScrollDoneRef.current = false;
+      return;
+    }
+
+    if (defaultTimesScrollDoneRef.current) {
+      return;
+    }
+
+    const listEl = timesListRef.current;
+    if (!listEl) {
+      return;
+    }
+
+    const targetEl = listEl.querySelector('[data-time-slot="09:00"]');
+    if (!targetEl) {
+      return;
+    }
+
+    const offsetTop = targetEl.offsetTop;
+    try {
+      listEl.scrollTo({ top: offsetTop, behavior: 'auto' });
+    } catch (_) {
+      listEl.scrollTop = offsetTop;
+    }
+
+    defaultTimesScrollDoneRef.current = true;
+  }, [currentStep.id, timeSlots]);
+
 
   const ScheduleTimesPanel = () => {
     const weekday = zhDays[selectedDate.getDay()];
@@ -703,26 +731,16 @@ function StudentCourseRequestPage() {
       <div className="schedule-times-panel">
         <div className="times-panel-header">
           <div className="day-title">{weekday} {day}</div>
-          <div className="time-format-toggle" role="group" aria-label="时间格式">
-            <button
-              type="button"
-              className={`toggle-btn ${!is24h ? 'active' : ''}`}
-              onClick={() => setIs24h(false)}
-            >
-              12 小时
-            </button>
-            <button
-              type="button"
-              className={`toggle-btn ${is24h ? 'active' : ''}`}
-              onClick={() => setIs24h(true)}
-            >
-              24 小时
-            </button>
-          </div>
         </div>
-        <div className="times-list" role="list">
+        <div className="times-list" role="list" ref={timesListRef}>
           {timeSlots.map((t, idx) => (
-            <div key={`${t.h}-${t.m}-${idx}`} role="listitem" className="time-slot">
+            <div
+              key={`${t.h}-${t.m}-${idx}`}
+              role="listitem"
+              className="time-slot"
+              data-index={idx}
+              data-time-slot={t.label}
+            >
               <span className="dot" aria-hidden></span>
               <span className="time-text">{t.label}</span>
             </div>
