@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react';
+﻿import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
@@ -28,7 +28,6 @@ import {
   FaLanguage,
   FaBrain,
   FaBroadcastTower,
-  FaChevronDown,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -678,14 +677,14 @@ function StudentCourseRequestPage() {
     setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1)); // 视图月份加一
   };
 
-  const formatTime = (h, m) => {
+  const formatTime = useCallback((h, m) => {
     if (is24h) {
       return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
     const hour12 = (h % 12) || 12;
     const ampm = h < 12 ? 'AM' : 'PM';
     return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
-  };
+  }, [is24h]);
 
   const timeSlots = useMemo(() => {
     const arr = [];
@@ -695,7 +694,7 @@ function StudentCourseRequestPage() {
       }
     }
     return arr;
-  }, [is24h]);
+  }, [formatTime]);
 
   const ScheduleTimesPanel = () => {
     const weekday = zhDays[selectedDate.getDay()];
