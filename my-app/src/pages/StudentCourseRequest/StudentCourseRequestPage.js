@@ -693,35 +693,37 @@ function StudentCourseRequestPage() {
     return arr;
   }, [formatTime]);
 
+  // ✅ 用这个替换你现在的“默认滚动到 09:00”的 useEffect
   useEffect(() => {
-    if (currentStep.id !== 'schedule') {
-      defaultTimesScrollDoneRef.current = false;
-      return;
-    }
-
-    if (defaultTimesScrollDoneRef.current) {
-      return;
-    }
-
+    // 只在日程页 & 过场动画结束(transitionStage === 'idle')时执行一次
+    if (currentStep.id !== 'schedule' || transitionStage !== 'idle') return;
+    if (defaultTimesScrollDoneRef.current) return;
+  
     const listEl = timesListRef.current;
-    if (!listEl) {
-      return;
-    }
-
+    if (!listEl) return;
+  
     const targetEl = listEl.querySelector('[data-time-slot="09:00"]');
-    if (!targetEl) {
-      return;
-    }
-
-    const offsetTop = targetEl.offsetTop;
-    try {
-      listEl.scrollTo({ top: offsetTop, behavior: 'auto' });
-    } catch (_) {
-      listEl.scrollTop = offsetTop;
-    }
-
+    if (!targetEl) return;
+  
+    const apply = () => {
+      try {
+        // 不要用 smooth，这里要“硬定位”
+        listEl.scrollTop = targetEl.offsetTop;
+      } catch {}
+    };
+  
+    // 等一帧 -> 设一次 -> 再等一帧 -> 再设一次 -> 再兜底一次
+    requestAnimationFrame(() => {
+      apply();
+      requestAnimationFrame(() => {
+        apply();
+        setTimeout(apply, 0);
+      });
+    });
+  
     defaultTimesScrollDoneRef.current = true;
-  }, [currentStep.id, timeSlots]);
+  }, [currentStep.id, transitionStage]);
+
 
 
   const ScheduleTimesPanel = () => {
@@ -837,14 +839,6 @@ function StudentCourseRequestPage() {
                     onClick={handleNextMonth}                       // 使用封装好的下一月函数
                   >&rsaquo;</button>
 
-                  <div                                             // 日历网格容器
-                    key={monthSlideKey}                            // 每次切月强制重挂载以触发动画
-                    className={`calendar-grid ${                   // 基础类 + 动画方向类
-                      monthSlideDir === 'left' ? 'slide-in-left'   // 点“下一月” → 新网格从右滑入
-                      : monthSlideDir === 'right' ? 'slide-in-right' // 点“上一月” → 新网格从左滑入
-                      : ''                                         // 初始无动画
-                    }`}
-                  ></div>
                 </div>
               </div>
               <div className="calendar-grid">
@@ -1111,7 +1105,6 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
-
 
 
 

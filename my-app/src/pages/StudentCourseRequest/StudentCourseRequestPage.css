@@ -531,10 +531,20 @@
 }
 .day-title { font-size: 18px; font-weight: 800; }
 
+/* 关键：给列表一个稳定的可滚高度 + 只纵向滚动 + 禁用 snap */
 .times-list {
-  overflow: auto;
+  /* 你原本的 */
   padding-right: 4px;
+
+  /* 新增/改动的 */
+  height: clamp(360px, 52vh, 520px);  /* 可按设计调整，比如 420px 固定值也行 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;       /* 避免父级联动导致回弹 */
+  scroll-snap-type: none;             /* 防止有全局 snap 时被拉回顶部 */
+  /* 不要对高度做过渡动画，避免首帧高度为 0 时把 scrollTop 复位 */
 }
+
 .times-list::-webkit-scrollbar { width: 6px; }
 .times-list::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 999px; }
 
