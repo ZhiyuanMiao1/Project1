@@ -357,6 +357,11 @@ function StudentCourseRequestPage() {
   }, []);
 
   useEffect(() => {
+    // 首次进入页面时走一次进入动画
+    setTransitionStage('entering');
+  }, []);
+  
+  useEffect(() => {
     if (transitionStage === 'exiting') {
       const timeout = setTimeout(() => {
         const action = pendingActionRef.current;
