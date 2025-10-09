@@ -542,7 +542,7 @@
   border-radius: 999px;
   border: 1px solid #d1d5db;
   background: transparent;
-  color: #111827;
+  color: #57595e;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -554,7 +554,7 @@
 .duration-input .stepper-btn:hover { background: #f3f4f6; border-color: #cbd5e1; }
 .duration-input .stepper-btn:active { background: #e5e7eb; }
 .duration-input .duration-value { font-size: 15px; font-weight: 500; min-width: 30px; text-align: center; color: #111827; }
-.duration-input .unit { color: #6b7280; font-size: 14px; }
+.duration-input .unit { color: #000000; font-size: 14px; }
 
 /* Hide old numeric input and its old trailing unit */
 .duration-input input { display: none; }
