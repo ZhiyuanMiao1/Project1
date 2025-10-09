@@ -320,6 +320,7 @@ const INITIAL_FORM_STATE = {
   format: '线上授课',
   milestone: '',
   availability: DEFAULT_TIME_ZONE,
+  sessionDurationHours: 2,
   contactName: '',
   contactMethod: '微信',
   contactValue: '',
@@ -732,12 +733,35 @@ function StudentCourseRequestPage() {
 
 
   const ScheduleTimesPanel = () => {
-    const weekday = zhDays[selectedDate.getDay()];
-    const day = selectedDate.getDate();
+    const ensureQuarter = (raw) => {
+      const n = parseFloat(raw);
+      if (!isFinite(n)) return 2;
+      const rounded = Math.round(Math.max(0.25, n) / 0.25) * 0.25;
+      return Number(rounded.toFixed(2));
+    };
+
+    const onDurationChange = (e) => {
+      const normalized = ensureQuarter(e.target.value);
+      setFormData((prev) => ({ ...prev, sessionDurationHours: normalized }));
+    };
+
     return (
       <div className="schedule-times-panel">
         <div className="times-panel-header">
-          <div className="day-title">{weekday} {day}</div>
+          <div className="day-title">单次上课时长</div>
+          <div className="duration-input">
+            <input
+              id="sessionDuration"
+              type="number"
+              min={0.25}
+              step={0.25}
+              value={formData.sessionDurationHours}
+              onChange={onDurationChange}
+              onBlur={onDurationChange}
+              aria-label="单次上课时长（小时）"
+            />
+            <span className="unit">小时</span>
+          </div>
         </div>
         <div className="times-list" role="list" ref={timesListRef}>
           {timeSlots.map((t, idx) => (

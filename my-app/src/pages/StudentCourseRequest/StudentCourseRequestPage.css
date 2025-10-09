@@ -529,7 +529,19 @@
   justify-content: space-between;
   padding: 10px 8px 18px;
 }
-.day-title { font-size: 18px; font-weight: 800; }
+.day-title { font-size: 14px; font-weight: 600; }
+
+/* Session duration input */
+.duration-input { display: flex; align-items: center; gap: 8px; }
+.duration-input input {
+  width: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: #fff;
+}
+.duration-input .unit { color: #6b7280; font-size: 14px; }
 
 /* 关键：给列表一个稳定的可滚高度 + 只纵向滚动 + 禁用 snap */
 .times-list {
