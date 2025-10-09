@@ -540,9 +540,9 @@
   width: var(--size);
   height: var(--size);
   border-radius: 999px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #8a8b8d;
   background: transparent;
-  color: #57595e;
+  color: #6a6a6a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -551,8 +551,8 @@
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
-.duration-input .stepper-btn:hover { background: #f3f4f6; border-color: #cbd5e1; }
-.duration-input .stepper-btn:active { background: #e5e7eb; }
+.duration-input .stepper-btn:hover { border-color: #000000; }
+.duration-input .stepper-btn:active { border-color: #000000; }
 .duration-input .duration-value { font-size: 15px; font-weight: 500; min-width: 30px; text-align: center; color: #111827; }
 .duration-input .unit { color: #000000; font-size: 14px; }
 
