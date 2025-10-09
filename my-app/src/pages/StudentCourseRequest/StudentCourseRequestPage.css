@@ -532,16 +532,33 @@
 .day-title { font-size: 14px; font-weight: 600; }
 
 /* Session duration input */
-.duration-input { display: flex; align-items: center; gap: 8px; }
-.duration-input input {
-  width: 30px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 14px;
-  background: #fff;
+.duration-input { display: flex; align-items: center; gap: 6px; }
+
+/* New stepper style: circular buttons + value, like the image */
+.duration-input .stepper-btn {
+  --size: 24px;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  color: #111827;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
+.duration-input .stepper-btn:hover { background: #f3f4f6; border-color: #cbd5e1; }
+.duration-input .stepper-btn:active { background: #e5e7eb; }
+.duration-input .duration-value { font-size: 15px; font-weight: 500; min-width: 30px; text-align: center; color: #111827; }
 .duration-input .unit { color: #6b7280; font-size: 14px; }
+
+/* Hide old numeric input and its old trailing unit */
+.duration-input input { display: none; }
+.duration-input input + .unit { display: none; }
 
 /* 关键：给列表一个稳定的可滚高度 + 只纵向滚动 + 禁用 snap */
 .times-list {

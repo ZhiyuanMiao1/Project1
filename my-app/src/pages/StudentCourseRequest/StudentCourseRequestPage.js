@@ -745,11 +745,34 @@ function StudentCourseRequestPage() {
       setFormData((prev) => ({ ...prev, sessionDurationHours: normalized }));
     };
 
+    // Custom stepper controls (0.25 hour granularity)
+    const step = 0.25;
+    const increaseDuration = () => {
+      setFormData((prev) => {
+        const next = ensureQuarter((prev.sessionDurationHours || 0) + step);
+        return { ...prev, sessionDurationHours: next };
+      });
+    };
+    const decreaseDuration = () => {
+      setFormData((prev) => {
+        const next = ensureQuarter(Math.max(0.25, (prev.sessionDurationHours || 0) - step));
+        return { ...prev, sessionDurationHours: next };
+      });
+    };
+
     return (
       <div className="schedule-times-panel">
         <div className="times-panel-header">
-          <div className="day-title">单次上课时长</div>
+          <div className="day-title">单次时长</div>
           <div className="duration-input">
+            <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration}>
+              <span aria-hidden>−</span>
+            </button>
+            <span className="duration-value" id="sessionDurationValue">{formData.sessionDurationHours}</span>
+            <button type="button" className="stepper-btn" aria-label="plus 0.25 hour" onClick={increaseDuration}>
+              <span aria-hidden>+</span>
+            </button>
+            <span className="unit">小时</span>
             <input
               id="sessionDuration"
               type="number"
