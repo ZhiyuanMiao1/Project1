@@ -31,6 +31,166 @@ import {
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
+export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
+  value,                 // 当前小时数
+  onChange,              // (next:number) => void
+  listRef,               // 传入你原来的 timesListRef
+  min = 0.25,
+  max = 6,
+  step = 0.25,
+}) {
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
+  // —— 工具 & 边界 —— //
+
+  const ensureQuarter = (raw) => {
+    const n = parseFloat(raw);
+    if (!isFinite(n)) return 2;
+    const clamped = Math.max(min, Math.min(max, n));
+    return Number((Math.round(clamped / 0.25) * 0.25).toFixed(2));
+  };
+
+  const setValue = useCallback((v) => {
+    onChange(ensureQuarter(v));
+  }, [onChange]);
+
+  const adjust = useCallback((delta) => {
+    const cur = valueRef.current ?? 0;                   // 永远拿“最新值”
+    // 单击时也做一次边界拦截（否则会出现点减号没反应的错觉）
+    if ((delta < 0 && cur <= min) || (delta > 0 && cur >= max)) return;
+    const next = ensureQuarter(cur + delta);
+    onChange(next);
+  }, [setValue, value]);
+
+  // —— 长按（全局收尾）—— //
+  const HOLD_DELAY = 300, HOLD_INTERVAL = 150;
+  const pressTimerRef = useRef(null);
+  const repeatTimerRef = useRef(null);
+  const isHoldingRef = useRef(false);
+  const isPressedRef = useRef(false);
+  const deltaRef = useRef(0);
+  const endHandlerRef = useRef(null);
+
+  const clearTimers = useCallback(() => {
+    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
+    if (repeatTimerRef.current) { clearInterval(repeatTimerRef.current); repeatTimerRef.current = null; }
+    isHoldingRef.current = false;
+    isPressedRef.current = false;
+  }, []);
+
+  const detachGlobal = useCallback(() => {
+    const h = endHandlerRef.current;
+    if (!h) return;
+    window.removeEventListener('mouseup', h);
+    window.removeEventListener('touchend', h);
+    window.removeEventListener('touchcancel', h);
+    window.removeEventListener('blur', h);
+    endHandlerRef.current = null;
+  }, []);
+
+  const endGlobal = useCallback(() => {
+    if (isPressedRef.current && !isHoldingRef.current) adjust(deltaRef.current); // 单击一步
+    detachGlobal();
+    clearTimers();
+  }, [adjust, clearTimers, detachGlobal]);
+
+  useEffect(() => () => { detachGlobal(); clearTimers(); }, [detachGlobal, clearTimers]);
+
+  const startPress = useCallback((delta) => (e) => {
+    if (e.currentTarget.disabled) return;
+    e.preventDefault();
+    isPressedRef.current = true;
+    isHoldingRef.current = false;
+    deltaRef.current = delta;
+
+    endHandlerRef.current = endGlobal;
+    window.addEventListener('mouseup', endGlobal);
+    window.addEventListener('touchend', endGlobal, { passive: true });
+    window.addEventListener('touchcancel', endGlobal, { passive: true });
+    window.addEventListener('blur', endGlobal);
+
+    pressTimerRef.current = setTimeout(() => {
+      if (!isPressedRef.current) return;
+      isHoldingRef.current = true;
+      repeatTimerRef.current = setInterval(() => {
+        const cur = ensureQuarter(valueRef.current ?? 0);
+        if ((delta < 0 && cur <= min) || (delta > 0 && cur >= max)) {
+          endGlobal();
+          return;
+        }
+        adjust(delta);
+      }, HOLD_INTERVAL);
+    }, HOLD_DELAY);
+  }, [adjust, endGlobal, value]);
+
+  // —— 时间列表（保持你的逻辑）—— //
+  const formatTime = useCallback((h, m) => `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, []);
+  const timeSlots = useMemo(() => {
+    const arr = [];
+    for (let h = 0; h < 24; h++) for (let m = 0; m < 60; m += 15) arr.push({ h, m, label: formatTime(h, m) });
+    return arr;
+  }, [formatTime]);
+
+  return (
+    <div className="schedule-times-panel">
+      <div className="times-panel-header">
+        <div className="day-title">单次时长</div>
+        <div className="duration-input">
+          <button
+            type="button"
+            className="stepper-btn"
+            aria-label="minus 0.25 hour"
+            disabled={(value ?? 0) <= min}
+            onMouseDown={startPress(-step)}
+            onTouchStart={startPress(-step)}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <span aria-hidden>−</span>
+          </button>
+
+          <span className="duration-value" id="sessionDurationValue">{value}</span>
+
+          <button
+            type="button"
+            className="stepper-btn"
+            aria-label="plus 0.25 hour"
+            disabled={(value ?? 0) >= max}
+            onMouseDown={startPress(+step)}
+            onTouchStart={startPress(+step)}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <span aria-hidden>+</span>
+          </button>
+
+          <span className="unit">小时</span>
+          <input
+            id="sessionDuration"
+            type="number"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={(e) => setValue(e.target.value)}
+            aria-label="单次上课时长（小时）"
+            style={{ display: 'none' }}
+          />
+        </div>
+      </div>
+
+      <div className="times-list" role="list" ref={listRef}>
+        {timeSlots.map((t, idx) => (
+          <div key={`${t.h}-${t.m}-${idx}`} role="listitem" className="time-slot" data-index={idx} data-time-slot={t.label}>
+            <span className="dot" aria-hidden></span>
+            <span className="time-text">{t.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+
 // 懒加载 dotlottie React 播放器
 
 const DotLottiePlayer = lazy(async () => {                                     // 懒加载定义
@@ -732,153 +892,7 @@ function StudentCourseRequestPage() {
 
 
 
-  const ScheduleTimesPanel = () => {
-    const ensureQuarter = (raw) => {
-      const n = parseFloat(raw);
-      if (!isFinite(n)) return 2;
-      // Clamp between 0.25 and 6 hours and round to nearest 0.25
-      const clamped = Math.max(0.25, Math.min(6, n));
-      const rounded = Math.round(clamped / 0.25) * 0.25;
-      return Number(rounded.toFixed(2));
-    };
 
-    const onDurationChange = (e) => {
-      const normalized = ensureQuarter(e.target.value);
-      setFormData((prev) => ({ ...prev, sessionDurationHours: normalized }));
-    };
-
-    // Custom stepper controls (0.25 hour granularity)
-    const step = 0.25;
-    const minDuration = 0.25;
-    const maxDuration = 6;
-
-    // Hold-to-repeat settings (adjust to change speed)
-    const HOLD_INITIAL_DELAY = 400;   // ms before repeating starts
-    const HOLD_REPEAT_INTERVAL = 80;  // ms between repeats
-
-    // Refs for press-and-hold behavior
-    const holdDelayRef = useRef(null);
-    const holdIntervalRef = useRef(null);
-    const heldRef = useRef(false); // whether auto-repeat has been engaged
-    const durationRef = useRef(formData.sessionDurationHours);
-
-    useEffect(() => { durationRef.current = formData.sessionDurationHours; }, [formData.sessionDurationHours]);
-
-    const stopHold = useCallback(() => {
-      if (holdDelayRef.current) { clearTimeout(holdDelayRef.current); holdDelayRef.current = null; }
-      if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
-      heldRef.current = false;
-      try {
-        document.removeEventListener('mouseup', stopHold);
-        document.removeEventListener('mouseleave', stopHold);
-      } catch (_) {}
-    }, []);
-
-    useEffect(() => () => { stopHold(); }, [stopHold]);
-
-    const adjustDuration = useCallback((delta) => {
-      setFormData((prev) => {
-        const cur = ensureQuarter(prev.sessionDurationHours || 0);
-        const bounded = Math.max(minDuration, Math.min(maxDuration, cur + delta));
-        const next = ensureQuarter(bounded);
-        return { ...prev, sessionDurationHours: next };
-      });
-    }, []);
-
-    const startHold = useCallback((delta, disabled) => (e) => {
-      if (disabled) return;
-      if (e && typeof e.button === 'number' && e.button !== 0) return; // only left button
-      e.preventDefault();
-
-      // Stop when releasing anywhere
-      document.addEventListener('mouseup', stopHold);
-      document.addEventListener('mouseleave', stopHold);
-
-      // Start repeating after a short delay
-      holdDelayRef.current = setTimeout(() => {
-        heldRef.current = true; // engaged; suppress trailing click
-        holdIntervalRef.current = setInterval(() => {
-          const cur = ensureQuarter(durationRef.current || 0);
-          if ((delta < 0 && cur <= minDuration) || (delta > 0 && cur >= maxDuration)) {
-            stopHold();
-            return;
-          }
-          adjustDuration(delta);
-        }, HOLD_REPEAT_INTERVAL);
-      }, HOLD_INITIAL_DELAY);
-    }, [adjustDuration, stopHold]);
-
-    const onStepperMouseDown = useCallback((e) => {
-      if (e && typeof e.button === 'number' && e.button !== 0) return; // only left button
-      const el = e.target && e.target.closest ? e.target.closest('button.stepper-btn') : null;
-      if (!el) return;
-      const label = el.getAttribute('aria-label') || '';
-      const isMinus = label.indexOf('minus') !== -1;
-      const isPlus = label.indexOf('plus') !== -1;
-      if (!isMinus && !isPlus) return;
-      const disabled = el.disabled;
-      const delta = isMinus ? -step : +step;
-      startHold(delta, disabled)(e);
-    }, [startHold]);
-
-    // Removed container delegation; will bind mousedown on each button
-    const increaseDuration = () => { adjustDuration(+step); };
-    const decreaseDuration = () => { adjustDuration(-step); };
-
-    return (
-      <div className="schedule-times-panel">
-        <div className="times-panel-header">
-          <div className="day-title">单次时长</div>
-          <div
-            className="duration-input"
-            onMouseDown={onStepperMouseDown}
-            onMouseUp={stopHold}
-            onClickCapture={(e) => {
-              if (heldRef.current) {
-                e.preventDefault();
-                e.stopPropagation();
-              }
-            }}
-          >
-            <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration} disabled={(formData.sessionDurationHours || 0) <= minDuration}>
-              <span aria-hidden>−</span>
-            </button>
-            <span className="duration-value" id="sessionDurationValue">{formData.sessionDurationHours}</span>
-            <button type="button" className="stepper-btn" aria-label="plus 0.25 hour" onClick={increaseDuration} disabled={(formData.sessionDurationHours || 0) >= maxDuration}>
-              <span aria-hidden>+</span>
-            </button>
-            <span className="unit">小时</span>
-            <input
-              id="sessionDuration"
-              type="number"
-              min={0.25}
-              max={6}
-              step={0.25}
-              value={formData.sessionDurationHours}
-              onChange={onDurationChange}
-              onBlur={onDurationChange}
-              aria-label="单次上课时长（小时）"
-            />
-            <span className="unit">小时</span>
-          </div>
-        </div>
-        <div className="times-list" role="list" ref={timesListRef}>
-          {timeSlots.map((t, idx) => (
-            <div
-              key={`${t.h}-${t.m}-${idx}`}
-              role="listitem"
-              className="time-slot"
-              data-index={idx}
-              data-time-slot={t.label}
-            >
-              <span className="dot" aria-hidden></span>
-              <span className="time-text">{t.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   const renderStepContent = () => {
     switch (currentStep.id) {
@@ -1183,7 +1197,11 @@ function StudentCourseRequestPage() {
                         })}
                       </div>
                     </div>
-                    <ScheduleTimesPanel />
+                    <ScheduleTimesPanel
+                      value={formData.sessionDurationHours}
+                      onChange={(next) => setFormData(prev => ({ ...prev, sessionDurationHours: next }))}
+                      listRef={timesListRef}
+                    />
                   </div>
                 </div>
               ) : (
