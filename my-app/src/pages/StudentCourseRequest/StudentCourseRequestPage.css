@@ -553,6 +553,17 @@
 }
 .duration-input .stepper-btn:hover { border-color: #000000; }
 .duration-input .stepper-btn:active { border-color: #000000; }
+.duration-input .stepper-btn:disabled {
+  opacity: 0.25;              /* 非常淡 */
+  color: #9ca3af;             /* 更浅的图标色 */
+  border-color: #e5e7eb;      /* 更浅的边框 */
+  cursor: not-allowed;        /* 悬浮显示禁止 */
+  background: transparent;    /* 保持透明背景 */
+}
+.duration-input .stepper-btn:disabled:hover {
+  border-color: #e5e7eb;      /* 禁止状态下悬浮不变色 */
+  background: transparent;
+}
 .duration-input .duration-value { font-size: 15px; font-weight: 500; min-width: 30px; text-align: center; color: #111827; }
 .duration-input .unit { color: #000000; font-size: 14px; }
 

@@ -736,7 +736,9 @@ function StudentCourseRequestPage() {
     const ensureQuarter = (raw) => {
       const n = parseFloat(raw);
       if (!isFinite(n)) return 2;
-      const rounded = Math.round(Math.max(0.25, n) / 0.25) * 0.25;
+      // Clamp between 0.25 and 6 hours and round to nearest 0.25
+      const clamped = Math.max(0.25, Math.min(6, n));
+      const rounded = Math.round(clamped / 0.25) * 0.25;
       return Number(rounded.toFixed(2));
     };
 
@@ -747,6 +749,8 @@ function StudentCourseRequestPage() {
 
     // Custom stepper controls (0.25 hour granularity)
     const step = 0.25;
+    const minDuration = 0.25;
+    const maxDuration = 6;
     const increaseDuration = () => {
       setFormData((prev) => {
         const next = ensureQuarter((prev.sessionDurationHours || 0) + step);
@@ -755,7 +759,7 @@ function StudentCourseRequestPage() {
     };
     const decreaseDuration = () => {
       setFormData((prev) => {
-        const next = ensureQuarter(Math.max(0.25, (prev.sessionDurationHours || 0) - step));
+        const next = ensureQuarter(Math.max(minDuration, (prev.sessionDurationHours || 0) - step));
         return { ...prev, sessionDurationHours: next };
       });
     };
@@ -765,11 +769,11 @@ function StudentCourseRequestPage() {
         <div className="times-panel-header">
           <div className="day-title">单次时长</div>
           <div className="duration-input">
-            <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration}>
+            <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration} disabled={(formData.sessionDurationHours || 0) <= minDuration}>
               <span aria-hidden>−</span>
             </button>
             <span className="duration-value" id="sessionDurationValue">{formData.sessionDurationHours}</span>
-            <button type="button" className="stepper-btn" aria-label="plus 0.25 hour" onClick={increaseDuration}>
+            <button type="button" className="stepper-btn" aria-label="plus 0.25 hour" onClick={increaseDuration} disabled={(formData.sessionDurationHours || 0) >= maxDuration}>
               <span aria-hidden>+</span>
             </button>
             <span className="unit">小时</span>
@@ -777,6 +781,7 @@ function StudentCourseRequestPage() {
               id="sessionDuration"
               type="number"
               min={0.25}
+              max={6}
               step={0.25}
               value={formData.sessionDurationHours}
               onChange={onDurationChange}
