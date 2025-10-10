@@ -820,6 +820,8 @@ function StudentCourseRequestPage() {
       const delta = isMinus ? -step : +step;
       startHold(delta, disabled)(e);
     }, [startHold]);
+
+    // Removed container delegation; will bind mousedown on each button
     const increaseDuration = () => { adjustDuration(+step); };
     const decreaseDuration = () => { adjustDuration(-step); };
 
@@ -827,7 +829,17 @@ function StudentCourseRequestPage() {
       <div className="schedule-times-panel">
         <div className="times-panel-header">
           <div className="day-title">单次时长</div>
-          <div className="duration-input" onMouseDown={onStepperMouseDown} onMouseUp={stopHold} onMouseLeave={stopHold} onClickCapture={(e) => { if (heldRef.current) { e.preventDefault(); e.stopPropagation(); } }}>
+          <div
+            className="duration-input"
+            onMouseDown={onStepperMouseDown}
+            onMouseUp={stopHold}
+            onClickCapture={(e) => {
+              if (heldRef.current) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+          >
             <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration} disabled={(formData.sessionDurationHours || 0) <= minDuration}>
               <span aria-hidden>−</span>
             </button>
@@ -1221,7 +1233,6 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
-
 
 
 
