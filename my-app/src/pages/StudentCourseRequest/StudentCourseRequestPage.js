@@ -751,24 +751,83 @@ function StudentCourseRequestPage() {
     const step = 0.25;
     const minDuration = 0.25;
     const maxDuration = 6;
-    const increaseDuration = () => {
+
+    // Hold-to-repeat settings (adjust to change speed)
+    const HOLD_INITIAL_DELAY = 400;   // ms before repeating starts
+    const HOLD_REPEAT_INTERVAL = 80;  // ms between repeats
+
+    // Refs for press-and-hold behavior
+    const holdDelayRef = useRef(null);
+    const holdIntervalRef = useRef(null);
+    const heldRef = useRef(false); // whether auto-repeat has been engaged
+    const durationRef = useRef(formData.sessionDurationHours);
+
+    useEffect(() => { durationRef.current = formData.sessionDurationHours; }, [formData.sessionDurationHours]);
+
+    const stopHold = useCallback(() => {
+      if (holdDelayRef.current) { clearTimeout(holdDelayRef.current); holdDelayRef.current = null; }
+      if (holdIntervalRef.current) { clearInterval(holdIntervalRef.current); holdIntervalRef.current = null; }
+      heldRef.current = false;
+      try {
+        document.removeEventListener('mouseup', stopHold);
+        document.removeEventListener('mouseleave', stopHold);
+      } catch (_) {}
+    }, []);
+
+    useEffect(() => () => { stopHold(); }, [stopHold]);
+
+    const adjustDuration = useCallback((delta) => {
       setFormData((prev) => {
-        const next = ensureQuarter((prev.sessionDurationHours || 0) + step);
+        const cur = ensureQuarter(prev.sessionDurationHours || 0);
+        const bounded = Math.max(minDuration, Math.min(maxDuration, cur + delta));
+        const next = ensureQuarter(bounded);
         return { ...prev, sessionDurationHours: next };
       });
-    };
-    const decreaseDuration = () => {
-      setFormData((prev) => {
-        const next = ensureQuarter(Math.max(minDuration, (prev.sessionDurationHours || 0) - step));
-        return { ...prev, sessionDurationHours: next };
-      });
-    };
+    }, []);
+
+    const startHold = useCallback((delta, disabled) => (e) => {
+      if (disabled) return;
+      if (e && typeof e.button === 'number' && e.button !== 0) return; // only left button
+      e.preventDefault();
+
+      // Stop when releasing anywhere
+      document.addEventListener('mouseup', stopHold);
+      document.addEventListener('mouseleave', stopHold);
+
+      // Start repeating after a short delay
+      holdDelayRef.current = setTimeout(() => {
+        heldRef.current = true; // engaged; suppress trailing click
+        holdIntervalRef.current = setInterval(() => {
+          const cur = ensureQuarter(durationRef.current || 0);
+          if ((delta < 0 && cur <= minDuration) || (delta > 0 && cur >= maxDuration)) {
+            stopHold();
+            return;
+          }
+          adjustDuration(delta);
+        }, HOLD_REPEAT_INTERVAL);
+      }, HOLD_INITIAL_DELAY);
+    }, [adjustDuration, stopHold]);
+
+    const onStepperMouseDown = useCallback((e) => {
+      if (e && typeof e.button === 'number' && e.button !== 0) return; // only left button
+      const el = e.target && e.target.closest ? e.target.closest('button.stepper-btn') : null;
+      if (!el) return;
+      const label = el.getAttribute('aria-label') || '';
+      const isMinus = label.indexOf('minus') !== -1;
+      const isPlus = label.indexOf('plus') !== -1;
+      if (!isMinus && !isPlus) return;
+      const disabled = el.disabled;
+      const delta = isMinus ? -step : +step;
+      startHold(delta, disabled)(e);
+    }, [startHold]);
+    const increaseDuration = () => { adjustDuration(+step); };
+    const decreaseDuration = () => { adjustDuration(-step); };
 
     return (
       <div className="schedule-times-panel">
         <div className="times-panel-header">
           <div className="day-title">单次时长</div>
-          <div className="duration-input">
+          <div className="duration-input" onMouseDown={onStepperMouseDown} onMouseUp={stopHold} onMouseLeave={stopHold} onClickCapture={(e) => { if (heldRef.current) { e.preventDefault(); e.stopPropagation(); } }}>
             <button type="button" className="stepper-btn" aria-label="minus 0.25 hour" onClick={decreaseDuration} disabled={(formData.sessionDurationHours || 0) <= minDuration}>
               <span aria-hidden>−</span>
             </button>
