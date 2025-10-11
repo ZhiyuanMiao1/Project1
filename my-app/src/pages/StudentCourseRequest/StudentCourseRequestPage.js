@@ -43,16 +43,16 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   useEffect(() => { valueRef.current = value; }, [value]);
   // —— 工具 & 边界 —— //
 
-  const ensureQuarter = (raw) => {
+  const ensureQuarter = useCallback((raw) => {
     const n = parseFloat(raw);
     if (!isFinite(n)) return 2;
     const clamped = Math.max(min, Math.min(max, n));
     return Number((Math.round(clamped / 0.25) * 0.25).toFixed(2));
-  };
+  }, [min, max]);
 
   const setValue = useCallback((v) => {
     onChange(ensureQuarter(v));
-  }, [onChange]);
+  }, [onChange, ensureQuarter]);
 
   const adjust = useCallback((delta) => {
     const cur = valueRef.current ?? 0;                   // 永远拿“最新值”
@@ -60,7 +60,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     if ((delta < 0 && cur <= min) || (delta > 0 && cur >= max)) return;
     const next = ensureQuarter(cur + delta);
     onChange(next);
-  }, [setValue, value]);
+  }, [ensureQuarter, onChange, min, max]);
 
   // —— 长按（全局收尾）—— //
   const HOLD_DELAY = 300, HOLD_INTERVAL = 150;
@@ -121,7 +121,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
         adjust(delta);
       }, HOLD_INTERVAL);
     }, HOLD_DELAY);
-  }, [adjust, endGlobal, value]);
+  }, [adjust, endGlobal, ensureQuarter, min, max]);
 
   // —— 时间列表（保持你的逻辑）—— //
   const formatTime = useCallback((h, m) => `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, []);
@@ -844,20 +844,7 @@ function StudentCourseRequestPage() {
     setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1)); // 视图月份加一
   };
 
-  const formatTime = useCallback(
-    (h, m) => `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
-    []
-  );
-
-  const timeSlots = useMemo(() => {
-    const arr = [];
-    for (let h = 0; h < 24; h++) {
-      for (let m = 0; m < 60; m += 15) {
-        arr.push({ h, m, label: formatTime(h, m) });
-      }
-    }
-    return arr;
-  }, [formatTime]);
+  
 
   // ✅ 用这个替换你现在的“默认滚动到 09:00”的 useEffect
   useEffect(() => {
