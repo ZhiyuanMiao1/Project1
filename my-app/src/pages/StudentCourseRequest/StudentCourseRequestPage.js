@@ -172,10 +172,21 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return merged;
   }, []);
 
-  const handleClickSlot = useCallback((startIdx) => {
+  const handleClickSlot = useCallback((idx) => {
     const len = timeSlots.length;
-    const start = Math.max(0, Math.min(len - 1, startIdx));
-    const end = Math.max(0, Math.min(len - 1, start + slotsPerSession - 1));
+    const i = Math.max(0, Math.min(len - 1, idx));
+
+    // 若当前索引已在某个已选区间内，则移除整个区间
+    const containerIndex = (selectedBlocks || []).findIndex((b) => i >= b.start && i <= b.end);
+    if (containerIndex >= 0) {
+      const next = (selectedBlocks || []).filter((_, k) => k !== containerIndex);
+      applyBlocks(next);
+      return;
+    }
+
+    // 否则按当前“单次时长”新增区间并合并
+    const start = i;
+    const end = Math.max(0, Math.min(len - 1, i + slotsPerSession - 1));
     const next = mergeBlocks([...(selectedBlocks || []), { start, end }]);
     applyBlocks(next);
   }, [applyBlocks, mergeBlocks, selectedBlocks, slotsPerSession, timeSlots.length]);
