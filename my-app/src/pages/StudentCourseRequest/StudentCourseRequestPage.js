@@ -41,6 +41,9 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   // 受控：当外部需要按“天”管理选择时传入
   blocks,                // 可选，形如 [{start:number,end:number}]
   onBlocksChange,        // 可选，(nextBlocks) => void
+  dayKey,                // 可选，'YYYY-MM-DD' 当前天 key
+  getDayBlocks,          // 可选，(key)=>blocks，用于跨天读
+  setDayBlocks,          // 可选，(key,next)=>void，用于跨天写
 }) {
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -172,6 +175,28 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return merged;
   }, []);
 
+  // 辅助：dayKey <-> Date 与相邻 day key
+  const keyToDate = useCallback((key) => {
+    if (!key) return null;
+    const [y, m, d] = key.split('-').map((s) => parseInt(s, 10));
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, []);
+  const dateToKey = useCallback((date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }, []);
+  const neighborKey = useCallback((dir) => {
+    // dir: +1 明天，-1 昨天
+    const dt = keyToDate(dayKey);
+    if (!dt) return null;
+    const n = new Date(dt);
+    n.setDate(dt.getDate() + (dir > 0 ? 1 : -1));
+    return dateToKey(n);
+  }, [dayKey, dateToKey, keyToDate]);
+
   const handleClickSlot = useCallback((idx) => {
     const len = timeSlots.length;
     const i = Math.max(0, Math.min(len - 1, idx));
@@ -179,17 +204,62 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     // 若当前索引已在某个已选区间内，则移除整个区间
     const containerIndex = (selectedBlocks || []).findIndex((b) => i >= b.start && i <= b.end);
     if (containerIndex >= 0) {
+      const last = len - 1;
+      const block = (selectedBlocks || [])[containerIndex];
       const next = (selectedBlocks || []).filter((_, k) => k !== containerIndex);
       applyBlocks(next);
+
+      // 如果该段触及当天末尾且跨到下一天（即下一天0点起存在衔接段），连同下一天的首段一起删除
+      if (block && block.end === last && typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
+        const nxtKey = neighborKey(+1);
+        const nxtBlocks = (getDayBlocks && nxtKey) ? (getDayBlocks(nxtKey) || []) : [];
+        const idx0 = nxtBlocks.findIndex((b) => 0 >= b.start && 0 <= b.end);
+        if (idx0 >= 0) {
+          const after = nxtBlocks.filter((_, k) => k !== idx0);
+          setDayBlocks(nxtKey, mergeBlocks(after));
+        }
+      }
+
+      // 如果该段从 0 开始，且昨天结尾有一段与之衔接，也一并删除
+      if (block && block.start === 0 && typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
+        const prvKey = neighborKey(-1);
+        const prvBlocks = (getDayBlocks && prvKey) ? (getDayBlocks(prvKey) || []) : [];
+        const idxLast = prvBlocks.findIndex((b) => (len - 1) >= b.start && (len - 1) <= b.end);
+        if (idxLast >= 0) {
+          const afterPrev = prvBlocks.filter((_, k) => k !== idxLast);
+          setDayBlocks(prvKey, mergeBlocks(afterPrev));
+        }
+      }
       return;
     }
 
     // 否则按当前“单次时长”新增区间并合并
     const start = i;
-    const end = Math.max(0, Math.min(len - 1, i + slotsPerSession - 1));
-    const next = mergeBlocks([...(selectedBlocks || []), { start, end }]);
-    applyBlocks(next);
-  }, [applyBlocks, mergeBlocks, selectedBlocks, slotsPerSession, timeSlots.length]);
+    const endWanted = i + slotsPerSession - 1; // 可能越过当天
+    const last = len - 1;
+
+    if (endWanted <= last) {
+      const end = Math.max(0, Math.min(last, endWanted));
+      const next = mergeBlocks([...(selectedBlocks || []), { start, end }]);
+      applyBlocks(next);
+    } else {
+      // 当天部分
+      const todayEnd = last;
+      const nextToday = mergeBlocks([...(selectedBlocks || []), { start, end: todayEnd }]);
+      applyBlocks(nextToday);
+
+      // 溢出到明天的部分：从 0 开始若干格
+      if (typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
+        const overflowCount = endWanted - last; // 超出的格数
+        const nxtKey = neighborKey(+1);
+        if (nxtKey) {
+          const nxtBlocks = getDayBlocks(nxtKey) || [];
+          const nextNxt = mergeBlocks([...(nxtBlocks || []), { start: 0, end: Math.max(0, overflowCount - 1) }]);
+          setDayBlocks(nxtKey, nextNxt);
+        }
+      }
+    }
+  }, [applyBlocks, getDayBlocks, mergeBlocks, neighborKey, selectedBlocks, slotsPerSession, timeSlots.length]);
 
   const selectedIndexSet = useMemo(() => {
     const set = new Set();
@@ -584,6 +654,10 @@ function StudentCourseRequestPage() {
   const defaultTimesScrollDoneRef = useRef(false);
   // 每天对应的已选时间段集合（按索引区间存储）
   const [daySelections, setDaySelections] = useState({}); // key: 'YYYY-MM-DD' -> [{start,end}]
+  const getBlocksForDay = useCallback((key) => daySelections[key] || [], [daySelections]);
+  const setBlocksForDay = useCallback((key, next) => {
+    setDaySelections((prev) => ({ ...prev, [key]: next }));
+  }, []);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -1283,6 +1357,9 @@ function StudentCourseRequestPage() {
                           listRef={timesListRef}
                           blocks={blocks}
                           onBlocksChange={handleBlocksChange}
+                          dayKey={key}
+                          getDayBlocks={getBlocksForDay}
+                          setDayBlocks={setBlocksForDay}
                         />
                       );
                     })()}
