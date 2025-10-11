@@ -659,6 +659,77 @@ function StudentCourseRequestPage() {
     setDaySelections((prev) => ({ ...prev, [key]: next }));
   }, []);
 
+  // Drag-to-select range across dates
+  const [selectedRangeKeys, setSelectedRangeKeys] = useState([]);
+  const [dragStartKey, setDragStartKey] = useState(null);
+  const [dragEndKey, setDragEndKey] = useState(null);
+  const [isDraggingRange, setIsDraggingRange] = useState(false);
+  const [dragPreviewKeys, setDragPreviewKeys] = useState(new Set());
+  const didDragRef = useRef(false);
+
+  const buildKey = useCallback((d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,[/*no deps*/]);
+  const keyToDateStrict = useCallback((key) => {
+    if (!key) return null;
+    const [y,m,d] = key.split('-').map((s)=>parseInt(s,10));
+    if (!y||!m||!d) return null;
+    return new Date(y, m-1, d);
+  }, []);
+
+
+
+  // Start-of-today reference for past/future checks
+  const todayStart = useMemo(() => {
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    return t;
+  }, []);
+
+
+  
+  const enumerateKeysInclusive = useCallback((aKey, bKey) => {
+    const a = keyToDateStrict(aKey);
+    const b = keyToDateStrict(bKey);
+    if (!a || !b) return [];
+    const start = a.getTime() <= b.getTime() ? a : b;
+    const end = a.getTime() <= b.getTime() ? b : a;
+    const res = [];
+    const cur = new Date(start);
+    cur.setHours(0,0,0,0);
+    const endTs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+    while (cur.getTime() <= endTs) {
+      const t = new Date(cur);
+      const isPast = (() => { const dd = new Date(t); dd.setHours(0,0,0,0); return dd.getTime() < todayStart.getTime(); })();
+      if (!isPast) res.push(buildKey(t));
+      cur.setDate(cur.getDate()+1);
+    }
+    return res;
+  }, [buildKey, keyToDateStrict, todayStart]);
+
+  const endDragSelection = useCallback(() => {
+    if (!isDraggingRange || !dragStartKey || !dragEndKey) {
+      setIsDraggingRange(false);
+      setDragPreviewKeys(new Set());
+      return;
+    }
+    const keys = enumerateKeysInclusive(dragStartKey, dragEndKey);
+    setSelectedRangeKeys(keys);
+    const endDate = keyToDateStrict(dragEndKey);
+    if (endDate) setSelectedDate(endDate);
+    setIsDraggingRange(false);
+    setDragPreviewKeys(new Set());
+  }, [dragEndKey, dragStartKey, enumerateKeysInclusive, isDraggingRange, keyToDateStrict]);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (isDraggingRange) {
+        endDragSelection();
+        didDragRef.current = true;
+      }
+    };
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, [endDragSelection, isDraggingRange]);
+
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
 
@@ -982,12 +1053,7 @@ function StudentCourseRequestPage() {
   // 规范化日期 key（不含时区偏移影响）
   const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-  // Start-of-today reference for past/future checks
-  const todayStart = useMemo(() => {
-    const t = new Date();
-    t.setHours(0, 0, 0, 0);
-    return t;
-  }, []);
+
 
   // 点“上一月”按钮时触发
   const handlePrevMonth = () => {                                        // 定义上一月处理函数
@@ -1312,6 +1378,7 @@ function StudentCourseRequestPage() {
                             return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
                           }
                           const isToday = isSameDay(date, new Date());
+                          const key = ymdKey(date);
                           const selected = isSameDay(date, selectedDate);
                           const hasSelection = !!(daySelections[ymdKey(date)] && daySelections[ymdKey(date)].length);
                           const isPast = (() => {
@@ -1319,19 +1386,47 @@ function StudentCourseRequestPage() {
                             d.setHours(0, 0, 0, 0);
                             return d.getTime() < todayStart.getTime();
                           })();
+                          const inPreview = dragPreviewKeys && dragPreviewKeys.size ? dragPreviewKeys.has(key) : false;
+                          const inMultiSelected = (selectedRangeKeys || []).includes(key);
                           const cls = [
                             'date-cell',
                             isToday ? 'today' : '',
                             selected ? 'selected' : '',
                             isPast ? 'past' : '',
+                            inMultiSelected ? 'multi-selected' : '',
+                            inPreview ? 'range-preview' : '',
                           ].filter(Boolean).join(' ');
                           return (
                             <button
                               key={date.toISOString()}
                               type="button"
                               className={cls}
+                              onMouseDown={() => {
+                                if (isPast) return;
+                                const k = ymdKey(date);
+                                setIsDraggingRange(true);
+                                setDragStartKey(k);
+                                setDragEndKey(k);
+                                setDragPreviewKeys(new Set([k]));
+                                didDragRef.current = false;
+                              }}
+                              onMouseEnter={() => {
+                                if (!isDraggingRange) return;
+                                if (isPast) return;
+                                const k = ymdKey(date);
+                                setDragEndKey(k);
+                                const keys = enumerateKeysInclusive(dragStartKey || k, k);
+                                setDragPreviewKeys(new Set(keys));
+                                if (dragStartKey && dragStartKey !== k) didDragRef.current = true;
+                              }}
+                              onMouseUp={() => {
+                                if (isDraggingRange) endDragSelection();
+                              }}
                               onClick={() => {
+                                if (didDragRef.current) { didDragRef.current = false; return; }
                                 setSelectedDate(date);
+                                const k = ymdKey(date);
+                                setSelectedRangeKeys([k]);
                                 if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
                                   setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
                                 }
@@ -1348,7 +1443,12 @@ function StudentCourseRequestPage() {
                       const key = ymdKey(selectedDate);
                       const blocks = daySelections[key] || [];
                       const handleBlocksChange = (next) => {
-                        setDaySelections((prev) => ({ ...prev, [key]: next }));
+                        const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [key];
+                        setDaySelections((prev) => {
+                          const patch = { ...prev };
+                          for (const k of targets) patch[k] = next;
+                          return patch;
+                        });
                       };
                       return (
                         <ScheduleTimesPanel
@@ -1360,6 +1460,7 @@ function StudentCourseRequestPage() {
                           dayKey={key}
                           getDayBlocks={getBlocksForDay}
                           setDayBlocks={setBlocksForDay}
+                          applyKeys={(selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : undefined}
                         />
                       );
                     })()}

@@ -491,6 +491,16 @@
   border-radius: 12px;
 }
 .date-cell.selected { background: #111827; color: #fff; border-color: #111827; }
+/* Multi-day selected style should match single selected */
+.date-cell.multi-selected { background: #111827; color: #ffffff; }
+.date-cell.multi-selected .date-number { color: #ffffff; }
+
+/* Preview frame while dragging across selectable dates */
+.date-cell.range-preview:not(.past):not(.outside) {
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 12px;
+}
 
 /* Past days: gray text + not clickable */
 .date-cell.past { pointer-events: none; cursor: default; }
@@ -498,6 +508,7 @@
 .date-number { font-weight: 700; font-size: 14px; color: #111827; }
 .date-cell.past .date-number { color: #9ca3af; }
 .date-cell.selected .date-number { color: #ffffff; }
+.date-cell.range-preview .date-number { color: #111827; }
 
 /* 日历右上角“当天有选择”的小标记点 */
 .date-marker {
