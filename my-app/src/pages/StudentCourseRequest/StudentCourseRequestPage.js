@@ -131,6 +131,22 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return arr;
   }, [formatTime]);
 
+  // 点击某个时间后，基于上方“单次时长”自动高亮连续的时间段
+  const [selectedStartIndex, setSelectedStartIndex] = useState(null);
+
+  const selectedIndexSet = useMemo(() => {
+    if (selectedStartIndex == null) return new Set();
+    const SLOT_MINUTES = 15; // 每个时间条代表15分钟
+    const count = Math.max(1, Math.round(((value ?? 0) * 60) / SLOT_MINUTES));
+    const set = new Set();
+    const len = timeSlots.length;
+    for (let i = 0; i < count; i++) {
+      const idx = selectedStartIndex + i;
+      if (idx < len) set.add(idx);
+    }
+    return set;
+  }, [selectedStartIndex, timeSlots.length, value]);
+
   return (
     <div className="schedule-times-panel">
       <div className="times-panel-header">
@@ -179,12 +195,23 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
       </div>
 
       <div className="times-list" role="list" ref={listRef}>
-        {timeSlots.map((t, idx) => (
-          <div key={`${t.h}-${t.m}-${idx}`} role="listitem" className="time-slot" data-index={idx} data-time-slot={t.label}>
-            <span className="dot" aria-hidden></span>
-            <span className="time-text">{t.label}</span>
-          </div>
-        ))}
+        {timeSlots.map((t, idx) => {
+          const isSelected = selectedIndexSet.has(idx);
+          return (
+            <button
+              key={`${t.h}-${t.m}-${idx}`}
+              type="button"
+              className={`time-slot ${isSelected ? 'selected' : ''}`}
+              data-index={idx}
+              data-time-slot={t.label}
+              onClick={() => setSelectedStartIndex(idx)}
+              aria-pressed={isSelected}   // ✅ 合法（按钮/role=button 可用）
+            >
+              <span className="dot" aria-hidden />
+              <span className="time-text">{t.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

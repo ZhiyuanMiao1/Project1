@@ -593,15 +593,23 @@
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
+  width: 180px;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 10px 12px;
   margin: 8px 2px;
   background: #fff;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+.time-slot:hover { border-color: #111827; }
 .time-slot .dot { width: 7px; height: 7px; border-radius: 999px; background: #22c55e; display: inline-block; }
 .time-slot .time-text { font-weight: 700; color: #111827; font-size: 14px; }
+
+/* 选中时：边框加粗为黑色，圆点变黑 */
+.time-slot.selected { border-color: #111827; border-width: 2px; }
+.time-slot.selected .dot { background: #111827; }
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {
