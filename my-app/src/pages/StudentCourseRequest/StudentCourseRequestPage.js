@@ -38,6 +38,9 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   min = 0.25,
   max = 6,
   step = 0.25,
+  // 受控：当外部需要按“天”管理选择时传入
+  blocks,                // 可选，形如 [{start:number,end:number}]
+  onBlocksChange,        // 可选，(nextBlocks) => void
 }) {
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -131,8 +134,18 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return arr;
   }, [formatTime]);
 
-  // 支持多段选择：每次点击都会把“以该格为起点、长度=单次时长”的时间段合并到已选集合
-  const [selectedBlocks, setSelectedBlocks] = useState([]); // [{start:number,end:number}]
+  // 支持多段选择：受控/非受控两种模式
+  const isControlledBlocks = Array.isArray(blocks) && typeof onBlocksChange === 'function';
+  const [uncontrolledBlocks, setUncontrolledBlocks] = useState([]); // [{start,end}]
+  const selectedBlocks = isControlledBlocks ? (blocks || []) : uncontrolledBlocks;
+
+  const applyBlocks = useCallback((next) => {
+    if (isControlledBlocks) {
+      onBlocksChange(next);
+    } else {
+      setUncontrolledBlocks(next);
+    }
+  }, [isControlledBlocks, onBlocksChange]);
 
   // 计算：当前“单次时长”换算成多少个 15 分钟格
   const slotsPerSession = useMemo(() => {
@@ -163,8 +176,9 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     const len = timeSlots.length;
     const start = Math.max(0, Math.min(len - 1, startIdx));
     const end = Math.max(0, Math.min(len - 1, start + slotsPerSession - 1));
-    setSelectedBlocks((prev) => mergeBlocks([...(prev || []), { start, end }]));
-  }, [mergeBlocks, slotsPerSession, timeSlots.length]);
+    const next = mergeBlocks([...(selectedBlocks || []), { start, end }]);
+    applyBlocks(next);
+  }, [applyBlocks, mergeBlocks, selectedBlocks, slotsPerSession, timeSlots.length]);
 
   const selectedIndexSet = useMemo(() => {
     const set = new Set();
@@ -557,6 +571,8 @@ function StudentCourseRequestPage() {
   const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const timesListRef = useRef(null);
   const defaultTimesScrollDoneRef = useRef(false);
+  // 每天对应的已选时间段集合（按索引区间存储）
+  const [daySelections, setDaySelections] = useState({}); // key: 'YYYY-MM-DD' -> [{start,end}]
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -877,6 +893,9 @@ function StudentCourseRequestPage() {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   );
+
+  // 规范化日期 key（不含时区偏移影响）
+  const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   // Start-of-today reference for past/future checks
   const todayStart = useMemo(() => {
@@ -1238,11 +1257,22 @@ function StudentCourseRequestPage() {
                         })}
                       </div>
                     </div>
-                    <ScheduleTimesPanel
-                      value={formData.sessionDurationHours}
-                      onChange={(next) => setFormData(prev => ({ ...prev, sessionDurationHours: next }))}
-                      listRef={timesListRef}
-                    />
+                    {(() => {
+                      const key = ymdKey(selectedDate);
+                      const blocks = daySelections[key] || [];
+                      const handleBlocksChange = (next) => {
+                        setDaySelections((prev) => ({ ...prev, [key]: next }));
+                      };
+                      return (
+                        <ScheduleTimesPanel
+                          value={formData.sessionDurationHours}
+                          onChange={(next) => setFormData((prev) => ({ ...prev, sessionDurationHours: next }))}
+                          listRef={timesListRef}
+                          blocks={blocks}
+                          onBlocksChange={handleBlocksChange}
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               ) : (
