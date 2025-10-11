@@ -131,21 +131,48 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return arr;
   }, [formatTime]);
 
-  // 点击某个时间后，基于上方“单次时长”自动高亮连续的时间段
-  const [selectedStartIndex, setSelectedStartIndex] = useState(null);
+  // 支持多段选择：每次点击都会把“以该格为起点、长度=单次时长”的时间段合并到已选集合
+  const [selectedBlocks, setSelectedBlocks] = useState([]); // [{start:number,end:number}]
+
+  // 计算：当前“单次时长”换算成多少个 15 分钟格
+  const slotsPerSession = useMemo(() => {
+    const SLOT_MINUTES = 15;
+    return Math.max(1, Math.round(((value ?? 0) * 60) / SLOT_MINUTES));
+  }, [value]);
+
+  // 合并重叠/相邻的区间，保证 selectedBlocks 始终为最简集合
+  const mergeBlocks = useCallback((blocks) => {
+    if (!blocks || !blocks.length) return [];
+    const sorted = [...blocks]
+      .map((b) => ({ start: Math.min(b.start, b.end), end: Math.max(b.start, b.end) }))
+      .sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = merged[merged.length - 1];
+      const cur = sorted[i];
+      if (cur.start <= prev.end + 1) {
+        prev.end = Math.max(prev.end, cur.end);
+      } else {
+        merged.push({ ...cur });
+      }
+    }
+    return merged;
+  }, []);
+
+  const handleClickSlot = useCallback((startIdx) => {
+    const len = timeSlots.length;
+    const start = Math.max(0, Math.min(len - 1, startIdx));
+    const end = Math.max(0, Math.min(len - 1, start + slotsPerSession - 1));
+    setSelectedBlocks((prev) => mergeBlocks([...(prev || []), { start, end }]));
+  }, [mergeBlocks, slotsPerSession, timeSlots.length]);
 
   const selectedIndexSet = useMemo(() => {
-    if (selectedStartIndex == null) return new Set();
-    const SLOT_MINUTES = 15; // 每个时间条代表15分钟
-    const count = Math.max(1, Math.round(((value ?? 0) * 60) / SLOT_MINUTES));
     const set = new Set();
-    const len = timeSlots.length;
-    for (let i = 0; i < count; i++) {
-      const idx = selectedStartIndex + i;
-      if (idx < len) set.add(idx);
+    for (const b of selectedBlocks) {
+      for (let i = b.start; i <= b.end; i++) set.add(i);
     }
     return set;
-  }, [selectedStartIndex, timeSlots.length, value]);
+  }, [selectedBlocks]);
 
   return (
     <div className="schedule-times-panel">
@@ -204,7 +231,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
               className={`time-slot ${isSelected ? 'selected' : ''}`}
               data-index={idx}
               data-time-slot={t.label}
-              onClick={() => setSelectedStartIndex(idx)}
+              onClick={() => handleClickSlot(idx)}
               aria-pressed={isSelected}   // ✅ 合法（按钮/role=button 可用）
             >
               <span className="dot" aria-hidden />
