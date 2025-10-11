@@ -476,6 +476,7 @@
   align-items: center;
   justify-content: center;
   padding-bottom: 0;
+  position: relative; /* 允许在右上角放置小圆点标记 */
   cursor: default; /* default; will enable pointer for eligible days */
   transition: none;
 }
@@ -497,6 +498,19 @@
 .date-number { font-weight: 700; font-size: 14px; color: #111827; }
 .date-cell.past .date-number { color: #9ca3af; }
 .date-cell.selected .date-number { color: #ffffff; }
+
+/* 日历右上角“当天有选择”的小标记点 */
+.date-marker {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #111827; /* 默认黑点 */
+  pointer-events: none;
+}
+.date-cell.selected .date-marker { background: #ffffff; } /* 选中天为白点 */
 
 .schedule-right-panel {
   align-self: stretch;

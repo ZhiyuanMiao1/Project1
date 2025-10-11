@@ -1239,6 +1239,7 @@ function StudentCourseRequestPage() {
                           }
                           const isToday = isSameDay(date, new Date());
                           const selected = isSameDay(date, selectedDate);
+                          const hasSelection = !!(daySelections[ymdKey(date)] && daySelections[ymdKey(date)].length);
                           const isPast = (() => {
                             const d = new Date(date);
                             d.setHours(0, 0, 0, 0);
@@ -1263,6 +1264,7 @@ function StudentCourseRequestPage() {
                               }}
                             >
                               <span className="date-number">{date.getDate()}</span>
+                              {hasSelection && <span className="date-marker" aria-hidden />}
                             </button>
                           );
                         })}
