@@ -1266,7 +1266,7 @@ function StudentCourseRequestPage() {
             <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
             <textarea
               id="courseFocus"
-              placeholder="例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。"
+              placeholder={'例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。\n\n也可以在这里添加你的其它个人需求,例如：希望老师对着PPT讲的细致一些'}
               value={formData.courseFocus}
               onChange={handleChange('courseFocus')}
               rows={5}
