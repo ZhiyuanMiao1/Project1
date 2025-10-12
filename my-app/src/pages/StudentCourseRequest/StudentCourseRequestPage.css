@@ -368,6 +368,19 @@
 .hours-input input { width: 100px; }
 .hours-input .unit { color: #000000; font-size: 14px; }
 
+/* 隐藏 number 输入的上下箭头（Chrome/Edge/Safari） */
+.hours-input input[type="number"]::-webkit-outer-spin-button,
+.hours-input input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* 隐藏 number 输入的上下箭头（Firefox） */
+.hours-input input[type="number"] {
+  -moz-appearance: textfield;  /* 旧版 Firefox */
+  appearance: textfield;       /* 其他支持 appearance 的浏览器 */
+}
+
 /* Custom Select (Time Zone) */
 .mx-select {
   position: relative;
