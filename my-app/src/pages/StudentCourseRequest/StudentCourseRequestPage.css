@@ -354,6 +354,11 @@
   min-height: 120px;
 }
 
+/* Simple inline number input with a trailing unit */
+.hours-input { display: inline-flex; align-items: center; gap: 8px; }
+.hours-input input { width: 100px; }
+.hours-input .unit { color: #000000; font-size: 14px; }
+
 /* Custom Select (Time Zone) */
 .mx-select {
   position: relative;

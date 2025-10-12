@@ -647,6 +647,8 @@ const INITIAL_FORM_STATE = {
   courseFocus: '',
   format: '线上授课',
   milestone: '',
+  // 预计课程总时长（小时）
+  totalCourseHours: '',
   availability: DEFAULT_TIME_ZONE,
   sessionDurationHours: 2,
   contactName: '',
@@ -1263,6 +1265,20 @@ function StudentCourseRequestPage() {
       case 'details':
         return (
           <div className="step-field-stack">
+            <label className="field-label" htmlFor="totalCourseHours">预计课程总时长</label>
+            <div className="hours-input">
+              <input
+                id="totalCourseHours"
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                placeholder="例如：20"
+                value={formData.totalCourseHours}
+                onChange={handleChange('totalCourseHours')}
+              />
+              <span className="unit">小时</span>
+            </div>
             <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
             <textarea
               id="courseFocus"
