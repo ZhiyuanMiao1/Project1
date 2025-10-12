@@ -47,11 +47,13 @@
   align-content: center;
 }
 /* Hide animation on contact step and prepare right space for the preview */
+.step-layout.contact-preview-layout { align-items: flex-start; }
 .step-layout.contact-preview-layout .step-illustration { display: none; }
+.step-layout.contact-preview-layout .step-content { padding-top: 8px; }
 
 /* Floating preview in contact step */
-.contact-preview-floating { margin-left: auto; width: min(420px, 90%); }
-.step-layout .contact-preview-floating { grid-column: 2; align-self: start; }
+.contact-preview-floating { width: min(420px, 90%); margin: 0 auto; }
+.step-layout .contact-preview-floating { grid-column: 2; align-self: start; justify-self: center; }
 .request-shell > .contact-preview-floating { display: none; }
 
 /* Card styles */
