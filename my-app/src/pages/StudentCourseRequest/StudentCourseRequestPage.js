@@ -372,29 +372,22 @@ const STEPS = [
     title: '明确你的学习方向',
     description:
       '在这一步，我们会帮助你快速对齐目标与期望，明确你需要学习的学科门类。',
-  },
-  {
-    id: 'course-type',
+  },  { id: 'details',
     label: '第 2 步',
-    title: '请选择你的课程类型',
-    description: '从下面的类型中选择最贴近你当下需求的一项。',
-  },
-  { id: 'details',
-    label: '第 3 步',
     title: '补充课程细节',
     description:
       '告诉我们详细的课程类型，以及你期望达成的里程碑。',
   },
   {
     id: 'schedule',
-    label: '第 4 步',
+    label: '第 3 步',
     title: '告知时区与可授课时间',
     description:
       'MentorX 会根据你的时区和可授课时间，为你匹配最适合的导师。',
   },
   {
     id: 'contact',
-    label: '第 5 步',
+    label: '第 4 步',
     title: '很好！这是最后一步',
     description:
       '你可以预览在导师页面你的个人信息的呈现效果，并在下方添加备注，提出你的特殊需求或方便导师更好的了解你。',
@@ -461,6 +454,14 @@ const DIRECTION_ICONS = {
   'career-coaching': <FaUserTie />,
   'others': <FaEllipsisH />,
 };
+const COURSE_TYPE_OPTIONS = [
+  { id: 'course-selection', label: '选课指导', icon: <FaUniversity /> },
+  { id: 'pre-study', label: '课前预习', icon: <FaCalendarAlt /> },
+  { id: 'assignment-project', label: '作业项目', icon: <FaTasks /> },
+  { id: 'final-review', label: '期末复习', icon: <FaClock /> },
+  { id: 'in-class-support', label: '课堂辅导', icon: <FaLaptopCode /> },
+  { id: 'others', label: '其它类型', icon: <FaEllipsisH /> },
+];
 
 
 const TIMEZONE_NAME_OVERRIDES = {
@@ -681,6 +682,7 @@ function StudentCourseRequestPage() {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isDirectionSelection, setIsDirectionSelection] = useState(false);
+  const [isCourseTypeSelection, setIsCourseTypeSelection] = useState(false);
   const [transitionStage, setTransitionStage] = useState('idle');
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -947,9 +949,7 @@ function StudentCourseRequestPage() {
     );
   };
   
-  const isDirectionStep = currentStep.id === 'direction';
-  const isCourseTypeStep = currentStep.id === 'course-type';
-  const isDetailsStep = currentStep.id === 'details';
+  const isDirectionStep = currentStep.id === 'direction';  const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
   const isContactStep = currentStep.id === 'contact';
   
@@ -990,6 +990,19 @@ function StudentCourseRequestPage() {
           return;
         }
         // 已在选择界面则直接继续
+        // 第二次：进入“课程类型”选择界面
+        if (!isCourseTypeSelection) {
+          setIsCourseTypeSelection(true);
+          if (!formData.courseType && COURSE_TYPE_OPTIONS.length > 0) {
+            const firstType = COURSE_TYPE_OPTIONS[0];
+            setFormData(prev => ({
+              ...prev,
+              courseType: firstType.id,
+            }));
+          }
+          return; // 仍停留在 direction 步骤
+        }
+      // 两个子阶段都完成后才进入下一个大步骤
       }
 
       if (currentStepIndex === STEPS.length - 1) {
@@ -1002,6 +1015,10 @@ function StudentCourseRequestPage() {
 
   const handleBack = () => {
     startPageTransition(() => {
+      if (currentStep.id === 'direction' && isDirectionSelection && isCourseTypeSelection) {
+        setIsCourseTypeSelection(false);
+        return;
+      }
       if (currentStep.id === 'direction' && isDirectionSelection) {
         setIsDirectionSelection(false);
         return;
@@ -1012,8 +1029,9 @@ function StudentCourseRequestPage() {
         return;
       }
 
-      if (currentStep.id === 'details' || currentStep.id === 'course-type') {
+      if (currentStep.id === 'details' ) {
         setIsDirectionSelection(true);
+        setIsCourseTypeSelection(true);
       }
       setCurrentStepIndex((index) => Math.max(index - 1, 0));
     });
@@ -1037,7 +1055,7 @@ function StudentCourseRequestPage() {
 
   const stepContentClassName = [
     'step-content',
-    (isDirectionStep || isDetailsStep || isCourseTypeStep) ? 'direction-layout' : '',
+    (isDirectionStep || isDetailsStep) ? 'direction-layout' : '',
     isDirectionSelectionStage ? 'direction-selection' : '',
     isScheduleStep ? 'schedule-content' : '',
   ]
@@ -1046,7 +1064,7 @@ function StudentCourseRequestPage() {
 
   const stepFooterClassName = ['step-footer', transitionClassName].filter(Boolean).join(' ');
 
-  const units = currentStepIndex === 0 ? (isDirectionSelection ? 1 : 0) : currentStepIndex + 1;
+  const units = currentStepIndex === 0 ? (isDirectionSelection ? (isCourseTypeSelection ? 1 : 0.5) : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
@@ -1171,6 +1189,37 @@ function StudentCourseRequestPage() {
         if (!isDirectionSelection) {
           return null;
         }
+        if (isCourseTypeSelection) {
+          return (
+            <div className="direction-select">
+              <div className="direction-grid two-col-grid" role="list">
+                {COURSE_TYPE_OPTIONS.map((option, index) => {
+                  const isActive = formData.courseType === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="listitem"
+                      className={`direction-card ${isActive ? 'active' : ''}`}
+                      style={{ '--card-index': index }}
+                      onClick={() => {
+                        setFormData((previous) => ({
+                          ...previous,
+                          courseType: option.id,
+                        }));
+                      }}
+                    >
+                      <span className="direction-card__icon" aria-hidden="true">
+                        {option.icon}
+                      </span>
+                      <span className="direction-card__title">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="direction-select">
             <div className="direction-grid" role="list">
@@ -1201,45 +1250,7 @@ function StudentCourseRequestPage() {
             </div>
           </div>
         );
-            case 'course-type': {
-        const COURSE_TYPE_OPTIONS = [
-          { id: 'course-selection', label: '选课指导', icon: <FaUniversity /> },
-          { id: 'pre-study', label: '课前预习', icon: <FaCalendarAlt /> },
-          { id: 'assignment-project', label: '作业项目', icon: <FaTasks /> },
-          { id: 'final-review', label: '期末复习', icon: <FaClock /> },
-          { id: 'in-class-support', label: '课堂辅导', icon: <FaLaptopCode /> },
-          { id: 'others', label: '其它类型', icon: <FaEllipsisH /> },
-        ];
-        return (
-          <div className="direction-select">
-            <div className="direction-grid two-col-grid" role="list">
-              {COURSE_TYPE_OPTIONS.map((option, index) => {
-                const isActive = formData.courseType === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="listitem"
-                    className={`direction-card ${isActive ? 'active' : ''}`}
-                    style={{ '--card-index': index }}
-                    onClick={() => {
-                      setFormData((previous) => ({
-                        ...previous,
-                        courseType: option.id,
-                      }));
-                    }}
-                  >
-                    <span className="direction-card__icon" aria-hidden="true">
-                      {option.icon}
-                    </span>
-                    <span className="direction-card__title">{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      }      case 'details':
+      case 'details':
         return (
           <div className="step-field-stack">
             <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
@@ -1407,8 +1418,7 @@ function StudentCourseRequestPage() {
   }
 
   //const isDirectionStep = currentStep.id === 'direction';
-  //const isCourseTypeStep = currentStep.id === 'course-type';
-  //const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
+  //  //const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
 
   return (
     <div className="course-request-page">
@@ -1460,7 +1470,7 @@ function StudentCourseRequestPage() {
                 )}
                 <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
                   {isDirectionSelectionStage
-                    ? '以下哪一项最准确描述了你希望提升的课程？'
+                    ? (isCourseTypeSelection ? '请选择你的课程类型' : '以下哪一项最准确描述了你希望提升的课程？')
                     : currentStep.description}
                 </p>
               </div>
@@ -1672,6 +1682,16 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
+
+
+
+
+
+
+
+
+
+
 
 
 
