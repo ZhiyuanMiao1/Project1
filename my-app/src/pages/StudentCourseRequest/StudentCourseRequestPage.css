@@ -1038,7 +1038,7 @@
 /* Two-column grid for course-type step */
 .two-col-grid {
   grid-template-columns: repeat(2, minmax(160px, 1fr));
-  max-width: 720px;
+  max-width: 600px;
 }
 @media (max-width: 600px) {
   .two-col-grid {

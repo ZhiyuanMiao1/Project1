@@ -32,6 +32,8 @@ import {
   FaClock,
   FaCalendarAlt,
   FaHeart,
+  FaLightbulb,
+  FaGraduationCap,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -460,11 +462,11 @@ const DIRECTION_ICONS = {
   'others': <FaEllipsisH />,
 };
 const COURSE_TYPE_OPTIONS = [
-  { id: 'course-selection', label: '选课指导', icon: <FaUniversity /> },
+  { id: 'course-selection', label: '选课指导', icon: <FaLightbulb /> },
   { id: 'pre-study', label: '课前预习', icon: <FaCalendarAlt /> },
   { id: 'assignment-project', label: '作业项目', icon: <FaTasks /> },
   { id: 'final-review', label: '期末复习', icon: <FaClock /> },
-  { id: 'in-class-support', label: '课堂辅导', icon: <FaLaptopCode /> },
+  { id: 'in-class-support', label: '毕业论文', icon: <FaGraduationCap /> },
   { id: 'others', label: '其它类型', icon: <FaEllipsisH /> },
 ];
 
@@ -1687,6 +1689,7 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
+
 
 
 
