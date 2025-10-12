@@ -28,6 +28,10 @@ import {
   FaLanguage,
   FaBrain,
   FaBroadcastTower,
+  FaGlobe,
+  FaClock,
+  FaCalendarAlt,
+  FaHeart,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -637,6 +641,34 @@ const INITIAL_FORM_STATE = {
 
 const PAGE_TRANSITION_DURATION = 400;
 
+// ---- Preview helpers (mock profile + formatting) ----
+const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)] || '';
+const MOCK_SCHOOLS = ['斯坦福大学', '清华大学', '麻省理工学院', '北京大学', '多伦多大学', '新加坡国立大学'];
+const MOCK_LEVELS = ['本科', '硕士', '博士'];
+
+const buildShortUTC = (timeZone) => {
+  if (!timeZone) return 'UTC±0';
+  try {
+    const offMin = getTimeZoneOffsetMinutes(timeZone, new Date());
+    const sign = offMin >= 0 ? '+' : '-';
+    const hours = Math.floor(Math.abs(offMin) / 60);
+    const mins = Math.abs(offMin) % 60;
+    const minsPart = mins ? `:${String(mins).padStart(2, '0')}` : '';
+    return `UTC${sign}${hours}${minsPart}`;
+  } catch (e) {
+    return 'UTC±0';
+  }
+};
+
+const generateMockStudentProfile = () => {
+  const id = Math.floor(10 + Math.random() * 90);
+  return {
+    name: `Student${id}`,
+    level: pickOne(MOCK_LEVELS),
+    school: pickOne(MOCK_SCHOOLS),
+  };
+};
+
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -646,6 +678,9 @@ function StudentCourseRequestPage() {
   const [transitionStage, setTransitionStage] = useState('idle');
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
+
+  // Stable mock profile for preview (when student info is missing)
+  const mockStudent = useMemo(() => generateMockStudentProfile(), []);
 
   // ----- Schedule step local states -----
   const [selectedDate, setSelectedDate] = useState(() => new Date());
@@ -909,6 +944,7 @@ function StudentCourseRequestPage() {
   const isDirectionStep = currentStep.id === 'direction';
   const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
+  const isContactStep = currentStep.id === 'contact';
   
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
   
@@ -986,6 +1022,7 @@ function StudentCourseRequestPage() {
   const stepLayoutClassName = [
     'step-layout',
     isDirectionSelectionStage ? 'direction-selection-layout' : '',
+    isContactStep ? 'contact-preview-layout' : '',
     transitionClassName,
   ]
     .filter(Boolean)
@@ -1005,6 +1042,22 @@ function StudentCourseRequestPage() {
   const units = currentStepIndex === 0 ? (isDirectionSelection ? 1 : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
+
+  // ---- Data for contact-step preview card ----
+  const previewName = formData.contactName?.trim() || mockStudent.name;
+  const previewLevel = mockStudent.level;
+  const previewSchool = mockStudent.school;
+  const previewDirectionLabel = useMemo(() => {
+    const found = DIRECTION_OPTIONS.find((o) => o.id === formData.courseDirection);
+    return found?.label || formData.learningGoal || '未选择方向';
+  }, [formData.courseDirection, formData.learningGoal]);
+  const earliestSelectedDay = useMemo(() => {
+    const keys = Object.keys(daySelections || {}).filter((k) => (daySelections[k] || []).length > 0);
+    if (!keys.length) return null;
+    return keys.sort()[0];
+  }, [daySelections]);
+  const tzCity = useMemo(() => extractCityName(formData.availability), [formData.availability]);
+  const tzShort = useMemo(() => buildShortUTC(formData.availability), [formData.availability]);
 
   // ----- Schedule helpers -----
   const zhDays = ['日', '一', '二', '三', '四', '五', '六'];
@@ -1323,6 +1376,34 @@ function StudentCourseRequestPage() {
           </header>
 
           <section className={stepLayoutClassName}>
+            {isContactStep && !isDirectionSelectionStage && (
+              <div className="contact-preview-floating" aria-label="导师页卡片预览">
+                <div className="student-preview-card">
+                  <div className="card-fav"><FaHeart /></div>
+                  <div className="card-header">
+                    <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                    <div className="header-texts">
+                      <div className="name">{previewName}</div>
+                      <div className="chips">
+                        <span className="chip green">{previewLevel}</span>
+                        <span className="chip gray">{previewSchool}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card-list" role="list">
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>期望时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                    {earliestSelectedDay && (
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
+                    )}
+                    {!!(formData.courseFocus || formData.milestone) && (
+                      <div className="item" role="listitem"><span className="icon"><FaFileAlt /></span><span>Assignment | {(formData.courseFocus || formData.milestone).slice(0, 42)}{(formData.courseFocus || formData.milestone).length > 42 ? '…' : ''}</span></div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className={stepContentClassName}>
               <div className="step-intro">
                 {!isDirectionSelectionStage && (
@@ -1485,6 +1566,35 @@ function StudentCourseRequestPage() {
               )
             )}
           </section>
+
+          {isContactStep && !isDirectionSelectionStage && (
+            <div className="contact-preview-floating" aria-label="导师页卡片预览">
+              <div className="student-preview-card">
+                <div className="card-fav"><FaHeart /></div>
+                <div className="card-header">
+                  <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                  <div className="header-texts">
+                    <div className="name">{previewName}</div>
+                    <div className="chips">
+                      <span className="chip green">{previewLevel}</span>
+                      <span className="chip gray">{previewSchool}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="card-list" role="list">
+                  <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+                  <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                  <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>期望时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                  {earliestSelectedDay && (
+                    <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
+                  )}
+                  {!!(formData.courseFocus || formData.milestone) && (
+                    <div className="item" role="listitem"><span className="icon"><FaFileAlt /></span><span>Assignment | {(formData.courseFocus || formData.milestone).slice(0, 42)}{(formData.courseFocus || formData.milestone).length > 42 ? '…' : ''}</span></div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <footer className={stepFooterClassName}>
             <div className="step-footer-shell">

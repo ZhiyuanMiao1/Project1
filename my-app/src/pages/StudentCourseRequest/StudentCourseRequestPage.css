@@ -46,6 +46,37 @@
   min-height: calc(100vh - 300px);
   align-content: center;
 }
+/* Hide animation on contact step and prepare right space for the preview */
+.step-layout.contact-preview-layout .step-illustration { display: none; }
+
+/* Floating preview in contact step */
+.contact-preview-floating { margin-left: auto; width: min(420px, 90%); }
+.step-layout .contact-preview-floating { grid-column: 2; align-self: start; }
+.request-shell > .contact-preview-floating { display: none; }
+
+/* Card styles */
+.student-preview-card {
+  position: relative;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 16px 16px 18px;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.08);
+}
+.student-preview-card .card-fav { position: absolute; right: 12px; top: 10px; color: #94a3b8; }
+.student-preview-card .card-header { display: flex; align-items: center; gap: 12px; }
+.student-preview-card .avatar {
+  width: 64px; height: 64px; border-radius: 999px; background: #0f172a; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
+}
+.student-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
+.student-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+.student-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
+.student-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
+.student-preview-card .chip.gray { background: #eef2f7; color: #475569; }
+.student-preview-card .card-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.student-preview-card .item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #111827; }
+.student-preview-card .icon { color: #111827; margin-top: 2px; }
 .step-layout.page-transition-exit,
 .step-footer.page-transition-exit,
 .completion-content.page-transition-exit {

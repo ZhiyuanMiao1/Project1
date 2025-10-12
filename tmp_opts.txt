@@ -1,0 +1,101 @@
+  'accounting': <FaCalculator />,
+  'economics': <FaUniversity />,
+  'marketing': <FaBullhorn />,
+  'operations': <FaCogs />,
+  'project-management': <FaTasks />,
+  'psychology': <FaBrain />,
+  'design-creative': <FaPalette />,
+  'linguistics': <FaLanguage />,
+  'communication-studies': <FaBroadcastTower />,
+  'law': <FaBalanceScale />,
+  'writing': <FaFileAlt />,
+  'career-coaching': <FaUserTie />,
+  'others': <FaEllipsisH />,
+};
+
+
+const TIMEZONE_NAME_OVERRIDES = {
+  'Asia/Shanghai': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4',
+  'Asia/Tokyo': '\u65e5\u672c\u6807\u51c6\u65f6\u95f4',
+  'Asia/Bangkok': '\u6cf0\u56fd\u65f6\u95f4',
+  'Asia/Dubai': '\u6d77\u6e7e\u6807\u51c6\u65f6\u95f4',
+  'Europe/London': '\u683c\u6797\u5c3c\u6c0f\u6807\u51c6\u65f6\u95f4',
+  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4',
+  'Europe/Moscow': '\u83ab\u65af\u79d1\u65f6\u95f4',
+  'America/Los_Angeles': '\u7f8e\u56fd\u592a\u5e73\u6d0b\u65f6\u95f4',
+  'America/Denver': '\u7f8e\u56fd\u5c71\u5730\u65f6\u95f4',
+  'America/Chicago': '\u7f8e\u56fd\u4e2d\u90e8\u65f6\u95f4',
+  'America/New_York': '\u7f8e\u56fd\u4e1c\u90e8\u65f6\u95f4',
+  'America/Sao_Paulo': '\u5df4\u897f\u5229\u4e9a\u65f6\u95f4',
+  'Pacific/Auckland': '\u65b0\u897f\u5170\u6807\u51c6\u65f6\u95f4',
+  'Australia/Brisbane': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u65f6\u95f4',
+  'America/Halifax': '\u52a0\u62ff\u5927\u5927\u897f\u6d0b\u65f6\u95f4',
+  'America/Anchorage': '\u7f8e\u56fd\u963f\u62c9\u65af\u52a0\u65f6\u95f4',
+  'Pacific/Honolulu': '\u590f\u5a01\u5937\u65f6\u95f4',
+  'Pacific/Pago_Pago': '\u8428\u6469\u4e9a\u65f6\u95f4',
+  'Atlantic/Azores': '\u4e9a\u901f\u5c14\u7fa4\u5c9b\u65f6\u95f4',
+  'Atlantic/South_Georgia': '\u5357\u4e54\u6cbb\u4e9a\u65f6\u95f4',
+  'Africa/Johannesburg': '\u5357\u975e\u65f6\u95f4',
+  'Asia/Karachi': '\u5df4\u57fa\u65af\u5766\u6807\u51c6\u65f6\u95f4',
+  'Asia/Dhaka': '\u5b5f\u52a0\u62c9\u56fd\u6807\u51c6\u65f6\u95f4',
+  'Pacific/Guadalcanal': '\u6240\u7f57\u95e8\u7fa4\u5c9b\u65f6\u95f4',
+};
+
+// 24 curated time zones: one representative per UTC hour offset (-11 to +12)
+const FALLBACK_TIMEZONES = [
+  'Pacific/Pago_Pago',       // UTC-11
+  'Pacific/Honolulu',        // UTC-10
+  'America/Anchorage',       // UTC-09
+  'America/Los_Angeles',     // UTC-08
+  'America/Denver',          // UTC-07
+  'America/Chicago',         // UTC-06
+  'America/New_York',        // UTC-05
+  'America/Halifax',         // UTC-04
+  'America/Sao_Paulo',       // UTC-03
+  'Atlantic/South_Georgia',  // UTC-02
+  'Atlantic/Azores',         // UTC-01
+  'Europe/London',           // UTC¡À00
+  'Europe/Berlin',           // UTC+01
+  'Africa/Johannesburg',     // UTC+02 (no DST)
+  'Europe/Moscow',           // UTC+03
+  'Asia/Dubai',              // UTC+04
+  'Asia/Karachi',            // UTC+05
+  'Asia/Dhaka',              // UTC+06
+  'Asia/Bangkok',            // UTC+07
+  'Asia/Shanghai',           // UTC+08
+  'Asia/Tokyo',              // UTC+09
+  'Australia/Brisbane',      // UTC+10 (no DST)
+  'Pacific/Guadalcanal',     // UTC+11
+  'Pacific/Auckland',        // UTC+12
+];
+
+const extractCityName = (timeZone) => {
+  if (!timeZone) {
+    return '';
+  }
+  const segments = timeZone.split('/');
+  if (segments.length <= 1) {
+    return timeZone.replace(/_/g, ' ');
+  }
+  return segments.slice(1).join(' / ').replace(/_/g, ' ');
+};
+
+const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(referenceDate).reduce((accumulator, part) => {
+      if (part.type !== 'literal') {
+        accumulator[part.type] = part.value;
+      }
+      return accumulator;
+    }, {});
+    const isoString = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
