@@ -1274,7 +1274,7 @@ function StudentCourseRequestPage() {
                   min={1}
                   step={1}
                   inputMode="numeric"
-                  placeholder="例如：20"
+                  placeholder="例如：10"
                   value={formData.totalCourseHours}
                   onChange={handleChange('totalCourseHours')}
                 />
