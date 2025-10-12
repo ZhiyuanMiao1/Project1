@@ -51,7 +51,7 @@
 .step-layout.contact-preview-layout .step-illustration { display: none; }
 .step-layout.contact-preview-layout .step-content { 
   padding-top: 0; 
-  margin-top: -6px;
+  margin-top: -150px;
 }
 
 /* Floating preview in contact step */
