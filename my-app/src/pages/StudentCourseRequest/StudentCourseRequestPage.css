@@ -305,8 +305,17 @@
 .step-field-stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
+
+
+
+/* 三块之间的间距 */
+.step-field-stack { gap: 36px; }
+
+
+/* 每块内：标签与控件之间的间距 */
+.step-field-group { gap: 12px; }
+
 
 .field-label {
   font-weight: 600;
@@ -314,7 +323,7 @@
   color: #1f2937;
 }
 
-.step-field-stack textarea + .field-label[for="milestone"] { margin-top: 24px; }
+/*.step-field-stack textarea + .field-label[for="milestone"] { margin-top: 24px; }*/
 
 .inline-fields {
   display: grid;

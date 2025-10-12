@@ -1265,37 +1265,44 @@ function StudentCourseRequestPage() {
       case 'details':
         return (
           <div className="step-field-stack">
-            <label className="field-label" htmlFor="totalCourseHours">预计课程总时长</label>
-            <div className="hours-input">
-              <input
-                id="totalCourseHours"
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                placeholder="例如：20"
-                value={formData.totalCourseHours}
-                onChange={handleChange('totalCourseHours')}
-              />
-              <span className="unit">小时</span>
+            <div className="step-field-group">
+              <label className="field-label" htmlFor="totalCourseHours">预计课程总时长</label>
+              <div className="hours-input">
+                <input
+                  id="totalCourseHours"
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="例如：20"
+                  value={formData.totalCourseHours}
+                  onChange={handleChange('totalCourseHours')}
+                />
+                <span className="unit">小时</span>
+              </div>
             </div>
-            <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
-            <textarea
-              id="courseFocus"
-              placeholder={'例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。\n\n也可以在这里添加你的其它个人需求,例如：希望老师对着PPT讲的细致一些'}
-              value={formData.courseFocus}
-              onChange={handleChange('courseFocus')}
-              rows={5}
-            />
 
-            <label className="field-label" htmlFor="milestone">希望达成的目标或里程碑</label>
-            <textarea
-              id="milestone"
-              type="text"
-              placeholder="例如：6周后期末考试稳分达到A"
-              value={formData.milestone}
-              onChange={handleChange('milestone')}
-            />
+            <div className="step-field-group">
+              <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
+              <textarea
+                id="courseFocus"
+                placeholder={'例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。\n\n也可以在这里添加你的其它个人需求,例如：希望老师对着PPT讲的细致一些'}
+                value={formData.courseFocus}
+                onChange={handleChange('courseFocus')}
+                rows={5}
+              />
+            </div>
+
+            <div className="step-field-group">
+              <label className="field-label" htmlFor="milestone">希望达成的目标或里程碑</label>
+              <textarea
+                id="milestone"
+                type="text"
+                placeholder="例如：6周后期末考试稳分达到A"
+                value={formData.milestone}
+                onChange={handleChange('milestone')}
+              />
+            </div>
           </div>
         );
       case 'schedule': {
