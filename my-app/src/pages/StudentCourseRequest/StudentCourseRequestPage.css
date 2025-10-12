@@ -245,9 +245,10 @@
 }
 
 .direction-card {
+  /* 基础 1px 边框；选中改 2.5px，同时用内边距补偿，避免布局抖动 */
   border: 1px solid #d1d5db;
   border-radius: 20px;
-  padding: 20px 24px;
+  padding: 20px 24px; /* active 时会按差值 1.5px 做补偿 */
   background: #ffffff;
   display: flex;
   --card-index: 0;
@@ -257,6 +258,7 @@
   gap: 10px;
   text-align: center;
   cursor: pointer;
+  box-sizing: border-box; /* 结合 padding 补偿，保证外部尺寸恒定 */
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   min-height: 100px;
 }
@@ -276,7 +278,9 @@
 
 .direction-card.active {
   border-color: #111827;
-  border: 2.5px solid;
+  border-width: 2.5px;                 /* 视觉加粗 */
+  /* 边框从 1px -> 2.5px，差值 1.5px，用 padding 抵消，保持外尺寸不变 */
+  padding: calc(20px - 1.5px) calc(24px - 1.5px);
 }
 
 .direction-card__title {
