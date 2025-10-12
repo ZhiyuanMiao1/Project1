@@ -1386,8 +1386,11 @@ function StudentCourseRequestPage() {
                             d.setHours(0, 0, 0, 0);
                             return d.getTime() < todayStart.getTime();
                           })();
-                          const inPreview = dragPreviewKeys && dragPreviewKeys.size ? dragPreviewKeys.has(key) : false;
                           const inMultiSelected = (selectedRangeKeys || []).includes(key);
+                          // Avoid preview style overriding selected/multi-selected cells
+                          const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
+                            ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
+                            : false;
                           const cls = [
                             'date-cell',
                             isToday ? 'today' : '',

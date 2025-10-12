@@ -1,300 +1,250 @@
-import React, { useMemo, useState, useEffect, useRef, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './StudentCourseRequestPage.css';
-import BrandMark from '../../components/common/BrandMark/BrandMark';
-import {
-  FaCode,
-  FaProjectDiagram,
-  FaCalculator,
-  FaChartPie,
-  FaRobot,
-  FaAtom,
-  FaChartBar,
-  FaDollarSign,
-  FaFileAlt,
-  FaEllipsisH,
-  FaBullhorn,
-  FaCogs,
-  FaBalanceScale,
-  FaLaptopCode,
-  FaShieldAlt,
-  FaUniversity,
-  FaTasks,
-  FaUserTie,
-  FaDna,
-  FaFlask,
-  FaCubes,
-  FaPalette,
-  FaLanguage,
-  FaBrain,
-  FaBroadcastTower,
-} from 'react-icons/fa';
-import { RiAiGenerate } from 'react-icons/ri';
+.course-request-page {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: #1f1f1f;
+  background-color: #ffffff;
+  min-height: 100vh;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
 
-// 懒加载 dotlottie React 播放器
-
-const DotLottiePlayer = lazy(async () => {                                     // 懒加载定义
-  const mod = await import('@dotlottie/react-player');                         // 动态引入包
-  const Cmp =
-    // ① 常见：命名导出 Player
-    mod?.Player
-    // ② 有些版本：默认导出就是组件
-    || mod?.default
-    // ③ 少数版本：默认导出是对象，其中的 Player 才是组件
-    || mod?.default?.Player
-    // ④ 极少版本：导出名叫 DotLottiePlayer
-    || mod?.DotLottiePlayer;
-
-  if (!Cmp) {                                                                  // 若仍未命中
-    // 给出更明确的提示，方便你 ctrl+点击 node_modules 查看 package.json 的 "exports"
-    throw new Error('[dotlottie] no found（Tries Player/default/default.Player/DotLottiePlayer）');
-  }
-  return { default: Cmp };                                                     // 映射为 lazy 需要的 default
-});
-
-const STEPS = [
-  {
-    id: 'direction',
-    label: '第 1 步',
-    title: '明确你的学习方向',
-    description:
-      '在这一步，我们会帮助你快速对齐目标与期望，明确你需要学习的学科门类。',
-  },
-  {
-    id: 'details',
-    label: '第 2 步',
-    title: '补充课程细节',
-    description:
-      '告诉我们详细的课程类型，以及你期望达成的里程碑。',
-  },
-  {
-    id: 'schedule',
-    label: '第 3 步',
-    title: '告知时区与可授课时间',
-    description:
-      'MentorX 会根据你的时区和可授课时间，为你匹配最适合的导师。',
-  },
-  {
-    id: 'contact',
-    label: '第 4 步',
-    title: '留下联系方式',
-    description:
-      '我们的学习顾问将在 24 小时内联系你，确认课程安排细节。',
-  },
-];
-
-const DIRECTION_OPTIONS = [
-  { id: 'cs-foundation', label: '编程基础' },
-  { id: 'algo', label: '数据结构与算法' },
-  { id: 'ml', label: '机器学习' },
-  { id: 'ai-large-model', label: 'AI 大模型' },
-  { id: 'data-analysis', label: '数据分析' },
-  { id: 'advanced-math', label: '高等数学' },
-  { id: 'statistics', label: '概率与统计' },
-  { id: 'physics', label: '物理学' },
-  { id: 'life-science', label: '生命科学' },
-  { id: 'chemistry', label: '化学' },
-  { id: 'materials-science', label: '材料科学' },
-  { id: 'software-engineering', label: '软件工程' },
-  { id: 'cybersecurity', label: '网络安全' },
-  { id: 'finance', label: '金融学' },
-  { id: 'accounting', label: '会计学' },
-  { id: 'economics', label: '经济学' },
-  { id: 'marketing', label: '市场营销' },
-  { id: 'operations', label: '运营管理' },
-  { id: 'project-management', label: '项目管理' },
-  { id: 'psychology', label: '心理学' },
-  { id: 'design-creative', label: '设计 / 创意' },
-  { id: 'linguistics', label: '语言学' },
-  { id: 'communication-studies', label: '传播学' },
-  { id: 'law', label: '法律' },
-  { id: 'writing', label: '论文写作与润色' },
-  { id: 'career-coaching', label: '求职辅导' },
-  { id: 'others', label: '其它课程方向' },
-];
-
-// 方向图标映射
-const DIRECTION_ICONS = {
-  'cs-foundation': <FaCode />,
-  'algo': <FaProjectDiagram />,
-  'ml': <FaRobot />,
-  'ai-large-model': <RiAiGenerate />,
-  'data-analysis': <FaChartBar />,
-  'advanced-math': <FaCalculator />,
-  'statistics': <FaChartPie />,
-  'physics': <FaAtom />,
-  'life-science': <FaDna />,
-  'chemistry': <FaFlask />,
-  'materials-science': <FaCubes />,
-  'software-engineering': <FaLaptopCode />,
-  'cybersecurity': <FaShieldAlt />,
-  'finance': <FaDollarSign />,
-  'accounting': <FaCalculator />,
-  'economics': <FaUniversity />,
-  'marketing': <FaBullhorn />,
-  'operations': <FaCogs />,
-  'project-management': <FaTasks />,
-  'psychology': <FaBrain />,
-  'design-creative': <FaPalette />,
-  'linguistics': <FaLanguage />,
-  'communication-studies': <FaBroadcastTower />,
-  'law': <FaBalanceScale />,
-  'writing': <FaFileAlt />,
-  'career-coaching': <FaUserTie />,
-  'others': <FaEllipsisH />,
-};
+  --page-transition-duration: 400ms;
+}
 
 
-const TIMEZONE_NAME_OVERRIDES = {
-  'Asia/Shanghai': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4',
-  'Asia/Tokyo': '\u65e5\u672c\u6807\u51c6\u65f6\u95f4',
-  'Asia/Bangkok': '\u6cf0\u56fd\u65f6\u95f4',
-  'Asia/Dubai': '\u6d77\u6e7e\u6807\u51c6\u65f6\u95f4',
-  'Europe/London': '\u683c\u6797\u5c3c\u6c0f\u6807\u51c6\u65f6\u95f4',
-  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4',
-  'Europe/Moscow': '\u83ab\u65af\u79d1\u65f6\u95f4',
-  'America/Los_Angeles': '\u7f8e\u56fd\u592a\u5e73\u6d0b\u65f6\u95f4',
-  'America/Denver': '\u7f8e\u56fd\u5c71\u5730\u65f6\u95f4',
-  'America/Chicago': '\u7f8e\u56fd\u4e2d\u90e8\u65f6\u95f4',
-  'America/New_York': '\u7f8e\u56fd\u4e1c\u90e8\u65f6\u95f4',
-  'America/Sao_Paulo': '\u5df4\u897f\u5229\u4e9a\u65f6\u95f4',
-  'Pacific/Auckland': '\u65b0\u897f\u5170\u6807\u51c6\u65f6\u95f4',
-  'Australia/Brisbane': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u65f6\u95f4',
-  'America/Halifax': '\u52a0\u62ff\u5927\u5927\u897f\u6d0b\u65f6\u95f4',
-  'America/Anchorage': '\u7f8e\u56fd\u963f\u62c9\u65af\u52a0\u65f6\u95f4',
-  'Pacific/Honolulu': '\u590f\u5a01\u5937\u65f6\u95f4',
-  'Pacific/Pago_Pago': '\u8428\u6469\u4e9a\u65f6\u95f4',
-  'Atlantic/Azores': '\u4e9a\u901f\u5c14\u7fa4\u5c9b\u65f6\u95f4',
-  'Atlantic/South_Georgia': '\u5357\u4e54\u6cbb\u4e9a\u65f6\u95f4',
-  'Africa/Johannesburg': '\u5357\u975e\u65f6\u95f4',
-  'Asia/Karachi': '\u5df4\u57fa\u65af\u5766\u6807\u51c6\u65f6\u95f4',
-  'Asia/Dhaka': '\u5b5f\u52a0\u62c9\u56fd\u6807\u51c6\u65f6\u95f4',
-  'Pacific/Guadalcanal': '\u6240\u7f57\u95e8\u7fa4\u5c9b\u65f6\u95f4',
-};
+.request-flow {
+  padding: 24px 0 120px;
+}
 
-// 24 curated time zones: one representative per UTC hour offset (-11 to +12)
-const FALLBACK_TIMEZONES = [
-  'Pacific/Pago_Pago',       // UTC-11
-  'Pacific/Honolulu',        // UTC-10
-  'America/Anchorage',       // UTC-09
-  'America/Los_Angeles',     // UTC-08
-  'America/Denver',          // UTC-07
-  'America/Chicago',         // UTC-06
-  'America/New_York',        // UTC-05
-  'America/Halifax',         // UTC-04
-  'America/Sao_Paulo',       // UTC-03
-  'Atlantic/South_Georgia',  // UTC-02
-  'Atlantic/Azores',         // UTC-01
-  'Europe/London',           // UTC±00
-  'Europe/Berlin',           // UTC+01
-  'Africa/Johannesburg',     // UTC+02 (no DST)
-  'Europe/Moscow',           // UTC+03
-  'Asia/Dubai',              // UTC+04
-  'Asia/Karachi',            // UTC+05
-  'Asia/Dhaka',              // UTC+06
-  'Asia/Bangkok',            // UTC+07
-  'Asia/Shanghai',           // UTC+08
-  'Asia/Tokyo',              // UTC+09
-  'Australia/Brisbane',      // UTC+10 (no DST)
-  'Pacific/Guadalcanal',     // UTC+11
-  'Pacific/Auckland',        // UTC+12
-];
+.request-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
 
-const extractCityName = (timeZone) => {
-  if (!timeZone) {
-    return '';
-  }
-  const segments = timeZone.split('/');
-  if (segments.length <= 1) {
-    return timeZone.replace(/_/g, ' ');
-  }
-  return segments.slice(1).join(' / ').replace(/_/g, ' ');
-};
+.step-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 48px;
+}
 
-const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-    const parts = formatter.formatToParts(referenceDate).reduce((accumulator, part) => {
-      if (part.type !== 'literal') {
-        accumulator[part.type] = part.value;
-      }
-      return accumulator;
-    }, {});
-    const isoString = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
-    const tzAsUTC = new Date(isoString);
-    const offsetMinutes = Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
-    return offsetMinutes;
-  } catch (error) {
-    return 0;
-  }
-};
+.request-shell .brand-mark {
+  margin-right: 24px;
+}
 
-const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
-  try {
-    const offsetMinutes = getTimeZoneOffsetMinutes(timeZone, referenceDate);
-    const sign = offsetMinutes >= 0 ? '+' : '-';
-    const absMinutes = Math.abs(offsetMinutes);
-    const hours = String(Math.floor(absMinutes / 60)).padStart(2, '0');
-    const minutes = String(absMinutes % 60).padStart(2, '0');
-    return `(UTC${sign}${hours}:${minutes})`;
-  } catch (error) {
-    return '(UTC+00:00)';
-  }
-};
 
-const buildTimeZoneLabel = (timeZone, referenceDate) => {
-  const offset = formatTimeZoneOffset(timeZone, referenceDate);
-  const cityName = extractCityName(timeZone);
-  const overrideName = TIMEZONE_NAME_OVERRIDES[timeZone];
-  const baseName = overrideName || cityName || timeZone;
-  // Append English city name when available to keep clarity
-  const suffix = overrideName && cityName && overrideName !== cityName ? ` - ${cityName}` : '';
-  return `${offset} ${baseName}${suffix}`;
-};
+.step-header-actions {
+  display: flex;
+  gap: 16px;
+}
 
-const getDefaultTimeZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
-  } catch (error) {
-    return 'Asia/Shanghai';
-  }
-};
+.step-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+  gap: 48px;
+  align-items: center;
+  margin-bottom: 32px;
+  min-height: calc(100vh - 300px);
+  align-content: center;
+}
+.step-layout.page-transition-exit,
+.step-footer.page-transition-exit,
+.completion-content.page-transition-exit {
+  animation: stepFadeOut var(--page-transition-duration) ease forwards;
+}
 
-const buildTimeZoneOptions = (referenceDate = new Date()) => {
-  // Only show curated 24 time zones to keep the list clean and simple
-  return FALLBACK_TIMEZONES.map((timeZone) => ({
-    value: timeZone,
-    label: buildTimeZoneLabel(timeZone, referenceDate),
-  }));
-};
+.step-layout.page-transition-enter,
+.step-footer.page-transition-enter,
+.completion-content.page-transition-enter {
+  animation: stepSlideIn var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
-// Order options so that:
-// - time zones later than the selected are listed first (above),
-// - selected time zone in the middle,
-// - earlier time zones listed after (below).
-const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date()) => {
-  if (!selectedValue) return options;
-  const decorated = options.map((o) => ({
-    ...o,
-    _offset: getTimeZoneOffsetMinutes(o.value, referenceDate),
-  }));
-  const selectedOffset = getTimeZoneOffsetMinutes(selectedValue, referenceDate);
+.step-layout.page-transition-enter .step-intro,
+.step-layout.page-transition-enter .step-fields,
+.step-layout.page-transition-enter .step-illustration,
+.step-layout.page-transition-enter .direction-select {
+  animation: stepSlideIn var(--page-transition-duration) cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
-  const later = decorated.filter((o) => o._offset > selectedOffset).sort((a, b) => b._offset - a._offset);
-  const earlier = decorated.filter((o) => o._offset < selectedOffset).sort((a, b) => b._offset - a._offset);
 
-  const selectedInList = decorated.find((o) => o.value === selectedValue);
-  const selectedOption =
-    selectedInList || {
-      value: selectedValue,
-      label: buildTimeZoneLabel(selectedValue, referenceDate),
-      _offset: selectedOffset,
+.step-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  max-width: 600px;
+  margin-right: auto;
+}
+
+/* Keep same width for schedule step */
+.step-content.schedule-content { max-width: 600px; }
+
+
+.step-content .step-label {
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+
+.step-content .step-intro {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.step-content.direction-layout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+  padding: 96px 0;
+}
+
+.step-content.direction-layout .step-intro {
+  gap: 24px;
+}
+
+.step-content.direction-layout .step-label {
+  margin-bottom: 0;
+  font-weight: 700;
+}
+
+.step-content.direction-selection {
+  max-width: 840px;
+  align-items: center;
+  text-align: center;
+  margin: 0 auto;
+  gap: 24px;
+  padding: 0px 0;
+}
+
+.step-content.direction-selection .step-intro {
+  align-items: center;
+}
+
+.step-content.direction-selection .step-label {
+  margin-bottom: 12px;
+}
+
+.step-content.direction-selection .step-description {
+  max-width: 640px;
+}
+.step-description.direction-question {
+  font-size: 32px;
+  line-height: 1.8;
+  font-weight: 500;
+}
+
+.step-content.direction-layout .step-description.direction-question {
+  font-size: 32px;
+}
+
+.step-layout.direction-selection-layout {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+
+.step-label {
+  font-weight: 700;
+}
+
+.step-content.direction-layout h1 {
+  font-size: 44px;
+  line-height: 1.15;
+  margin-bottom: 0;
+}
+
+.step-content.direction-layout .step-description {
+  margin-bottom: 0;
+  font-size: 18px;
+  line-height: 1.8;
+  color: #1f2937;
+}
+
+.step-content h1 {
+  font-size: 40px;
+  margin-bottom: 16px;
+  letter-spacing: -0.5px;
+}
+
+.step-description {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #4b5563;
+  margin-bottom: 32px;
+}
+
+.step-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.direction-select {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.direction-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  width: 100%;
+  max-width: 640px;
+}
+
+.direction-card {
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  padding: 20px 24px;
+  background: #ffffff;
+  display: flex;
+  --card-index: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  min-height: 100px;
+}
+
+.direction-card:hover {
+  border-color: #111827;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
+  transform: translateY(-2px);
+}
+
+.step-layout.page-transition-enter .direction-card {
+  animation: cardCascadeIn 0.42s ease forwards;
+  animation-delay: calc(var(--card-index, 0) * 70ms + 90ms);
+  opacity: 0;
+  transform-origin: top left;
+}
+
+.direction-card.active {
+  border-color: #111827;
+  border: 2.5px solid;
+}
+
+.direction-card__title {
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.direction-card__icon {
+  font-size: 28px;
+  line-height: 1;
+  color: #111827;
+}
+
+.direction-error {
+  margin-top: 16px;
+  font-size: 13px;

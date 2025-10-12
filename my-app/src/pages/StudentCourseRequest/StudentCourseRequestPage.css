@@ -509,6 +509,9 @@
 .date-cell.past .date-number { color: #9ca3af; }
 .date-cell.selected .date-number { color: #ffffff; }
 .date-cell.range-preview .date-number { color: #111827; }
+/* Ensure selected/multi-selected remains white even if preview class is present */
+.date-cell.selected.range-preview .date-number,
+.date-cell.multi-selected.range-preview .date-number { color: #ffffff; }
 
 /* 日历右上角“当天有选择”的小标记点 */
 .date-marker {
