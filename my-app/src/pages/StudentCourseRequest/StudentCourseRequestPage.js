@@ -35,6 +35,8 @@ import {
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
+const EMPTY_BLOCKS = [];
+
 export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   value,                 // 当前小时数
   onChange,              // (next:number) => void
@@ -144,7 +146,10 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   // 支持多段选择：受控/非受控两种模式
   const isControlledBlocks = Array.isArray(blocks) && typeof onBlocksChange === 'function';
   const [uncontrolledBlocks, setUncontrolledBlocks] = useState([]); // [{start,end}]
-  const selectedBlocks = isControlledBlocks ? (blocks || []) : uncontrolledBlocks;
+  const selectedBlocks = useMemo(
+    () => (isControlledBlocks ? (blocks ?? EMPTY_BLOCKS) : uncontrolledBlocks),
+    [isControlledBlocks, blocks, uncontrolledBlocks]
+  );
 
   const applyBlocks = useCallback((next) => {
     if (isControlledBlocks) {
@@ -263,7 +268,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
         }
       }
     }
-  }, [applyBlocks, getDayBlocks, mergeBlocks, neighborKey, selectedBlocks, slotsPerSession, timeSlots.length]);
+  }, [applyBlocks, getDayBlocks, setDayBlocks, mergeBlocks, neighborKey, selectedBlocks, slotsPerSession, timeSlots]);
 
   const selectedIndexSet = useMemo(() => {
     const set = new Set();
