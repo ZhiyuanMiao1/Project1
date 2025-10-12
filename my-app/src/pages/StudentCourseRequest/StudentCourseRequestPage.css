@@ -47,9 +47,12 @@
   align-content: center;
 }
 /* Hide animation on contact step and prepare right space for the preview */
-.step-layout.contact-preview-layout { align-items: flex-start; }
+.step-layout.contact-preview-layout { align-items: center; }
 .step-layout.contact-preview-layout .step-illustration { display: none; }
-.step-layout.contact-preview-layout .step-content { padding-top: 8px; }
+.step-layout.contact-preview-layout .step-content { 
+  padding-top: 0; 
+  margin-top: -6px;
+}
 
 /* Floating preview in contact step */
 .contact-preview-floating { width: min(420px, 90%); margin: 0 auto; }
