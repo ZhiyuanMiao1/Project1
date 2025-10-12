@@ -51,12 +51,21 @@
 .step-layout.contact-preview-layout .step-illustration { display: none; }
 .step-layout.contact-preview-layout .step-content { 
   padding-top: 0; 
-  margin-top: -150px;
+  margin-top: -270px;
 }
 
+
 /* Floating preview in contact step */
-.contact-preview-floating { width: min(420px, 90%); margin: 0 auto; }
-.step-layout .contact-preview-floating { grid-column: 2; align-self: start; justify-self: center; }
+.contact-preview-floating { 
+  width: min(420px, 90%); 
+  margin: 0 auto; 
+}
+
+.step-layout .contact-preview-floating { 
+  grid-column: 2; 
+  align-self: center; 
+  justify-self: center; 
+}
 .request-shell > .contact-preview-floating { display: none; }
 
 /* Card styles */
@@ -557,7 +566,7 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: #111827; /* 默认黑点 */
+  background: #e531c7;
   pointer-events: none;
 }
 .date-cell.selected .date-marker { background: #ffffff; } /* 选中天为白点 */
