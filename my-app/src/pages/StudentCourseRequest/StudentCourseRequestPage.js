@@ -643,6 +643,7 @@ const INITIAL_FORM_STATE = {
   learningGoal: '国际课程 / 升学',
   courseDirection: '',
   courseType: '',
+  courseTypes: [],
   courseFocus: '',
   format: '线上授课',
   milestone: '',
@@ -1000,13 +1001,7 @@ function StudentCourseRequestPage() {
         // 第二次：进入“课程类型”选择界面
         if (!isCourseTypeSelection) {
           setIsCourseTypeSelection(true);
-          if (!formData.courseType && COURSE_TYPE_OPTIONS.length > 0) {
-            const firstType = COURSE_TYPE_OPTIONS[0];
-            setFormData(prev => ({
-              ...prev,
-              courseType: firstType.id,
-            }));
-          }
+          // 多选模式：不再默认选中任意类型
           return; // 仍停留在 direction 步骤
         }
       // 两个子阶段都完成后才进入下一个大步骤
@@ -1201,7 +1196,8 @@ function StudentCourseRequestPage() {
             <div className="direction-select">
               <div className="direction-grid two-col-grid" role="list">
                 {COURSE_TYPE_OPTIONS.map((option, index) => {
-                  const isActive = formData.courseType === option.id;
+                  const selectedList = Array.isArray(formData.courseTypes) ? formData.courseTypes : [];
+                  const isActive = selectedList.includes(option.id);
                   return (
                     <button
                       key={option.id}
@@ -1210,10 +1206,17 @@ function StudentCourseRequestPage() {
                       className={`direction-card ${isActive ? 'active' : ''}`}
                       style={{ '--card-index': index }}
                       onClick={() => {
-                        setFormData((previous) => ({
-                          ...previous,
-                          courseType: option.id,
-                        }));
+                        setFormData((previous) => {
+                          const list = Array.isArray(previous.courseTypes) ? previous.courseTypes : [];
+                          const exists = list.includes(option.id);
+                          const nextList = exists ? list.filter(id => id !== option.id) : [...list, option.id];
+                          return {
+                            ...previous,
+                            courseTypes: nextList,
+                            // 同步一个代表值以便兼容旧字段
+                            courseType: nextList[0] || '',
+                          };
+                        });
                       }}
                     >
                       <span className="direction-card__icon" aria-hidden="true">
