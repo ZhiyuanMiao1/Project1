@@ -603,7 +603,8 @@
   background: #e531c7;
   pointer-events: none;
 }
-.date-cell.selected .date-marker { background: #ffffff; } /* 选中天为白点 */
+.date-cell.selected .date-marker, /* 单日选中为白点 */
+.date-cell.multi-selected .date-marker { background: #ffffff; } /* 多日选中同样为白点 */
 
 .schedule-right-panel {
   align-self: stretch;
