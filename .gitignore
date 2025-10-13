@@ -30,3 +30,5 @@ my-app/public/favicon.ico
 
 # 忽略项目文档 Word 文件
 *.docx
+
+.DS_Store
