@@ -320,7 +320,7 @@
 .field-label {
   font-weight: 600;
   font-size: 18px;
-  color: #1f2937;
+  color: #000000;
 }
 
 /*.step-field-stack textarea + .field-label[for="milestone"] { margin-top: 24px; }*/
