@@ -380,9 +380,10 @@
   background: #f4f6f8;
 }
 .upload-icon { font-size: 44px; color: #111827; margin-bottom: 16px; }
-.upload-title { font-size: 24px; font-weight: 700; color: #111827; margin-bottom: 6px; }
-.upload-subtext { font-size: 14px; color: #6b7280; margin-bottom: 16px; }
+.upload-title { font-size: 24px; font-weight: 500; color: #111827; margin-bottom: 6px; }
+.upload-subtext { font-size: 14px; color: #212224; margin-bottom: 16px; }
 .upload-btn { margin-top: 2px; }
+
 
 .file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .file-item {
@@ -871,6 +872,10 @@
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.upload-btn.primary-button {
+  border-radius: 16px; /* 按你想要的半径调整 */
 }
 
 .course-request-page .primary-button:hover {
