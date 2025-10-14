@@ -1444,7 +1444,6 @@ function StudentCourseRequestPage() {
               onDrop={handleDrop}
               role="button"
               tabIndex={0}
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
             >
               <p className="upload-hint">拖拽文件到此处，或点击选择文件</p>
               <p className="upload-subhint">支持 PDF、PPT/PPTX、DOC/DOCX、PNG、JPG、ZIP 等格式</p>
