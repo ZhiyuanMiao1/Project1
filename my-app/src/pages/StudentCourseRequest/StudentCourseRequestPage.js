@@ -35,6 +35,7 @@ import {
   FaLightbulb,
   FaGraduationCap,
   FaTrash,
+  FaImages,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -1446,10 +1447,11 @@ function StudentCourseRequestPage() {
               role="button"
               tabIndex={0}
             >
-              <p className="upload-hint">拖拽文件到此处，或点击选择文件</p>
-              <p className="upload-subhint">支持 PDF、PPT/PPTX、DOC/DOCX、PNG、JPG、ZIP 等格式</p>
-              <button type="button" className="ghost-button" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
-                选择文件
+              <div className="upload-icon" aria-hidden="true"><FaImages /></div>
+              <div className="upload-title">拖放</div>
+              <div className="upload-subtext">或上传课件</div>
+              <button type="button" className="primary-button upload-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
+                上传
               </button>
               <input
                 ref={fileInputRef}
