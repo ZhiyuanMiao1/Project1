@@ -1435,7 +1435,7 @@ function StudentCourseRequestPage() {
       case 'upload':
         return (
           <div className="step-field-stack">
-            <label className="field-label">上传课件</label>
+            
             <div
               className={`upload-area ${isDraggingFiles ? 'dragover' : ''}`}
               onDragOver={handleDragOver}
