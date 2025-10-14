@@ -37,7 +37,7 @@ import {
   FaTrash,
   FaImages,
 } from 'react-icons/fa';
-import { RiAiGenerate } from 'react-icons/ri';
+import { RiAiGenerate, RiDeleteBin6Line } from 'react-icons/ri';
 
 const EMPTY_BLOCKS = [];
 
@@ -1478,7 +1478,7 @@ function StudentCourseRequestPage() {
                       title="移除文件"
                       onClick={() => handleRemoveAttachment(idx)}
                     >
-                      <FaTrash />
+                      <RiDeleteBin6Line />
                     </button>
                   </div>
                 ))}

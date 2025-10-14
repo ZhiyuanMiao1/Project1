@@ -404,7 +404,7 @@
   height: 28px;
   background: transparent;
   border: none;
-  color: #6b7280; /* slate-500 */
+  color: #000000; /* slate-500 */
   font-size: 18px; /* icon size */
   cursor: pointer;
   transition: color 0.2s ease, transform 0.15s ease;
