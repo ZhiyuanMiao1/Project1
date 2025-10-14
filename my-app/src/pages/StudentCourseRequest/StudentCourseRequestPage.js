@@ -1574,7 +1574,7 @@ function StudentCourseRequestPage() {
     <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
   )}
   {!!(formData.milestone && formData.milestone.trim()) && (
-    <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>目标：{formData.milestone.trim()}</span></div>
+    <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>学习目标：{formData.milestone.trim()}</span></div>
   )}
   {earliestSelectedDay && (
     <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
