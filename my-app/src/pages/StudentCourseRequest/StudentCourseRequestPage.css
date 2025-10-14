@@ -364,6 +364,34 @@
   min-height: 120px;
 }
 
+/* --- Upload Area --- */
+.upload-area {
+  border: 2px dashed #d1d5db;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  color: #374151;
+  background: #fafafa;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+}
+.upload-area.dragover {
+  border-color: #111827;
+  background: #f4f6f8;
+}
+.upload-hint { font-size: 15px; margin: 0 0 6px; }
+.upload-subhint { font-size: 12px; color: #6b7280; margin: 0 0 14px; }
+
+.file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.file-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
+}
+.file-item .meta { display: flex; gap: 10px; align-items: baseline; }
+.file-item .name { font-weight: 600; }
+.file-item .size { color: #6b7280; font-size: 12px; }
+.file-actions { display: flex; justify-content: flex-end; }
+
 /* Simple inline number input with a trailing unit */
 .hours-input { display: inline-flex; align-items: center; gap: 8px; }
 .hours-input input { width: 100px; }

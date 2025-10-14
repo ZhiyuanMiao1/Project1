@@ -393,7 +393,7 @@ const STEPS = [
       'MentorX 会根据你的时区和可授课时间，为你匹配最适合的导师。',
   },
   {
-    id: 'contact',
+    id: 'upload',
     label: '第 4 步',
     title: '很好！这是最后一步',
     description:
@@ -654,6 +654,7 @@ const INITIAL_FORM_STATE = {
   contactName: '',
   contactMethod: '微信',
   contactValue: '',
+  attachments: [],
 };
 
 const PAGE_TRANSITION_DURATION = 400;
@@ -719,6 +720,10 @@ function StudentCourseRequestPage() {
   const [isDraggingRange, setIsDraggingRange] = useState(false);
   const [dragPreviewKeys, setDragPreviewKeys] = useState(new Set());
   const didDragRef = useRef(false);
+
+  // Upload step states
+  const fileInputRef = useRef(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   const buildKey = useCallback((d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,[/*no deps*/]);
   const keyToDateStrict = useCallback((key) => {
@@ -961,7 +966,7 @@ function StudentCourseRequestPage() {
   
   const isDirectionStep = currentStep.id === 'direction';  const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
-  const isContactStep = currentStep.id === 'contact';
+  const isUploadStep = currentStep.id === 'upload';
   
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
   
@@ -981,6 +986,55 @@ function StudentCourseRequestPage() {
       ...previous,
       [field]: event.target.value,
     }));
+  };
+
+  // ----- Upload handlers -----
+  const handleAddFiles = (filesLike) => {
+    const list = Array.from(filesLike || []);
+    if (!list.length) return;
+    setFormData((prev) => ({
+      ...prev,
+      attachments: [...(prev.attachments || []), ...list],
+    }));
+  };
+
+  const handleFileInputChange = (e) => {
+    handleAddFiles(e.target.files);
+    // reset input so selecting the same file again still triggers change
+    if (e.target) e.target.value = '';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(true);
+  };
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+    if (e.dataTransfer && e.dataTransfer.files) {
+      handleAddFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleRemoveAttachment = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((_, i) => i !== index),
+    }));
+  };
+  const handleClearAttachments = () => {
+    setFormData((prev) => ({ ...prev, attachments: [] }));
   };
 
   const handleNext = () => {
@@ -1051,7 +1105,7 @@ function StudentCourseRequestPage() {
   const stepLayoutClassName = [
     'step-layout',
     isDirectionSelectionStage ? 'direction-selection-layout' : '',
-    isContactStep ? 'contact-preview-layout' : '',
+    isUploadStep ? 'contact-preview-layout' : '',
     transitionClassName,
   ]
     .filter(Boolean)
@@ -1378,40 +1432,57 @@ function StudentCourseRequestPage() {
           </div>
         );
       }
-      case 'contact':
+      case 'upload':
         return (
           <div className="step-field-stack">
-            <div className="inline-fields">
-              <div className="inline-field">
-                <label className="field-label" htmlFor="contactName">称呼</label>
-                <input
-                  id="contactName"
-                  type="text"
-                  placeholder="填写你的姓名或昵称"
-                  value={formData.contactName}
-                  onChange={handleChange('contactName')}
-                />
-              </div>
-              <div className="inline-field">
-                <label className="field-label" htmlFor="contactMethod">联系偏好</label>
-                <select id="contactMethod" value={formData.contactMethod} onChange={handleChange('contactMethod')}>
-                  <option value="微信">微信</option>
-                  <option value="邮箱">邮箱</option>
-                  <option value="手机号">手机号</option>
-                </select>
-              </div>
+            <label className="field-label">上传课件</label>
+            <div
+              className={`upload-area ${isDraggingFiles ? 'dragover' : ''}`}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              role="button"
+              tabIndex={0}
+              onClick={() => fileInputRef.current && fileInputRef.current.click()}
+            >
+              <p className="upload-hint">拖拽文件到此处，或点击选择文件</p>
+              <p className="upload-subhint">支持 PDF、PPT/PPTX、DOC/DOCX、PNG、JPG、ZIP 等格式</p>
+              <button type="button" className="ghost-button" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
+                选择文件
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                style={{ display: 'none' }}
+                onChange={handleFileInputChange}
+              />
             </div>
 
-            <label className="field-label" htmlFor="contactValue">联系方式</label>
-            <input
-              id="contactValue"
-              type="text"
-              placeholder="请输入你的微信号、邮箱或手机号"
-              value={formData.contactValue}
-              onChange={handleChange('contactValue')}
-            />
-
-            <p className="helper-text">信息仅用于 MentorX 学习顾问联系你，不会对外公开。</p>
+            {(formData.attachments && formData.attachments.length > 0) && (
+              <div className="file-list">
+                {formData.attachments.map((f, idx) => (
+                  <div key={idx} className="file-item">
+                    <div className="meta">
+                      <span className="name">{f.name}</span>
+                      <span className="size">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={() => handleRemoveAttachment(idx)}
+                    >
+                      移除
+                    </button>
+                  </div>
+                ))}
+                <div className="file-actions">
+                  <button type="button" className="ghost-button" onClick={handleClearAttachments}>清空所有</button>
+                </div>
+              </div>
+            )}
           </div>
         );
       default:
@@ -1465,7 +1536,7 @@ function StudentCourseRequestPage() {
           </header>
 
           <section className={stepLayoutClassName}>
-            {isContactStep && !isDirectionSelectionStage && (
+            {isUploadStep && !isDirectionSelectionStage && (
               <div className="contact-preview-floating" aria-label="导师页卡片预览">
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
@@ -1656,7 +1727,7 @@ function StudentCourseRequestPage() {
             )}
           </section>
 
-          {isContactStep && !isDirectionSelectionStage && (
+          {isUploadStep && !isDirectionSelectionStage && (
             <div className="contact-preview-floating" aria-label="导师页卡片预览">
               <div className="student-preview-card">
                 <div className="card-fav"><FaHeart /></div>
