@@ -392,6 +392,24 @@
 .file-item .size { color: #6b7280; font-size: 12px; }
 .file-actions { display: flex; justify-content: flex-end; }
 
+/* Icon-only button for remove */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.icon-button:hover { color: #111827; border-color: #111827; box-shadow: 0 6px 12px rgba(0,0,0,0.08); }
+.icon-button:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,0.08); }
+.file-item .icon-button.remove { margin-left: 12px; }
+
 /* Simple inline number input with a trailing unit */
 .hours-input { display: inline-flex; align-items: center; gap: 8px; }
 .hours-input input { width: 100px; }

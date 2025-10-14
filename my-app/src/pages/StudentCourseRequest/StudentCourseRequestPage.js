@@ -34,6 +34,7 @@ import {
   FaHeart,
   FaLightbulb,
   FaGraduationCap,
+  FaTrash,
 } from 'react-icons/fa';
 import { RiAiGenerate } from 'react-icons/ri';
 
@@ -1470,10 +1471,12 @@ function StudentCourseRequestPage() {
                     </div>
                     <button
                       type="button"
-                      className="ghost-button"
+                      className="icon-button remove"
+                      aria-label="移除文件"
+                      title="移除文件"
                       onClick={() => handleRemoveAttachment(idx)}
                     >
-                      移除
+                      <FaTrash />
                     </button>
                   </div>
                 ))}
