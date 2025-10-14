@@ -43,7 +43,7 @@
   gap: 48px;
   align-items: start;
   margin-bottom: 32px;
-  min-height: calc(100vh - 300px);
+  min-height: auto;
   align-content: start;
 }
 /* Hide animation on contact step and prepare right space for the preview */
@@ -52,6 +52,7 @@
 .step-layout.contact-preview-layout .step-content { 
   padding-top: 0; 
   margin-top: -270px;
+  min-height: clamp(480px, 58vh, 640px);
 }
 
 
@@ -119,6 +120,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  align-self: start;
   width: 100%;
   max-width: 600px;
   margin-right: auto;
@@ -153,6 +155,10 @@
   justify-content: center;
   gap: 40px;
   padding: 96px 0;
+}
+
+.step-content.direction-layout:not(.direction-selection) {
+  align-self: center;      /* 让左侧整块在网格行中垂直居中 */
 }
 
 .step-content.direction-layout .step-intro {
@@ -545,6 +551,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  align-self: center;      /* 右侧插画在网格行中垂直居中 */
 }
 
 /* ---- Schedule Layout (Calendar + Times) ---- */
@@ -790,7 +797,7 @@
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {
-  align-self: start;
+  align-self: center;
   width: 100%;
   max-width: 600px;
   margin-left: auto;
@@ -1153,3 +1160,4 @@
     grid-template-columns: 1fr; /* stack on small screens */
   }
 }
+
