@@ -125,7 +125,11 @@
 }
 
 /* Keep same width for schedule step */
-.step-content.schedule-content { max-width: 600px; }
+.step-content.schedule-content { 
+  max-width: 600px; 
+  align-self: center;
+  justify-self: start; /* 明确保持靠左 */
+}
 
 
 .step-content .step-label {
