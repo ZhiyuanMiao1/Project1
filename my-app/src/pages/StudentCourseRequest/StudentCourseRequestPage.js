@@ -1564,22 +1564,22 @@ function StudentCourseRequestPage() {
                     </div>
                   </div>
                   <div className="card-list" role="list">
-  <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
-  <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
-  {!!previewCourseTypeLabel && (
-    <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
-  )}
-  <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
-  {!!(formData.courseFocus && formData.courseFocus.trim()) && (
-    <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
-  )}
-  {!!(formData.milestone && formData.milestone.trim()) && (
-    <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>学习目标：{formData.milestone.trim()}</span></div>
-  )}
-  {earliestSelectedDay && (
-    <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
-  )}
-</div>
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}                  （{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    {!!previewCourseTypeLabel && (
+                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+                    )}
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：                  {Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                    {!!(formData.courseFocus && formData.courseFocus.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+                    )}
+                    {!!(formData.milestone && formData.milestone.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>目标：{formData.milestone.trim()}</span></div>
+                    )}
+                    {earliestSelectedDay && (
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
