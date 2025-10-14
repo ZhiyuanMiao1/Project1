@@ -34,7 +34,6 @@ import {
   FaHeart,
   FaLightbulb,
   FaGraduationCap,
-  FaTrash,
   FaImages,
 } from 'react-icons/fa';
 import { RiAiGenerate, RiDeleteBin6Line } from 'react-icons/ri';
@@ -1136,6 +1135,16 @@ function StudentCourseRequestPage() {
     const found = DIRECTION_OPTIONS.find((o) => o.id === formData.courseDirection);
     return found?.label || formData.learningGoal || '未选择方向';
   }, [formData.courseDirection, formData.learningGoal]);
+  // Selected course type(s) label for preview
+  const previewCourseTypeLabel = useMemo(() => {
+    const ids = Array.isArray(formData.courseTypes)
+      ? formData.courseTypes
+      : (formData.courseType ? [formData.courseType] : []);
+    const labels = ids
+      .map((id) => COURSE_TYPE_OPTIONS.find((o) => o.id === id)?.label)
+      .filter(Boolean);
+    return labels.join('、');
+  }, [formData.courseTypes, formData.courseType]);
   const earliestSelectedDay = useMemo(() => {
     const keys = Object.keys(daySelections || {}).filter((k) => (daySelections[k] || []).length > 0);
     if (!keys.length) return null;
@@ -1555,16 +1564,22 @@ function StudentCourseRequestPage() {
                     </div>
                   </div>
                   <div className="card-list" role="list">
-                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
-                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
-                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>期望时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
-                    {earliestSelectedDay && (
-                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
-                    )}
-                    {!!(formData.courseFocus || formData.milestone) && (
-                      <div className="item" role="listitem"><span className="icon"><FaFileAlt /></span><span>Assignment | {(formData.courseFocus || formData.milestone).slice(0, 42)}{(formData.courseFocus || formData.milestone).length > 42 ? '…' : ''}</span></div>
-                    )}
-                  </div>
+  <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+  <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+  {!!previewCourseTypeLabel && (
+    <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+  )}
+  <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+  {!!(formData.courseFocus && formData.courseFocus.trim()) && (
+    <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+  )}
+  {!!(formData.milestone && formData.milestone.trim()) && (
+    <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>目标：{formData.milestone.trim()}</span></div>
+  )}
+  {earliestSelectedDay && (
+    <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
+  )}
+</div>
                 </div>
               </div>
             )}
@@ -1731,58 +1746,66 @@ function StudentCourseRequestPage() {
             )}
           </section>
 
-          {isUploadStep && !isDirectionSelectionStage && (
-            <div className="contact-preview-floating" aria-label="导师页卡片预览">
-              <div className="student-preview-card">
-                <div className="card-fav"><FaHeart /></div>
-                <div className="card-header">
-                  <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
-                  <div className="header-texts">
-                    <div className="name">{previewName}</div>
-                    <div className="chips">
-                      <span className="chip green">{previewLevel}</span>
-                      <span className="chip gray">{previewSchool}</span>
+          <>
+            {isUploadStep && !isDirectionSelectionStage && (
+              <div className="contact-preview-floating" aria-label="导师页卡片预览">
+                <div className="student-preview-card">
+                  <div className="card-fav"><FaHeart /></div>
+                  <div className="card-header">
+                    <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                    <div className="header-texts">
+                      <div className="name">{previewName}</div>
+                      <div className="chips">
+                        <span className="chip green">{previewLevel}</span>
+                        <span className="chip gray">{previewSchool}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="card-list" role="list">
-                  <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
-                  <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
-                  <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>期望时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
-                  {earliestSelectedDay && (
-                    <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
-                  )}
-                  {!!(formData.courseFocus || formData.milestone) && (
-                    <div className="item" role="listitem"><span className="icon"><FaFileAlt /></span><span>Assignment | {(formData.courseFocus || formData.milestone).slice(0, 42)}{(formData.courseFocus || formData.milestone).length > 42 ? '…' : ''}</span></div>
-                  )}
+                  <div className="card-list" role="list">
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    {!!previewCourseTypeLabel && (
+                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+                    )}
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                    {!!(formData.courseFocus && formData.courseFocus.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+                    )}
+                    {!!(formData.milestone && formData.milestone.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>目标：{formData.milestone.trim()}</span></div>
+                    )}
+                    {earliestSelectedDay && (
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>最近期望上课：{earliestSelectedDay}</span></div>
+                    )}
+                  </div>                
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <footer className={stepFooterClassName}>
-            <div className="step-footer-shell">
-              <div className="step-progress">
-                <div className="progress-track">
-                  <div className="progress-bar" style={{ width: `${progress}%` }} />
+            <footer className={stepFooterClassName}>
+              <div className="step-footer-shell">
+                <div className="step-progress">
+                  <div className="progress-track">
+                    <div className="progress-bar" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+  
+                <div className="step-actions">
+                  <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle'}>
+                    返回
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleNext}
+                    disabled={transitionStage !== 'idle'}
+                  >
+                    {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
+                  </button>
                 </div>
               </div>
-
-              <div className="step-actions">
-                <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle'}>
-                  返回
-                </button>
-                <button
-                  type="button"
-                  className="primary-button"
-                  onClick={handleNext}
-                  disabled={transitionStage !== 'idle'}
-                >
-                  {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
-                </button>
-              </div>
-            </div>
-          </footer>
+            </footer>
+          </>
         </div>
       </main>
     </div>
