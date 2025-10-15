@@ -95,7 +95,10 @@ function CategoryFilters() {
           <div
             key={idx}
             className={`category-item ${selectedCategory === idx ? 'selected' : ''}`}
-            onClick={() => setSelectedCategory(idx)}
+            onClick={() => {
+              // Toggle selection: click again to deselect
+              setSelectedCategory((prev) => (prev === idx ? null : idx));
+            }}
           >
             <div className="category-icon">{cat.icon}</div>
             <div className="category-text">{cat.name}</div>
