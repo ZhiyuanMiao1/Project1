@@ -3,7 +3,7 @@ import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹�
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
 
-const TeacherAuthModal = ({ onClose, anchorRef }) => {
+const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -18,7 +18,9 @@ const TeacherAuthModal = ({ onClose, anchorRef }) => {
       const modalWidth = contentRef.current?.offsetWidth || 200;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
       const minGap = 8;
-      let left = rect.left;
+      const alignEl = leftAlignRef?.current;
+      const baseLeft = alignEl ? alignEl.getBoundingClientRect().left : rect.left;
+      let left = baseLeft;
       const maxLeft = viewportWidth - modalWidth - minGap;
       if (left > maxLeft) left = Math.max(minGap, maxLeft);
       if (left < minGap) left = minGap;
@@ -32,7 +34,7 @@ const TeacherAuthModal = ({ onClose, anchorRef }) => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, leftAlignRef]);
 
   const handleAuthAction = (action) => {
     if (action === '注册') {

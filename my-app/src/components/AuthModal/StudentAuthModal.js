@@ -4,7 +4,7 @@ import RegisterPopup from '../RegisterPopup/RegisterPopup';
 import LoginPopup from '../LoginPopup/LoginPopup';
 import './AuthModal.css';
 
-const StudentAuthModal = ({ onClose, anchorRef }) => {
+const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -19,7 +19,10 @@ const StudentAuthModal = ({ onClose, anchorRef }) => {
       const modalWidth = contentRef.current?.offsetWidth || 200;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
       const minGap = 8;
-      let left = rect.left;
+      // 若提供了 leftAlignRef，则以其左边为准
+      const alignEl = leftAlignRef?.current;
+      const baseLeft = alignEl ? alignEl.getBoundingClientRect().left : rect.left;
+      let left = baseLeft;
       const maxLeft = viewportWidth - modalWidth - minGap;
       if (left > maxLeft) left = Math.max(minGap, maxLeft);
       if (left < minGap) left = minGap;
@@ -33,7 +36,7 @@ const StudentAuthModal = ({ onClose, anchorRef }) => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, leftAlignRef]);
 
   const handleAuthAction = (action) => {
     if (action === '注册') {

@@ -14,6 +14,7 @@ function TeacherNavbar() {
   const courseTypeRef = useRef(null); // 课程类型锚点
   const startDateRef = useRef(null); // 首课日期锚点
   const userIconRef = useRef(null); // 右上角用户图标锚点
+  const editProfileBtnRef = useRef(null); // 右上角“编辑个人名片”按钮
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -58,6 +59,7 @@ function TeacherNavbar() {
           <button
             type="button"
             className="nav-link nav-text"
+            ref={editProfileBtnRef}
             onClick={() => navigate('/teacher/profile-editor')}
           >
             编辑个人名片
@@ -178,6 +180,7 @@ function TeacherNavbar() {
         <TeacherAuthModal
           onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
           anchorRef={userIconRef}
+          leftAlignRef={editProfileBtnRef}
         />
       )}
     </header>

@@ -13,6 +13,7 @@ function StudentNavbar() {
   const courseTypeRef = useRef(null);
   const startDateRef = useRef(null);
   const userIconRef = useRef(null);
+  const publishBtnRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false);
@@ -56,6 +57,7 @@ function StudentNavbar() {
           <button
             type="button"
             className="nav-link nav-text"
+            ref={publishBtnRef}
             onClick={() => navigate('/student/course-request')}
           >
             发布课程需求
@@ -172,7 +174,11 @@ function StudentNavbar() {
       )}
 
       {showAuthModal && (
-        <StudentAuthModal onClose={() => setShowAuthModal(false)} anchorRef={userIconRef} />
+        <StudentAuthModal
+          onClose={() => setShowAuthModal(false)}
+          anchorRef={userIconRef}
+          leftAlignRef={publishBtnRef}
+        />
       )}
     </header>
   );
