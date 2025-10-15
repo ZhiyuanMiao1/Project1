@@ -37,24 +37,34 @@
   gap: 16px;
 }
 
-.step-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
-  gap: 48px;
-  align-items: start;
-  margin-bottom: 32px;
-  min-height: auto;
-  align-content: start;
+.step-layout .contact-preview-floating { 
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(400px, 90%);
+  height: auto;
+  margin: 0 auto;
 }
+
+.step-layout.contact-preview-layout {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+}
+
 /* Hide animation on contact step and prepare right space for the preview */
 .step-layout.contact-preview-layout { align-items: start; }
 .step-layout.contact-preview-layout .step-illustration { display: none; }
 .step-layout.contact-preview-layout .step-content { 
   padding-top: 0; 
-  margin-top: -270px;
+  margin-top: 0;
+  align-self: start;
   min-height: clamp(480px, 58vh, 640px);
 }
 
+.step-layout.contact-preview-layout .step-content.direction-layout {
+  align-self: start;
+  padding: 0;
+}
 
 /* Floating preview in contact step */
 .contact-preview-floating { 
@@ -66,11 +76,7 @@
   height: max-content;         /* 包裹内容即可，避免撑高行 */
 }
 
-.step-layout .contact-preview-floating { 
-  grid-column: 2; 
-  align-self: start; 
-  justify-self: center; 
-}
+
 .request-shell > .contact-preview-floating { display: none; }
 
 /* Card styles */
