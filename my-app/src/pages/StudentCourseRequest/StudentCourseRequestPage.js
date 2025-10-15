@@ -1152,6 +1152,9 @@ function StudentCourseRequestPage() {
   }, [daySelections]);
   const tzCity = useMemo(() => extractCityName(formData.availability), [formData.availability]);
   const tzShort = useMemo(() => buildShortUTC(formData.availability), [formData.availability]);
+  // 仅当“预计课程总时长”有填时才在预览卡展示
+  const hasTotalCourseHours = (formData.totalCourseHours !== '' && formData.totalCourseHours != null);
+  const previewTotalCourseHours = hasTotalCourseHours ? Number(formData.totalCourseHours) : null;
 
   // ----- Schedule helpers -----
   const zhDays = ['日', '一', '二', '三', '四', '五', '六'];
@@ -1569,7 +1572,9 @@ function StudentCourseRequestPage() {
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
-                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number((formData.totalCourseHours !== '' && formData.totalCourseHours != null) ? formData.totalCourseHours : (formData.sessionDurationHours || 1)).toString()}小时</span></div>
+                    {hasTotalCourseHours && (
+                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>
+                    )}
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
                       <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
                     )}
@@ -1767,7 +1772,9 @@ function StudentCourseRequestPage() {
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
-                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number((formData.totalCourseHours !== '' && formData.totalCourseHours != null) ? formData.totalCourseHours : (formData.sessionDurationHours || 1)).toString()}小时</span></div>
+                    {hasTotalCourseHours && (
+                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>
+                    )}
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
                       <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
                     )}
