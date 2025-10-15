@@ -37,14 +37,16 @@
   gap: 16px;
 }
 
-.step-layout .contact-preview-floating { 
-  position: absolute;
-  right: 0;
-  top: 50%;
+/* ✅ 只在包含预览卡片的「第4步」使用 sticky，且它是网格的第2列 */
+.step-layout.contact-preview-layout .contact-preview-floating{
+  grid-column: 2;
+  align-self: start;
+  justify-self: center;
+  position: sticky;
+  top: 50vh;
   transform: translateY(-50%);
-  width: min(400px, 90%);
-  height: auto;
-  margin: 0 auto;
+  width: min(420px, 100%);
+  height: max-content;
 }
 
 .step-layout.contact-preview-layout {
@@ -54,11 +56,11 @@
 /* Hide animation on contact step and prepare right space for the preview */
 .step-layout.contact-preview-layout { align-items: start; }
 .step-layout.contact-preview-layout .step-illustration { display: none; }
-.step-layout.contact-preview-layout .step-content { 
-  padding-top: 0; 
-  margin-top: 0;
+/* ✅ 第4步左侧内容：不再用负 margin/居中，改为顶对齐 */
+.step-layout.contact-preview-layout .step-content{
+  padding-top: 0;
+  margin-top: 0;   /* 原来这里有 -270px 的 hack */
   align-self: start;
-  min-height: clamp(480px, 58vh, 640px);
 }
 
 .step-layout.contact-preview-layout .step-content.direction-layout {
@@ -135,7 +137,7 @@
 /* Keep same width for schedule step */
 .step-content.schedule-content { 
   max-width: 600px; 
-  align-self: center;
+  align-self: start;
   justify-self: start; /* 明确保持靠左 */
 }
 
@@ -164,7 +166,7 @@
 }
 
 .step-content.direction-layout:not(.direction-selection) {
-  align-self: center;      /* 让左侧整块在网格行中垂直居中 */
+  align-self: start;      /* 让左侧整块在网格行中垂直居中 */
 }
 
 .step-content.direction-layout .step-intro {
@@ -572,7 +574,11 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  align-self: center;      /* 右侧插画在网格行中垂直居中 */
+}
+
+.step-illustration,
+.details-right-panel{
+  align-self: start;
 }
 
 /* ---- Schedule Layout (Calendar + Times) ---- */
