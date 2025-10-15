@@ -371,6 +371,21 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* 针对所有输入框和文本域，在它们获得焦点时应用样式 */
+.step-field-stack input:focus,
+.step-field-stack textarea:focus,
+.step-field-group input:focus,
+.step-field-group textarea:focus,
+.inline-field input:focus,
+.inline-field textarea:focus {
+  /* 设置聚焦时的边框颜色为黑色 */
+  border-color: #000000;
+  /* 移除或修改浏览器默认的蓝色外部轮廓（outline） */
+  outline: none;
+  /* (可选) 添加一个黑色的阴影，使其更明显，但不是必须的 */
+  /* box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2); */
+}
+
 .step-field-stack textarea,
 .step-field-group textarea,
 .inline-field textarea {
