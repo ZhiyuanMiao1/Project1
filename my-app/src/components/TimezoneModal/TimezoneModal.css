@@ -11,6 +11,7 @@
   z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
   background-color: transparent; /* 去掉半透明遮罩 */
   backdrop-filter: none; /* 明确禁用背景虚化，避免被其他样式覆盖 */
+  pointer-events: none; /* 允许与页面其它区域交互 */
   animation: modalOverlayFade 200ms ease-out both; /* 遮罩淡入动画 */
 }
 
@@ -24,6 +25,7 @@
     height: 345px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影，使弹窗看起来有立体感 */
     animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
+    pointer-events: auto; /* 覆盖父层设置，使弹窗仍可交互 */
   }
   
   /* 弹窗标题 */

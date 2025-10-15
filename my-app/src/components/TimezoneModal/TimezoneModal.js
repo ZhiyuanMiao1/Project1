@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './TimezoneModal.css';
 
 const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
@@ -38,13 +38,28 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
     onClose(); // 关闭弹窗
   };
 
+  // 点击弹窗外部时关闭，但不阻止外部元素的交互
+  useEffect(() => {
+    const handleDocumentMouseDown = (e) => {
+      const panel = contentRef.current;
+      if (!panel) return;
+      if (!panel.contains(e.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleDocumentMouseDown, true);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
+    };
+  }, [onClose]);
+
   return (
-    <div className="timezone-modal-overlay" onClick={onClose}>
+    <div className="timezone-modal-overlay">
       <div
         className="modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left }}
-        onClick={(e) => e.stopPropagation()} // 防止点击弹窗内容关闭弹窗
+        // 交互由文档级监听控制，无需阻止冒泡
       >
         <h3>按地区搜索</h3>
         <div className="regions">
