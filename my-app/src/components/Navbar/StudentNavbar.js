@@ -29,7 +29,8 @@ function StudentNavbar() {
       {/* 顶部双层导航 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          <BrandMark className="nav-logo-text" to="/" />
+          {/* 学生视图点击 LOGO 返回学生首页 */}
+          <BrandMark className="nav-logo-text" to="/student" />
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">

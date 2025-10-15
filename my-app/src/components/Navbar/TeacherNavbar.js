@@ -31,7 +31,8 @@ function TeacherNavbar() {
       {/* 第一行：LOGO + Students/Teacher + 右侧菜单 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          <BrandMark className="nav-logo-text" to="/" />
+          {/* 点击 LOGO 在教师视图返回教师首页 */}
+          <BrandMark className="nav-logo-text" to="/teacher" />
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">
