@@ -39,7 +39,7 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="timezone-modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
         ref={contentRef}

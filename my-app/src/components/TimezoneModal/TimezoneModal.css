@@ -1,5 +1,5 @@
-/* 弹窗遮罩层 */
-.modal-overlay {
+/* 弹窗遮罩层（仅时区弹窗）*/
+.timezone-modal-overlay {
   position: fixed; /* 固定定位，使遮罩层始终覆盖整个屏幕 */
   top: 0; /* 遮罩层从页面顶部开始 */
   left: 0; /* 遮罩层从页面左侧开始 */
@@ -9,8 +9,8 @@
   justify-content: center; /* 水平居中弹窗内容 */
   align-items: center; /* 垂直居中弹窗内容 */
   z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
-  background-color: rgba(15, 23, 42, 0.2); /* 轻微遮罩，强调弹窗 */
-  backdrop-filter: blur(2px); /* 轻微虚化背景 */
+  background-color: transparent; /* 去掉半透明遮罩 */
+  backdrop-filter: none; /* 明确禁用背景虚化，避免被其他样式覆盖 */
   animation: modalOverlayFade 200ms ease-out both; /* 遮罩淡入动画 */
 }
 
