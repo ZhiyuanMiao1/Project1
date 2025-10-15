@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './StartDateModal.css';
 
 const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
@@ -33,13 +33,24 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
     onClose(); // 关闭弹窗
   };
 
+  // 文档级监听：点击弹窗外关闭，但不阻止外部交互
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      const panel = contentRef.current;
+      if (!panel) return;
+      if (!panel.contains(e.target)) onClose();
+    };
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, [onClose]);
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="start-date-modal-overlay">
       <div
         className="start-date-modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left }}
-        onClick={(e) => e.stopPropagation()}
+        // 交互由文档级监听控制
       >
         <div className="start-date-options">
           <button

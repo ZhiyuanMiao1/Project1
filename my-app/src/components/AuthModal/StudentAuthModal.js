@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RegisterPopup from '../RegisterPopup/RegisterPopup';
 import LoginPopup from '../LoginPopup/LoginPopup';
@@ -52,13 +52,30 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
     }
   };
 
+  // 文档级监听：点击弹窗外关闭，但不阻止外部交互
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      const panel = contentRef.current;
+      if (!panel) return;
+      // 如果点击在弹窗内容内，则不关闭
+      if (panel.contains(e.target)) return;
+      // 若点击在注册/登录弹窗内，也不关闭（避免误关）
+      const reg = document.querySelector('.register-modal-content');
+      const log = document.querySelector('.login-modal-content');
+      if ((reg && reg.contains(e.target)) || (log && log.contains(e.target))) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, [onClose]);
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="auth-modal-overlay">
       <div
         className="auth-modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left }}
-        onClick={(e) => e.stopPropagation()}
+        // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
           <button

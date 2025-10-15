@@ -1,5 +1,5 @@
-/* 弹窗遮罩层 */
-.modal-overlay {
+/* 弹窗遮罩层（仅首课日期弹窗） */
+.start-date-modal-overlay {
   position: fixed; /* 固定定位，使遮罩层始终覆盖整个屏幕 */
   top: 0; /* 遮罩层从页面顶部开始 */
   left: 0; /* 遮罩层从页面左侧开始 */
@@ -9,8 +9,9 @@
   justify-content: center; /* 水平居中弹窗内容 */
   align-items: center; /* 垂直居中弹窗内容 */
   z-index: 1000; /* 设置较高的堆叠顺序，确保遮罩层在其他元素上方 */
-  background-color: rgba(15, 23, 42, 0.2); /* 轻微遮罩，强调弹窗 */
-  backdrop-filter: blur(2px); /* 虚化背景 */
+  background-color: transparent; /* 去掉半透明遮罩 */
+  backdrop-filter: none; /* 去除背景虚化 */
+  pointer-events: none; /* 允许与弹窗外交互 */
   animation: modalOverlayFade 200ms ease-out both; /* 遮罩淡入动画 */
 }
 
@@ -26,6 +27,7 @@
   /* 位置由 JS 动态计算 */
   overflow-y: auto; /* 内容超出时添加滚动条 */
   animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
+  pointer-events: auto; /* 保证弹窗内容可交互 */
 }
 
 /* 首课日期外层容器 */

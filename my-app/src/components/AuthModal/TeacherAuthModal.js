@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹窗组件
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
@@ -47,13 +47,28 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
     }
   };
 
+  // 文档级监听：点击弹窗外关闭，但不阻止外部交互
+  useEffect(() => {
+    const onDocMouseDown = (e) => {
+      const panel = contentRef.current;
+      if (!panel) return;
+      if (panel.contains(e.target)) return;
+      const reg = document.querySelector('.register-modal-content');
+      const log = document.querySelector('.login-modal-content');
+      if ((reg && reg.contains(e.target)) || (log && log.contains(e.target))) return;
+      onClose();
+    };
+    document.addEventListener('mousedown', onDocMouseDown, true);
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
+  }, [onClose]);
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="auth-modal-overlay">
       <div
         className="auth-modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left }}
-        onClick={(e) => e.stopPropagation()}
+        // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
           <button

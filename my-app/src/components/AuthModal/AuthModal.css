@@ -1,5 +1,5 @@
 /* CSS */
-.modal-overlay {
+.auth-modal-overlay {
     position: fixed; /* Fixed position to cover the entire screen */
     top: 0; /* Start from the top of the page */
     left: 0; /* Start from the left of the page */
@@ -9,8 +9,9 @@
     justify-content: center; /* Center horizontally */
     align-items: center; /* Center vertically */
     z-index: 1000; /* High z-index to stay on top */
-    background-color: rgba(15, 23, 42, 0.2); /* Light overlay tint */
-    backdrop-filter: blur(2px); /* Slightly blur background */
+    background-color: transparent; /* remove dimming */
+    backdrop-filter: none; /* remove blur */
+    pointer-events: none; /* allow interacting with page underlay */
     animation: modalOverlayFade 200ms ease-out both; /* Overlay fade-in */
 }
   
@@ -26,6 +27,7 @@
     overflow-y: auto;
     overflow-x: hidden; /* 禁用水平滚动 */
     animation: modalContentPop 220ms ease-out both; /* Modal entrance animation */
+    pointer-events: auto; /* keep modal interactive */
 }
   
 .auth-modal-options {
