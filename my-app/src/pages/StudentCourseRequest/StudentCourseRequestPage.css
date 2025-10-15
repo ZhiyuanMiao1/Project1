@@ -1176,3 +1176,23 @@
   }
 }
 
+/* 仅“上传/预览”这一步（contact-preview-layout）生效，桌面端 */
+@media (min-width: 1025px) {
+  /* 让 section 作为定位容器 */
+  .step-layout.contact-preview-layout { position: relative; }
+
+  /* 右侧预览卡片：从 sticky 改为 absolute，脱离文档流，不再撑高 grid 行 */
+  .step-layout.contact-preview-layout .contact-preview-floating {
+    position: absolute;  /* 覆盖原先的 sticky */
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: auto;        /* 保持自适应高度，但不参与行高 */
+  }
+
+  /* 移除为“顶上去”而加的负外边距补丁，固定左侧自身高度 */
+  .step-layout.contact-preview-layout .step-content {
+    margin-top: 0 !important;            /* 覆盖 -270px */
+    /* 你已有固定下限：min-height: clamp(480px, 58vh, 640px); 保留即可 */
+  }
+}
