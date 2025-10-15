@@ -1747,7 +1747,40 @@ function StudentCourseRequestPage() {
           </section>
 
           <>
-
+            {isUploadStep && !isDirectionSelectionStage && (
+              <div className="contact-preview-floating" aria-label="导师页卡片预览">
+                <div className="student-preview-card">
+                  <div className="card-fav"><FaHeart /></div>
+                  <div className="card-header">
+                    <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                    <div className="header-texts">
+                      <div className="name">{previewName}</div>
+                      <div className="chips">
+                        <span className="chip green">{previewLevel}</span>
+                        <span className="chip gray">{previewSchool}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card-list" role="list">
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    {!!previewCourseTypeLabel && (
+                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+                    )}
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number((formData.totalCourseHours !== '' && formData.totalCourseHours != null) ? formData.totalCourseHours : (formData.sessionDurationHours || 1)).toString()}小时</span></div>
+                    {!!(formData.courseFocus && formData.courseFocus.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+                    )}
+                    {!!(formData.milestone && formData.milestone.trim()) && (
+                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>学习目标：{formData.milestone.trim()}</span></div>
+                    )}
+                    {earliestSelectedDay && (
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>期望首课：{earliestSelectedDay}</span></div>
+                    )}
+                  </div>                
+                </div>
+              </div>
+            )}
 
             <footer className={stepFooterClassName}>
               <div className="step-footer-shell">
