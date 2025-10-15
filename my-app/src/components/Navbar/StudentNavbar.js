@@ -12,6 +12,7 @@ function StudentNavbar() {
   const timezoneRef = useRef(null);
   const courseTypeRef = useRef(null);
   const startDateRef = useRef(null);
+  const userIconRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false);
@@ -61,6 +62,7 @@ function StudentNavbar() {
           </button>
           <span
             className="icon-circle"
+            ref={userIconRef}
             onClick={() => {
               setShowAuthModal(true);
             }}
@@ -170,7 +172,7 @@ function StudentNavbar() {
       )}
 
       {showAuthModal && (
-        <StudentAuthModal onClose={() => setShowAuthModal(false)} />
+        <StudentAuthModal onClose={() => setShowAuthModal(false)} anchorRef={userIconRef} />
       )}
     </header>
   );

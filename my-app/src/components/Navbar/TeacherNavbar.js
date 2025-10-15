@@ -13,6 +13,7 @@ function TeacherNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
   const courseTypeRef = useRef(null); // 课程类型锚点
   const startDateRef = useRef(null); // 首课日期锚点
+  const userIconRef = useRef(null); // 右上角用户图标锚点
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -63,6 +64,7 @@ function TeacherNavbar() {
           </button>
           <span
             className="icon-circle"
+            ref={userIconRef}
             onClick={() => {
               setShowAuthModal(true);
             }}
@@ -175,6 +177,7 @@ function TeacherNavbar() {
       {showAuthModal && (
         <TeacherAuthModal
           onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
+          anchorRef={userIconRef}
         />
       )}
     </header>

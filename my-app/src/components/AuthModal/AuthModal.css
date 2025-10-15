@@ -15,13 +15,12 @@
 }
   
 .auth-modal-content {
-    position: relative;
+    position: fixed;
     background: #fff;
     border-radius: 15px;
     padding: 10px 0;
     width: 200px;
-    margin-left: 1000px;
-    margin-bottom: 440px;
+    /* 位置由 JS 动态计算：通过 style.top/left 指定 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     max-height: 80%;
     overflow-y: auto;
