@@ -16,14 +16,12 @@
 
 /* 弹窗内容 */
 .modal-content {
-    position: relative;
+    position: fixed;
     background: #fff; /* 弹窗的背景颜色设置为白色 */
     border-radius: 30px; /* 设置圆角，提升视觉美感 */
     padding: 25px; /* 添加内边距，使内容与边框保持距离 */
     width: 360px; /* 弹窗的固定宽度 */
     height: 345px;
-    left: -204px;
-    top: -44px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影，使弹窗看起来有立体感 */
     animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
   }

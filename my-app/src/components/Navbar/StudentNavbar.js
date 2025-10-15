@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './StudentNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -9,6 +9,7 @@ import StudentAuthModal from '../AuthModal/StudentAuthModal';
 import BrandMark from '../common/BrandMark/BrandMark';
 
 function StudentNavbar() {
+  const timezoneRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false);
@@ -72,6 +73,7 @@ function StudentNavbar() {
         <div className={`search-bar ${isSearchBarActive ? 'active' : ''}`}>
           <div className="search-filters">
             <div
+              ref={timezoneRef}
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
                 setShowTimezoneModal(true);
@@ -135,6 +137,7 @@ function StudentNavbar() {
             setIsSearchBarActive(false);
           }}
           onSelect={(region) => setSelectedRegion(region)}
+          anchorRef={timezoneRef}
         />
       )}
 

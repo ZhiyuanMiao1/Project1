@@ -1,7 +1,38 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import './TimezoneModal.css';
 
-const TimezoneModal = ({ onClose, onSelect }) => {
+const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
+  const contentRef = useRef(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  // 根据触发元素定位弹窗：其下方 10px
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const anchorEl = anchorRef?.current;
+      if (!anchorEl) return;
+      const rect = anchorEl.getBoundingClientRect();
+
+      const modalWidth = contentRef.current?.offsetWidth || 360; // 与 CSS 中的默认宽度保持一致
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+
+      let left = rect.left;
+      const minGap = 8;
+      const maxLeft = viewportWidth - modalWidth - minGap;
+      if (left > maxLeft) left = Math.max(minGap, maxLeft);
+      if (left < minGap) left = minGap;
+
+      setPosition({ top: rect.bottom + 10, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef]);
+
   const handleRegionSelect = (region) => {
     onSelect(region); // 回调函数设置选中区域
     onClose(); // 关闭弹窗
@@ -11,6 +42,8 @@ const TimezoneModal = ({ onClose, onSelect }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal-content"
+        ref={contentRef}
+        style={{ position: 'fixed', top: position.top, left: position.left }}
         onClick={(e) => e.stopPropagation()} // 防止点击弹窗内容关闭弹窗
       >
         <h3>按地区搜索</h3>

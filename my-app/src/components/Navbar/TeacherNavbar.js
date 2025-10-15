@@ -1,5 +1,5 @@
 // 引入必要的库和组件
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './TeacherNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -10,6 +10,7 @@ import TeacherAuthModal from '../AuthModal/TeacherAuthModal'; // 引入学生版
 import BrandMark from '../common/BrandMark/BrandMark';
 
 function TeacherNavbar() {
+  const timezoneRef = useRef(null); // 时区筛选锚点
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -74,6 +75,7 @@ function TeacherNavbar() {
         <div className={`search-bar ${isSearchBarActive ? 'active' : ''}`}>
           <div className="search-filters">
             <div
+              ref={timezoneRef}
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
                 setShowTimezoneModal(true);
@@ -137,6 +139,7 @@ function TeacherNavbar() {
             setIsSearchBarActive(false);
           }}
           onSelect={(region) => setSelectedRegion(region)}
+          anchorRef={timezoneRef}
         />
       )}
 
