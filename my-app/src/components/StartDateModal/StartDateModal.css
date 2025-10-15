@@ -16,15 +16,14 @@
 
 /* 弹窗内容的整体样式 */
 .start-date-modal-content {
-  position: relative;
+  position: fixed;
   background: #fff; /* 背景色 */
   border-radius: 20px; /* 圆角边框 */
   padding: 10px; /* 内边距 */
   width: 200px; /* 弹窗宽度 */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影 */
   max-height: 80%; /* 限制弹窗高度，防止超出屏幕 */
-  margin-top: -156px;
-  margin-left: 450px;
+  /* 位置由 JS 动态计算 */
   overflow-y: auto; /* 内容超出时添加滚动条 */
   animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
 }

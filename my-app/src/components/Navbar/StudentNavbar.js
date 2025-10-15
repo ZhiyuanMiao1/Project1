@@ -10,6 +10,8 @@ import BrandMark from '../common/BrandMark/BrandMark';
 
 function StudentNavbar() {
   const timezoneRef = useRef(null);
+  const courseTypeRef = useRef(null);
+  const startDateRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false);
@@ -90,6 +92,7 @@ function StudentNavbar() {
               />
             </div>
             <div
+              ref={courseTypeRef}
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
                 setShowCourseTypeModal(true);
@@ -106,6 +109,7 @@ function StudentNavbar() {
               />
             </div>
             <div
+              ref={startDateRef}
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
                 setShowStartDateModal(true);
@@ -149,6 +153,7 @@ function StudentNavbar() {
             setIsSearchBarActive(false);
           }}
           onSelect={(courseType) => setSelectedCourseType(courseType)}
+          anchorRef={courseTypeRef}
         />
       )}
 
@@ -160,6 +165,7 @@ function StudentNavbar() {
             setIsSearchBarActive(false);
           }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
+          anchorRef={startDateRef}
         />
       )}
 

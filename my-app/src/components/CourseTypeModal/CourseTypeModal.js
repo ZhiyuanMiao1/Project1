@@ -1,7 +1,33 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import './CourseTypeModal.css';
 
-const CourseTypeModal = ({ onClose, onSelect }) => {
+const CourseTypeModal = ({ onClose, onSelect, anchorRef }) => {
+  const contentRef = useRef(null);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const anchorEl = anchorRef?.current;
+      if (!anchorEl) return;
+      const rect = anchorEl.getBoundingClientRect();
+      const modalWidth = contentRef.current?.offsetWidth || 280;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const minGap = 8;
+      let left = rect.left;
+      const maxLeft = viewportWidth - modalWidth - minGap;
+      if (left > maxLeft) left = Math.max(minGap, maxLeft);
+      if (left < minGap) left = minGap;
+      setPosition({ top: rect.bottom + 10, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef]);
   const handleCourseTypeSelect = (courseType) => {
     onSelect(courseType); // 设置选中课程类型
     onClose(); // 关闭弹窗
@@ -9,7 +35,12 @@ const CourseTypeModal = ({ onClose, onSelect }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="course-types-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="course-types-modal-content"
+        ref={contentRef}
+        style={{ position: 'fixed', top: position.top, left: position.left }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="course-types">
           <button
             className="course-type-button"

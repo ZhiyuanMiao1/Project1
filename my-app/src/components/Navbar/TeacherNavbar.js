@@ -11,6 +11,8 @@ import BrandMark from '../common/BrandMark/BrandMark';
 
 function TeacherNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
+  const courseTypeRef = useRef(null); // 课程类型锚点
+  const startDateRef = useRef(null); // 首课日期锚点
   const [showTimezoneModal, setShowTimezoneModal] = useState(false); // 控制时区弹窗显示
   const [selectedRegion, setSelectedRegion] = useState(''); // 当前选中的区域
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false); // 控制课程类型弹窗显示
@@ -92,6 +94,7 @@ function TeacherNavbar() {
               />
             </div>
             <div
+              ref={courseTypeRef}
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
                 setShowCourseTypeModal(true);
@@ -108,6 +111,7 @@ function TeacherNavbar() {
               />
             </div>
             <div
+              ref={startDateRef}
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
                 setShowStartDateModal(true);
@@ -152,6 +156,7 @@ function TeacherNavbar() {
           }}
           // 允许从弹窗传回 null/undefined 表示清空
           onSelect={(courseType) => setSelectedCourseType(courseType || '')}
+          anchorRef={courseTypeRef}
         />
       )}
 
@@ -163,6 +168,7 @@ function TeacherNavbar() {
             setIsSearchBarActive(false);
           }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
+          anchorRef={startDateRef}
         />
       )}
 
