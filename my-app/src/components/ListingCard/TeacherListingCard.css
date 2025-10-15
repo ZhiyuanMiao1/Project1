@@ -80,3 +80,39 @@
   font-size: 14px;
   margin: 4px 0;
 }
+
+/* --- Preview-card look copied from StudentCourseRequest --- */
+/* Keep size via existing .listing-card rules (from StudentListingCard.css) */
+.teacher-preview-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 16px 16px 18px;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.08);
+}
+
+.teacher-preview-card .card-fav {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  color: #94a3b8;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.teacher-preview-card .card-fav.favorited { color: #ef4444; }
+
+.teacher-preview-card .card-header { display: flex; align-items: center; gap: 12px; }
+.teacher-preview-card .avatar {
+  width: 64px; height: 64px; border-radius: 999px; background: #0f172a; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
+}
+.teacher-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
+.teacher-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+.teacher-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
+.teacher-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
+.teacher-preview-card .chip.gray { background: #eef2f7; color: #475569; }
+.teacher-preview-card .card-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.teacher-preview-card .item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #111827; }
+.teacher-preview-card .icon { color: #111827; margin-top: 2px; }

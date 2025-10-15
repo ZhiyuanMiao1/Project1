@@ -1,59 +1,94 @@
 import React, { useState } from 'react';
 import './TeacherListingCard.css';
-import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
+import {
+  FaHeart,
+  FaGlobe,
+  FaFileAlt,
+  FaGraduationCap,
+  FaClock,
+  FaLightbulb,
+  FaCalendarAlt,
+} from 'react-icons/fa';
 
 function TeacherListingCard({ data }) {
-  // 添加一个 state 用于管理收藏状态
+  // 收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
 
-  // 切换收藏状态的函数
-  const toggleFavorite = () => {
-    setIsFavorited(!isFavorited);
-  };
-  
+  const toggleFavorite = () => setIsFavorited((v) => !v);
+
+  const name = `Student${data?.id ?? ''}`;
+  const degree = data?.degree || '';
+  const school = data?.school || '';
+  const courses = Array.isArray(data?.courses)
+    ? data.courses.join('、')
+    : (data?.courses || '');
+
   return (
-    <div className="listing-card">
-      {/* 右上角的爱心图标 */}
-      <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="heart-icon"
-        >
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-        </svg>
+    // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
+    <div className="listing-card teacher-preview-card">
+      <button
+        type="button"
+        aria-label={isFavorited ? '取消收藏' : '收藏'}
+        className={`card-fav ${isFavorited ? 'favorited' : ''}`}
+        onClick={toggleFavorite}
+      >
+        <FaHeart />
+      </button>
+
+      <div className="card-header">
+        <div className="avatar" aria-hidden="true">
+          {name.slice(0, 1).toUpperCase() || 'S'}
+        </div>
+        <div className="header-texts">
+          <div className="name">{name}</div>
+          <div className="chips">
+            {!!degree && <span className="chip green">{degree}</span>}
+            {!!school && <span className="chip gray">{school}</span>}
+          </div>
+        </div>
       </div>
-      <img
-        className="teacher-listing-avatar"
-        src={data.imageUrl ? data.imageUrl : defaultImage} // 如果没有头像，使用默认头像
-        alt={data.name}
-      />
-      <h3 className="teacher-listing-name">Student{data.id}</h3>
-      <div className="teacher-listing-tags">
-        <span className={`teacher-listing-tag ${data.degree.toLowerCase()}-tag`}>
-          {data.degree}
-        </span>
-        <span className="teacher-listing-tag">{data.school}</span>
+
+      <div className="card-list" role="list">
+        {!!data?.timezone && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaGlobe /></span>
+            <span>{data.timezone}</span>
+          </div>
+        )}
+        {!!courses && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaFileAlt /></span>
+            <span>{courses}</span>
+          </div>
+        )}
+        {!!data?.courseType && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaGraduationCap /></span>
+            <span>课程类型：{data.courseType}</span>
+          </div>
+        )}
+        {!!data?.expectedDuration && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaClock /></span>
+            <span>预计时长：{data.expectedDuration}</span>
+          </div>
+        )}
+        {!!data?.requirements && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaLightbulb /></span>
+            <span>具体内容：{data.requirements}</span>
+          </div>
+        )}
+        {!!data?.expectedTime && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaCalendarAlt /></span>
+            <span>期望首课：{data.expectedTime}</span>
+          </div>
+        )}
       </div>
-      {/* 时区 */}
-      <div className="teacher-listing-timezone">
-        <span className="teacher-timezone">🌍 {data.timezone}</span>
-      </div>
-      {/* 课程名称 */}
-      <p className="teacher-listing-courses">📚 {data.courses}</p>
-      {/* 期望时长 */}
-      <p className="teacher-listing-duration">⏳ 期望时长: {data.expectedDuration}</p>
-      {/* 最近期望上课时间 */}
-      <p className="teacher-listing-expected-time">📅 最近期望上课: {data.expectedTime}</p>
-      {/* 具体需求 */}
-      <p className="teacher-listing-requirements">📝 {data.courseType} | {data.requirements}</p>
     </div>
   );
 }
 
 export default TeacherListingCard;
+
