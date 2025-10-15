@@ -1569,7 +1569,7 @@ function StudentCourseRequestPage() {
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
-                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number((formData.totalCourseHours !== '' && formData.totalCourseHours != null) ? formData.totalCourseHours : (formData.sessionDurationHours || 1)).toString()}小时</span></div>
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
                       <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
                     )}
@@ -1767,7 +1767,7 @@ function StudentCourseRequestPage() {
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
-                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number(formData.sessionDurationHours || 1).toString()}小时</span></div>
+                    <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{Number((formData.totalCourseHours !== '' && formData.totalCourseHours != null) ? formData.totalCourseHours : (formData.sessionDurationHours || 1)).toString()}小时</span></div>
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
                       <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
                     )}
