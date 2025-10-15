@@ -7,6 +7,7 @@ import {
   FaGraduationCap,
   FaClock,
   FaLightbulb,
+  FaTasks,
   FaCalendarAlt,
 } from 'react-icons/fa';
 
@@ -79,6 +80,12 @@ function TeacherListingCard({ data }) {
             <span>具体内容：{data.requirements}</span>
           </div>
         )}
+        {!!data?.milestone && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaTasks /></span>
+            <span>学习目标：{data.milestone}</span>
+          </div>
+        )}
         {!!data?.expectedTime && (
           <div className="item" role="listitem">
             <span className="icon"><FaCalendarAlt /></span>
@@ -91,4 +98,3 @@ function TeacherListingCard({ data }) {
 }
 
 export default TeacherListingCard;
-
