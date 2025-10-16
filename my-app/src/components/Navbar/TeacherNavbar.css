@@ -194,6 +194,12 @@
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.2); /* 鼠标悬停时添加阴影 */
     cursor: pointer; /* 鼠标悬停时显示为手型 */
   }
+
+  /* 处于激活状态时，悬浮或包含焦点都保持为白色，不变灰 */
+  .search-item.active:hover,
+  .search-item.active:focus-within {
+    background-color: #ffffff;
+  }
   
   /* label 与 input */
   .search-item label {
