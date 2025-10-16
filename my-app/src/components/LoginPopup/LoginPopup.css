@@ -85,11 +85,11 @@
     width: 100%; /* 输入框宽度填满容器 */
     padding: 18px; /* 内边距 */
     font-size: 16px; /* 字体大小 */
-    border: none; /* 去掉单独输入框的边框 */
+    border: 1px solid transparent; /* 预留边框空间，避免悬浮抖动 */
     outline: none; /* 去掉聚焦时的高亮边框 */
     background: transparent; /* 背景透明，融入容器背景 */
     box-sizing: border-box; /* 包括 padding 在宽度计算内 */
-    transition: border-color 0.3s ease; /* 平滑过渡效果 */
+    transition: border-color 0.2s ease; /* 平滑过渡效果且不改变尺寸 */
 }
 
 /* 父容器：让相邻的 .login-input 元素之间显示分割线 */
@@ -99,7 +99,7 @@
 
 /* 鼠标悬浮时的效果 */
 .login-input:hover {
-    border: 1px solid #000000; /* 鼠标悬浮时边框变粗 */
+    border-color: #000000; /* 仅改变颜色，不改变宽度 */
     border-radius: 10px; /* 给选中框增加圆角 */
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); /* 添加阴影效果 */
 }
@@ -121,8 +121,8 @@
 
 /* 选中时状态 */
 .login-button:focus {
-    border-width: 3px; /* 选中时边框保持加粗 */
-    outline: none; /* 去掉默认的焦点样式 */
+    outline: 2px solid #000; /* 使用 outline，不改变布局 */
+    outline-offset: 0;
 }
 
 /* 继续按钮容器 */
