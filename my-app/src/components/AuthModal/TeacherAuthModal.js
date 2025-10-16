@@ -62,12 +62,14 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
     return () => document.removeEventListener('mousedown', onDocMouseDown, true);
   }, [onClose]);
 
+  const isPopupOpen = showRegisterPopup || showLoginPopup;
+
   return (
-    <div className="auth-modal-overlay">
+    <div className="auth-modal-overlay" style={{ pointerEvents: isPopupOpen ? 'auto' : 'none' }}>
       <div
         className="auth-modal-content"
         ref={contentRef}
-        style={{ position: 'fixed', top: position.top, left: position.left }}
+        style={{ position: 'fixed', top: position.top, left: position.left, display: isPopupOpen ? 'none' : 'block' }}
         // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
