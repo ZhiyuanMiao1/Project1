@@ -33,16 +33,19 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef }) => {
     onClose(); // 关闭弹窗
   };
 
-  // 文档级监听：点击弹窗外关闭，但不阻止外部交互
+  // 文档级监听：点击弹窗外关闭（使用 click 冒泡阶段，避免按下瞬间关闭）
   useEffect(() => {
-    const onDocMouseDown = (e) => {
+    const onDocClick = (e) => {
       const panel = contentRef.current;
+      const anchorEl = anchorRef?.current;
       if (!panel) return;
-      if (!panel.contains(e.target)) onClose();
+      if (panel.contains(e.target)) return; // 点击在弹窗内部
+      if (anchorEl && anchorEl.contains(e.target)) return; // 点击在触发元素上（例如首次点击打开）
+      onClose();
     };
-    document.addEventListener('mousedown', onDocMouseDown, true);
-    return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, [onClose]);
+    document.addEventListener('click', onDocClick, false);
+    return () => document.removeEventListener('click', onDocClick, false);
+  }, [onClose, anchorRef]);
 
   return (
     <div className="course-type-modal-overlay">

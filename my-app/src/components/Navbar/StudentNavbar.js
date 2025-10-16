@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './StudentNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -23,11 +23,30 @@ function StudentNavbar() {
   const [activeFilter, setActiveFilter] = useState('');
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
+  const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
   const isStudentActive = location.pathname.startsWith('/student');
   const isTeacherActive = location.pathname.startsWith('/teacher');
+
+  // 挂载后根据弹窗打开情况再切换激活项，避免点击瞬间的白->灰闪烁
+  useEffect(() => {
+    if (pendingFilter === 'timezone' && showTimezoneModal) {
+      setActiveFilter('timezone');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    } else if (pendingFilter === 'courseType' && showCourseTypeModal) {
+      setActiveFilter('courseType');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    } else if (pendingFilter === 'startDate' && showStartDateModal) {
+      setActiveFilter('startDate');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    }
+  }, [pendingFilter, showTimezoneModal, showCourseTypeModal, showStartDateModal]);
 
   return (
     <header className="navbar">
@@ -83,8 +102,7 @@ function StudentNavbar() {
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
                 setShowTimezoneModal(true);
-                setActiveFilter('timezone');
-                setIsSearchBarActive(true);
+                setPendingFilter('timezone');
               }}
             >
               <label>时区</label>
@@ -100,8 +118,7 @@ function StudentNavbar() {
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
                 setShowCourseTypeModal(true);
-                setActiveFilter('courseType');
-                setIsSearchBarActive(true);
+                setPendingFilter('courseType');
               }}
             >
               <label>课程类型</label>
@@ -117,8 +134,7 @@ function StudentNavbar() {
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
                 setShowStartDateModal(true);
-                setActiveFilter('startDate');
-                setIsSearchBarActive(true);
+                setPendingFilter('startDate');
               }}
             >
               <label>首课日期</label>
@@ -141,8 +157,10 @@ function StudentNavbar() {
         <TimezoneModal
           onClose={() => {
             setShowTimezoneModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           onSelect={(region) => setSelectedRegion(region)}
           anchorRef={timezoneRef}
@@ -153,8 +171,10 @@ function StudentNavbar() {
         <CourseTypeModal
           onClose={() => {
             setShowCourseTypeModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           onSelect={(courseType) => setSelectedCourseType(courseType)}
           anchorRef={courseTypeRef}
@@ -165,8 +185,10 @@ function StudentNavbar() {
         <StartDateModal
           onClose={() => {
             setShowStartDateModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
           anchorRef={startDateRef}

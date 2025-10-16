@@ -38,20 +38,21 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
     onClose(); // 关闭弹窗
   };
 
-  // 点击弹窗外部时关闭，但不阻止外部元素的交互
+  // 点击弹窗外部时关闭：改为在 click 冒泡阶段处理，保证按下未松开时不立即关闭
   useEffect(() => {
-    const handleDocumentMouseDown = (e) => {
+    const handleDocumentClick = (e) => {
       const panel = contentRef.current;
+      const anchorEl = anchorRef?.current;
       if (!panel) return;
-      if (!panel.contains(e.target)) {
-        onClose();
-      }
+      // 点击在弹窗内部：不关闭
+      if (panel.contains(e.target)) return;
+      // 点击在触发元素或其子元素上（例如首次点击打开）：不关闭
+      if (anchorEl && anchorEl.contains(e.target)) return;
+      onClose();
     };
-    document.addEventListener('mousedown', handleDocumentMouseDown, true);
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentMouseDown, true);
-    };
-  }, [onClose]);
+    document.addEventListener('click', handleDocumentClick, false);
+    return () => document.removeEventListener('click', handleDocumentClick, false);
+  }, [onClose, anchorRef]);
 
   return (
     <div className="timezone-modal-overlay">

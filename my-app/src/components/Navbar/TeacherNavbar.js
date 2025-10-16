@@ -1,5 +1,5 @@
 // 引入必要的库和组件
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './TeacherNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -24,12 +24,31 @@ function TeacherNavbar() {
   const [activeFilter, setActiveFilter] = useState(''); // 当前激活的搜索框
   const [isSearchBarActive, setIsSearchBarActive] = useState(false); // 搜索栏是否被激活
   const [showAuthModal, setShowAuthModal] = useState(false); // 控制注册和登录弹窗显示
+  // 延后切换激活项，避免点击到弹窗出现之间的白->灰闪烁
+  const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate(); // 获取 navigate 函数
   const location = useLocation(); // 获取当前路径
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
   const isTeacherActive = location.pathname.startsWith('/teacher');
+  
+  // 弹窗打开后再切换激活项，避免点击瞬间的白->灰闪烁
+  useEffect(() => {
+    if (pendingFilter === 'timezone' && showTimezoneModal) {
+      setActiveFilter('timezone');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    } else if (pendingFilter === 'courseType' && showCourseTypeModal) {
+      setActiveFilter('courseType');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    } else if (pendingFilter === 'startDate' && showStartDateModal) {
+      setActiveFilter('startDate');
+      setIsSearchBarActive(true);
+      setPendingFilter('');
+    }
+  }, [pendingFilter, showTimezoneModal, showCourseTypeModal, showStartDateModal]);
   
   return (
     <header className="navbar">
@@ -85,8 +104,7 @@ function TeacherNavbar() {
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
                 setShowTimezoneModal(true);
-                setActiveFilter('timezone');
-                setIsSearchBarActive(true);
+                setPendingFilter('timezone');
               }}
             >
               <label>时区</label>
@@ -102,8 +120,7 @@ function TeacherNavbar() {
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
                 setShowCourseTypeModal(true);
-                setActiveFilter('courseType');
-                setIsSearchBarActive(true);
+                setPendingFilter('courseType');
               }}
             >
               <label>课程类型</label>
@@ -119,8 +136,7 @@ function TeacherNavbar() {
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
                 setShowStartDateModal(true);
-                setActiveFilter('startDate');
-                setIsSearchBarActive(true);
+                setPendingFilter('startDate');
               }}
             >
               <label>首课日期</label>
@@ -143,8 +159,10 @@ function TeacherNavbar() {
         <TimezoneModal
           onClose={() => {
             setShowTimezoneModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           onSelect={(region) => setSelectedRegion(region)}
           anchorRef={timezoneRef}
@@ -155,8 +173,10 @@ function TeacherNavbar() {
         <CourseTypeModal
           onClose={() => {
             setShowCourseTypeModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           // 允许从弹窗传回 null/undefined 表示清空
           onSelect={(courseType) => setSelectedCourseType(courseType || '')}
@@ -168,8 +188,10 @@ function TeacherNavbar() {
         <StartDateModal
           onClose={() => {
             setShowStartDateModal(false);
-            setActiveFilter('');
-            setIsSearchBarActive(false);
+            if (!pendingFilter) {
+              setActiveFilter('');
+              setIsSearchBarActive(false);
+            }
           }}
           onSelect={(startDate) => setSelectedStartDate(startDate)}
           anchorRef={startDateRef}
