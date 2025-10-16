@@ -119,11 +119,13 @@
        因为分割线是在自己之上那个输入框的 border-top 上。
        但我们可以直接把当前焦点输入框的 border-top 覆盖为空，
        这样就能让“本行上方的黑线”消失。 */
-    border-top: none;
+    /* 不移除高度，仅把上边框隐藏为透明，避免抖动 */
+    border-top-color: transparent;
   }
 
   .register-input:focus + .register-input {
-    border-top: none;
+    /* 保持1px占位，只隐藏颜色 */
+    border-top-color: transparent;
   }
 
   /* 按钮容器样式 */

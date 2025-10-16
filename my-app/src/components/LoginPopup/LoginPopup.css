@@ -112,11 +112,13 @@
 
 /* 父容器上的 :focus-within，可以在“其中某个子元素获得焦点”时触发。 */
 .login-input-area:focus-within > .login-input:focus {
-    border-top: none;
+    /* 不移除高度，仅把上边框隐藏为透明，避免抖动 */
+    border-top-color: transparent;
 }
 
 .login-input:focus + .login-input {
-    border-top: none;
+    /* 保持1px占位，只隐藏颜色 */
+    border-top-color: transparent;
 }
 
 /* 选中时状态 */
