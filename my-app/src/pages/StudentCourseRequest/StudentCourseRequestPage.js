@@ -1547,7 +1547,13 @@ function StudentCourseRequestPage() {
           <header className="step-header">
             <BrandMark to="/student" />
             <div className="step-header-actions">
-              <button type="button" className="ghost-button">保存并退出</button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => navigate('/student')}
+              >
+                保存并退出
+              </button>
             </div>
           </header>
 
