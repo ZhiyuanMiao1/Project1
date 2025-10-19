@@ -35,6 +35,8 @@ import {
   FaLightbulb,
   FaGraduationCap,
   FaImages,
+  FaBookOpen,
+  FaCheckCircle,
 } from 'react-icons/fa';
 import { RiAiGenerate, RiDeleteBin6Line } from 'react-icons/ri';
 
@@ -464,9 +466,9 @@ const DIRECTION_ICONS = {
 };
 const COURSE_TYPE_OPTIONS = [
   { id: 'course-selection', label: '选课指导', icon: <FaLightbulb /> },
-  { id: 'pre-study', label: '课前预习', icon: <FaCalendarAlt /> },
+  { id: 'pre-study', label: '课前预习', icon: <FaBookOpen /> },
   { id: 'assignment-project', label: '作业项目', icon: <FaTasks /> },
-  { id: 'final-review', label: '期末复习', icon: <FaClock /> },
+  { id: 'final-review', label: '期末复习', icon: <FaCheckCircle /> },
   { id: 'in-class-support', label: '毕业论文', icon: <FaGraduationCap /> },
   { id: 'others', label: '其它类型', icon: <FaEllipsisH /> },
 ];

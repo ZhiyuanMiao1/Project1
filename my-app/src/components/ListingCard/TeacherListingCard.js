@@ -8,6 +8,11 @@ import {
   FaGraduationCap,
   FaClock,
   FaCalendarAlt,
+  FaLightbulb,
+  FaTasks,
+  FaEllipsisH,
+  FaBookOpen,
+  FaCheckCircle,
 } from 'react-icons/fa';
 
 function TeacherListingCard({ data }) {
@@ -23,6 +28,17 @@ function TeacherListingCard({ data }) {
   const courses = Array.isArray(data?.courses)
     ? data.courses.join('、')
     : (data?.courses || '');
+
+  // 课程类型到图标的映射（与“学生发布课程需求”页面保持一致）
+  const COURSE_TYPE_ICON_MAP = {
+    '选课指导': FaLightbulb,
+    '课前预习': FaBookOpen,
+    '作业项目': FaTasks,
+    '期末复习': FaCheckCircle,
+    '毕业论文': FaGraduationCap,
+    '其它类型': FaEllipsisH,
+  };
+  const CourseTypeIcon = COURSE_TYPE_ICON_MAP[data?.courseType] || FaGraduationCap;
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
@@ -64,7 +80,7 @@ function TeacherListingCard({ data }) {
         )}
         {!!data?.courseType && (
           <div className="item" role="listitem">
-            <span className="icon"><FaGraduationCap /></span>
+            <span className="icon"><CourseTypeIcon /></span>
             <span>{data.courseType}</span>
           </div>
         )}
