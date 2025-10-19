@@ -111,7 +111,7 @@ function TeacherNavbar() {
               <label>时区</label>
               <input
                 type="text"
-                placeholder="选择时区"
+                placeholder="选择学生时区"
                 value={selectedRegion}
                 readOnly
               />
