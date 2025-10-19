@@ -4,22 +4,22 @@ import './StudentNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
-import StartDateModal from '../StartDateModal/StartDateModal';
+// 移除首课日期弹窗，改为直接输入
 import StudentAuthModal from '../AuthModal/StudentAuthModal';
 import BrandMark from '../common/BrandMark/BrandMark';
 
 function StudentNavbar() {
   const timezoneRef = useRef(null);
   const courseTypeRef = useRef(null);
-  const startDateRef = useRef(null);
+  const exactSearchInputRef = useRef(null);
   const userIconRef = useRef(null);
   const publishBtnRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('');
   const [showCourseTypeModal, setShowCourseTypeModal] = useState(false);
   const [selectedCourseType, setSelectedCourseType] = useState('');
-  const [showStartDateModal, setShowStartDateModal] = useState(false);
-  const [selectedStartDate, setSelectedStartDate] = useState('');
+  // 精确搜索：输入 MentorID 或导师姓名
+  const [exactSearch, setExactSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('');
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -41,12 +41,8 @@ function StudentNavbar() {
       setActiveFilter('courseType');
       setIsSearchBarActive(true);
       setPendingFilter('');
-    } else if (pendingFilter === 'startDate' && showStartDateModal) {
-      setActiveFilter('startDate');
-      setIsSearchBarActive(true);
-      setPendingFilter('');
     }
-  }, [pendingFilter, showTimezoneModal, showCourseTypeModal, showStartDateModal]);
+  }, [pendingFilter, showTimezoneModal, showCourseTypeModal]);
 
   return (
     <header className="navbar">
@@ -130,19 +126,23 @@ function StudentNavbar() {
               />
             </div>
             <div
-              ref={startDateRef}
               className={`search-item start-date ${activeFilter === 'startDate' ? 'active' : ''}`}
               onClick={() => {
-                setShowStartDateModal(true);
-                setPendingFilter('startDate');
+                setActiveFilter('startDate');
+                setIsSearchBarActive(true);
+                try { exactSearchInputRef.current && exactSearchInputRef.current.focus(); } catch {}
               }}
             >
-              <label>首课日期</label>
+              <label>精确搜索导师</label>
               <input
+                ref={exactSearchInputRef}
                 type="text"
-                placeholder="选择首课日期"
-                value={selectedStartDate}
-                readOnly
+                placeholder="输入导师的MentorID数字或导师姓名"
+                value={exactSearch}
+                onChange={(e) => setExactSearch(e.target.value)}
+                onFocus={() => { setActiveFilter('startDate'); setIsSearchBarActive(true); }}
+                onBlur={() => { setActiveFilter(''); setIsSearchBarActive(false); }}
+                style={{ cursor: 'text' }}
               />
             </div>
           </div>
@@ -182,19 +182,7 @@ function StudentNavbar() {
         />
       )}
 
-      {showStartDateModal && (
-        <StartDateModal
-          onClose={() => {
-            setShowStartDateModal(false);
-            if (!pendingFilter) {
-              setActiveFilter('');
-              setIsSearchBarActive(false);
-            }
-          }}
-          onSelect={(startDate) => setSelectedStartDate(startDate)}
-          anchorRef={startDateRef}
-        />
-      )}
+      {/* 首课日期弹窗已移除，改为直接输入 */}
 
       {showAuthModal && (
         <StudentAuthModal
@@ -208,5 +196,3 @@ function StudentNavbar() {
 }
 
 export default StudentNavbar;
-
-
