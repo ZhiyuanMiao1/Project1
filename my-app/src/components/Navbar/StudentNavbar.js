@@ -133,7 +133,7 @@ function StudentNavbar() {
                 try { exactSearchInputRef.current && exactSearchInputRef.current.focus(); } catch {}
               }}
             >
-              <label>精确搜索导师</label>
+              <label>精确搜索</label>
               <input
                 ref={exactSearchInputRef}
                 type="text"
