@@ -197,10 +197,10 @@
     padding: 10px 16px; /* 增加内边距，方便鼠标悬停区域更大 */
     border-radius: 40px; /* 设置圆角 */
     position: relative; /* 为层级控制和伪元素做准备 */
-    transition: background-color 0.35s ease, box-shadow 0.35s ease,
-                flex-basis 0.45s cubic-bezier(.22,.61,.36,1),
-                width 0.45s cubic-bezier(.22,.61,.36,1),
-                opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease; /* 平滑过渡 */
+    transition: background-color 0.55s ease, box-shadow 0.55s ease,
+                flex-basis 0.8s cubic-bezier(.22,.61,.36,1),
+                width 0.8s cubic-bezier(.22,.61,.36,1),
+                opacity 0.5s ease, padding 0.5s ease, margin 0.5s ease; /* 平滑过渡 */
     will-change: flex-basis, width, opacity; /* 提前让浏览器优化 */
   }
   
@@ -255,7 +255,7 @@
     width: 1px; /* 分割线宽度 */
     background-color: #ddd; /* 分割线颜色为浅灰色 */
     z-index: 1; /* 提高堆叠层级 */
-    transition: opacity 0.2s ease; /* 悬浮/激活时平滑隐藏 */
+    transition: opacity 0.5s ease; /* 悬浮/激活时平滑隐藏 */
   }
 
   /* 当某一项被悬浮、聚焦（含子元素）或激活时，隐藏其左右相邻的分割线 */
@@ -303,7 +303,7 @@
   .search-btn:hover {
     background-color: #666666; /* 鼠标悬停时按钮背景颜色加深 */
   }
-  
+
   /* 精确搜索展开：覆盖左侧“时区”和“导师特色” */
   .search-bar.exact-expanded .search-item.timezone,
   .search-bar.exact-expanded .search-item.course-type {
@@ -328,6 +328,19 @@
     z-index: 2; /* 置顶，形成“白色胶囊”滑动覆盖效果 */
     background-color: #ffffff; /* 背景保持白色，和灰色激活层形成对比 */
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); /* 轻微阴影，较自然 */
+  }
+
+  /* 仅在展开时放慢过渡速度（收起仍用默认更快的时长） */
+  .search-bar.exact-expanded .search-item {
+    transition: background-color 0.55s ease, box-shadow 0.55s ease,
+                flex-basis 0.85s cubic-bezier(.22,.61,.36,1),
+                width 0.85s cubic-bezier(.22,.61,.36,1),
+                opacity 0.60s ease, padding 0.60s ease, margin 0.60s ease;
+  }
+
+  /* 分割线在展开时也更慢地淡出 */
+  .search-bar.exact-expanded .search-item + .search-item::before {
+    transition: opacity 0.60s ease;
   }
   
 
