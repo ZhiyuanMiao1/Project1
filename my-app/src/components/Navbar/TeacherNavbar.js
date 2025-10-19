@@ -8,6 +8,7 @@ import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
 import TeacherAuthModal from '../AuthModal/TeacherAuthModal'; // 引入学生版本的注册和登录弹窗组件
 import BrandMark from '../common/BrandMark/BrandMark';
+import { courseTypeToCnLabel } from '../../constants/courseMappings';
 
 function TeacherNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
@@ -127,7 +128,7 @@ function TeacherNavbar() {
               <input
                 type="text"
                 placeholder="选择课程类型"
-                value={selectedCourseType}
+                value={courseTypeToCnLabel(selectedCourseType)}
                 readOnly
               />
             </div>

@@ -133,6 +133,21 @@ export const COURSE_TYPE_LABEL_ICON_MAP = Object.fromEntries(
   COURSE_TYPE_OPTIONS.map((o) => [o.label, COURSE_TYPE_ICON_MAP[o.id]])
 );
 
+// Legacy English -> Chinese label mapping for course type selections
+// Used by navbar filters to display Chinese while keeping internal values unchanged
+export const COURSE_TYPE_EN_TO_CN = {
+  'Course Selection': '选课指导',
+  'Pre-class Preparation': '课前预习',
+  'Assignment': '作业项目',
+  'Exam Review': '期末复习',
+  'Graduation Thesis': '毕业论文',
+  'Programming': '其它类型',
+};
+
+export function courseTypeToCnLabel(value) {
+  return COURSE_TYPE_EN_TO_CN[value] || value || '';
+}
+
 // Normalize free-text course titles to a standard label used above
 export function normalizeCourseLabel(raw) {
   const s = String(raw || '').trim();
@@ -168,4 +183,3 @@ export function normalizeCourseLabel(raw) {
   if (has(/求职/)) return '求职辅导';
   return '其它课程方向';
 }
-
