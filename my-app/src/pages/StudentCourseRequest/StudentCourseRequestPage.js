@@ -2,43 +2,9 @@
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
-import {
-  FaCode,
-  FaProjectDiagram,
-  FaCalculator,
-  FaChartPie,
-  FaRobot,
-  FaAtom,
-  FaChartBar,
-  FaDollarSign,
-  FaFileAlt,
-  FaEllipsisH,
-  FaBullhorn,
-  FaCogs,
-  FaBalanceScale,
-  FaLaptopCode,
-  FaShieldAlt,
-  FaUniversity,
-  FaTasks,
-  FaUserTie,
-  FaDna,
-  FaFlask,
-  FaCubes,
-  FaPalette,
-  FaLanguage,
-  FaBrain,
-  FaBroadcastTower,
-  FaGlobe,
-  FaClock,
-  FaCalendarAlt,
-  FaHeart,
-  FaLightbulb,
-  FaGraduationCap,
-  FaImages,
-  FaBookOpen,
-  FaCheckCircle,
-} from 'react-icons/fa';
-import { RiAiGenerate, RiDeleteBin6Line } from 'react-icons/ri';
+import { FaFileAlt, FaEllipsisH, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaImages, FaTasks } from 'react-icons/fa';
+import { RiDeleteBin6Line } from 'react-icons/ri';
+import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS, COURSE_TYPE_ICON_MAP } from '../../constants/courseMappings';
 
 const EMPTY_BLOCKS = [];
 
@@ -404,74 +370,7 @@ const STEPS = [
   },
 ];
 
-const DIRECTION_OPTIONS = [
-  { id: 'cs-foundation', label: '编程基础' },
-  { id: 'algo', label: '数据结构与算法' },
-  { id: 'ml', label: '机器学习' },
-  { id: 'ai-large-model', label: 'AI 大模型' },
-  { id: 'data-analysis', label: '数据分析' },
-  { id: 'advanced-math', label: '高等数学' },
-  { id: 'statistics', label: '概率与统计' },
-  { id: 'physics', label: '物理学' },
-  { id: 'life-science', label: '生命科学' },
-  { id: 'chemistry', label: '化学' },
-  { id: 'materials-science', label: '材料科学' },
-  { id: 'software-engineering', label: '软件工程' },
-  { id: 'cybersecurity', label: '网络安全' },
-  { id: 'finance', label: '金融学' },
-  { id: 'accounting', label: '会计学' },
-  { id: 'economics', label: '经济学' },
-  { id: 'marketing', label: '市场营销' },
-  { id: 'operations', label: '运营管理' },
-  { id: 'project-management', label: '项目管理' },
-  { id: 'psychology', label: '心理学' },
-  { id: 'design-creative', label: '设计 / 创意' },
-  { id: 'linguistics', label: '语言学' },
-  { id: 'communication-studies', label: '传播学' },
-  { id: 'law', label: '法律' },
-  { id: 'writing', label: '论文写作与润色' },
-  { id: 'career-coaching', label: '求职辅导' },
-  { id: 'others', label: '其它课程方向' },
-];
-
-// 方向图标映射
-const DIRECTION_ICONS = {
-  'cs-foundation': <FaCode />,
-  'algo': <FaProjectDiagram />,
-  'ml': <FaRobot />,
-  'ai-large-model': <RiAiGenerate />,
-  'data-analysis': <FaChartBar />,
-  'advanced-math': <FaCalculator />,
-  'statistics': <FaChartPie />,
-  'physics': <FaAtom />,
-  'life-science': <FaDna />,
-  'chemistry': <FaFlask />,
-  'materials-science': <FaCubes />,
-  'software-engineering': <FaLaptopCode />,
-  'cybersecurity': <FaShieldAlt />,
-  'finance': <FaDollarSign />,
-  'accounting': <FaCalculator />,
-  'economics': <FaUniversity />,
-  'marketing': <FaBullhorn />,
-  'operations': <FaCogs />,
-  'project-management': <FaTasks />,
-  'psychology': <FaBrain />,
-  'design-creative': <FaPalette />,
-  'linguistics': <FaLanguage />,
-  'communication-studies': <FaBroadcastTower />,
-  'law': <FaBalanceScale />,
-  'writing': <FaFileAlt />,
-  'career-coaching': <FaUserTie />,
-  'others': <FaEllipsisH />,
-};
-const COURSE_TYPE_OPTIONS = [
-  { id: 'course-selection', label: '选课指导', icon: <FaLightbulb /> },
-  { id: 'pre-study', label: '课前预习', icon: <FaBookOpen /> },
-  { id: 'assignment-project', label: '作业项目', icon: <FaTasks /> },
-  { id: 'final-review', label: '期末复习', icon: <FaCheckCircle /> },
-  { id: 'in-class-support', label: '毕业论文', icon: <FaGraduationCap /> },
-  { id: 'others', label: '其它类型', icon: <FaEllipsisH /> },
-];
+// Use shared constants for directions and course types
 
 
 const TIMEZONE_NAME_OVERRIDES = {
@@ -1292,7 +1191,7 @@ function StudentCourseRequestPage() {
                       }}
                     >
                       <span className="direction-card__icon" aria-hidden="true">
-                        {option.icon}
+                        {(() => { const TypeIcon = COURSE_TYPE_ICON_MAP[option.id] || FaEllipsisH; return <TypeIcon />; })()}
                       </span>
                       <span className="direction-card__title">{option.label}</span>
                     </button>
@@ -1323,7 +1222,7 @@ function StudentCourseRequestPage() {
                     }}
                   >
                     <span className="direction-card__icon" aria-hidden="true">
-                      {DIRECTION_ICONS[option.id] || <FaEllipsisH />}
+                      {(() => { const Icon = DIRECTION_ICON_MAP[option.id] || FaEllipsisH; return <Icon />; })()}
                     </span>
                     <span className="direction-card__title">{option.label}</span>
                   </button>
@@ -1576,7 +1475,7 @@ function StudentCourseRequestPage() {
                   </div>
                   <div className="card-list" role="list">
                     <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}                  （{tzCity || '时区'}）</span></div>
-                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
@@ -1776,7 +1675,7 @@ function StudentCourseRequestPage() {
                   </div>
                   <div className="card-list" role="list">
                     <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
-                    <div className="item" role="listitem"><span className="icon">{DIRECTION_ICONS[formData.courseDirection] || <FaFileAlt />}</span><span>{previewDirectionLabel}</span></div>
+                    <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
                     )}
