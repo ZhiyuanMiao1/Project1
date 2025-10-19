@@ -36,6 +36,10 @@
 .listing-grid > .listing-card.fade-in:nth-child(7) { animation-delay: 280ms; }
 .listing-grid > .listing-card.fade-in:nth-child(8) { animation-delay: 320ms; }
 
+/* ---- Reveal on scroll (IO) ---- */
+.reveal { opacity: 0; transform: translateY(8px) scale(0.98); }
+.reveal.is-visible { animation: listing-fade-in 360ms ease-out forwards; }
+
 /* ---- Lightweight skeleton shimmer ---- */
 .sk-card {
   background: #fff;

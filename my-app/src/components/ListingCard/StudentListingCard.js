@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
+import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 
 function StudentListingCard({ data }) {
   // 添加一个 state 用于管理收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
+  const { ref: revealRef, visible } = useRevealOnScroll();
 
   // 切换收藏状态的函数
   const toggleFavorite = () => {
@@ -12,7 +14,7 @@ function StudentListingCard({ data }) {
   };
 
   return (
-    <div className="listing-card fade-in">
+    <div ref={revealRef} className={`listing-card reveal ${visible ? 'is-visible' : ''}`}>
       {/* 右上角的爱心图标 */}
       <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
         <svg

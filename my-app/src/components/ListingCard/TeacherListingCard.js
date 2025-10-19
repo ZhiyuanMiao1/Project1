@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './TeacherListingCard.css';
+import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import {
   FaHeart,
   FaGlobe,
@@ -14,6 +15,7 @@ import {
 function TeacherListingCard({ data }) {
   // 收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
+  const { ref: revealRef, visible } = useRevealOnScroll();
 
   const toggleFavorite = () => setIsFavorited((v) => !v);
 
@@ -26,7 +28,7 @@ function TeacherListingCard({ data }) {
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
-    <div className="listing-card fade-in teacher-preview-card">
+    <div ref={revealRef} className={`listing-card teacher-preview-card reveal ${visible ? 'is-visible' : ''}`}>
       <button
         type="button"
         aria-label={isFavorited ? '取消收藏' : '收藏'}
