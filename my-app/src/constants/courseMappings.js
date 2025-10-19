@@ -26,6 +26,7 @@ import {
   FaBalanceScale,
   FaFileAlt,
   FaUserTie,
+  FaUsers,
   FaLightbulb,
   FaBookOpen,
   FaCheckCircle,
@@ -54,7 +55,7 @@ export const DIRECTION_OPTIONS = [
   { id: 'economics', label: '经济学' },
   { id: 'marketing', label: '市场营销' },
   { id: 'operations', label: '运营管理' },
-  { id: 'project-management', label: '项目管理' },
+  { id: 'project-management', label: '人力资源管理' },
   { id: 'psychology', label: '心理学' },
   { id: 'design-creative', label: '设计 / 创意' },
   { id: 'linguistics', label: '语言学' },
@@ -85,7 +86,7 @@ export const DIRECTION_ICON_MAP = {
   'economics': FaUniversity,
   'marketing': FaBullhorn,
   'operations': FaCogs,
-  'project-management': FaTasks,
+  'project-management': FaUsers,
   'psychology': FaBrain,
   'design-creative': FaPalette,
   'linguistics': FaLanguage,
@@ -173,7 +174,7 @@ export function normalizeCourseLabel(raw) {
   if (has(/经济/)) return '经济学';
   if (has(/营销/)) return '市场营销';
   if (has(/运营/)) return '运营管理';
-  if (has(/项目管理/)) return '项目管理';
+  if (has(/人力资源|\bhr\b|HR|项目管理/)) return '人力资源管理';
   if (has(/心理/)) return '心理学';
   if (has(/设计|创意/)) return '设计 / 创意';
   if (has(/语言学/)) return '语言学';
