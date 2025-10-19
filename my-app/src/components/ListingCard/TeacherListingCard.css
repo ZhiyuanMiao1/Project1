@@ -114,8 +114,30 @@
 .teacher-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
 .teacher-preview-card .chip.gray { background: #eef2f7; color: #475569; }
 .teacher-preview-card .card-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.teacher-preview-card .item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #111827; }
-.teacher-preview-card .icon { color: #111827; margin-top: 2px; }
+.teacher-preview-card .item {
+  display: flex;
+  align-items: center; /* 图标与文字垂直居中 */
+  gap: 10px;
+  font-size: 14px;
+  color: #111827;
+  line-height: 20px; /* 统一行高，避免各行视觉高度不一致 */
+  min-height: 20px; /* 保底高度，与行高一致 */
+}
+.teacher-preview-card .icon {
+  color: #111827;
+  width: 16px;
+  height: 16px;
+  display: inline-flex; /* 固定图标容器尺寸 */
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px; /* 防止被压缩，宽度固定 */
+  margin-top: 0; /* 去除不同图标导致的顶边差异 */
+}
+.teacher-preview-card .icon svg {
+  width: 16px;
+  height: 16px;
+  display: block; /* 去除行内元素基线空隙 */
+}
 
 /* 覆盖通用卡片的固定最小高度，避免底部留白 */
 .listing-card.teacher-preview-card { min-height: unset; }
