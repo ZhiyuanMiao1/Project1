@@ -23,6 +23,8 @@ function StudentNavbar() {
   const [activeFilter, setActiveFilter] = useState('');
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  // 精确搜索展开（覆盖左侧筛选）状态
+  const [isExactExpanded, setIsExactExpanded] = useState(false);
   // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
   const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate();
@@ -91,7 +93,7 @@ function StudentNavbar() {
 
       {/* 搜索栏 */}
       <div className="navbar-bottom container">
-        <div className={`search-bar ${isSearchBarActive ? 'active' : ''}`}>
+        <div className={`search-bar ${isSearchBarActive ? 'active' : ''} ${isExactExpanded ? 'exact-expanded' : ''}`}>
           <div className="search-filters">
             <div
               ref={timezoneRef}
@@ -130,6 +132,7 @@ function StudentNavbar() {
               onClick={() => {
                 setActiveFilter('startDate');
                 setIsSearchBarActive(true);
+                setIsExactExpanded(true);
                 try { exactSearchInputRef.current && exactSearchInputRef.current.focus(); } catch {}
               }}
             >
@@ -139,9 +142,24 @@ function StudentNavbar() {
                 type="text"
                 placeholder="输入导师的MentorID数字或导师姓名"
                 value={exactSearch}
-                onChange={(e) => setExactSearch(e.target.value)}
-                onFocus={() => { setActiveFilter('startDate'); setIsSearchBarActive(true); }}
-                onBlur={() => { setActiveFilter(''); setIsSearchBarActive(false); }}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setExactSearch(v);
+                  setIsExactExpanded(true);
+                  setIsSearchBarActive(true);
+                }}
+                onFocus={() => {
+                  setActiveFilter('startDate');
+                  setIsSearchBarActive(true);
+                  setIsExactExpanded(true);
+                }}
+                onBlur={() => {
+                  setActiveFilter('');
+                  if (!exactSearch || exactSearch.trim() === '') {
+                    setIsSearchBarActive(false);
+                    setIsExactExpanded(false);
+                  }
+                }}
                 style={{ cursor: 'text' }}
               />
             </div>
