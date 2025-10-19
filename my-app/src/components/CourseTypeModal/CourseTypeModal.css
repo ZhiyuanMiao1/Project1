@@ -21,7 +21,7 @@
     background: #fff; /* 背景色 */
     border-radius: 20px; /* 圆角边框 */
     padding: 10px; /* 内边距 */
-    width: 280px; /* 弹窗宽度 */
+    width: 220px; /* 弹窗宽度 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影 */
     max-height: 80%; /* 限制弹窗高度，防止超出屏幕 */
     /* 位置由 JS 通过 style.top/left 控制 */
@@ -41,7 +41,7 @@
     display: flex;
     align-items: center; /* 图标和文字垂直居中 */
     justify-content: space-between; /* 图标和文字两端对齐 */
-    padding: 20px 30px; /* 按钮内边距 */
+    padding: 18px 24px; /* 稍微收紧上下，保留左右 */
     border-radius: 20px; /* 圆角边框 */
     background-color: transparent; /* 按钮背景色 */
     border: none; /* 去掉按钮边框 */
@@ -57,8 +57,8 @@
     content: '';
     position: absolute;
     bottom: 0;
-    left: 30px;
-    right: 30px;
+    left: 24px;
+    right: 24px;
     height: 0.5px;
     background-color: #ddd; /* 分割线颜色 */
   }
