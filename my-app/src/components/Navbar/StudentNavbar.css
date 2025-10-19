@@ -183,10 +183,10 @@
   
   /* 中间包裹三列的容器 */
   .search-filters {
-    display: flex; /* 使用 Flexbox 布局 */
-    align-items: center; /* 子元素垂直方向居中 */
-    width: 100%; /* 宽度为父容器的100% */
-    position: relative; /* 设置为相对定位，为内部绝对定位元素提供参考 */
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
   }
   
   /***** 搜索条件样式 *****/
@@ -298,6 +298,7 @@
     cursor: pointer;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     transition: background-color 0.3s ease;
+    z-index: 3;          /* 始终压在输入文字之上 */
   }
 
   .search-btn:hover {
@@ -305,7 +306,7 @@
   }
 
   /* 精确搜索展开：覆盖左侧“时区”和“导师特色” */
-  .search-bar.exact-expanded .search-item.timezone,
+  /*.search-bar.exact-expanded .search-item.timezone,
   .search-bar.exact-expanded .search-item.course-type {
     flex: 0 0 0 !important;
     width: 0 !important;
@@ -314,7 +315,17 @@
     margin: 0;
     opacity: 0;
     overflow: hidden;
-    pointer-events: none; /* 防止点击 */
+    pointer-events: none;
+  }*/
+  .search-bar.exact-expanded .search-item.timezone,
+  .search-bar.exact-expanded .search-item.course-type {
+    flex-basis: 0;
+    padding-left: 0;
+    padding-right: 0;
+    margin: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   .search-bar.exact-expanded .search-item.course-type::before,
@@ -336,3 +347,21 @@
   }
 
   
+  /*.search-bar.exact-expanded .search-item {
+    transition: background-color 0.45s ease, box-shadow 0.45s ease,
+                flex-basis 0.6s cubic-bezier(.22,.61,.36,1),
+                width 0.6s cubic-bezier(.22,.61,.36,1),
+                opacity 0.50s ease, padding 0.50s ease, margin 0.50s ease;
+  }
+  .search-bar.exact-expanded .search-item + .search-item::before {
+    transition: opacity 0.50s ease;
+  }*/
+
+  .search-bar .search-item {
+    transition: background-color .45s ease, box-shadow .45s ease,
+                flex-basis .6s cubic-bezier(.22,.61,.36,1),
+                opacity .5s ease, padding .5s ease, margin .5s ease;
+  }
+  .search-bar .search-item + .search-item::before {
+    transition: opacity .5s ease;
+  }

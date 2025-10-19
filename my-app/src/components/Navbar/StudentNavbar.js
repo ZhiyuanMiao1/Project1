@@ -56,8 +56,8 @@ function StudentNavbar() {
     const handleOutside = (e) => {
       const bar = searchBarRef.current;
       if (bar && !bar.contains(e.target)) {
-        setIsExactExpanded(false);
         setIsExactAnimating(true);      // ✅ 标记开始收起动画
+        setIsExactExpanded(false);
       }
     };
 
@@ -80,7 +80,7 @@ function StudentNavbar() {
         setIsExactAnimating(false);     // 动画结束
         setActiveFilter('');            // 现在再清理激活项
         // 如果你的逻辑是“没有精确输入就整体失焦”，可以按需清理：
-        // if (!exactSearch) setIsSearchBarActive(false);
+        if (!exactSearch) setIsSearchBarActive(false);
       }
     };
   
