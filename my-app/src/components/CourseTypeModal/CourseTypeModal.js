@@ -56,55 +56,67 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef }) => {
         // 交互由文档级监听控制
       >
         <div className="course-types">
-          <button
-            className="course-type-button"
-            onClick={() => handleCourseTypeSelect('Pre-class Preparation')}
-          >
-            Pre-class Preparation
-            <i className="fas fa-chalkboard-teacher"></i>
-          </button>
-          <button
-            className="course-type-button"
-            onClick={() => handleCourseTypeSelect('Assignment')}
-          >
-            Assignment
-            <i className="fas fa-book"></i>
-          </button>
-          <button
-            className="course-type-button"
-            onClick={() => handleCourseTypeSelect('Exam Review')}
-          >
-            Exam Review
-            <i className="fas fa-graduation-cap"></i>
-          </button>
-          <button
-            className="course-type-button"
-            onClick={() => handleCourseTypeSelect('Programming')}
-          >
-            Programming
-            <i className="fas fa-code"></i>
-          </button>
+          {/* 选课指导 */}
           <button
             className="course-type-button"
             onClick={() => handleCourseTypeSelect('Course Selection')}
           >
-            Course Selection
+            选课指导
             <i className="fas fa-lightbulb"></i>
           </button>
+
+          {/* 课前预习 */}
+          <button
+            className="course-type-button"
+            onClick={() => handleCourseTypeSelect('Pre-class Preparation')}
+          >
+            课前预习
+            <i className="fas fa-chalkboard-teacher"></i>
+          </button>
+
+          {/* 作业项目 */}
+          <button
+            className="course-type-button"
+            onClick={() => handleCourseTypeSelect('Assignment')}
+          >
+            作业项目
+            <i className="fas fa-book"></i>
+          </button>
+
+          {/* 期末复习 */}
+          <button
+            className="course-type-button"
+            onClick={() => handleCourseTypeSelect('Exam Review')}
+          >
+            期末复习
+            <i className="fas fa-graduation-cap"></i>
+          </button>
+
+          {/* 毕业论文 */}
           <button
             className="course-type-button"
             onClick={() => handleCourseTypeSelect('Graduation Thesis')}
           >
-            Graduation Thesis
+            毕业论文
             <i className="fas fa-pen"></i>
           </button>
+
+          {/* 其它类型（保持原有值以确保功能不变）*/}
+          <button
+            className="course-type-button"
+            onClick={() => handleCourseTypeSelect('Programming')}
+          >
+            其它类型
+            <i className="fas fa-code"></i>
+          </button>
+
           {/* 清空当前选择 */}
           <button
             className="course-type-button"
             onClick={() => handleCourseTypeSelect('')}
             aria-label="清空课程类型选择"
           >
-            Reset
+            重置
             <i className="fas fa-eraser"></i>
           </button>
         </div>
