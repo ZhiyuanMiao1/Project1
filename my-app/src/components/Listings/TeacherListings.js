@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import TeacherListingCard from '../ListingCard/TeacherListingCard';
 import './Listings.css';
 
 function TeacherListings() {
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(t);
+  }, []);
   const listingData = [
     {
       id: 1,
@@ -69,13 +74,24 @@ function TeacherListings() {
   return (
     <div className="listings container">
       <div className="listing-grid">
-        {listingData.map((item) => (
-          <TeacherListingCard key={item.id} data={item} />
-        ))}
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="sk-card">
+                <div className="sk sk-title" style={{ width: '40%', marginTop: 6 }} />
+                <div className="sk-chips" style={{ justifyContent: 'flex-start' }}>
+                  <div className="sk sk-chip" />
+                  <div className="sk sk-chip" />
+                </div>
+                <div className="sk sk-line long" />
+                <div className="sk sk-line long" />
+                <div className="sk sk-line long" />
+                <div className="sk sk-line short" />
+              </div>
+            ))
+          : listingData.map((item) => <TeacherListingCard key={item.id} data={item} />)}
       </div>
     </div>
   );
 }
 
 export default TeacherListings;
-

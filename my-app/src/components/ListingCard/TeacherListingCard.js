@@ -26,7 +26,7 @@ function TeacherListingCard({ data }) {
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
-    <div className="listing-card teacher-preview-card">
+    <div className="listing-card fade-in teacher-preview-card">
       <button
         type="button"
         aria-label={isFavorited ? '取消收藏' : '收藏'}

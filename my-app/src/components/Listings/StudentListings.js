@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StudentListingCard from '../ListingCard/StudentListingCard';
 import './Listings.css';
 import tutor1Image from '../../assets/images/tutor1.jpg';
@@ -9,6 +9,13 @@ import tutor5Image from '../../assets/images/tutor5.jpg';
 import tutor6Image from '../../assets/images/tutor6.jpg';
 
 function StudentListings() {
+  const [loading, setLoading] = useState(true);
+
+  // 模拟加载动画，避免页面切换过于生硬
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500);
+    return () => clearTimeout(t);
+  }, []);
   const listingData = [
     {
       id: 1,
@@ -135,9 +142,21 @@ function StudentListings() {
   return (
     <div className="listings container">
       <div className="listing-grid">
-        {listingData.map((item) => (
-          <StudentListingCard key={item.id} data={item} />
-        ))}
+        {loading
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="sk-card">
+                <div className="sk sk-avatar" />
+                <div className="sk sk-title" />
+                <div className="sk-chips">
+                  <div className="sk sk-chip" />
+                  <div className="sk sk-chip" />
+                </div>
+                <div className="sk sk-line long" />
+                <div className="sk sk-line long" />
+                <div className="sk sk-line short" />
+              </div>
+            ))
+          : listingData.map((item) => <StudentListingCard key={item.id} data={item} />)}
       </div>
     </div>
   );

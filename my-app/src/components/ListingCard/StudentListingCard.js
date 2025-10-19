@@ -12,7 +12,7 @@ function StudentListingCard({ data }) {
   };
 
   return (
-    <div className="listing-card">
+    <div className="listing-card fade-in">
       {/* 右上角的爱心图标 */}
       <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
         <svg
