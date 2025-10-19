@@ -34,6 +34,8 @@ function StudentNavbar() {
   const isStudentActive = location.pathname.startsWith('/student');
   const isTeacherActive = location.pathname.startsWith('/teacher');
 
+  const [isExactAnimating, setIsExactAnimating] = useState(false);
+
   // 挂载后根据弹窗打开情况再切换激活项，避免点击瞬间的白->灰闪烁
   useEffect(() => {
     if (pendingFilter === 'timezone' && showTimezoneModal) {
@@ -55,8 +57,7 @@ function StudentNavbar() {
       const bar = searchBarRef.current;
       if (bar && !bar.contains(e.target)) {
         setIsExactExpanded(false);
-        setIsSearchBarActive(false);
-        setActiveFilter('');
+        setIsExactAnimating(true);      // ✅ 标记开始收起动画
       }
     };
 
@@ -67,6 +68,25 @@ function StudentNavbar() {
       document.removeEventListener('touchstart', handleOutside, true);
     };
   }, [isExactExpanded]);
+
+  useEffect(() => {
+    const bar = searchBarRef.current;
+    if (!bar) return;
+    
+    const onEnd = (e) => {
+      if (!isExactAnimating) return;
+      // 这些属性任意一个过渡结束即可认为布局回位完成
+      if (['flex-basis','width','opacity','padding','margin'].includes(e.propertyName)) {
+        setIsExactAnimating(false);     // 动画结束
+        setActiveFilter('');            // 现在再清理激活项
+        // 如果你的逻辑是“没有精确输入就整体失焦”，可以按需清理：
+        // if (!exactSearch) setIsSearchBarActive(false);
+      }
+    };
+  
+    bar.addEventListener('transitionend', onEnd);
+    return () => bar.removeEventListener('transitionend', onEnd);
+  }, [isExactAnimating, exactSearch]);
 
   return (
     <header className="navbar">
@@ -117,7 +137,7 @@ function StudentNavbar() {
       <div className="navbar-bottom container">
         <div
           ref={searchBarRef}
-          className={`search-bar ${isSearchBarActive ? 'active' : ''} ${isExactExpanded ? 'exact-expanded' : ''}`}
+          className={`search-bar ${isSearchBarActive ? 'active' : ''} ${isExactExpanded ? 'exact-expanded' : ''} ${isExactAnimating ? 'is-animating' : ''}`}
         >
           <div className="search-filters">
             <div
