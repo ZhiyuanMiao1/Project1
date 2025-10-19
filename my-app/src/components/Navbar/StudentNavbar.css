@@ -13,8 +13,8 @@
   .navbar-top {
     display: flex;           /* 三段式布局 */
     align-items: center;     /* 垂直居中 */
-    gap: 24px;               /* ��Ԫ������� */
-    padding: 0 0 12px 0;         /* �������� */
+    gap: 24px;               
+    padding: 0 0 12px 0;         
   }
   
   /* 左侧：LOGO */
@@ -343,4 +343,3 @@
     transition: opacity 0.50s ease;
   }
   
-
