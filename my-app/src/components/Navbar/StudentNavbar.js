@@ -12,6 +12,7 @@ function StudentNavbar() {
   const timezoneRef = useRef(null);
   const courseTypeRef = useRef(null);
   const exactSearchInputRef = useRef(null);
+  const searchBarRef = useRef(null);
   const userIconRef = useRef(null);
   const publishBtnRef = useRef(null);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
@@ -45,6 +46,27 @@ function StudentNavbar() {
       setPendingFilter('');
     }
   }, [pendingFilter, showTimezoneModal, showCourseTypeModal]);
+
+  // 当精确搜索展开时，仅点击搜索框外部才收起
+  useEffect(() => {
+    if (!isExactExpanded) return;
+
+    const handleOutside = (e) => {
+      const bar = searchBarRef.current;
+      if (bar && !bar.contains(e.target)) {
+        setIsExactExpanded(false);
+        setIsSearchBarActive(false);
+        setActiveFilter('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutside, true);
+    document.addEventListener('touchstart', handleOutside, true);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside, true);
+      document.removeEventListener('touchstart', handleOutside, true);
+    };
+  }, [isExactExpanded]);
 
   return (
     <header className="navbar">
@@ -93,7 +115,10 @@ function StudentNavbar() {
 
       {/* 搜索栏 */}
       <div className="navbar-bottom container">
-        <div className={`search-bar ${isSearchBarActive ? 'active' : ''} ${isExactExpanded ? 'exact-expanded' : ''}`}>
+        <div
+          ref={searchBarRef}
+          className={`search-bar ${isSearchBarActive ? 'active' : ''} ${isExactExpanded ? 'exact-expanded' : ''}`}
+        >
           <div className="search-filters">
             <div
               ref={timezoneRef}
@@ -152,13 +177,6 @@ function StudentNavbar() {
                   setActiveFilter('startDate');
                   setIsSearchBarActive(true);
                   setIsExactExpanded(true);
-                }}
-                onBlur={() => {
-                  setActiveFilter('');
-                  if (!exactSearch || exactSearch.trim() === '') {
-                    setIsSearchBarActive(false);
-                    setIsExactExpanded(false);
-                  }
                 }}
                 style={{ cursor: 'text' }}
               />
