@@ -65,13 +65,13 @@ function TeacherListingCard({ data }) {
         {!!data?.courseType && (
           <div className="item" role="listitem">
             <span className="icon"><FaGraduationCap /></span>
-            <span>课程类型：{data.courseType}</span>
+            <span>{data.courseType}</span>
           </div>
         )}
         {!!data?.expectedDuration && (
           <div className="item" role="listitem">
             <span className="icon"><FaClock /></span>
-            <span>预计时长：{data.expectedDuration}</span>
+            <span>{data.expectedDuration}</span>
           </div>
         )}
         {/* 根据产品需求：教师卡片仅保留前四行 + 最后一行，
@@ -79,7 +79,7 @@ function TeacherListingCard({ data }) {
         {!!data?.expectedTime && (
           <div className="item" role="listitem">
             <span className="icon"><FaCalendarAlt /></span>
-            <span>期望首课：{data.expectedTime}</span>
+            <span>{data.expectedTime}</span>
           </div>
         )}
       </div>
