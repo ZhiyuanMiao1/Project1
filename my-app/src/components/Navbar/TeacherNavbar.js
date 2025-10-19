@@ -71,7 +71,7 @@ function TeacherNavbar() {
               className={`nav-tab ${isTeacherActive ? 'active' : ''}`}
               onClick={() => navigate('/teacher')}
             >
-              教师
+              导师
             </button>
           </nav>
         </div>

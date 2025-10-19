@@ -68,7 +68,7 @@ function StudentNavbar() {
               className={`nav-tab ${isTeacherActive ? 'active' : ''}`}
               onClick={() => navigate('/teacher')}
             >
-              教师
+              导师
             </button>
           </nav>
         </div>
@@ -108,7 +108,7 @@ function StudentNavbar() {
               <label>时区</label>
               <input
                 type="text"
-                placeholder="选择教师时区"
+                placeholder="选择导师时区"
                 value={selectedRegion}
                 readOnly
               />
@@ -121,10 +121,10 @@ function StudentNavbar() {
                 setPendingFilter('courseType');
               }}
             >
-              <label>课程类型</label>
+              <label>导师特色</label>
               <input
                 type="text"
-                placeholder="选择课程类型"
+                placeholder="选择导师特色"
                 value={selectedCourseType}
                 readOnly
               />
@@ -178,6 +178,7 @@ function StudentNavbar() {
           }}
           onSelect={(courseType) => setSelectedCourseType(courseType)}
           anchorRef={courseTypeRef}
+          mode="studentFeatures"
         />
       )}
 
