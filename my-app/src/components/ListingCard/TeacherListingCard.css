@@ -88,7 +88,7 @@
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 18px;
-  padding: 16px 16px 18px;
+  padding: 16px 16px 16px; /* 收紧内边距，减少高度 */
   box-shadow: 0 16px 36px rgba(0,0,0,0.08);
 }
 
@@ -113,6 +113,9 @@
 .teacher-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
 .teacher-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
 .teacher-preview-card .chip.gray { background: #eef2f7; color: #475569; }
-.teacher-preview-card .card-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.teacher-preview-card .card-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .teacher-preview-card .item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: #111827; }
 .teacher-preview-card .icon { color: #111827; margin-top: 2px; }
+
+/* 覆盖通用卡片的固定最小高度，避免底部留白 */
+.listing-card.teacher-preview-card { min-height: unset; }
