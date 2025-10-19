@@ -7,8 +7,6 @@ import {
   FaFileAlt,
   FaGraduationCap,
   FaClock,
-  FaLightbulb,
-  FaTasks,
   FaCalendarAlt,
 } from 'react-icons/fa';
 
@@ -76,18 +74,8 @@ function TeacherListingCard({ data }) {
             <span>预计时长：{data.expectedDuration}</span>
           </div>
         )}
-        {!!data?.requirements && (
-          <div className="item" role="listitem">
-            <span className="icon"><FaLightbulb /></span>
-            <span>具体内容：{data.requirements}</span>
-          </div>
-        )}
-        {!!data?.milestone && (
-          <div className="item" role="listitem">
-            <span className="icon"><FaTasks /></span>
-            <span>学习目标：{data.milestone}</span>
-          </div>
-        )}
+        {/* 根据产品需求：教师卡片仅保留前四行 + 最后一行，
+            因此移除“具体内容”和“学习目标”两项 */}
         {!!data?.expectedTime && (
           <div className="item" role="listitem">
             <span className="icon"><FaCalendarAlt /></span>
