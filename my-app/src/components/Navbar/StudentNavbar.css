@@ -180,18 +180,24 @@
   .search-bar.active {
     background-color: #f0f0f0; /* 激活时灰色 */
   }
+  /* 精确搜索展开时保持白底，避免右侧出现灰色弧线 */
+  .search-bar.active.exact-expanded {
+    background-color: #fff;
+  }
   
   /* 精确搜索展开时：在按钮左侧用白色铺满，避免灰色露出 */
   .search-bar.exact-expanded::after {
     content: '';
     position: absolute;
     left: 2px;                 /* 与容器内边界对齐 */
-    right: 0;                  /* 覆盖到搜索框最右侧（按钮在其上方） */
+    /* 往右超出一些，让弧形边界被容器裁剪，消除按钮左侧微弱圆弧 */
+    right: -64px;              /* 覆盖到搜索框最右侧（按钮在其上方） */
     top: 0px;
     bottom: 0px;
     background: #ffffff;       /* 覆盖激活态的灰色背景 */
     border-radius: 40px;       /* 与容器一致的圆角 */
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    /* 移除伪元素阴影，避免在按钮左侧形成轻微弧线阴影 */
+    box-shadow: none;
     z-index: 1;                /* 在输入项下方、按钮下方 */
     pointer-events: none;      /* 不影响交互 */
   }
@@ -358,7 +364,23 @@
     flex: 1 1 auto; /* 扩展占据可用空间 */
     z-index: 2; /* 置顶，形成“白色胶囊”滑动覆盖效果 */
     background-color: #ffffff; /* 背景保持白色，和灰色激活层形成对比 */
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08); /* 轻微阴影，较自然 */
+    /* 去掉自身右侧圆角与阴影，避免在按钮左侧出现“内弧线” */
+    box-shadow: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+
+  /* 再保险：在“精确搜索”右侧加一小段白色遮罩，完全抹平与按钮之间的缝隙/弧线 */
+  .search-bar.exact-expanded .search-item.start-date::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -20px;     /* 向右延伸到按钮下方 */
+    width: 28px;      /* 覆盖右边界的弧形 */
+    background: #fff;
+    pointer-events: none;
+    z-index: 2;
   }
 
   
