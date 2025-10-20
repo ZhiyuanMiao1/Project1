@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
+import './StudentCourseRequestPage.override.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaEllipsisH, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaImages, FaTasks } from 'react-icons/fa';
 import { RiDeleteBin6Line } from 'react-icons/ri';

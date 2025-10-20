@@ -1,0 +1,12 @@
+/* Overrides to keep the right preview card fixed at the initial
+   vertical center, regardless of left-panel height changes */
+@media (min-width: 1025px) {
+  .step-layout.contact-preview-layout .contact-preview-floating {
+    position: fixed;
+    right: max(24px, calc((100vw - 1200px) / 2 + 24px));
+    top: 50vh;
+    transform: translateY(-50%);
+    z-index: 5;
+  }
+}
+
