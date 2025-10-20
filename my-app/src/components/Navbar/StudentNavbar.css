@@ -181,6 +181,21 @@
     background-color: #f0f0f0; /* 激活时灰色 */
   }
   
+  /* 精确搜索展开时：在按钮左侧用白色铺满，避免灰色露出 */
+  .search-bar.exact-expanded::after {
+    content: '';
+    position: absolute;
+    left: 2px;                 /* 与容器内边界对齐 */
+    right: 0;                  /* 覆盖到搜索框最右侧（按钮在其上方） */
+    top: 0px;
+    bottom: 0px;
+    background: #ffffff;       /* 覆盖激活态的灰色背景 */
+    border-radius: 40px;       /* 与容器一致的圆角 */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    z-index: 1;                /* 在输入项下方、按钮下方 */
+    pointer-events: none;      /* 不影响交互 */
+  }
+  
   /* 中间包裹三列的容器 */
   .search-filters {
     display: flex;
