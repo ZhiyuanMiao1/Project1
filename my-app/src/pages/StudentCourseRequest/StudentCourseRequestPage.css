@@ -445,7 +445,10 @@
   transition: color 0.2s ease, transform 0.15s ease;
 }
 .icon-button:hover { color: #111827; transform: translateY(-1px); }
-.icon-button:focus { outline: none; box-shadow: 0 0 0 2px rgba(0,0,0,0.08); border-radius: 6px; }
+.icon-button:focus { outline: none; box-shadow: none; }
+
+/* Optional: only show a clear focus style for keyboard navigation */
+.icon-button:focus-visible { outline: 2px solid #111827; border-radius: 6px; outline-offset: 2px; }
 .file-item .icon-button.remove { margin-left: 12px; }
 
 /* Simple inline number input with a trailing unit */
