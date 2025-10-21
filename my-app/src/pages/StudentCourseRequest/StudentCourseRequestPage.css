@@ -47,7 +47,7 @@
   align-content: start;
 }
 /* Hide animation on contact step and prepare right space for the preview */
-.step-layout.contact-preview-layout { align-items: start; }
+.step-layout.contact-preview-layout { align-items: start; position: relative;}
 .step-layout.contact-preview-layout .step-illustration { display: none; }
 .step-layout.contact-preview-layout .step-content { 
   padding-top: 0; 
@@ -55,6 +55,12 @@
   min-height: clamp(480px, 58vh, 640px);
 }
 
+/* 在上传步骤这页，先让卡片按文档流出现，待 JS 冻结后再变 absolute */
+.step-layout.contact-preview-layout .contact-preview-floating {
+  position: static;      /* 初始用文档流 */
+  top: auto;
+  transform: none;
+}
 
 /* Floating preview in contact step */
 .contact-preview-floating { 

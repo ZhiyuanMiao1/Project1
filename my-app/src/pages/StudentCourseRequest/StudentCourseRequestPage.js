@@ -1,7 +1,6 @@
-import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback,useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
-import './StudentCourseRequestPage.override.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaEllipsisH, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaImages, FaTasks } from 'react-icons/fa';
 import { RiDeleteBin6Line } from 'react-icons/ri';
@@ -1013,6 +1012,20 @@ function StudentCourseRequestPage() {
   ]
     .filter(Boolean)
     .join(' ');
+  
+  // --- Freeze the preview card's initial top position (desktop) ---
+  const previewRef = useRef(null);
+  const [frozenTop, setFrozenTop] = useState(null);
+
+  useLayoutEffect(() => {
+  // 等一帧，确保样式/字体渲染完成再测量
+    const id = requestAnimationFrame(() => {
+      if (!previewRef.current) return;
+        const rect = previewRef.current.getBoundingClientRect();
+        setFrozenTop(rect.top + window.scrollY); // 视口top + 当前滚动 => 文档坐标
+      });
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const stepContentClassName = [
     'step-content',
@@ -1461,7 +1474,12 @@ function StudentCourseRequestPage() {
 
           <section className={stepLayoutClassName}>
             {isUploadStep && !isDirectionSelectionStage && (
-              <div className="contact-preview-floating" aria-label="导师页卡片预览">
+              <div
+                ref={previewRef}
+                className="contact-preview-floating"
+                aria-label="导师页卡片预览"
+                style={frozenTop != null ? { position: 'absolute', top: `${frozenTop}px`, transform: 'none' } : undefined}
+               >
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
