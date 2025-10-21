@@ -236,8 +236,8 @@
     display: block; /* 确保图标是块级元素 */
 }
 
-/* 鼠标悬浮效果 */
+/* 鼠标悬浮效果：保持白色背景，不变灰 */
 .social-button:hover {
-    background-color: rgba(0, 0, 0, 0.05); /* 背景变浅 */
-    border-color: rgba(0, 0, 0, 0.8); /* 边框变深 */
+    background-color: #ffffff; /* 保持白色 */
+    border-color: rgba(0, 0, 0, 0.8); /* 仍允许边框加深 */
 }
