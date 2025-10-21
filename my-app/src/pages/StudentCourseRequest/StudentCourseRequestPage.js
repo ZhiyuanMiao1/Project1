@@ -1017,14 +1017,19 @@ function StudentCourseRequestPage() {
   const previewRef = useRef(null);
   const [frozenTop, setFrozenTop] = useState(null);
 
+  const PREVIEW_FREEZE_OFFSET = -120;
+
   useLayoutEffect(() => {
-  // 等一帧，确保样式/字体渲染完成再测量
     const id = requestAnimationFrame(() => {
-      if (!previewRef.current) return;
-        const rect = previewRef.current.getBoundingClientRect();
-        setFrozenTop(rect.top + window.scrollY); // 视口top + 当前滚动 => 文档坐标
-      });
-    return () => cancelAnimationFrame(id);
+      const el = previewRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      // 视口中心位置 - 卡片半高 = 居中的 top，再加一个可调偏移量(负数=上移)
+      const desiredTop =
+        window.scrollY + (window.innerHeight - rect.height) / 2 + PREVIEW_FREEZE_OFFSET;
+      setFrozenTop(Math.max(0, Math.round(desiredTop)));
+    });
+   return () => cancelAnimationFrame(id);
   }, []);
 
   const stepContentClassName = [
