@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import './StudentCourseRequestPage.override.css';
