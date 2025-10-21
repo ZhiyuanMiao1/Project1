@@ -451,6 +451,10 @@
 .icon-button:focus-visible { outline: 2px solid #111827; border-radius: 6px; outline-offset: 2px; }
 .file-item .icon-button.remove { margin-left: 12px; }
 
+/* Tighter spacing specifically for the upload step */
+.upload-stack { gap: 20px; }
+.upload-stack .file-list { margin-top: 0; }
+
 /* Simple inline number input with a trailing unit */
 .hours-input { display: inline-flex; align-items: center; gap: 8px; }
 .hours-input input { width: 100px; }

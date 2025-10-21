@@ -1017,7 +1017,7 @@ function StudentCourseRequestPage() {
   const previewRef = useRef(null);
   const [frozenTop, setFrozenTop] = useState(null);
 
-  const PREVIEW_FREEZE_OFFSET = -120;
+  const PREVIEW_FREEZE_OFFSET = -150;
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -1368,7 +1368,7 @@ function StudentCourseRequestPage() {
       }
       case 'upload':
         return (
-          <div className="step-field-stack">
+          <div className="step-field-stack upload-stack">
             
             <div
               className={`upload-area ${isDraggingFiles ? 'dragover' : ''}`}
