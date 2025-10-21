@@ -560,6 +560,7 @@ const INITIAL_FORM_STATE = {
 };
 
 const PAGE_TRANSITION_DURATION = 400;
+const PREVIEW_FREEZE_OFFSET = -150;
 
 // ---- Preview helpers (mock profile + formatting) ----
 const pickOne = (arr) => arr[Math.floor(Math.random() * arr.length)] || '';
@@ -869,7 +870,7 @@ function StudentCourseRequestPage() {
   const isDirectionStep = currentStep.id === 'direction';  const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
   const isUploadStep = currentStep.id === 'upload';
-  
+
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
   
   const startPageTransition = (action) => {
@@ -1017,8 +1018,7 @@ function StudentCourseRequestPage() {
   const previewRef = useRef(null);
   const [frozenTop, setFrozenTop] = useState(null);
 
-  const PREVIEW_FREEZE_OFFSET = -150;
-
+  
   useLayoutEffect(() => {
     const id = requestAnimationFrame(() => {
       const el = previewRef.current;
