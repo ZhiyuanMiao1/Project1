@@ -19,6 +19,7 @@ my-app/public/favicon.ico
 
 # 忽略环境变量文件
 .env
+backend/.env.example
 
 # 忽略临时和缓存文件
 *.tmp
