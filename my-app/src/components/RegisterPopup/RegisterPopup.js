@@ -8,11 +8,12 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('student');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState(''); // 邮箱/密码等字段校验错误
+  const [submitError, setSubmitError] = useState(''); // 提交或服务端错误
   const [ok, setOk] = useState('');
 
   const validate = () => {
-    setError('');
+    setFieldError('');
     if (!email) return '请输入邮箱';
     // very light email check; backend validates too
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '邮箱格式不正确';
@@ -25,11 +26,13 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const handleContinue = async () => {
     const msg = validate();
     if (msg) {
-      setError(msg);
+      // 仅作为表单校验错误，显示在输入区域与角色按钮之间
+      setFieldError(msg);
       return;
     }
     setSubmitting(true);
-    setError('');
+    setFieldError('');
+    setSubmitError('');
     setOk('');
     try {
       const res = await api.post('/api/register', {
@@ -44,7 +47,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       }, 800);
     } catch (e) {
       const msg = e?.response?.data?.error || '注册失败，请稍后再试';
-      setError(msg);
+      setSubmitError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -82,6 +85,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
         </div>
+        {/* 表单校验信息的预留空隙（位于输入区域和角色按钮之间） */}
+        <div className="register-validation-slot">
+          {fieldError && <span className="validation-error">{fieldError}</span>}
+        </div>
+
         <div className="register-button-group">
           <button
             className={`register-button student-button ${role === 'student' ? 'active' : ''}`}
@@ -108,7 +116,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             {submitting ? '提交中...' : '继续'}
           </button>
         </div>
-        {error && <div className="register-message error">{error}</div>}
+        {submitError && <div className="register-message error">{submitError}</div>}
         {ok && <div className="register-message success">{ok}</div>}
         <div className="register-modal-divider-with-text">
           <span className="divider-text">或（暂未开放）</span>

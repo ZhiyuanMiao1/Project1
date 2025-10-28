@@ -28,7 +28,8 @@
   }
   
   .register-modal-content h3 {
-    margin: 30px 33px;
+    /* 上移欢迎语整体位置并缩短下方留白 */
+    margin: 18px 33px 12px 33px;
     font-size: 24px;
     font-weight: normal;
     text-align: left;
@@ -56,7 +57,7 @@
   
   /* 分割线样式 */
 .register-modal-divider {
-    margin: 20px 0; /* 上下外边距 */
+    margin: 10px 0; /* 上下外边距 */
     border-top: 1px solid rgba(0, 0, 0, 0.1); /* 浅灰色分割线 */
     width: 100%; /* 占满容器宽度 */
 }
@@ -78,6 +79,20 @@
     background-color: #ffffff; /* 背景颜色 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 阴影效果 */
     box-sizing: border-box; /* 确保所有内容计算在宽度内 */
+}
+
+/* 输入区域和角色按钮之间的错误提示空隙 */
+.register-validation-slot {
+    width: 88%;
+    margin: 8px auto 6px; /* 固定空隙，无错误时保持留白 */
+    min-height: 22px; /* 预留空间用于展示错误 */
+    display: flex;
+    align-items: center;
+}
+
+.validation-error {
+    color: #cc2020;
+    font-size: 14px;
 }
 
 /* 输入框样式 */
@@ -132,7 +147,7 @@
 .register-button-group {
     display: flex;
     justify-content: space-between; /* 按钮水平两端对齐 */
-    margin: 20px auto; /* 按钮组外边距 */
+    margin: 12px auto 20px; /* 顶部间距更小，配合空隙区 */
     width: 88%; /* 与输入框区域宽度一致 */
     box-sizing: border-box;
 }
