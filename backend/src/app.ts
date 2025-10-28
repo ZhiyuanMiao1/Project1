@@ -11,6 +11,8 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+app.get('/healthz', (_req, res) => res.status(200).send('ok'));
+
 app.use('/api/register', registerRoute);
 app.use('/api/login', loginRoute);
 

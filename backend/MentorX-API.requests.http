@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:5000
+@rnd = {{$timestamp}}
+@email = dev{{rnd}}@mx.com
+@password = Passw0rd!
+
+### 健康检查（建议在 app.ts 补一个 /healthz）
+GET {{baseUrl}}/healthz
+
+### 注册（注意：你的校验要求必须带 role）
+POST {{baseUrl}}/api/register
+Content-Type: application/json
+
+{
+  "username": "fifi",
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "role": "student"
+}
+
+### 登录
+POST {{baseUrl}}/api/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
