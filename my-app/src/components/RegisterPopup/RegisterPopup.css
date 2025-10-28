@@ -156,6 +156,15 @@
     border-color: #000000; /* 仅改变颜色，避免布局抖动 */
 }
 
+/* 选中角色：保持边框风格，不填充，使用 outline 突出且不引起抖动 */
+.register-button.active {
+    background-color: transparent;
+    color: #000;
+    border-color: #000;
+    outline: 2px solid #000;  /* 持续可见的选中效果 */
+    outline-offset: 0;
+}
+
 /* 鼠标悬浮时（教师按钮） */
 .teacher-button:hover {
     border-color: #000000; /* 仅改变颜色，避免布局抖动 */
@@ -282,3 +291,12 @@
     background-color: #ffffff; /* 保持白色 */
     border-color: rgba(0, 0, 0, 0.8); /* 仍允许边框加深 */
 }
+
+/* 提示信息 */
+.register-message {
+    width: 88%;
+    margin: 10px auto 0;
+    font-size: 14px;
+}
+.register-message.error { color: #cc2020; }
+.register-message.success { color: #2a7a2a; }

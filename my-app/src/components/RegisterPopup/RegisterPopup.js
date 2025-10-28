@@ -1,7 +1,55 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './RegisterPopup.css';
+import api from '../../api/client';
 
-const RegisterPopup = ({ onClose, onContinue}) => {
+const RegisterPopup = ({ onClose, onSuccess }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('student');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
+
+  const validate = () => {
+    setError('');
+    if (!email) return '请输入邮箱';
+    // very light email check; backend validates too
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '邮箱格式不正确';
+    if (!password || password.length < 6) return '密码至少6位';
+    if (password !== confirmPassword) return '两次输入的密码不一致';
+    if (!['student', 'teacher'].includes(role)) return '请选择角色';
+    return '';
+  };
+
+  const handleContinue = async () => {
+    const msg = validate();
+    if (msg) {
+      setError(msg);
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    setOk('');
+    try {
+      const res = await api.post('/api/register', {
+        email,
+        password,
+        role,
+      });
+      setOk('注册成功，正在关闭...');
+      if (typeof onSuccess === 'function') onSuccess(res.data);
+      setTimeout(() => {
+        onClose && onClose();
+      }, 800);
+    } catch (e) {
+      const msg = e?.response?.data?.error || '注册失败，请稍后再试';
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="register-modal-overlay" onClick={onClose}>
       <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -12,28 +60,65 @@ const RegisterPopup = ({ onClose, onContinue}) => {
         <div className="register-modal-divider"></div>
         <h3>MentorX欢迎您</h3>
         <div className="register-input-area">
-          <input type="email" placeholder="请输入邮箱" className="register-input" />
-          <input type="password" placeholder="请输入密码" className="register-input" />
-          <input type="password" placeholder="请确认密码" className="register-input" />
+          <input
+            type="email"
+            placeholder="请输入邮箱"
+            className="register-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="请输入密码"
+            className="register-input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="请确认密码"
+            className="register-input"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
         </div>
         <div className="register-button-group">
-          <button className="register-button student-button">我是学生</button>
-          <button className="register-button teacher-button">我是教师（需审核）</button>
+          <button
+            className={`register-button student-button ${role === 'student' ? 'active' : ''}`}
+            onClick={() => setRole('student')}
+            type="button"
+          >
+            我是学生
+          </button>
+          <button
+            className={`register-button teacher-button ${role === 'teacher' ? 'active' : ''}`}
+            onClick={() => setRole('teacher')}
+            type="button"
+          >
+            我是导师（需审核）
+          </button>
         </div>
         <div className="register-continue-area">
-          <button className="register-continue-button" onClick={onContinue}>继续</button>
+          <button
+            className="register-continue-button"
+            onClick={handleContinue}
+            disabled={submitting}
+            type="button"
+          >
+            {submitting ? '提交中...' : '继续'}
+          </button>
         </div>
-        {/* 添加中间带文字的分割线 */}
+        {error && <div className="register-message error">{error}</div>}
+        {ok && <div className="register-message success">{ok}</div>}
         <div className="register-modal-divider-with-text">
           <span className="divider-text">或（暂未开放）</span>
         </div>
-        {/* 添加微信和 Google 登录按钮 */}
         <div className="social-login-buttons">
-          <button className="social-button wechat-login">
+          <button className="social-button wechat-login" disabled>
             <img src="/images/wechat-icon.png" alt="WeChat" className="social-icon" />
             使用微信登录
           </button>
-          <button className="social-button google-login">
+          <button className="social-button google-login" disabled>
             <img src="/images/google-icon.png" alt="Google" className="social-icon" />
             使用 Google 账号登录
           </button>
