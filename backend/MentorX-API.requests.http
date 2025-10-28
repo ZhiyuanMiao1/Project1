@@ -1,12 +1,17 @@
 @baseUrl = http://localhost:5000
-@rnd = {{$timestamp}}
+
+# ❗固定一次随机种子，别用 {{$timestamp}}，避免登录时变成新邮箱
+# 想换一批测试账号，只需要手动改这个数字即可
+@rnd = 1730080000
+
+# 用同一个邮箱跑 “注册 -> 登录”
 @email = dev{{rnd}}@mx.com
 @password = Passw0rd!
 
-### 健康检查（建议在 app.ts 补一个 /healthz）
+### 健康检查
 GET {{baseUrl}}/healthz
 
-### 注册（注意：你的校验要求必须带 role）
+### 注册（先跑这条；若返回 409，说明已注册过，直接跳“登录”）
 POST {{baseUrl}}/api/register
 Content-Type: application/json
 
@@ -17,7 +22,7 @@ Content-Type: application/json
   "role": "student"
 }
 
-### 登录
+### 登录（必须与上面的 email/password 完全一致）
 POST {{baseUrl}}/api/login
 Content-Type: application/json
 
