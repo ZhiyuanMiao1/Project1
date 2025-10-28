@@ -87,7 +87,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         </div>
         {/* 表单校验信息的预留空隙（位于输入区域和角色按钮之间） */}
         <div className="register-validation-slot">
-          {fieldError && <span className="validation-error">{fieldError}</span>}
+          {fieldError ? (
+            <span className="validation-error">{fieldError}</span>
+          ) : (
+            <span className="validation-tip">同一邮箱可注册两种身份，需分别完成学生/导师注册</span>
+          )}
         </div>
 
         <div className="register-button-group">

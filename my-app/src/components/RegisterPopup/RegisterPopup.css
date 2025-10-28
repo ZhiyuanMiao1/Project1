@@ -95,6 +95,12 @@
     font-size: 14px;
 }
 
+/* 无错误时的默认提示文案 */
+.validation-tip {
+    color: rgba(0, 0, 0, 0.6);
+    font-size: 14px;
+}
+
 /* 输入框样式 */
 .register-input {
     width: 100%; /* 输入框宽度填满容器 */
