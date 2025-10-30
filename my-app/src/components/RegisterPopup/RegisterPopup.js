@@ -12,8 +12,6 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [errorField, setErrorField] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [ok, setOk] = useState('');
-  const [showPw1, setShowPw1] = useState(false);
-  const [showPw2, setShowPw2] = useState(false);
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };
@@ -49,7 +47,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     }
   };
 
-  // 仅在按下也发生在遮罩层上时，才允许点击关闭
+  // 遮罩点击关闭（避免内部点击穿透）
   const backdropMouseDownRef = useRef(false);
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
@@ -80,50 +78,28 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               if (errorField === 'email') { setErrorField(''); setFieldError(''); }
             }}
           />
-
-          <div className="input-with-toggle">
-            <input
-              type={showPw1 ? 'text' : 'password'}
-              placeholder="请输入密码"
-              className={`register-input ${errorField === 'password' ? 'error' : ''}`}
-              value={password}
-              onFocus={() => setErrorField('')}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (errorField === 'password') { setErrorField(''); setFieldError(''); }
-              }}
-            />
-            <button
-              type="button"
-              className="toggle-password"
-              aria-label={showPw1 ? '隐藏密码' : '显示密码'}
-              onClick={() => setShowPw1((s) => !s)}
-            >
-              {showPw1 ? '🙈' : '👁️'}
-            </button>
-          </div>
-
-          <div className="input-with-toggle">
-            <input
-              type={showPw2 ? 'text' : 'password'}
-              placeholder="请确认密码"
-              className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
-              value={confirmPassword}
-              onFocus={() => setErrorField('')}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                if (errorField === 'confirmPassword') { setErrorField(''); setFieldError(''); }
-              }}
-            />
-            <button
-              type="button"
-              className="toggle-password"
-              aria-label={showPw2 ? '隐藏密码' : '显示密码'}
-              onClick={() => setShowPw2((s) => !s)}
-            >
-              {showPw2 ? '🙈' : '👁️'}
-            </button>
-          </div>
+          <input
+            type="password"
+            placeholder="请输入密码"
+            className={`register-input ${errorField === 'password' ? 'error' : ''}`}
+            value={password}
+            onFocus={() => setErrorField('')}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errorField === 'password') { setErrorField(''); setFieldError(''); }
+            }}
+          />
+          <input
+            type="password"
+            placeholder="请确认密码"
+            className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
+            value={confirmPassword}
+            onFocus={() => setErrorField('')}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (errorField === 'confirmPassword') { setErrorField(''); setFieldError(''); }
+            }}
+          />
         </div>
 
         <div className="register-validation-slot">
