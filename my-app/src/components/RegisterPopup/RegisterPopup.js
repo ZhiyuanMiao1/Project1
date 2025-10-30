@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import './RegisterPopup.css';
 import api from '../../api/client';
 
@@ -56,8 +56,23 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     }
   };
 
+  // 仅在按下也发生在遮罩层上时，才允许点击关闭
+  const backdropMouseDownRef = useRef(false);
+
+  const handleBackdropMouseDown = (e) => {
+    // 只有当事件直接发生在遮罩层本身（而非内容区）时，才记录
+    backdropMouseDownRef.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropClick = (e) => {
+    // 若按下并未发生在遮罩层上，则忽略此次点击（例如：在内容里按下，拖到外面松开）
+    if (!backdropMouseDownRef.current) return;
+    if (e.target !== e.currentTarget) return;
+    onClose && onClose();
+  };
+
   return (
-    <div className="register-modal-overlay" onClick={onClose}>
+    <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
       <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="register-modal-close" onClick={onClose}>
           &times;

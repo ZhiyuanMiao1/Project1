@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import './LoginPopup.css';
 
 const LoginPopup = ({ onClose, onContinue }) => {
+  // 仅在按下也发生在遮罩层上时，才允许点击关闭
+  const backdropMouseDownRef = useRef(false);
+
+  const handleBackdropMouseDown = (e) => {
+    backdropMouseDownRef.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropClick = (e) => {
+    if (!backdropMouseDownRef.current) return;
+    if (e.target !== e.currentTarget) return;
+    onClose && onClose();
+  };
+
   return (
-    <div className="login-modal-overlay" onClick={onClose}>
+    <div
+      className="login-modal-overlay"
+      onMouseDown={handleBackdropMouseDown}
+      onClick={handleBackdropClick}
+    >
       <div className="login-modal-content" onClick={(e) => e.stopPropagation()}>
         <button className="login-modal-close" onClick={onClose}>
           &times;
