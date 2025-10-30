@@ -440,3 +440,9 @@
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
+
+/* 隐藏部分浏览器自带的密码显示按钮，避免双眼睛 */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}

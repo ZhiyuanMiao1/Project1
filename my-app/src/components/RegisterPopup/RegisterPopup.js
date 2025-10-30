@@ -12,6 +12,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [errorField, setErrorField] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [ok, setOk] = useState('');
+  // eye + focus control
+  const [showPw1, setShowPw1] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
+  const [focusedField, setFocusedField] = useState(''); // 'password' | 'confirmPassword' | ''
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };
@@ -47,7 +51,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     }
   };
 
-  // 遮罩点击关闭（避免内部点击穿透）
+  // mask click-to-close
   const backdropMouseDownRef = useRef(false);
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
@@ -78,28 +82,66 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               if (errorField === 'email') { setErrorField(''); setFieldError(''); }
             }}
           />
-          <input
-            type="password"
-            placeholder="请输入密码"
-            className={`register-input ${errorField === 'password' ? 'error' : ''}`}
-            value={password}
-            onFocus={() => setErrorField('')}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              if (errorField === 'password') { setErrorField(''); setFieldError(''); }
-            }}
-          />
-          <input
-            type="password"
-            placeholder="请确认密码"
-            className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
-            value={confirmPassword}
-            onFocus={() => setErrorField('')}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value);
-              if (errorField === 'confirmPassword') { setErrorField(''); setFieldError(''); }
-            }}
-          />
+
+          {/* 密码 */}
+          <div className="input-with-toggle">
+            <input
+              type={showPw1 ? 'text' : 'password'}
+              placeholder="请输入密码"
+              className={`register-input ${errorField === 'password' ? 'error' : ''}`}
+              value={password}
+              onFocus={() => { setErrorField(''); setFocusedField('password'); }}
+              onBlur={() => setFocusedField('')}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errorField === 'password') { setErrorField(''); setFieldError(''); }
+              }}
+            />
+            {(focusedField === 'password' && password) && (
+              <button
+                type="button"
+                className="toggle-password"
+                aria-label={showPw1 ? '隐藏密码' : '显示密码'}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowPw1((s) => !s)}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5C6.5 5 2.1 8.4 1 12c1.1 3.6 5.5 7 11 7s9.9-3.4 11-7c-1.1-3.6-5.5-7-11-7Z" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                  <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* 确认密码 */}
+          <div className="input-with-toggle">
+            <input
+              type={showPw2 ? 'text' : 'password'}
+              placeholder="请确认密码"
+              className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
+              value={confirmPassword}
+              onFocus={() => { setErrorField(''); setFocusedField('confirmPassword'); }}
+              onBlur={() => setFocusedField('')}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                if (errorField === 'confirmPassword') { setErrorField(''); setFieldError(''); }
+              }}
+            />
+            {(focusedField === 'confirmPassword' && confirmPassword) && (
+              <button
+                type="button"
+                className="toggle-password"
+                aria-label={showPw2 ? '隐藏密码' : '显示密码'}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowPw2((s) => !s)}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 5C6.5 5 2.1 8.4 1 12c1.1 3.6 5.5 7 11 7s9.9-3.4 11-7c-1.1-3.6-5.5-7-11-7Z" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                  <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" fill="none"/>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="register-validation-slot">
