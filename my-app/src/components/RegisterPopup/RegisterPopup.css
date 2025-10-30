@@ -136,7 +136,7 @@
 }
 
 /* 让顶部/底部的输入承担外围黑色边框，模拟原容器边框 */
-.register-input:first-child {
+.register-input:first-of-type {
     border-top-color: #000;
     border-left-color: #000;
     border-right-color: #000;
@@ -144,7 +144,7 @@
     border-top-right-radius: 10px;
 }
 
-.register-input:last-child {
+.register-input-area > .register-input:last-child {
     border-left-color: #000;
     border-right-color: #000;
     border-bottom-color: #000;
@@ -187,7 +187,7 @@
  * 父容器上的 :focus-within，可以在“其中某个子元素获得焦点”时触发。
  * 利用它来移除“当前焦点输入框”上方的那条横线（也就是前一个兄弟元素的 border-top）。
  */
-  .register-input-area:focus-within > .register-input:not(:first-child):focus {
+  .register-input-area:focus-within > .register-input:not(:first-of-type):focus {
     /* 自己本身的“上方分割线”在本段代码中并不存在，
        因为分割线是在自己之上那个输入框的 border-top 上。
        但我们可以直接把当前焦点输入框的 border-top 覆盖为空，
@@ -395,6 +395,7 @@
 .register-input { padding-right: 48px; }
 .toggle-password {
     position: absolute;
+    top: 50%;
     right: 16px;
     transform: translateY(-50%);
     width: 28px;
@@ -412,4 +413,30 @@
 .toggle-password:focus {
     color: rgba(0, 0, 0, 0.85);
     outline: none;
+}
+
+/* Input wrapper for proper eye positioning */
+.input-with-toggle { position: relative; }
+
+/* Borders between rows when wrappers are present */
+.register-input-area > .register-input + .input-with-toggle .register-input { border-top: 1px solid #000; }
+.register-input-area > .input-with-toggle + .input-with-toggle .register-input { border-top: 1px solid #000; }
+
+/* Remove top dividing line when focusing current row */
+.register-input:focus + .input-with-toggle .register-input { border-top-color: transparent; }
+.input-with-toggle:focus-within + .input-with-toggle .register-input { border-top-color: transparent; }
+
+/* Only the last row keeps bottom border and rounded corners */
+.register-input-area > .input-with-toggle:last-child .register-input {
+  border-left-color: #000;
+  border-right-color: #000;
+  border-bottom-color: #000;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+/* Non-last rows should not add bottom rounding (override last-of-type fallback) */
+.register-input-area > .input-with-toggle:not(:last-child) .register-input {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
