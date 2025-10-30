@@ -73,7 +73,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             value={email}
             onFocus={() => {
               // 选中时去除红色高亮，但保留错误提示文本
-              if (errorField === 'email') setErrorField('');
+              setErrorField('');
             }}
             onChange={(e) => {
               setEmail(e.target.value);
@@ -89,7 +89,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             className={`register-input ${errorField === 'password' ? 'error' : ''}`}
             value={password}
             onFocus={() => {
-              if (errorField === 'password') setErrorField('');
+              setErrorField('');
             }}
             onChange={(e) => {
               setPassword(e.target.value);
@@ -105,7 +105,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
             value={confirmPassword}
             onFocus={() => {
-              if (errorField === 'confirmPassword') setErrorField('');
+              setErrorField('');
             }}
             onChange={(e) => {
               setConfirmPassword(e.target.value);
