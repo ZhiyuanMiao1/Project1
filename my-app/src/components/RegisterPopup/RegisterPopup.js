@@ -12,6 +12,12 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [errorField, setErrorField] = useState(''); // 标记哪个输入框有错误
   const [submitError, setSubmitError] = useState(''); // 提交或服务端错误
   const [ok, setOk] = useState('');
+  // 密码可见性与定位
+  const inputsRef = useRef(null);
+  const [showPw1, setShowPw1] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
+  const [pwPos1, setPwPos1] = useState(0);
+  const [pwPos2, setPwPos2] = useState(0);
 
   const validate = () => {
     // 返回 { message, field }，便于为对应输入框加样式
@@ -71,6 +77,34 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     onClose && onClose();
   };
 
+  // 计算两个密码输入框的垂直位置，便于在其右侧放置“显示密码”按钮
+  React.useEffect(() => {
+    const calc = () => {
+      const wrap = inputsRef.current;
+      if (!wrap) return;
+      const inputs = wrap.querySelectorAll('input');
+      if (inputs.length >= 3) {
+        const a = inputs[1];
+        const b = inputs[2];
+        setPwPos1(a.offsetTop + a.clientHeight / 2);
+        setPwPos2(b.offsetTop + b.clientHeight / 2);
+      }
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    return () => window.removeEventListener('resize', calc);
+  }, []);
+
+  const setInputType = (index, asText) => {
+    const wrap = inputsRef.current;
+    if (!wrap) return;
+    const inputs = wrap.querySelectorAll('input');
+    const el = inputs[index];
+    if (el) {
+      try { el.type = asText ? 'text' : 'password'; } catch (e) {}
+    }
+  };
+
   return (
     <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
       <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -80,7 +114,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         <h2>注册</h2>
         <div className="register-modal-divider"></div>
         <h3>MentorX欢迎您</h3>
-        <div className="register-input-area">
+        <div className="register-input-area" ref={inputsRef}>
           <input
             type="email"
             placeholder="请输入邮箱"
@@ -130,6 +164,24 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               }
             }}
           />
+          <button
+            type="button"
+            className="toggle-password"
+            style={{ top: pwPos1 }}
+            aria-label={showPw1 ? '隐藏密码' : '显示密码'}
+            onClick={() => { const next = !showPw1; setShowPw1(next); setInputType(1, next); }}
+          >
+            {showPw1 ? '🙈' : '👁️'}
+          </button>
+          <button
+            type="button"
+            className="toggle-password"
+            style={{ top: pwPos2 }}
+            aria-label={showPw2 ? '隐藏密码' : '显示密码'}
+            onClick={() => { const next = !showPw2; setShowPw2(next); setInputType(2, next); }}
+          >
+            {showPw2 ? '🙈' : '👁️'}
+          </button>
         </div>
         {/* 表单校验信息的预留空隙（位于输入区域和角色按钮之间） */}
         <div className="register-validation-slot">
