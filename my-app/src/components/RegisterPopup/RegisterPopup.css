@@ -75,8 +75,9 @@
     width: 88%; /* 设置宽度 */
     margin: 0 auto; /* 居中 */
     margin-top: 20px;
-    border: 1px solid #000000; /* 黑色边框 */
-    border-radius: 10px; /* 整体容器的圆角 */
+    /* 去掉容器自身的黑色边框，避免与错误态边框叠加 */
+    border: none;
+    border-radius: 10px; /* 仍保留圆角用于投影视觉 */
     background-color: #ffffff; /* 背景颜色 */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 阴影效果 */
     box-sizing: border-box; /* 确保所有内容计算在宽度内 */
@@ -133,10 +134,27 @@
     transition: border-color 0.2s ease; /* 平滑过渡效果且不改变尺寸 */
 }
 
+/* 让顶部/底部的输入承担外围黑色边框，模拟原容器边框 */
+.register-input:first-child {
+    border-top-color: #000;
+    border-left-color: #000;
+    border-right-color: #000;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}
+
+.register-input:last-child {
+    border-left-color: #000;
+    border-right-color: #000;
+    border-bottom-color: #000;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
 /* 错误输入状态：红色边框 + 微红填充 */
 .register-input.error {
     border-color: #d93025;
-    border-width: 2px;
+    border-width: 1px; /* 与正常边框等宽，避免位置偏移 */
     border-radius: 10px;
     background-color: rgba(217, 48, 37, 0.06);
 }
@@ -168,7 +186,7 @@
  * 父容器上的 :focus-within，可以在“其中某个子元素获得焦点”时触发。
  * 利用它来移除“当前焦点输入框”上方的那条横线（也就是前一个兄弟元素的 border-top）。
  */
- .register-input-area:focus-within > .register-input:focus {
+  .register-input-area:focus-within > .register-input:not(:first-child):focus {
     /* 自己本身的“上方分割线”在本段代码中并不存在，
        因为分割线是在自己之上那个输入框的 border-top 上。
        但我们可以直接把当前焦点输入框的 border-top 覆盖为空，
@@ -364,3 +382,9 @@
 }
 .register-message.error { color: #cc2020; }
 .register-message.success { color: #2a7a2a; }
+/* 修复：
+   1) 中间输入框左右无边框 → 强制给所有输入框左右边框着色
+   2) 错误态红色边框太细 → 使用与 focus 相同的 2px 描边，并在 focus 时保持红色 */
+.register-input { border-left-color: #000; border-right-color: #000; }
+.register-input.error { outline: 2px solid #d93025; outline-offset: 0; }
+.register-input.error:focus { outline-color: #d93025; }
