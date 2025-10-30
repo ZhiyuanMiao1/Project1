@@ -104,13 +104,13 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     margin-right: 6px;
     border-radius: 50%;
     background-color: #d93025; /* 红底 */
     color: #fff; /* 白色感叹号 */
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1;
 }

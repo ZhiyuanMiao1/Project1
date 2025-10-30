@@ -71,6 +71,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             placeholder="请输入邮箱"
             className={`register-input ${errorField === 'email' ? 'error' : ''}`}
             value={email}
+            onFocus={() => {
+              // 选中时去除红色高亮，但保留错误提示文本
+              if (errorField === 'email') setErrorField('');
+            }}
             onChange={(e) => {
               setEmail(e.target.value);
               if (errorField === 'email') {
@@ -84,6 +88,9 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             placeholder="请输入密码"
             className={`register-input ${errorField === 'password' ? 'error' : ''}`}
             value={password}
+            onFocus={() => {
+              if (errorField === 'password') setErrorField('');
+            }}
             onChange={(e) => {
               setPassword(e.target.value);
               if (errorField === 'password') {
@@ -97,6 +104,9 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             placeholder="请确认密码"
             className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
             value={confirmPassword}
+            onFocus={() => {
+              if (errorField === 'confirmPassword') setErrorField('');
+            }}
             onChange={(e) => {
               setConfirmPassword(e.target.value);
               if (errorField === 'confirmPassword') {
