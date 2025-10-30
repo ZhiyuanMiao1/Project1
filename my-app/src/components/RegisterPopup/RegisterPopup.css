@@ -94,6 +94,25 @@
 .validation-error {
     color: #cc2020;
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* 错误提示前的感叹号图标 */
+.validation-error::before {
+    content: '!';
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background-color: #d93025; /* 红底 */
+    color: #fff; /* 白色感叹号 */
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
 }
 
 /* 无错误时的默认提示文案 */
@@ -112,6 +131,19 @@
     background: transparent; /* 背景透明，融入容器背景 */
     box-sizing: border-box; /* 包括 padding 在宽度计算内 */
     transition: border-color 0.2s ease; /* 平滑过渡效果且不改变尺寸 */
+}
+
+/* 错误输入状态：红色边框 + 微红填充 */
+.register-input.error {
+    border-color: #d93025;
+    border-width: 2px;
+    border-radius: 10px;
+    background-color: rgba(217, 48, 37, 0.06);
+}
+
+.register-input.error:hover {
+    border-color: #d93025;
+    box-shadow: none; /* 错误时不使用悬浮阴影 */
 }
 
 /* 父容器：让相邻的 .register-input 元素之间显示分割线 */
@@ -148,6 +180,16 @@
   .register-input:focus + .register-input {
     /* 保持1px占位，只隐藏颜色 */
     border-top-color: transparent;
+  }
+
+  /* 错误输入框下方的分割线淡化，避免双线叠加 */
+  .register-input.error + .register-input {
+    border-top-color: transparent;
+  }
+
+  /* 错误输入框在聚焦时仍保持红色上边线 */
+  .register-input-area:focus-within > .register-input.error:focus {
+    border-top-color: #d93025;
   }
 
   /* 按钮容器样式 */

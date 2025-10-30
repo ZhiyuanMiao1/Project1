@@ -9,29 +9,32 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [role, setRole] = useState('student');
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState(''); // 邮箱/密码等字段校验错误
+  const [errorField, setErrorField] = useState(''); // 标记哪个输入框有错误
   const [submitError, setSubmitError] = useState(''); // 提交或服务端错误
   const [ok, setOk] = useState('');
 
   const validate = () => {
-    setFieldError('');
-    if (!email) return '请输入邮箱';
+    // 返回 { message, field }，便于为对应输入框加样式
+    if (!email) return { message: '请输入邮箱', field: 'email' };
     // very light email check; backend validates too
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return '邮箱格式不正确';
-    if (!password || password.length < 6) return '密码至少6位';
-    if (password !== confirmPassword) return '两次输入的密码不一致';
-    if (!['student', 'teacher'].includes(role)) return '请选择角色';
-    return '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { message: '邮箱格式不正确', field: 'email' };
+    if (!password || password.length < 6) return { message: '密码至少6位', field: 'password' };
+    if (password !== confirmPassword) return { message: '两次输入的密码不一致', field: 'confirmPassword' };
+    if (!['student', 'teacher'].includes(role)) return { message: '请选择角色', field: 'role' };
+    return null;
   };
 
   const handleContinue = async () => {
-    const msg = validate();
-    if (msg) {
+    const v = validate();
+    if (v) {
       // 仅作为表单校验错误，显示在输入区域与角色按钮之间
-      setFieldError(msg);
+      setFieldError(v.message);
+      setErrorField(v.field || '');
       return;
     }
     setSubmitting(true);
     setFieldError('');
+    setErrorField('');
     setSubmitError('');
     setOk('');
     try {
@@ -66,23 +69,41 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           <input
             type="email"
             placeholder="请输入邮箱"
-            className="register-input"
+            className={`register-input ${errorField === 'email' ? 'error' : ''}`}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (errorField === 'email') {
+                setErrorField('');
+                setFieldError('');
+              }
+            }}
           />
           <input
             type="password"
             placeholder="请输入密码"
-            className="register-input"
+            className={`register-input ${errorField === 'password' ? 'error' : ''}`}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errorField === 'password') {
+                setErrorField('');
+                setFieldError('');
+              }
+            }}
           />
           <input
             type="password"
             placeholder="请确认密码"
-            className="register-input"
+            className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (errorField === 'confirmPassword') {
+                setErrorField('');
+                setFieldError('');
+              }
+            }}
           />
         </div>
         {/* 表单校验信息的预留空隙（位于输入区域和角色按钮之间） */}
