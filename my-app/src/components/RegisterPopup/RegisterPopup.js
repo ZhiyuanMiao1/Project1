@@ -52,17 +52,38 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     } catch (e) {
       const status = e?.response?.status;
       const data = e?.response?.data;
-      const msg = data?.error || '注册失败，请稍后再试';
 
-      // 针对“邮箱已被注册”改为与“请输入邮箱”一致的行内错误，并自动聚焦邮箱框
-      if (msg === '该邮箱已被注册' || status === 409) {
+      // 1) 处理后端字段级校验错误（400，express-validator 的 errors 数组）
+      const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
+      if (serverErrors && serverErrors.length > 0) {
+        const first = serverErrors[0];
+        const message = first?.msg || '提交信息有误';
+        let field = '';
+        if (first?.param === 'email') field = 'email';
+        else if (first?.param === 'password') field = 'password';
+        // 其余如 role/username 在此表单无对应输入控件，不聚焦具体输入框
+
+        setFieldError(message);
+        setErrorField(field);
+        setErrorFocusTick((t) => t + 1);
+        setSubmitError('');
+        return;
+      }
+
+      // 2) 邮箱重复（409）— 行内提示并聚焦邮箱
+      if (data?.error === '该邮箱已被注册' || status === 409) {
         setFieldError('该邮箱已被注册');
         setErrorField('email');
         setErrorFocusTick((t) => t + 1);
-        setSubmitError(''); // 不在继续按钮下方显示
-      } else {
-        setSubmitError(msg);
+        setSubmitError('');
+        return;
       }
+
+      // 3) 服务器或网络等其它错误 — 统一行内提示（不聚焦具体字段）
+      const fallbackMsg = data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '注册失败，请稍后再试');
+      setFieldError(fallbackMsg);
+      setErrorField('');
+      setSubmitError('');
     } finally {
       setSubmitting(false);
     }
