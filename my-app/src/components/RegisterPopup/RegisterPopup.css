@@ -367,7 +367,7 @@
    1) 中间输入框左右无边框 → 强制给所有输入框左右边框着色
    2) 错误态红色边框太细 → 使用与 focus 相同的 2px 描边，并在 focus 时保持红色 */
 
-.register-input.error { outline: 2px solid #d93025; outline-offset: 0; }
+/*.register-input.error { outline: 2px solid #d93025; outline-offset: 0; }*/
 .register-input.error:focus { outline-color: #d93025; }
 
 /* === Password toggle (added) === */
@@ -471,7 +471,7 @@ input[type="password"]::-ms-clear {
 
 /* 5) 报错态：同样只高亮出错那一行（红色加粗），并处理分隔线 */
 .register-input.error{
-  box-shadow: 0 0 0 2px var(--mx-error);
+  /*box-shadow: 0 0 0 2px var(--mx-error);*/
   border-radius: var(--mx-radius) !important;
   background-color: rgba(217,48,37,.06);
   position: relative;
@@ -481,7 +481,7 @@ input[type="password"]::-ms-clear {
 .register-input.error + *{ border-top-color: transparent; }
 /* 密码两行（有 wrapper）的报错行：用 :has 选中 wrapper 自身一起高亮（Edge/Chrome 均支持） */
 .input-with-toggle:has(.register-input.error){
-  box-shadow: 0 0 0 2px var(--mx-error);
+  /*box-shadow: 0 0 0 2px var(--mx-error);*/
   border-radius: var(--mx-radius) !important;
   position: relative;
   z-index: 1;
@@ -491,3 +491,33 @@ input[type="password"]::-ms-clear {
 
 /* 6) 视觉细节：在未选中时保留统一外框两侧的“骨架线” */
 .register-input-area{ border-left-color: var(--mx-border); border-right-color: var(--mx-border); }
+
+/* ❶ 错误行失焦：只保留淡粉底，不要红色描边 */
+.register-input.error{
+  background-color: rgba(217,48,37,.06);
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  z-index: auto;
+}
+.input-with-toggle:has(.register-input.error){
+  box-shadow: none !important;
+  border-top-color: var(--mx-border); /* 保持中间分隔线 */
+}
+
+/* ❷ 错误行获得焦点：用红色加粗描边（覆盖黑色选中态），并隐藏上下分隔线 */
+.register-input.error:focus{
+  box-shadow: 0 0 0 2px var(--mx-error) !important;
+  border-radius: var(--mx-radius) !important;
+  position: relative; z-index: 1;
+}
+.input-with-toggle:has(.register-input.error:focus),
+.input-with-toggle:has(.register-input.error):focus-within{
+  box-shadow: 0 0 0 2px var(--mx-error) !important;
+  border-radius: var(--mx-radius) !important;
+  position: relative; z-index: 1;
+  border-top-color: transparent;
+}
+
+/* ❸ 只有“被聚焦的错误行”需要把与相邻行的分隔线隐掉，避免双线叠色 */
+.register-input.error:focus + *{ border-top-color: transparent; }
+.input-with-toggle:has(.register-input.error:focus) + *{ border-top-color: transparent; }

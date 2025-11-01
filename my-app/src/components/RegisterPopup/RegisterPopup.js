@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import './RegisterPopup.css';
 import api from '../../api/client';
 
@@ -13,6 +13,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [submitError, setSubmitError] = useState('');
   const [ok, setOk] = useState('');
   // eye + focus control
+  const emailRef = useRef(null);
+  const pw1Ref   = useRef(null);
+  const pw2Ref   = useRef(null);
+
   const [showPw1, setShowPw1] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
   const [focusedField, setFocusedField] = useState(''); // 'password' | 'confirmPassword' | ''
@@ -62,6 +66,16 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     onClose && onClose();
   };
 
+  useEffect(() => {
+    if (!errorField) return;
+    const map = { email: emailRef, password: pw1Ref, confirmPassword: pw2Ref };
+    const target = map[errorField]?.current;
+    if (target) {
+      // 下一帧再 focus，确保最新的样式与状态已应用，避免与按钮点击的焦点竞争
+      requestAnimationFrame(() => target.focus());
+    }
+  }, [errorField]);
+
   return (
     <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
       <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -72,6 +86,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
 
         <div className="register-input-area">
           <input
+            ref={emailRef}
             type="email"
             placeholder="请输入邮箱"
             className={`register-input ${errorField === 'email' ? 'error' : ''}`}
@@ -90,6 +105,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           {/* 密码 */}
           <div className="input-with-toggle">
             <input
+              ref={pw1Ref}
               type={showPw1 ? 'text' : 'password'}
               placeholder="请输入密码"
               className={`register-input ${errorField === 'password' ? 'error' : ''}`}
@@ -123,6 +139,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           {/* 确认密码 */}
           <div className="input-with-toggle">
             <input
+              ref={pw2Ref}
               type={showPw2 ? 'text' : 'password'}
               placeholder="请确认密码"
               className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
