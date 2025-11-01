@@ -135,22 +135,8 @@
     transition: border-color 0.2s ease; /* 平滑过渡效果且不改变尺寸 */
 }
 
-/* 让顶部/底部的输入承担外围黑色边框，模拟原容器边框 */
-.register-input:first-of-type {
-    border-top-color: #000;
-    border-left-color: #000;
-    border-right-color: #000;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-}
 
-.register-input-area > .register-input:last-child {
-    border-left-color: #000;
-    border-right-color: #000;
-    border-bottom-color: #000;
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 10px;
-}
+
 
 /* 错误输入状态：红色边框 + 微红填充 */
 .register-input.error {
@@ -165,17 +151,7 @@
     box-shadow: none; /* 错误时不使用悬浮阴影 */
 }
 
-/* 父容器：让相邻的 .register-input 元素之间显示分割线 */
-.register-input-area > .register-input + .register-input {
-    border-top: 1px solid #000; 
-}
 
-/* 鼠标悬浮时的效果 */
-.register-input:hover {
-    border-color: #000000; /* 仅改变颜色，不改变宽度 */
-    border-radius: 10px; /* 给选中框增加圆角 */
-    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); /* 添加阴影效果 */
-}
 
 /* 焦点状态（正在输入时）的效果 */
 .register-input:focus {
@@ -446,3 +422,70 @@ input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
 }
+
+/* ===== Airbnb 样式：整体外框 + 内部分隔线 + 行内加粗高亮 ===== */
+:root{
+  --mx-radius: 12px;
+  --mx-border: #000;
+  --mx-error: #d93025;
+}
+
+/* 1) 外层容器负责“一体圆角外框” */
+.register-input-area{
+  border: 1px solid var(--mx-border);
+  border-radius: var(--mx-radius);
+  background: #fff;
+  padding: 0;            /* 关键：去掉内边距，分隔线才紧贴输入 */
+  overflow: visible;     /* 让行内加粗描边不被裁剪 */
+  box-shadow: 0 4px 8px rgba(0,0,0,.1); /* 你原来的阴影保留 */
+}
+
+/* 2) 直接子元素之间画“中间横线”（无论是 input 还是 .input-with-toggle 包裹） */
+.register-input-area > * + *{
+  border-top: 1px solid var(--mx-border);
+}
+
+/* 3) 行内的真正 input 不要自带边框（由外层统一绘制） */
+.register-input-area .register-input{
+  border: none;
+  border-radius: 0;
+  outline: none !important;      /* 清掉之前的黑色 outline */
+  width: 100%;
+  box-shadow: none;
+  /* 你原有的 padding/字号保持不变 */
+}
+
+/* 4) 选中态：只高亮“当前这一行”，并把其上下分隔线暂时隐藏 */
+.register-input-area :is(.register-input:focus, .input-with-toggle:focus-within){
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--mx-border); /* 用 box-shadow 当加粗描边，圆角顺滑 */
+  border-radius: var(--mx-radius) !important;
+}
+/* 隐藏当前行“上/下”分隔线，避免出现双线或断裂 */
+.register-input-area .register-input:focus + *{ border-top-color: transparent; }                     /* 选中第一行时，隐藏它和下一行的分隔线 */
+.register-input-area .input-with-toggle:focus-within{ border-top-color: transparent; }               /* 选中中间/最后一行：本行上方分隔线 */
+.register-input-area .input-with-toggle:focus-within + *{ border-top-color: transparent; }           /* 本行下方分隔线 */
+
+/* 5) 报错态：同样只高亮出错那一行（红色加粗），并处理分隔线 */
+.register-input.error{
+  box-shadow: 0 0 0 2px var(--mx-error);
+  border-radius: var(--mx-radius) !important;
+  background-color: rgba(217,48,37,.06);
+  position: relative;
+  z-index: 1;
+}
+/* 邮箱（第一行）报错时，隐藏下方分隔线 */
+.register-input.error + *{ border-top-color: transparent; }
+/* 密码两行（有 wrapper）的报错行：用 :has 选中 wrapper 自身一起高亮（Edge/Chrome 均支持） */
+.input-with-toggle:has(.register-input.error){
+  box-shadow: 0 0 0 2px var(--mx-error);
+  border-radius: var(--mx-radius) !important;
+  position: relative;
+  z-index: 1;
+  border-top-color: transparent;           /* 去掉其上方分隔线 */
+}
+.input-with-toggle:has(.register-input.error) + *{ border-top-color: transparent; } /* 去掉其下方分隔线 */
+
+/* 6) 视觉细节：在未选中时保留统一外框两侧的“骨架线” */
+.register-input-area{ border-left-color: var(--mx-border); border-right-color: var(--mx-border); }
