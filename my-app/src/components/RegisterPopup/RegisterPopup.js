@@ -50,8 +50,19 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       if (typeof onSuccess === 'function') onSuccess(res.data);
       setTimeout(() => { onClose && onClose(); }, 800);
     } catch (e) {
-      const msg = e?.response?.data?.error || '注册失败，请稍后再试';
-      setSubmitError(msg);
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+      const msg = data?.error || '注册失败，请稍后再试';
+
+      // 针对“邮箱已被注册”改为与“请输入邮箱”一致的行内错误，并自动聚焦邮箱框
+      if (msg === '该邮箱已被注册' || status === 409) {
+        setFieldError('该邮箱已被注册');
+        setErrorField('email');
+        setErrorFocusTick((t) => t + 1);
+        setSubmitError(''); // 不在继续按钮下方显示
+      } else {
+        setSubmitError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -255,4 +266,3 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
 };
 
 export default RegisterPopup;
-
