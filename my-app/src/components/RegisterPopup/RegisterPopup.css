@@ -146,10 +146,7 @@
     background-color: rgba(217, 48, 37, 0.06);
 }
 
-.register-input.error:hover {
-    border-color: #d93025;
-    box-shadow: none; /* 错误时不使用悬浮阴影 */
-}
+
 
 
 
