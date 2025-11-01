@@ -11,7 +11,7 @@ router.post(
     body('username').optional().isLength({ min: 3 }).withMessage('用户名至少3个字符'),
     body('email').isEmail().withMessage('请输入有效的邮箱'),
     body('password').isLength({ min: 6 }).withMessage('密码至少6个字符'),
-    body('role').isIn(['teacher', 'student']).withMessage('角色无效'),
+    body('role').isIn(['teacher', 'mentor']).withMessage('角色无效'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);

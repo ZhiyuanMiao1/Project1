@@ -60,3 +60,28 @@ DESCRIBE users;
 
 ## 查看部分数据
 SELECT * FROM users;
+
+## 角色编号（s#/m#）迁移说明
+
+本仓库的 `schema.sql` 已支持为不同角色分配独立的对外编号：
+- `student` 按顺序分配 `s1, s2, ...`
+- `mentor` 按顺序分配 `m1, m2, ...`
+
+实现方式：
+- 在 `users` 表新增 `public_id`（唯一，对外显示用），内部主键仍是自增 `id`。
+- 新增 `role_counters` 表，分别维护两个角色的下一个序号。
+- 新增触发器 `bi_users_public_id`：插入 `users` 时若未显式给出 `public_id`，按角色自动分配。
+- 对既有数据会按 `id` 升序回填 `public_id`（学生 `s#`，导师 `m#`），并同步计数器。
+
+运行迁移（可安全重复执行）：
+```
+mysql -u <user> -p <db_name> < schema.sql
+```
+
+验证：
+```
+SELECT id, role, public_id, email FROM users ORDER BY role, id LIMIT 50;
+SELECT * FROM role_counters;
+```
+
+接口返回建议：注册成功后可同时返回 `public_id` 给前端展示；查询时按需 `SELECT public_id FROM users WHERE id = ?`。

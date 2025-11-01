@@ -229,7 +229,7 @@
 }
 
 /* 鼠标悬浮时（教师按钮） */
-.teacher-button:hover {
+.mentor-button:hover {
     border-color: #000000; /* 仅改变颜色，避免布局抖动 */
 }
 

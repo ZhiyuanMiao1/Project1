@@ -27,7 +27,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     if (!/^\S+@\S+\.\S+$/.test(email)) return { message: '邮箱格式不正确', field: 'email' };
     if (!password || password.length < 6) return { message: '密码至少6位', field: 'password' };
     if (password !== confirmPassword) return { message: '两次输入的密码不一致', field: 'confirmPassword' };
-    if (!['student', 'teacher'].includes(role)) return { message: '请选择角色', field: 'role' };
+    if (!['student', 'mentor'].includes(role)) return { message: '请选择角色', field: 'role' };
     return null;
   };
 
@@ -220,8 +220,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             我是学生
           </button>
           <button
-            className={`register-button teacher-button ${role === 'teacher' ? 'active' : ''}`}
-            onClick={() => setRole('teacher')}
+            className={`register-button mentor-button ${role === 'mentor' ? 'active' : ''}`}
+            onClick={() => setRole('mentor')}
             type="button"
           >
             我是导师（需审核）
