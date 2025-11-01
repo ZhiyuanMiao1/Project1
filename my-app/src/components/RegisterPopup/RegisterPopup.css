@@ -385,7 +385,7 @@
     color: #ffffff;
     font-size: 30px;         /* 点更大 */
     letter-spacing: 10px;     /* 点之间间距更远 */
-    animation: dots-pulse 1s ease-in-out infinite; /* 动画更长 */
+    animation: dots-pulse 1.2s ease-in-out infinite; /* 动画更长 */
 }
 
 @keyframes dots-pulse {
@@ -602,7 +602,35 @@ input[type="password"]::-ms-clear {
   width: 8px;                         /* 点的直径，可按需调大/调小 */
   height: 8px;
   border-radius: 50%;
-  background: #fff;                   /* 中间点：白色 */
+  background: #fff;                   
   box-shadow: -16px 0 0 #fff, 16px 0 0 #fff;  /* 左右两个点：白色 */
-  animation: dots-pulse 1s ease-in-out infinite;
+  animation: dots-pulse 1.2s ease-in-out infinite;
+}
+
+/* 新增关键帧：依次点亮左→中→右 */
+@keyframes dots-wave {
+  0% {
+    background-color: rgba(255, 255, 255, 0.7);              /* 中点暗 */
+    box-shadow:
+      -16px 0 0 #fff,                                    /* 左点亮 */
+       16px 0 0 rgba(255, 255, 255, 0.7);                    /* 右点暗 */
+  }
+  33% {
+    background-color: #fff;                              /* 中点亮 */
+    box-shadow:
+      -16px 0 0 rgba(255,255,255,.7),                    /* 左点暗 */
+       16px 0 0 rgba(255,255,255,.7);                    /* 右点暗 */
+  }
+  66% {
+    background-color: rgba(255,255,255,.7);              /* 中点暗 */
+    box-shadow:
+      -16px 0 0 rgba(255,255,255,.7),                    /* 左点暗 */
+       16px 0 0 #fff;                                    /* 右点亮 */
+  }
+  100% {
+    background-color: rgba(255,255,255,.7);              /* 回到初始：左亮 */
+    box-shadow:
+      -16px 0 0 #fff,
+       16px 0 0 rgba(255,255,255,.7);
+  }
 }
