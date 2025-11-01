@@ -50,19 +50,27 @@ npm run dev
 # 登录 MySQL日常管理
 
 ## 登录 MySQL
+```
 mysql -h 127.0.0.1 -P 3306 -u root -p
+```
 
 ## 选择数据库
+```
 USE project1;
+```
 
 ## 查看表结构
+```
 DESCRIBE users;
+```
 
 ## 查看部分数据
+```
 SELECT * FROM users;
+```
+
 
 ## 角色编号（s#/m#）迁移说明
-
 本仓库的 `schema.sql` 已支持为不同角色分配独立的对外编号：
 - `student` 按顺序分配 `s1, s2, ...`
 - `mentor` 按顺序分配 `m1, m2, ...`
