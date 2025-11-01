@@ -385,7 +385,7 @@
     color: #ffffff;
     font-size: 30px;         /* 点更大 */
     letter-spacing: 10px;     /* 点之间间距更远 */
-    animation: dots-pulse 5s ease-in-out infinite; /* 动画更长 */
+    animation: dots-pulse 1s ease-in-out infinite; /* 动画更长 */
 }
 
 @keyframes dots-pulse {
@@ -604,5 +604,5 @@ input[type="password"]::-ms-clear {
   border-radius: 50%;
   background: #fff;                   /* 中间点：白色 */
   box-shadow: -16px 0 0 #fff, 16px 0 0 #fff;  /* 左右两个点：白色 */
-  animation: dots-pulse 1.5s ease-in-out infinite;
+  animation: dots-pulse 1s ease-in-out infinite;
 }

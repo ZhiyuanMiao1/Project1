@@ -48,8 +48,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     try {
       const res = await api.post('/api/register', { email, password, role });
       setOk('注册成功，正在关闭...');
-      if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 800);
-      setTimeout(() => { onClose && onClose(); }, 800);
+      if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 2000);
+      setTimeout(() => { onClose && onClose(); }, 2000);
     } catch (e) {
       const status = e?.response?.status;
       const data = e?.response?.data;
