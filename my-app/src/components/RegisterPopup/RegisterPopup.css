@@ -364,10 +364,10 @@
 .register-message.error { color: #cc2020; }
 .register-message.success { color: #2a7a2a; }
 
-/* 成功后的按钮动画：变浅 + 三个点 */
+/* 成功后的按钮动画：变浅 + 三个点（更大/更宽间距/更长时长） */
 .register-continue-button.success-pending {
     background-color: #888888;
-    color: transparent; /* 隐藏原文字“继续” */
+    color: transparent; /* 隐藏原文字 */
     position: relative;
 }
 .register-continue-button.success-pending:hover,
@@ -375,6 +375,7 @@
     background-color: #888888;
     transform: none;
 }
+/* 覆盖显示三个点（更大/更宽间距），整体脉冲动画 */
 .register-continue-button.success-pending::after {
     content: '...';
     position: absolute;
@@ -382,15 +383,15 @@
     left: 50%;
     transform: translate(-50%, -50%);
     color: #ffffff;
-    letter-spacing: 2px;
-    display: inline-block;
-    overflow: hidden;
-    width: 0ch; /* 从0到3个点的步进动画 */
-    animation: dots-steps 1s steps(3, end) infinite;
+    font-size: 30px;         /* 点更大 */
+    letter-spacing: 10px;     /* 点之间间距更远 */
+    animation: dots-pulse 5s ease-in-out infinite; /* 动画更长 */
 }
-@keyframes dots-steps {
-    0% { width: 0ch; }
-    100% { width: 3ch; }
+
+@keyframes dots-pulse {
+    0%, 20% { opacity: 0.25; }
+    50% { opacity: 1; }
+    100% { opacity: 0.25; }
 }
 /* 修复：
    1) 中间输入框左右无边框 → 强制给所有输入框左右边框着色
@@ -427,6 +428,19 @@
 
 /* Input wrapper for proper eye positioning */
 .input-with-toggle { position: relative; }
+
+/* --- Centering fix for success dots in button --- */
+.register-continue-button.success-pending {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.register-continue-button.success-pending::after {
+    position: static;
+    transform: none;
+    display: inline-block;
+    line-height: 1;
+}
 
 
 
@@ -564,3 +578,31 @@ input[type="password"]::-ms-clear {
 /* 保持：仅当错误行被聚焦时才隐藏上下分割线，避免与红色描边叠色 */
 .register-input.error:focus + * { border-top-color: transparent; }
 .input-with-toggle:has(.register-input.error:focus) + * { border-top-color: transparent; }
+
+
+
+/* 成功态：按钮灰底 + 中心三个白点（垂直/水平绝对居中） */
+.register-continue-button.success-pending{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #888888;
+  color: transparent;                 /* 隐藏“继续”文字 */
+  pointer-events: none;               /* 可选：避免重复点 */
+}
+
+/* 用一个白色小圆 + box-shadow 复制成左右两个点，完全居中且不受字体基线影响 */
+.register-continue-button.success-pending::after{
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;                         /* 点的直径，可按需调大/调小 */
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;                   /* 中间点：白色 */
+  box-shadow: -16px 0 0 #fff, 16px 0 0 #fff;  /* 左右两个点：白色 */
+  animation: dots-pulse 1.5s ease-in-out infinite;
+}
