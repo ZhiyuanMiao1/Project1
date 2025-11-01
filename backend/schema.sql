@@ -16,9 +16,33 @@ CREATE TABLE IF NOT EXISTS `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2) Defensive migration (existing DB path)
--- Ensure `public_id` column and unique index exist
-ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `public_id` VARCHAR(20) NULL AFTER `role`;
-CREATE UNIQUE INDEX IF NOT EXISTS `uniq_users_public_id` ON `users` (`public_id`);
+-- ===== 若缺列则新增列 public_id =====
+SELECT COUNT(*) INTO @has_col
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME   = 'users'
+  AND COLUMN_NAME  = 'public_id';
+
+SET @sql := IF(@has_col = 0,
+  'ALTER TABLE `users` ADD COLUMN `public_id` VARCHAR(20) NULL AFTER `role`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- ===== 若缺唯一索引则创建 uniq_users_public_id =====
+SELECT COUNT(*) INTO @has_idx
+FROM INFORMATION_SCHEMA.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME   = 'users'
+  AND INDEX_NAME   = 'uniq_users_public_id';
+
+SET @sql := IF(@has_idx = 0,
+  'CREATE UNIQUE INDEX `uniq_users_public_id` ON `users`(`public_id`)',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
 
 -- 3) Role counters table used to allocate next serial per role
 CREATE TABLE IF NOT EXISTS `role_counters` (
