@@ -130,10 +130,25 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPw1((s) => !s)}
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 5C6.5 5 2.1 8.4 1 12c1.1 3.6 5.5 7 11 7s9.9-3.4 11-7c-1.1-3.6-5.5-7-11-7Z" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-                  <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-                </svg>
+                {showPw1 ? (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                ) : (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M18 10 L6 22"
+                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
               </button>
             )}
           </div>
@@ -164,10 +179,25 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPw2((s) => !s)}
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 5C6.5 5 2.1 8.4 1 12c1.1 3.6 5.5 7 11 7s9.9-3.4 11-7c-1.1-3.6-5.5-7-11-7Z" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-                  <circle cx="12" cy="12" r="3.2" stroke="currentColor" strokeWidth="1.8" fill="none"/>
-                </svg>
+                {showPw2 ? (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                ) : (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M18 10 L6 22"
+                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
               </button>
             )}
           </div>

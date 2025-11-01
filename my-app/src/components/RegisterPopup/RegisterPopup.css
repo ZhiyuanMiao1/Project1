@@ -376,23 +376,24 @@
 .toggle-password {
     position: absolute;
     top: 50%;
-    right: 16px;
+    right: 12px;
     transform: translateY(-50%);
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: none;
     background: transparent;
-    color: rgba(0, 0, 0, 0.6);
+    color: rgb(0, 0, 0);
     cursor: pointer;
     z-index: 2;
 }
-.toggle-password:hover,
-.toggle-password:focus {
-    color: rgba(0, 0, 0, 0.85);
-    outline: none;
+/* 让内部 SVG 按按钮尺寸自适应（覆盖掉 <svg width/height> 的属性） */
+.toggle-password svg{
+  width: 100% !important;
+  height: 100% !important;
+  display: block;        /* 防止基线挤压导致视觉下坠 */
 }
 
 /* Input wrapper for proper eye positioning */
