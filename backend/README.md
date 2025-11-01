@@ -46,3 +46,17 @@ npm run dev
 
 > 备注：旧的 JS 版本文件已迁移到 TypeScript 的 `src/` 目录，编译输出在 `dist/`，运行以 `dist/app.js` 为准。
 
+
+# 登录 MySQL日常管理
+
+## 登录 MySQL
+mysql -h 127.0.0.1 -P 3306 -u root -p
+
+## 选择数据库
+USE project1;
+
+## 查看表结构
+DESCRIBE users;
+
+## 查看部分数据
+SELECT * FROM users;
