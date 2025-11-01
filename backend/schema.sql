@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` VARCHAR(100) NULL,
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
-  `role` ENUM('teacher','student') NOT NULL,
+  `role` ENUM('mentor','student') NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_users_email` (`email`)
