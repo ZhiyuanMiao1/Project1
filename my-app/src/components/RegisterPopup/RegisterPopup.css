@@ -187,6 +187,13 @@
     border-top-color: #d93025;
   }
 
+  /* 聚焦时仍保持错误红色描边（覆盖选中态黑色描边） */
+  .register-input.error:focus,
+  .input-with-toggle:has(.register-input.error):focus-within {
+    box-shadow: 0 0 0 2px var(--mx-error) !important;
+    outline: none !important;
+  }
+
   /* 按钮容器样式 */
 .register-button-group {
     display: flex;
@@ -362,7 +369,7 @@
 /* 修复：
    1) 中间输入框左右无边框 → 强制给所有输入框左右边框着色
    2) 错误态红色边框太细 → 使用与 focus 相同的 2px 描边，并在 focus 时保持红色 */
-.register-input { border-left-color: #000; border-right-color: #000; }
+
 .register-input.error { outline: 2px solid #d93025; outline-offset: 0; }
 .register-input.error:focus { outline-color: #d93025; }
 
@@ -394,9 +401,7 @@
 /* Input wrapper for proper eye positioning */
 .input-with-toggle { position: relative; }
 
-/* Borders between rows when wrappers are present */
-.register-input-area > .register-input + .input-with-toggle .register-input { border-top: 1px solid #000; }
-.register-input-area > .input-with-toggle + .input-with-toggle .register-input { border-top: 1px solid #000; }
+
 
 /* Remove top dividing line when focusing current row */
 .register-input:focus + .input-with-toggle .register-input { border-top-color: transparent; }
@@ -447,7 +452,7 @@ input[type="password"]::-ms-clear {
 
 /* 3) 行内的真正 input 不要自带边框（由外层统一绘制） */
 .register-input-area .register-input{
-  border: none;
+  border: none !important;
   border-radius: 0;
   outline: none !important;      /* 清掉之前的黑色 outline */
   width: 100%;

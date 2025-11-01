@@ -76,10 +76,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             placeholder="请输入邮箱"
             className={`register-input ${errorField === 'email' ? 'error' : ''}`}
             value={email}
-            onFocus={() => setErrorField('')}
+            onFocus={() => setFocusedField('email')}   // 不清空错误
+            onBlur={() => setFocusedField('')}
             onChange={(e) => {
-              setEmail(e.target.value);
-              if (errorField === 'email') { setErrorField(''); setFieldError(''); }
+              const v = e.target.value;
+              setEmail(v);
+              if (errorField === 'email') {
+                if (/^\S+@\S+\.\S+$/.test(v))  { setErrorField(''); setFieldError(''); }
+              }
             }}
           />
 
@@ -90,11 +94,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               placeholder="请输入密码"
               className={`register-input ${errorField === 'password' ? 'error' : ''}`}
               value={password}
-              onFocus={() => { setErrorField(''); setFocusedField('password'); }}
+              onFocus={() => { setFocusedField('password'); }}   // 不清空错误
               onBlur={() => setFocusedField('')}
               onChange={(e) => {
-                setPassword(e.target.value);
-                if (errorField === 'password') { setErrorField(''); setFieldError(''); }
+                const v = e.target.value;
+                setPassword(v);
+                if (errorField === 'password') {
+                  if (v && v.length >= 6){ setErrorField(''); setFieldError(''); }
+                }
               }}
             />
             {(focusedField === 'password' && password) && (
@@ -120,11 +127,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               placeholder="请确认密码"
               className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
               value={confirmPassword}
-              onFocus={() => { setErrorField(''); setFocusedField('confirmPassword'); }}
+              onFocus={() => { setFocusedField('confirmPassword'); }}   // 不清空错误
               onBlur={() => setFocusedField('')}
               onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                if (errorField === 'confirmPassword') { setErrorField(''); setFieldError(''); }
+                const v = e.target.value;
+                setConfirmPassword(v);
+                if (errorField === 'confirmPassword') { 
+                  if (v === password) {setErrorField(''); setFieldError(''); }
+                }
               }}
             />
             {(focusedField === 'confirmPassword' && confirmPassword) && (
