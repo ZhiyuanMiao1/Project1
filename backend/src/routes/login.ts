@@ -11,7 +11,7 @@ interface UserRow {
   username: string | null;
   email: string;
   password_hash: string;
-  role: 'teacher' | 'student';
+  role: 'mentor' | 'student';
 }
 
 router.post(
