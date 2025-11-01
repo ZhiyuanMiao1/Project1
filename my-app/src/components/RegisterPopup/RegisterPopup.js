@@ -13,6 +13,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [submitError, setSubmitError] = useState('');
   const [errorFocusTick, setErrorFocusTick] = useState(0);
   const [ok, setOk] = useState('');
+  const successAnim = !!ok;
   // eye + focus control
   const emailRef = useRef(null);
   const pw1Ref   = useRef(null);
@@ -47,7 +48,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     try {
       const res = await api.post('/api/register', { email, password, role });
       setOk('注册成功，正在关闭...');
-      if (typeof onSuccess === 'function') onSuccess(res.data);
+      if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 800);
       setTimeout(() => { onClose && onClose(); }, 800);
     } catch (e) {
       const status = e?.response?.status;
@@ -261,13 +262,12 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         </div>
 
         <div className="register-continue-area">
-          <button className="register-continue-button" onClick={handleContinue} disabled={submitting} type="button">
+          <button className={`register-continue-button ${successAnim ? 'success-pending' : ''}`} onClick={handleContinue} disabled={submitting || successAnim} type="button">
             {submitting ? '提交中...' : '继续'}
           </button>
         </div>
 
         {submitError && <div className="register-message error">{submitError}</div>}
-        {ok && <div className="register-message success">{ok}</div>}
 
         <div className="register-modal-divider-with-text"><span className="divider-text">或（暂未开放）</span></div>
 

@@ -15,36 +15,11 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `uniq_users_public_id` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 2) Defensive migration (existing DB path)
--- ===== 若缺列则新增列 public_id =====
-SELECT COUNT(*) INTO @has_col
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME   = 'users'
-  AND COLUMN_NAME  = 'public_id';
-
-SET @sql := IF(@has_col = 0,
-  'ALTER TABLE `users` ADD COLUMN `public_id` VARCHAR(20) NULL AFTER `role`',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
--- ===== 若缺唯一索引则创建 uniq_users_public_id =====
-SELECT COUNT(*) INTO @has_idx
-FROM INFORMATION_SCHEMA.STATISTICS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME   = 'users'
-  AND INDEX_NAME   = 'uniq_users_public_id';
-
-SET @sql := IF(@has_idx = 0,
-  'CREATE UNIQUE INDEX `uniq_users_public_id` ON `users`(`public_id`)',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 
 
--- 3) Role counters table used to allocate next serial per role
+
+-- 2) Role counters table used to allocate next serial per role
 CREATE TABLE IF NOT EXISTS `role_counters` (
   `role` ENUM('mentor','student') NOT NULL PRIMARY KEY,
   `next_serial` INT NOT NULL
@@ -55,46 +30,9 @@ INSERT IGNORE INTO `role_counters` (`role`, `next_serial`) VALUES
   ('student', 0),
   ('mentor', 0);
 
--- 4) Backfill `public_id` for existing rows where it is NULL
--- Students => s1, s2, ... by ascending `id`
-SET @s := 0;
-UPDATE `users` u
-JOIN (
-  SELECT id, (@s := @s + 1) AS rn
-  FROM `users`
-  WHERE role = 'student'
-  ORDER BY id
-) x USING (id)
-SET u.public_id = COALESCE(u.public_id, CONCAT('s', x.rn))
-WHERE u.role = 'student' AND u.public_id IS NULL;
 
--- Mentors => m1, m2, ... by ascending `id`
-SET @m := 0;
-UPDATE `users` u
-JOIN (
-  SELECT id, (@m := @m + 1) AS rn
-  FROM `users`
-  WHERE role = 'mentor'
-  ORDER BY id
-) y USING (id)
-SET u.public_id = COALESCE(u.public_id, CONCAT('m', y.rn))
-WHERE u.role = 'mentor' AND u.public_id IS NULL;
 
--- 5) Sync counters to current max per role to prepare for future inserts
-UPDATE `role_counters` rc
-LEFT JOIN (
-  SELECT 'student' AS role, COALESCE(MAX(CAST(SUBSTRING(public_id, 2) AS UNSIGNED)), 0) AS mx
-  FROM `users` WHERE role = 'student'
-  UNION ALL
-  SELECT 'mentor' AS role, COALESCE(MAX(CAST(SUBSTRING(public_id, 2) AS UNSIGNED)), 0) AS mx
-  FROM `users` WHERE role = 'mentor'
-) t ON t.role = rc.role
-SET rc.next_serial = COALESCE(t.mx, 0);
-
--- After backfill, enforce NOT NULL on existing DBs
-ALTER TABLE `users` MODIFY `public_id` VARCHAR(20) NOT NULL;
-
--- 6) Trigger to auto-assign `public_id` on insert when not provided
+-- 3) Trigger to auto-assign `public_id` on insert when not provided
 -- Uses LAST_INSERT_ID trick to atomically fetch incrementing serial per role
 DROP TRIGGER IF EXISTS `bi_users_public_id`;
 DELIMITER //

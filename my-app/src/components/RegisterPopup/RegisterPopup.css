@@ -363,6 +363,35 @@
 }
 .register-message.error { color: #cc2020; }
 .register-message.success { color: #2a7a2a; }
+
+/* 成功后的按钮动画：变浅 + 三个点 */
+.register-continue-button.success-pending {
+    background-color: #888888;
+    color: transparent; /* 隐藏原文字“继续” */
+    position: relative;
+}
+.register-continue-button.success-pending:hover,
+.register-continue-button.success-pending:active {
+    background-color: #888888;
+    transform: none;
+}
+.register-continue-button.success-pending::after {
+    content: '...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
+    letter-spacing: 2px;
+    display: inline-block;
+    overflow: hidden;
+    width: 0ch; /* 从0到3个点的步进动画 */
+    animation: dots-steps 1s steps(3, end) infinite;
+}
+@keyframes dots-steps {
+    0% { width: 0ch; }
+    100% { width: 3ch; }
+}
 /* 修复：
    1) 中间输入框左右无边框 → 强制给所有输入框左右边框着色
    2) 错误态红色边框太细 → 使用与 focus 相同的 2px 描边，并在 focus 时保持红色 */
