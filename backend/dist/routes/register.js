@@ -12,7 +12,7 @@ router.post('/', [
     (0, express_validator_1.body)('username').optional().isLength({ min: 3 }).withMessage('用户名至少3个字符'),
     (0, express_validator_1.body)('email').isEmail().withMessage('请输入有效的邮箱'),
     (0, express_validator_1.body)('password').isLength({ min: 6 }).withMessage('密码至少6个字符'),
-    (0, express_validator_1.body)('role').isIn(['teacher', 'student']).withMessage('角色无效'),
+    (0, express_validator_1.body)('role').isIn(['mentor', 'student']).withMessage('角色无效'),
 ], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
