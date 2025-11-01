@@ -521,3 +521,16 @@ input[type="password"]::-ms-clear {
 /* ❸ 只有“被聚焦的错误行”需要把与相邻行的分隔线隐掉，避免双线叠色 */
 .register-input.error:focus + *{ border-top-color: transparent; }
 .input-with-toggle:has(.register-input.error:focus) + *{ border-top-color: transparent; }
+
+
+/* 错误行未聚焦：恢复下方分割线为黑色 */
+.register-input.error:not(:focus) + * {
+  border-top-color: var(--mx-border) !important;
+}
+.input-with-toggle:has(.register-input.error:not(:focus)) + * {
+  border-top-color: var(--mx-border) !important;
+}
+
+/* 保持：仅当错误行被聚焦时才隐藏上下分割线，避免与红色描边叠色 */
+.register-input.error:focus + * { border-top-color: transparent; }
+.input-with-toggle:has(.register-input.error:focus) + * { border-top-color: transparent; }
