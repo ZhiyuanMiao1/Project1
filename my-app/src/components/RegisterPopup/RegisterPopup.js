@@ -11,6 +11,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [fieldError, setFieldError] = useState('');
   const [errorField, setErrorField] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [errorFocusTick, setErrorFocusTick] = useState(0);
   const [ok, setOk] = useState('');
   // eye + focus control
   const emailRef = useRef(null);
@@ -35,6 +36,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     if (v) {
       setFieldError(v.message);
       setErrorField(v.field || '');
+      setErrorFocusTick(t => t + 1); // 强制重新聚焦同一字段
       return;
     }
     setSubmitting(true);
@@ -74,7 +76,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       // 下一帧再 focus，确保最新的样式与状态已应用，避免与按钮点击的焦点竞争
       requestAnimationFrame(() => target.focus());
     }
-  }, [errorField]);
+  }, [errorField, errorFocusTick]);
 
   return (
     <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
