@@ -4,6 +4,7 @@ import RegisterPopup from '../RegisterPopup/RegisterPopup';
 import LoginPopup from '../LoginPopup/LoginPopup';
 import api from '../../api/client';
 import './AuthModal.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
@@ -12,6 +13,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
+  // Position the dropdown next to the avatar/menu icon
   useLayoutEffect(() => {
     const updatePosition = () => {
       const anchorEl = anchorRef?.current;
@@ -20,7 +22,6 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       const modalWidth = contentRef.current?.offsetWidth || 200;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
       const minGap = 8;
-      // 若提供了 leftAlignRef，则以其左边为准
       const alignEl = leftAlignRef?.current;
       const baseLeft = alignEl ? alignEl.getBoundingClientRect().left : rect.left;
       let left = baseLeft;
@@ -40,53 +41,47 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
   }, [anchorRef, leftAlignRef]);
 
   const handleAuthAction = (action) => {
-    if (!isLoggedIn) {
-      if (action === '注册') {
-        setShowRegisterPopup(true);
+    switch (action) {
+      case 'register':
+        if (!isLoggedIn) setShowRegisterPopup(true);
         return;
-      }
-      if (action === '登录') {
-        setShowLoginPopup(true);
+      case 'login':
+        if (!isLoggedIn) setShowLoginPopup(true);
         return;
-      }
+      case 'publish':
+        onClose && onClose();
+        navigate('/student/course-request');
+        return;
+      case 'logout':
+        try {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+        } catch {}
+        try { delete api.defaults.headers.common['Authorization']; } catch {}
+        try {
+          window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
+        } catch {}
+        onClose && onClose();
+        navigate('/student');
+        return;
+      default:
+        // Placeholder for future actions
+        console.log(`User selected: ${action}`);
+        onClose && onClose();
+        return;
     }
-
-    if (action === '发布课程需求') {
-      onClose();
-      navigate('/student/course-request');
-      return;
-    }
-
-    if (action === '退出') {
-      try {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('authUser');
-      } catch {}
-      try { delete api.defaults.headers.common['Authorization']; } catch {}
-      try {
-        window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
-      } catch {}
-      onClose();
-      navigate('/student');
-      return;
-    }
-
-    console.log(`User selected: ${action}`);
-    onClose();
   };
 
-  // 文档级监听：点击弹窗外关闭，但不阻止外部交互
+  // Close on outside click (but keep register/login popups interactive)
   useEffect(() => {
     const onDocMouseDown = (e) => {
       const panel = contentRef.current;
       if (!panel) return;
-      // 如果点击在弹窗内容内，则不关闭
       if (panel.contains(e.target)) return;
-      // 若点击在注册/登录弹窗内，也不关闭（避免误关）
       const reg = document.querySelector('.register-modal-content');
       const log = document.querySelector('.login-modal-content');
       if ((reg && reg.contains(e.target)) || (log && log.contains(e.target))) return;
-      onClose();
+      onClose && onClose();
     };
     document.addEventListener('mousedown', onDocMouseDown, true);
     return () => document.removeEventListener('mousedown', onDocMouseDown, true);
@@ -100,50 +95,55 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         className="auth-modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left, display: isPopupOpen ? 'none' : 'block' }}
-        // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
           {isLoggedIn ? (
             <>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('收藏')}
+                onClick={() => handleAuthAction('favorites')}
               >
+                <i className="far fa-heart auth-icon" aria-hidden="true"></i>
                 收藏
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('课程')}
+                onClick={() => handleAuthAction('courses')}
               >
+                <i className="fas fa-book-open auth-icon" aria-hidden="true"></i>
                 课程
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
-                onClick={() => handleAuthAction('消息')}
+                onClick={() => handleAuthAction('messages')}
               >
+                <i className="far fa-comment-dots auth-icon" aria-hidden="true"></i>
                 消息
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('账号设置')}
+                onClick={() => handleAuthAction('settings')}
               >
+                <i className="fas fa-gear auth-icon" aria-hidden="true"></i>
                 账号设置
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('帮助中心')}
+                onClick={() => handleAuthAction('help')}
               >
+                <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
                 帮助中心
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
-                onClick={() => handleAuthAction('发布课程需求')}
+                onClick={() => handleAuthAction('publish')}
               >
+                <i className="fas fa-bullhorn auth-icon" aria-hidden="true"></i>
                 发布课程需求
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('退出')}
+                onClick={() => handleAuthAction('logout')}
               >
                 退出
               </button>
@@ -152,25 +152,25 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
             <>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('注册')}
+                onClick={() => handleAuthAction('register')}
               >
                 注册
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
-                onClick={() => handleAuthAction('登录')}
+                onClick={() => handleAuthAction('login')}
               >
                 登录
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('发布课程需求')}
+                onClick={() => handleAuthAction('publish')}
               >
                 发布课程需求
               </button>
               <button
                 className="auth-modal-option-button"
-                onClick={() => handleAuthAction('帮助中心')}
+                onClick={() => handleAuthAction('help')}
               >
                 帮助中心
               </button>
@@ -183,9 +183,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         <RegisterPopup
           onClose={() => setShowRegisterPopup(false)}
           onSuccess={(payload) => {
-            // 关闭整体学生认证弹窗
             onClose && onClose();
-            // 若需要，确保落到学生首页
             if (payload?.autoLoggedIn && payload?.role === 'student') {
               try { navigate('/student'); } catch {}
             }
@@ -201,3 +199,4 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
 };
 
 export default StudentAuthModal;
+
