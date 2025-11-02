@@ -5,6 +5,8 @@ import LoginPopup from '../LoginPopup/LoginPopup';
 import api from '../../api/client';
 import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import { FiBookOpen, FiSettings } from 'react-icons/fi';
+import { RiMegaphoneLine } from 'react-icons/ri';
 
 const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
@@ -110,7 +112,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('courses')}
               >
-                <i className="fas fa-book-open auth-icon" aria-hidden="true"></i>
+                <FiBookOpen className="auth-icon" />
                 课程
               </button>
               <button
@@ -124,7 +126,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('settings')}
               >
-                <i className="fa-solid fa-gear auth-icon" aria-hidden="true"></i>
+                <FiSettings className="auth-icon" />
                 账号设置
               </button>
               <button
@@ -138,7 +140,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('publish')}
               >
-                <i className="fas fa-bullhorn auth-icon" aria-hidden="true"></i>
+                <RiMegaphoneLine className="auth-icon" />
                 发布课程需求
               </button>
               <button

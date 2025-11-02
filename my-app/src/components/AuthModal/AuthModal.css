@@ -52,9 +52,13 @@
 /* Leading icon spacing */
 .auth-modal-option-button .auth-icon {
     width: 16px;
+    height: 16px; /* ensure SVG height */
     margin-right: 10px;
-    font-size: 16px;
+    font-size: 16px; /* for <i> icons */
     line-height: 1;
+    display: inline-block; /* normalize <i> and <svg> alignment */
+    flex-shrink: 0;
+    color: currentColor;
 }
   
 .auth-modal-option-button.auth-divider::after {
