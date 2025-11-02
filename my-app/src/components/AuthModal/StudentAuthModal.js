@@ -108,7 +108,17 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
       </div>
 
       {showRegisterPopup && (
-        <RegisterPopup onClose={() => setShowRegisterPopup(false)} />
+        <RegisterPopup
+          onClose={() => setShowRegisterPopup(false)}
+          onSuccess={(payload) => {
+            // 关闭整体学生认证弹窗
+            onClose && onClose();
+            // 若需要，确保落到学生首页
+            if (payload?.autoLoggedIn && payload?.role === 'student') {
+              try { navigate('/student'); } catch {}
+            }
+          }}
+        />
       )}
 
       {showLoginPopup && (

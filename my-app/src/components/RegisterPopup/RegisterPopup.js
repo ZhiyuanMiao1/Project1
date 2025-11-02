@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import api from '../../api/client';
 
@@ -22,6 +23,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [showPw1, setShowPw1] = useState(false);
   const [showPw2, setShowPw2] = useState(false);
   const [focusedField, setFocusedField] = useState(''); // 'password' | 'confirmPassword' | ''
+  const navigate = useNavigate();
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };
@@ -47,6 +49,45 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     setOk('');
     try {
       const res = await api.post('/api/register', { email, password, role });
+
+      // 学生注册成功后，自动登录并跳转学生首页（显示2秒三点动画后再跳转）
+      if (role === 'student') {
+        try {
+          const loginRes = await api.post('/api/login', { email, password, role: 'student' });
+          const { token, user } = loginRes.data || {};
+          if (token) {
+            try {
+              localStorage.setItem('authToken', token);
+              localStorage.setItem('authUser', JSON.stringify(user || {}));
+            } catch {}
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          }
+          // 触发成功动画（按钮显示三点），2秒后再跳转
+          setOk('注册成功，已自动登录');
+          setTimeout(() => {
+            if (typeof onSuccess === 'function') {
+              onSuccess({ ...res.data, autoLoggedIn: true, role: 'student', token, user });
+            }
+            onClose && onClose();
+            navigate('/student');
+          }, 2000);
+          return;
+        } catch (loginErr) {
+          // 自动登录失败时的提示，但保留注册成功结果
+          const data = loginErr?.response?.data;
+          const fallbackMsg = data?.error || '注册成功，但自动登录失败，请手动登录';
+          setFieldError(fallbackMsg);
+          setErrorField('');
+          setSubmitError('');
+          if (typeof onSuccess === 'function') {
+            onSuccess({ ...res.data, autoLoggedIn: false, role: 'student' });
+          }
+          // 不跳转，保持弹窗以便用户查看提示
+          return;
+        }
+      }
+
+      // 导师注册或其他情况：沿用原有成功提示与自动关闭（2秒）
       setOk('注册成功，正在关闭...');
       if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 2000);
       setTimeout(() => { onClose && onClose(); }, 2000);
@@ -262,8 +303,13 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         </div>
 
         <div className="register-continue-area">
-          <button className={`register-continue-button ${successAnim ? 'success-pending' : ''}`} onClick={handleContinue} disabled={submitting || successAnim} type="button">
-            {submitting ? '提交中...' : '继续'}
+          <button
+            className={`register-continue-button ${successAnim ? 'success-pending' : ''}`}
+            onClick={handleContinue}
+            disabled={submitting || successAnim}
+            type="button"
+          >
+            继续
           </button>
         </div>
 
