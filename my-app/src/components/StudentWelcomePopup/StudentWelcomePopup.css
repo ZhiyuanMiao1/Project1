@@ -1,39 +1,13 @@
-.student-welcome-body {
-  width: 88%;
-  margin: 18px auto 0;
-}
+.student-welcome-body { width: 88%; margin: 0 auto 0; }
 
-.student-welcome-line {
-  font-size: 16px;
-  color: #111827;
-  margin: 0 0 10px 0;
-}
+.student-welcome-line { font-size: 16px; color: #111827; margin: 0 0 12px 0; }
 
-.student-welcome-id {
-  font-weight: 800;
-  margin-left: 6px;
-}
+.student-welcome-id { font-weight: 600; margin-left: 6px; }
 
-.student-welcome-sub {
-  font-size: 14px;
-  color: rgba(0,0,0,.65);
-  margin: 0 0 20px 0;
-}
-.student-welcome-overlay {
-  z-index: 4000; /* higher than base register overlay to block all underlying interactions */
-  pointer-events: auto;
-  background-color: transparent !important; /* use parent overlay dimming; avoid double-darkening */
-}
+.student-welcome-sub { font-size: 14px; color: rgba(0,0,0,.65); margin: 0 0 20px 0; }
 
-/* Compact modal sizing and spacing for the welcome popup */
-.student-welcome-content {
-  height: auto !important;
-  max-height: 70vh;
-  padding-bottom: 20px;
-}
+.student-welcome-overlay { z-index: 4000; pointer-events: auto; background-color: transparent !important; }
 
-/* Make the public StudentID text slightly lighter */
-.student-welcome-id { font-weight: 600; }
-
-/* Tighten vertical spacing a bit */
-.student-welcome-body { margin-top: 10px; }
+/* Compact modal sizing and symmetric gap below StudentID line */
+.student-welcome-content { height: auto !important; max-height: 70vh; padding-bottom: 20px; }
+.student-welcome-content .register-continue-area { margin: 12px auto 0 !important; }
