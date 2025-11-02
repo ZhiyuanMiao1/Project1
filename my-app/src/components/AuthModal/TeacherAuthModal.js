@@ -74,7 +74,7 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
         try { window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } })); } catch {}
         setIsLoggedIn(false);
         onClose && onClose();
-        try { navigate('/teacher'); } catch {}
+        try { navigate('/student'); } catch {}
         return;
       default:
         console.log(`User selected: ${action}`);
