@@ -90,10 +90,11 @@
     background: transparent; /* 背景透明，融入容器背景 */
     box-sizing: border-box; /* 包括 padding 在宽度计算内 */
     transition: border-color 0.2s ease; /* 平滑过渡效果且不改变尺寸 */
+    padding-right: 48px; /* 为右侧眼睛按钮预留空间 */
 }
 
-/* 父容器：让相邻的 .login-input 元素之间显示分割线 */
-.login-input-area > .login-input + .login-input {
+/* 父容器：相邻子元素之间显示分割线（兼容包裹层） */
+.login-input-area > * + * {
     border-top: 1px solid #000; 
 }
 
@@ -120,6 +121,10 @@
     /* 保持1px占位，只隐藏颜色 */
     border-top-color: transparent;
 }
+/* 兼容包裹层的聚焦分隔线隐藏规则 */
+.login-input-area .login-input:focus + * { border-top-color: transparent; }
+.login-input-area .input-with-toggle:focus-within { border-top-color: transparent; }
+.login-input-area .input-with-toggle:focus-within + * { border-top-color: transparent; }
 
 /* 选中时状态 */
 .login-button:focus {
@@ -304,3 +309,31 @@
 .login-input.error + .login-input {
   border-top-color: transparent;
 }
+/* 兼容包裹层的错误分隔线处理 */
+.login-input.error + * { border-top-color: transparent; }
+.input-with-toggle:has(.login-input.error) { border-top-color: transparent; }
+.input-with-toggle:has(.login-input.error) + * { border-top-color: transparent; }
+
+/* 密码显隐按钮与容器 */
+.input-with-toggle { position: relative; }
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #000;
+  cursor: pointer;
+  z-index: 2;
+}
+.toggle-password svg { width: 100% !important; height: 100% !important; display: block; }
+
+/* 隐藏浏览器自带的密码显示按钮（避免双眼睛） */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }

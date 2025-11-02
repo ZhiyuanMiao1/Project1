@@ -13,6 +13,8 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
   const [fieldError, setFieldError] = useState(errorMessage || '');
   const [errorFieldState, setErrorFieldState] = useState(errorField || '');
   const [submitting, setSubmitting] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [focusedPw, setFocusedPw] = useState(false);
 
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
@@ -126,21 +128,54 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
               }
             }}
           />
-          <input
-            ref={pwRef}
-            type="password"
-            placeholder="请输入密码"
-            className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
-            value={password}
-            onChange={(e) => {
-              const v = e.target.value;
-              setPassword(v);
-              if (errorFieldState === 'password' && v) {
-                setErrorFieldState('');
-                setFieldError('');
-              }
-            }}
-          />
+          <div className="input-with-toggle">
+            <input
+              ref={pwRef}
+              type={showPw ? 'text' : 'password'}
+              placeholder="请输入密码"
+              className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
+              value={password}
+              onFocus={() => setFocusedPw(true)}
+              onBlur={() => setFocusedPw(false)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPassword(v);
+                if (errorFieldState === 'password' && v) {
+                  setErrorFieldState('');
+                  setFieldError('');
+                }
+              }}
+            />
+            {(focusedPw && password) && (
+              <button
+                type="button"
+                className="toggle-password"
+                aria-label={showPw ? '隐藏密码' : '显示密码'}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setShowPw((s) => !s)}
+              >
+                {showPw ? (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                  </svg>
+                ) : (
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                          stroke="currentColor" strokeWidth="1.5"
+                          strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="12" cy="16" r="3.2"
+                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M18 10 L6 22"
+                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 错误提示行（默认留空） */}
