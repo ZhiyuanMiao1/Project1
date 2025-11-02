@@ -51,9 +51,9 @@
 
 /* Leading icon spacing */
 .auth-modal-option-button .auth-icon {
-    width: 18px;
-    margin-right: 12px;
-    font-size: 18px;
+    width: 16px;
+    margin-right: 10px;
+    font-size: 16px;
     line-height: 1;
 }
   

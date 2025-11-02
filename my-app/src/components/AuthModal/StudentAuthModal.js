@@ -117,14 +117,14 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('messages')}
               >
-                <i className="far fa-comment-dots auth-icon" aria-hidden="true"></i>
+                <i className="far fa-comment auth-icon" aria-hidden="true"></i>
                 消息
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('settings')}
               >
-                <i className="fas fa-gear auth-icon" aria-hidden="true"></i>
+                <i className="fa-solid fa-gear auth-icon" aria-hidden="true"></i>
                 账号设置
               </button>
               <button
@@ -199,4 +199,3 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
 };
 
 export default StudentAuthModal;
-
