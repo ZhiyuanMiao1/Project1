@@ -80,9 +80,10 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       const panel = contentRef.current;
       if (!panel) return;
       if (panel.contains(e.target)) return;
-      const reg = document.querySelector('.register-modal-content');
-      const log = document.querySelector('.login-modal-content');
-      if ((reg && reg.contains(e.target)) || (log && log.contains(e.target))) return;
+      // 忽略所有注册/登录弹窗内部的点击（含欢迎弹窗）
+      const regs = Array.from(document.querySelectorAll('.register-modal-content'));
+      const logs = Array.from(document.querySelectorAll('.login-modal-content'));
+      if (regs.some((el) => el.contains(e.target)) || logs.some((el) => el.contains(e.target))) return;
       onClose && onClose();
     };
     document.addEventListener('mousedown', onDocMouseDown, true);

@@ -19,4 +19,8 @@
   color: rgba(0,0,0,.65);
   margin: 0 0 20px 0;
 }
+.student-welcome-overlay {
+  z-index: 4000; /* higher than base register overlay to block all underlying interactions */
+  pointer-events: auto;
+}
 

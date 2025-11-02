@@ -12,8 +12,12 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
   };
 
   return (
-    <div className="register-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
-      <div className="register-modal-content" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="register-modal-overlay student-welcome-overlay"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="register-modal-content" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
         <button className="register-modal-close" onClick={handleClose}>&times;</button>
         <h2>注册</h2>
         <div className="register-modal-divider" />
@@ -35,4 +39,3 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
 };
 
 export default StudentWelcomePopup;
-
