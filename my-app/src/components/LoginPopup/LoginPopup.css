@@ -241,3 +241,66 @@
     background-color: #ffffff; /* 保持白色 */
     border-color: rgba(0, 0, 0, 0.8); /* 仍允许边框加深 */
 }
+
+/* ===== 错误样式（与注册弹窗保持一致） ===== */
+:root {
+  --mx-error: #d93025;
+}
+
+/* 输入与按钮之间预留一行错误提示区（默认留空） */
+.login-validation-slot {
+  width: 88%;
+  margin: 8px auto 0; /* 与上方输入区留出间距 */
+  min-height: 22px;   /* 预留一行高度，展示红字不跳动 */
+  display: flex;
+  align-items: center;
+}
+
+/* 红色错误文案样式 */
+.validation-error {
+  color: #cc2020;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+}
+.validation-error::before {
+  content: '!';
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background-color: #d93025; /* 红底 */
+  color: #fff;               /* 白色感叹号 */
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 可复用的提示文案（登录默认不展示，仅保留样式） */
+.validation-tip {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 14px;
+}
+
+/* 错误输入框：红边 + 淡红底 */
+.login-input.error {
+  border-color: var(--mx-error);
+  border-width: 1px;
+  border-radius: 10px;
+  background-color: rgba(217, 48, 37, 0.06);
+}
+
+/* 错误行获得焦点：红色描边覆盖选中态 */
+.login-input.error:focus {
+  box-shadow: 0 0 0 2px var(--mx-error) !important;
+  outline: none !important;
+  border-radius: 10px;
+}
+
+/* 避免错误行与下一行分隔线叠色 */
+.login-input.error + .login-input {
+  border-top-color: transparent;
+}

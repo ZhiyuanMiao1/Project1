@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import './LoginPopup.css';
 
-const LoginPopup = ({ onClose, onContinue }) => {
+const LoginPopup = ({ onClose, onContinue, errorMessage = '', errorField = '' }) => {
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
   const backdropMouseDownRef = useRef(false);
 
@@ -29,8 +29,21 @@ const LoginPopup = ({ onClose, onContinue }) => {
         <div className="login-modal-divider"></div>
         <h3>欢迎回来，MentorX用户</h3>
         <div className="login-input-area">
-          <input type="email" placeholder="请输入邮箱、StudentID或MentorID" className="login-input" />
-          <input type="password" placeholder="请输入密码" className="login-input" />
+          <input
+            type="email"
+            placeholder="请输入邮箱、StudentID或MentorID"
+            className={`login-input ${errorField === 'email' ? 'error' : ''}`}
+          />
+          <input
+            type="password"
+            placeholder="请输入密码"
+            className={`login-input ${errorField === 'password' ? 'error' : ''}`}
+          />
+        </div>
+
+        {/* 错误提示行（默认留空） */}
+        <div className="login-validation-slot">
+          {errorMessage ? <span className="validation-error">{errorMessage}</span> : null}
         </div>
         <div className="login-continue-area">
           <button className="login-continue-button" onClick={onContinue}>继续</button>
