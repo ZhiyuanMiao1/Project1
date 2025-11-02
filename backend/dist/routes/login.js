@@ -21,16 +21,26 @@ router.post('/', [
     const { email, password, role } = req.body;
     try {
         let user;
-        if (role) {
-            const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ? AND role = ? LIMIT 1', [email, role]);
-            user = rows[0];
+        // 统一按邮箱取出所有候选账号；如提供了 role，则优先尝试该角色，但不阻止回退
+        const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ?', [email]);
+        if (rows.length === 0) {
+            return res.status(401).json({ error: '邮箱或密码错误' });
         }
-        else {
-            const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ?', [email]);
-            if (rows.length > 1) {
-                return res.status(400).json({ error: '该邮箱存在多个角色，请提供 role 参数：student 或 mentor' });
+        // 若指定了 role，则把该角色的账号排到最前面尝试
+        const ordered = role
+            ? [...rows.filter(r => r.role === role), ...rows.filter(r => r.role !== role)]
+            : rows;
+        for (const row of ordered) {
+            try {
+                const ok = await bcryptjs_1.default.compare(password, row.password_hash);
+                if (ok) {
+                    user = row;
+                    break;
+                }
             }
-            user = rows[0];
+            catch (_e) {
+                // 忽略单条比对异常，继续尝试其他角色
+            }
         }
         if (!user) {
             return res.status(401).json({ error: '邮箱或密码错误' });
