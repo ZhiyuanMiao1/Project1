@@ -22,5 +22,5 @@
 .student-welcome-overlay {
   z-index: 4000; /* higher than base register overlay to block all underlying interactions */
   pointer-events: auto;
+  background-color: transparent !important; /* use parent overlay dimming; avoid double-darkening */
 }
-
