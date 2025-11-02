@@ -19,7 +19,7 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
       onTouchStart={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); e.stopPropagation(); } }}
     >
       <div
-        className="register-modal-content"
+        className="register-modal-content student-welcome-content"
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
@@ -31,7 +31,6 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
 
         <div className="student-welcome-body">
           <p className="student-welcome-line">这是你的 StudentID：<span className="student-welcome-id">{publicId || '—'}</span></p>
-          <p className="student-welcome-sub">你以后可以通过这个ID号或邮箱登录</p>
         </div>
 
         <div className="register-continue-area">

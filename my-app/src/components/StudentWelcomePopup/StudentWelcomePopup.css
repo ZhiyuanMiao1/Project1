@@ -24,3 +24,16 @@
   pointer-events: auto;
   background-color: transparent !important; /* use parent overlay dimming; avoid double-darkening */
 }
+
+/* Compact modal sizing and spacing for the welcome popup */
+.student-welcome-content {
+  height: auto !important;
+  max-height: 70vh;
+  padding-bottom: 20px;
+}
+
+/* Make the public StudentID text slightly lighter */
+.student-welcome-id { font-weight: 600; }
+
+/* Tighten vertical spacing a bit */
+.student-welcome-body { margin-top: 10px; }
