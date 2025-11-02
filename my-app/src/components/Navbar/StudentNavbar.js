@@ -60,6 +60,15 @@ function StudentNavbar() {
     };
   }, []);
 
+  // 登录状态变更（注册成功自动登录 / 退出登录）时，在学生首页触发主页开场动画
+  const firstAuthRef = useRef(true);
+  useEffect(() => {
+    if (firstAuthRef.current) { firstAuthRef.current = false; return; }
+    if (location.pathname.startsWith('/student')) {
+      try { window.dispatchEvent(new Event('home:enter')); } catch {}
+    }
+  }, [isLoggedIn, location.pathname]);
+
   // 挂载后根据弹窗打开情况再切换激活项，避免点击瞬间的白->灰闪烁
   useEffect(() => {
     if (pendingFilter === 'timezone' && showTimezoneModal) {
