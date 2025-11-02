@@ -24,6 +24,7 @@ function StudentNavbar() {
   const [activeFilter, setActiveFilter] = useState('');
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   // 精确搜索展开（覆盖左侧筛选）状态
   const [isExactExpanded, setIsExactExpanded] = useState(false);
   // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
@@ -35,6 +36,29 @@ function StudentNavbar() {
   const isTeacherActive = location.pathname.startsWith('/teacher');
 
   const [isExactAnimating, setIsExactAnimating] = useState(false);
+
+  // 初始化登录状态与监听登录变化
+  useEffect(() => {
+    try {
+      setIsLoggedIn(!!localStorage.getItem('authToken'));
+    } catch {}
+
+    const onAuthChanged = (e) => {
+      const next = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
+      setIsLoggedIn(next);
+    };
+    window.addEventListener('auth:changed', onAuthChanged);
+
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken') setIsLoggedIn(!!ev.newValue);
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      window.removeEventListener('auth:changed', onAuthChanged);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   // 挂载后根据弹窗打开情况再切换激活项，避免点击瞬间的白->灰闪烁
   useEffect(() => {
@@ -128,7 +152,7 @@ function StudentNavbar() {
               setShowAuthModal(true);
             }}
           >
-            <i className="fa fa-user"></i>
+            <i className={`fa ${isLoggedIn ? 'fa-bars' : 'fa-user'}`}></i>
           </span>
         </div>
       </div>

@@ -61,6 +61,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               localStorage.setItem('authUser', JSON.stringify(user || {}));
             } catch {}
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            try {
+              // 通知全局（含当前标签页）登录状态已变化
+              window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'student', user } }));
+            } catch {}
           }
           // 触发成功动画（按钮显示三点），2秒后再跳转
           setOk('注册成功，已自动登录');
