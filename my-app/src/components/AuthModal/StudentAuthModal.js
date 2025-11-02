@@ -194,7 +194,15 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       )}
 
       {showLoginPopup && (
-        <LoginPopup onClose={() => setShowLoginPopup(false)} />
+        <LoginPopup
+          role="student"
+          onClose={() => setShowLoginPopup(false)}
+          onSuccess={(payload) => {
+            try { window.dispatchEvent(new Event('home:enter')); } catch {}
+            onClose && onClose();
+            try { navigate('/student'); } catch {}
+          }}
+        />
       )}
     </div>
   );

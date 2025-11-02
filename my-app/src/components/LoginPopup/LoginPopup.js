@@ -1,9 +1,18 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './LoginPopup.css';
+import api from '../../api/client';
 
-const LoginPopup = ({ onClose, onContinue, errorMessage = '', errorField = '' }) => {
+const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '' }) => {
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
   const backdropMouseDownRef = useRef(false);
+  const emailRef = useRef(null);
+  const pwRef = useRef(null);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fieldError, setFieldError] = useState(errorMessage || '');
+  const [errorFieldState, setErrorFieldState] = useState(errorField || '');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
@@ -13,6 +22,79 @@ const LoginPopup = ({ onClose, onContinue, errorMessage = '', errorField = '' })
     if (!backdropMouseDownRef.current) return;
     if (e.target !== e.currentTarget) return;
     onClose && onClose();
+  };
+
+  useEffect(() => {
+    const target = errorFieldState === 'email' ? emailRef.current : (errorFieldState === 'password' ? pwRef.current : null);
+    if (target) requestAnimationFrame(() => target.focus());
+  }, [errorFieldState, fieldError]);
+
+  const validate = () => {
+    if (!email) return { message: '请输入邮箱', field: 'email' };
+    if (!/\S+@\S+\.\S+/.test(email)) return { message: '邮箱格式不正确', field: 'email' };
+    if (!password) return { message: '请输入密码', field: 'password' };
+    return null;
+  };
+
+  const handleContinue = async () => {
+    if (submitting) return;
+    const v = validate();
+    if (v) {
+      setFieldError(v.message);
+      setErrorFieldState(v.field);
+      return;
+    }
+    setSubmitting(true);
+    setFieldError('');
+    setErrorFieldState('');
+    try {
+      const body = { email, password };
+      if (role) body.role = role; // student | mentor
+      const res = await api.post('/api/login', body);
+      const { token, user } = res.data || {};
+      if (token) {
+        try {
+          localStorage.setItem('authToken', token);
+          localStorage.setItem('authUser', JSON.stringify(user || {}));
+        } catch {}
+        try { api.defaults.headers.common['Authorization'] = `Bearer ${token}`; } catch {}
+        try { window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: user?.role, user } })); } catch {}
+      }
+      if (typeof onSuccess === 'function') {
+        onSuccess(res.data);
+      }
+      if (typeof onContinue === 'function') onContinue();
+      onClose && onClose();
+    } catch (e) {
+      const status = e?.response?.status;
+      const data = e?.response?.data;
+
+      const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
+      if (serverErrors && serverErrors.length > 0) {
+        const first = serverErrors[0];
+        const message = first?.msg || '提交信息有误';
+        let field = '';
+        if (first?.param === 'email') field = 'email';
+        else if (first?.param === 'password') field = 'password';
+        setFieldError(message);
+        setErrorFieldState(field);
+        setSubmitting(false);
+        return;
+      }
+
+      if (status === 401) {
+        setFieldError(data?.error || '邮箱或密码错误');
+        setErrorFieldState('password');
+        setSubmitting(false);
+        return;
+      }
+
+      const fallbackMsg = data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '登录失败，请稍后再试');
+      setFieldError(fallbackMsg);
+      setErrorFieldState('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -30,23 +112,43 @@ const LoginPopup = ({ onClose, onContinue, errorMessage = '', errorField = '' })
         <h3>欢迎回来，MentorX用户</h3>
         <div className="login-input-area">
           <input
+            ref={emailRef}
             type="email"
             placeholder="请输入邮箱、StudentID或MentorID"
-            className={`login-input ${errorField === 'email' ? 'error' : ''}`}
+            className={`login-input ${errorFieldState === 'email' ? 'error' : ''}`}
+            value={email}
+            onChange={(e) => {
+              const v = e.target.value;
+              setEmail(v);
+              if (errorFieldState === 'email' && /\S+@\S+\.\S+/.test(v)) {
+                setErrorFieldState('');
+                setFieldError('');
+              }
+            }}
           />
           <input
+            ref={pwRef}
             type="password"
             placeholder="请输入密码"
-            className={`login-input ${errorField === 'password' ? 'error' : ''}`}
+            className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
+            value={password}
+            onChange={(e) => {
+              const v = e.target.value;
+              setPassword(v);
+              if (errorFieldState === 'password' && v) {
+                setErrorFieldState('');
+                setFieldError('');
+              }
+            }}
           />
         </div>
 
         {/* 错误提示行（默认留空） */}
         <div className="login-validation-slot">
-          {errorMessage ? <span className="validation-error">{errorMessage}</span> : null}
+          {fieldError ? <span className="validation-error">{fieldError}</span> : null}
         </div>
         <div className="login-continue-area">
-          <button className="login-continue-button" onClick={onContinue}>继续</button>
+          <button className="login-continue-button" onClick={handleContinue} disabled={submitting}>继续</button>
         </div>
         {/* 添加中间带文字的分割线 */}
         <div className="login-modal-divider-with-text">
