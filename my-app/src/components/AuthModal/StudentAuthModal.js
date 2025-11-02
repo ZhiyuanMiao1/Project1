@@ -2,9 +2,10 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RegisterPopup from '../RegisterPopup/RegisterPopup';
 import LoginPopup from '../LoginPopup/LoginPopup';
+import api from '../../api/client';
 import './AuthModal.css';
 
-const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
+const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -39,17 +40,39 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   }, [anchorRef, leftAlignRef]);
 
   const handleAuthAction = (action) => {
-    if (action === '注册') {
-      setShowRegisterPopup(true);
-    } else if (action === '登录') {
-      setShowLoginPopup(true);
-    } else if (action === '发布课程需求') {
+    if (!isLoggedIn) {
+      if (action === '注册') {
+        setShowRegisterPopup(true);
+        return;
+      }
+      if (action === '登录') {
+        setShowLoginPopup(true);
+        return;
+      }
+    }
+
+    if (action === '发布课程需求') {
       onClose();
       navigate('/student/course-request');
-    } else {
-      console.log(`User selected: ${action}`);
-      onClose();
+      return;
     }
+
+    if (action === '退出') {
+      try {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authUser');
+      } catch {}
+      try { delete api.defaults.headers.common['Authorization']; } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
+      } catch {}
+      onClose();
+      navigate('/student');
+      return;
+    }
+
+    console.log(`User selected: ${action}`);
+    onClose();
   };
 
   // 文档级监听：点击弹窗外关闭，但不阻止外部交互
@@ -69,7 +92,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
     return () => document.removeEventListener('mousedown', onDocMouseDown, true);
   }, [onClose]);
 
-  const isPopupOpen = showRegisterPopup || showLoginPopup;
+  const isPopupOpen = (showRegisterPopup || showLoginPopup);
 
   return (
     <div className="auth-modal-overlay" style={{ pointerEvents: isPopupOpen ? 'auto' : 'none' }}>
@@ -80,30 +103,79 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
         // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('注册')}
-          >
-            注册
-          </button>
-          <button
-            className="auth-modal-option-button auth-divider"
-            onClick={() => handleAuthAction('登录')}
-          >
-            登录
-          </button>
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('发布课程需求')}
-          >
-            发布课程需求
-          </button>
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('帮助中心')}
-          >
-            帮助中心
-          </button>
+          {isLoggedIn ? (
+            <>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('收藏')}
+              >
+                收藏
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('课程')}
+              >
+                课程
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('消息')}
+              >
+                消息
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('账号设置')}
+              >
+                账号设置
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('帮助中心')}
+              >
+                帮助中心
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('发布课程需求')}
+              >
+                发布课程需求
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('退出')}
+              >
+                退出
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('注册')}
+              >
+                注册
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('登录')}
+              >
+                登录
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('发布课程需求')}
+              >
+                发布课程需求
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('帮助中心')}
+              >
+                帮助中心
+              </button>
+            </>
+          )}
         </div>
       </div>
 

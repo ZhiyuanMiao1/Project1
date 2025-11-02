@@ -283,6 +283,7 @@ function StudentNavbar() {
           onClose={() => setShowAuthModal(false)}
           anchorRef={userIconRef}
           leftAlignRef={publishBtnRef}
+          isLoggedIn={isLoggedIn}
         />
       )}
     </header>
