@@ -25,6 +25,7 @@ function StudentNavbar() {
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMentorRegistered, setIsMentorRegistered] = useState(false);
   // 精确搜索展开（覆盖左侧筛选）状态
   const [isExactExpanded, setIsExactExpanded] = useState(false);
   // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
@@ -43,14 +44,41 @@ function StudentNavbar() {
       setIsLoggedIn(!!localStorage.getItem('authToken'));
     } catch {}
 
+    const computeIsMentor = () => {
+      try {
+        const raw = localStorage.getItem('authUser');
+        const user = raw ? JSON.parse(raw) : {};
+        const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
+        return role === 'mentor';
+      } catch {
+        return false;
+      }
+    };
+
+    setIsMentorRegistered(computeIsMentor());
+
     const onAuthChanged = (e) => {
       const next = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
       setIsLoggedIn(next);
+      // 若登录状态或角色变化，刷新导师注册态
+      if (e?.detail?.user || typeof e?.detail?.role !== 'undefined') {
+        const role = e?.detail?.role ?? e?.detail?.user?.role;
+        if (role) {
+          setIsMentorRegistered(role === 'mentor');
+        } else {
+          setIsMentorRegistered(computeIsMentor());
+        }
+      } else {
+        setIsMentorRegistered(computeIsMentor());
+      }
     };
     window.addEventListener('auth:changed', onAuthChanged);
 
     const onStorage = (ev) => {
       if (ev.key === 'authToken') setIsLoggedIn(!!ev.newValue);
+      if (ev.key === 'authUser' || ev.key === 'authToken') {
+        setIsMentorRegistered(computeIsMentor());
+      }
     };
     window.addEventListener('storage', onStorage);
 
@@ -138,8 +166,10 @@ function StudentNavbar() {
               学生
             </button>
             <button
-              className={`nav-tab ${isTeacherActive ? 'active' : ''}`}
-              onClick={() => navigate('/teacher')}
+              className={`nav-tab ${isTeacherActive ? 'active' : ''} ${!isMentorRegistered ? 'disabled' : ''}`}
+              onClick={() => { if (isMentorRegistered) navigate('/teacher'); }}
+              disabled={!isMentorRegistered}
+              aria-disabled={!isMentorRegistered}
             >
               导师
             </button>

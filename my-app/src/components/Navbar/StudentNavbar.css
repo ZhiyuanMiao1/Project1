@@ -81,7 +81,7 @@
   .nav-tab:hover {
     background-color: rgba(0, 0, 0, 0.1);
   }
-  
+
   .nav-tab.active {
     font-weight: bold;
   }
@@ -179,6 +179,18 @@
   
   .search-bar.active {
     background-color: #f0f0f0; /* 激活时灰色 */
+  }
+
+  /* 禁用态（未注册导师时的“导师”按钮） */
+  .nav-tab.disabled,
+  .nav-tab:disabled {
+    color: #bdbdbd;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .nav-tab.disabled:hover,
+  .nav-tab:disabled:hover {
+    background-color: transparent;
   }
   /* 精确搜索展开时保持白底，避免右侧出现灰色弧线 */
   .search-bar.active.exact-expanded {
