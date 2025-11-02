@@ -2,8 +2,8 @@
 
 - Entry point: `src/app.ts` (compiled to `dist/app.js`)
 - Routes:
-  - `POST /api/register` — 用户注册（email、password、role、可选 username）
-  - `POST /api/login` — 用户登录（email、password），返回 JWT
+  - `POST /api/register` — 用户注册（email、password、role、可选 username）。同一邮箱可在不同角色各注册一次。
+  - `POST /api/login` — 用户登录（email、password[, role]），返回 JWT。若某邮箱在多个角色下已注册，需额外提供 `role` 以消歧。
 - DB Helper: `src/db.ts`（MySQL 连接池，基于 `mysql2/promise`）
 
 ## 环境变量
@@ -21,7 +21,7 @@ DB_NAME=project1
 
 ## 初始化数据库表
 
-执行 `schema.sql` 创建 `users` 表：
+执行 `schema.sql` 创建/迁移表结构：
 
 ```
 mysql -u <user> -p <db_name> < schema.sql
@@ -93,3 +93,12 @@ SELECT * FROM role_counters;
 ```
 
 接口返回建议：注册成功后可同时返回 `public_id` 给前端展示；查询时按需 `SELECT public_id FROM users WHERE id = ?`。
+
+## 重要变更：邮箱唯一性调整为 (email, role)
+
+- 旧逻辑：`email` 全局唯一，导致同一邮箱无法以不同角色重复注册。
+- 新逻辑：允许一个邮箱在 `student` 与 `mentor` 下各注册一次；在 DB 层对 `(email, role)` 施加唯一约束。
+
+迁移说明：
+- 新项目直接执行 `schema.sql` 即可完成初始化。
+- 已存在旧结构的项目，请按需执行注释中的 `DROP INDEX uniq_users_email ON users;` 和 `CREATE UNIQUE INDEX uniq_users_email_role ON users (email, role);` 以完成索引迁移（若索引不存在可忽略报错）。

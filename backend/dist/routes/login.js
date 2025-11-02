@@ -12,15 +12,26 @@ const router = (0, express_1.Router)();
 router.post('/', [
     (0, express_validator_1.body)('email').isEmail().withMessage('请输入有效的邮箱'),
     (0, express_validator_1.body)('password').notEmpty().withMessage('密码不能为空'),
+    (0, express_validator_1.body)('role').optional().isIn(['mentor', 'student']).withMessage('角色无效'),
 ], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     try {
-        const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ? LIMIT 1', [email]);
-        const user = rows[0];
+        let user;
+        if (role) {
+            const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ? AND role = ? LIMIT 1', [email, role]);
+            user = rows[0];
+        }
+        else {
+            const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ?', [email]);
+            if (rows.length > 1) {
+                return res.status(400).json({ error: '该邮箱存在多个角色，请提供 role 参数：student 或 mentor' });
+            }
+            user = rows[0];
+        }
         if (!user) {
             return res.status(401).json({ error: '邮箱或密码错误' });
         }
