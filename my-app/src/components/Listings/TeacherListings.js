@@ -4,9 +4,49 @@ import './Listings.css';
 
 function TeacherListings() {
   const [loading, setLoading] = useState(true);
+  const [canView, setCanView] = useState(false);
+
+  const computeCanView = () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return false;
+      const raw = localStorage.getItem('authUser');
+      const user = raw ? JSON.parse(raw) : {};
+      const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
+      return role === 'mentor';
+    } catch {
+      return false;
+    }
+  };
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(t);
+  }, []);
+  
+  // 初始化与监听登录/角色变更
+  useEffect(() => {
+    setCanView(computeCanView());
+
+    const onAuthChanged = (e) => {
+      const isLoggedIn = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
+      const role = e?.detail?.role;
+      if (isLoggedIn && role === 'mentor') {
+        setCanView(true);
+      } else {
+        setCanView(computeCanView());
+      }
+    };
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken' || ev.key === 'authUser') {
+        setCanView(computeCanView());
+      }
+    };
+    window.addEventListener('auth:changed', onAuthChanged);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:changed', onAuthChanged);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
   const listingData = [
     {
@@ -194,21 +234,41 @@ function TeacherListings() {
   return (
     <div className="listings container">
       <div className="listing-grid">
-        {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="sk-card">
-                <div className="sk sk-title" style={{ width: '40%', marginTop: 6 }} />
-                <div className="sk-chips" style={{ justifyContent: 'flex-start' }}>
-                  <div className="sk sk-chip" />
-                  <div className="sk sk-chip" />
-                </div>
-                <div className="sk sk-line long" />
-                <div className="sk sk-line long" />
-                <div className="sk sk-line long" />
-                <div className="sk sk-line short" />
-              </div>
-            ))
-          : listingData.map((item) => <TeacherListingCard key={item.id} data={item} />)}
+        {!canView ? (
+          <div
+            className="sk-card"
+            style={{
+              gridColumn: '1 / -1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '160px',
+              fontSize: '18px',
+              color: '#000000',
+              textAlign: 'center',
+            }}
+          >
+            只有完成导师注册的用户才能访问此内容
+          </div>
+        ) : (
+          <>
+            {loading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="sk-card">
+                    <div className="sk sk-title" style={{ width: '40%', marginTop: 6 }} />
+                    <div className="sk-chips" style={{ justifyContent: 'flex-start' }}>
+                      <div className="sk sk-chip" />
+                      <div className="sk sk-chip" />
+                    </div>
+                    <div className="sk sk-line long" />
+                    <div className="sk sk-line long" />
+                    <div className="sk sk-line long" />
+                    <div className="sk sk-line short" />
+                  </div>
+                ))
+              : listingData.map((item) => <TeacherListingCard key={item.id} data={item} />)}
+          </>
+        )}
       </div>
     </div>
   );
