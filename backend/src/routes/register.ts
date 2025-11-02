@@ -44,7 +44,15 @@ router.post(
         [username, email, passwordHash, role]
       );
 
-      return res.status(201).json({ message: '用户注册成功', userId: result.insertId });
+      // 读取触发器生成的 public_id 返回给前端
+      const inserted = await query<any[]>(
+        'SELECT public_id, role FROM users WHERE id = ? LIMIT 1',
+        [result.insertId]
+      );
+      const public_id = inserted?.[0]?.public_id || null;
+      const finalRole = inserted?.[0]?.role || role;
+
+      return res.status(201).json({ message: '用户注册成功', userId: result.insertId, public_id, role: finalRole });
     } catch (err: any) {
       // MySQL 唯一键冲突（如 (email, role) 唯一约束 或 public_id 唯一约束）
       if (err && err.code === 'ER_DUP_ENTRY') {

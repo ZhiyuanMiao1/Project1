@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
+import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import api from '../../api/client';
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
@@ -14,6 +15,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [submitError, setSubmitError] = useState('');
   const [errorFocusTick, setErrorFocusTick] = useState(0);
   const [ok, setOk] = useState('');
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [publicId, setPublicId] = useState('');
   const successAnim = !!ok;
   // eye + focus control
   const emailRef = useRef(null);
@@ -66,16 +69,12 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'student', user } }));
             } catch {}
           }
-          // 触发成功动画（按钮显示三点），2秒后再跳转
+          // 触发成功动画（按钮显示三点），2秒后显示欢迎弹窗
+          const pid = (user && user.public_id) || res?.data?.public_id || '';
+          setPublicId(pid || '');
           setOk('注册成功，已自动登录');
           setTimeout(() => {
-            if (typeof onSuccess === 'function') {
-              onSuccess({ ...res.data, autoLoggedIn: true, role: 'student', token, user });
-            }
-            onClose && onClose();
-            navigate('/student');
-            // 三点动画完成并跳转后，再触发首页开场效果
-            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+            setShowWelcome(true);
           }, 2000);
           return;
         } catch (loginErr) {
@@ -334,6 +333,31 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           </button>
         </div>
       </div>
+      {showWelcome && (
+        <StudentWelcomePopup
+          publicId={publicId}
+          onConfirm={() => {
+            // 关闭欢迎弹窗与注册弹窗，进入学生首页，并触发入场动画
+            setShowWelcome(false);
+            if (typeof onSuccess === 'function') {
+              try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
+            }
+            try { onClose && onClose(); } catch {}
+            try { navigate('/student'); } catch {}
+            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+          }}
+          onClose={() => {
+            // 行为同“我知道了”
+            setShowWelcome(false);
+            if (typeof onSuccess === 'function') {
+              try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
+            }
+            try { onClose && onClose(); } catch {}
+            try { navigate('/student'); } catch {}
+            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+          }}
+        />
+      )}
     </div>
   );
 };

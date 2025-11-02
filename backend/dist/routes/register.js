@@ -28,7 +28,10 @@ router.post('/', [
         }
         const passwordHash = await bcryptjs_1.default.hash(password, 10);
         const result = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)', [username, email, passwordHash, role]);
-        return res.status(201).json({ message: '用户注册成功', userId: result.insertId });
+        const inserted = await (0, db_1.query)('SELECT public_id, role FROM users WHERE id = ? LIMIT 1', [result.insertId]);
+        const public_id = (inserted === null || inserted === void 0 ? void 0 : inserted[0]) && inserted[0].public_id || null;
+        const finalRole = (inserted === null || inserted === void 0 ? void 0 : inserted[0]) && inserted[0].role || role;
+        return res.status(201).json({ message: '用户注册成功', userId: result.insertId, public_id, role: finalRole });
     }
     catch (err) {
         // MySQL 唯一键冲突（如 (email, role) 唯一约束 或 public_id 唯一约束）

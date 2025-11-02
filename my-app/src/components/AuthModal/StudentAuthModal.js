@@ -185,10 +185,8 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         <RegisterPopup
           onClose={() => setShowRegisterPopup(false)}
           onSuccess={(payload) => {
+            // RegisterPopup 内部负责导航与动画；此处仅收口关闭外层菜单
             onClose && onClose();
-            if (payload?.autoLoggedIn && payload?.role === 'student') {
-              try { navigate('/student'); } catch {}
-            }
           }}
         />
       )}
