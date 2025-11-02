@@ -589,7 +589,9 @@ input[type="password"]::-ms-clear {
   justify-content: center;
   background-color: #888888;
   color: transparent;                 /* 隐藏“继续”文字 */
-  pointer-events: none;               /* 可选：避免重复点 */
+  /* 不禁用指针事件，以便能显示禁止光标 */
+  pointer-events: auto;
+  cursor: not-allowed;                /* 三点动画时显示禁止符号 */
 }
 
 /* 用一个白色小圆 + box-shadow 复制成左右两个点，完全居中且不受字体基线影响 */
@@ -605,6 +607,11 @@ input[type="password"]::-ms-clear {
   background: #fff;                   
   box-shadow: -16px 0 0 #fff, 16px 0 0 #fff;  /* 左右两个点：白色 */
   animation: dots-pulse 1.2s ease-in-out infinite;
+}
+
+/* 按钮被禁用时（含提交中/成功动画）统一显示禁止光标 */
+.register-continue-button:disabled{
+  cursor: not-allowed;
 }
 
 /* 新增关键帧：依次点亮左→中→右 */
