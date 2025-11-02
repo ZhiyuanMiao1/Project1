@@ -1,13 +1,22 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/client';
 import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹窗组件
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
+import { FiBookOpen, FiSettings } from 'react-icons/fi';
+import { HiOutlineIdentification } from 'react-icons/hi2';
 
 const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+  });
+  const navigate = useNavigate();
 
   // 锚定到触发图标下方 10px
   useLayoutEffect(() => {
@@ -37,13 +46,40 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   }, [anchorRef, leftAlignRef]);
 
   const handleAuthAction = (action) => {
-    if (action === '注册') {
-      setShowRegisterPopup(true); // 显示注册弹窗
-    } else if (action === '登录') {
-      setShowLoginPopup(true); // 显示登录弹窗
-    } else {
-      console.log(`User selected: ${action}`); // 其他操作日志
-      onClose(); // 关闭主弹窗
+    switch (action) {
+      case 'register':
+        setShowRegisterPopup(true);
+        return;
+      case 'login':
+        setShowLoginPopup(true);
+        return;
+      case 'favorites':
+      case 'courses':
+      case 'messages':
+      case 'settings':
+      case 'help':
+        console.log(`User selected: ${action}`);
+        onClose && onClose();
+        return;
+      case 'editProfile':
+        onClose && onClose();
+        try { navigate('/teacher/profile-editor'); } catch {}
+        return;
+      case 'logout':
+        try {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('authUser');
+        } catch {}
+        try { delete api.defaults.headers.common['Authorization']; } catch {}
+        try { window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } })); } catch {}
+        setIsLoggedIn(false);
+        onClose && onClose();
+        try { navigate('/teacher'); } catch {}
+        return;
+      default:
+        console.log(`User selected: ${action}`);
+        onClose && onClose();
+        return;
     }
   };
 
@@ -73,30 +109,85 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
         // 交互由文档级监听控制
       >
         <div className="auth-modal-options">
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('注册')}
-          >
-            注册
-          </button>
-          <button
-            className="auth-modal-option-button auth-divider"
-            onClick={() => handleAuthAction('登录')}
-          >
-            登录
-          </button>
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('编辑个人名片')}
-          >
-            编辑个人名片
-          </button>
-          <button
-            className="auth-modal-option-button"
-            onClick={() => handleAuthAction('帮助中心')}
-          >
-            帮助中心
-          </button>
+          {isLoggedIn ? (
+            <>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('favorites')}
+              >
+                <i className="far fa-heart auth-icon" aria-hidden="true"></i>
+                收藏
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('courses')}
+              >
+                <FiBookOpen className="auth-icon" />
+                课程
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('messages')}
+              >
+                <i className="far fa-comment auth-icon" aria-hidden="true"></i>
+                消息
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('settings')}
+              >
+                <FiSettings className="auth-icon" />
+                账号设置
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('help')}
+              >
+                <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
+                帮助中心
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('editProfile')}
+              >
+                <HiOutlineIdentification className="auth-icon" />
+                编辑个人名片
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('logout')}
+              >
+                退出
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('register')}
+              >
+                注册
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('login')}
+              >
+                登录
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('editProfile')}
+              >
+                编辑个人名片
+              </button>
+              <button
+                className="auth-modal-option-button"
+                onClick={() => handleAuthAction('help')}
+              >
+                帮助中心
+              </button>
+            </>
+          )}
         </div>
       </div>
 
