@@ -1,6 +1,6 @@
-.student-welcome-body { width: 88%; margin: 0 auto 0; }
+.student-welcome-body { width: 88%; margin: 18px auto 0; }
 
-.student-welcome-line { font-size: 16px; color: #111827; margin: 0 0 12px 0; }
+.student-welcome-line { font-size: 16px; color: #111827; margin: 0 0 30px 0; }
 
 .student-welcome-id { font-weight: 600; margin-left: 6px; }
 
@@ -9,5 +9,5 @@
 .student-welcome-overlay { z-index: 4000; pointer-events: auto; background-color: transparent !important; }
 
 /* Compact modal sizing and symmetric gap below StudentID line */
-.student-welcome-content { height: auto !important; max-height: 70vh; padding-bottom: 20px; }
-.student-welcome-content .register-continue-area { margin: 12px auto 0 !important; }
+.student-welcome-content { height: auto !important; max-height: 80vh; padding-bottom: 20px; }
+.student-welcome-content .register-continue-area { margin: 0 auto 0 !important; }
