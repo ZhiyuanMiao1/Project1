@@ -50,9 +50,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
     setFieldError('');
     setErrorFieldState('');
     try {
-      const body = { email, password };
-      if (role) body.role = role; // student | mentor
-      const res = await api.post('/api/login', body);
+      const res = await api.post('/api/login', { email, password });
       const { token, user } = res.data || {};
       if (token) {
         try {

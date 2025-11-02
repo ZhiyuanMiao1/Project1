@@ -18,29 +18,35 @@ router.post('/', [
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-    const { email, password, role } = req.body;
+    // 为保证“从哪个页面触发登录不影响结果”，此处不再依赖前端传入的 role
+    // 仅基于 email + password 进行身份判定；如同一邮箱下多条记录均匹配，优先 mentor
+    const { email, password } = req.body;
     try {
         let user;
-        // 统一按邮箱取出所有候选账号；如提供了 role，则优先尝试该角色，但不阻止回退
+        // 统一按邮箱取出所有候选账号
         const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role FROM users WHERE email = ?', [email]);
         if (rows.length === 0) {
             return res.status(401).json({ error: '邮箱或密码错误' });
         }
-        // 若指定了 role，则把该角色的账号排到最前面尝试
-        const ordered = role
-            ? [...rows.filter(r => r.role === role), ...rows.filter(r => r.role !== role)]
-            : rows;
-        for (const row of ordered) {
+        // 遍历比对，收集所有匹配的账号
+        const matches = [];
+        for (const row of rows) {
             try {
                 const ok = await bcryptjs_1.default.compare(password, row.password_hash);
-                if (ok) {
-                    user = row;
-                    break;
-                }
+                if (ok)
+                    matches.push(row);
             }
-            catch (_e) {
-                // 忽略单条比对异常，继续尝试其他角色
-            }
+            catch { }
+        }
+        if (matches.length === 0) {
+            return res.status(401).json({ error: '邮箱或密码错误' });
+        }
+        if (matches.length === 1) {
+            user = matches[0];
+        }
+        else {
+            // 多条均匹配：为消除“入口依赖”，采用固定优先级（mentor > student）
+            user = matches.find(m => m.role === 'mentor') || matches[0];
         }
         if (!user) {
             return res.status(401).json({ error: '邮箱或密码错误' });

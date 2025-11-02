@@ -108,13 +108,12 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
       {/* 登录弹窗 */}
       {showLoginPopup && (
         <LoginPopup
-          role="mentor"
           onClose={() => setShowLoginPopup(false)}
-          onSuccess={() => {
+          onSuccess={(payload) => {
             onClose && onClose();
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
-            // 跳转导师首页
-            try { window.location.pathname = '/teacher'; } catch {}
+            const nextRole = payload?.user?.role;
+            try { window.location.pathname = (nextRole === 'mentor' ? '/teacher' : '/student'); } catch {}
           }}
         />
       )}
