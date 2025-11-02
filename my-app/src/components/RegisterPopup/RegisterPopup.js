@@ -139,9 +139,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   // mask click-to-close
   const backdropMouseDownRef = useRef(false);
   const handleBackdropMouseDown = (e) => {
+    if (showWelcome) { // 欢迎弹窗显示时，禁止通过点击遮罩关闭
+      backdropMouseDownRef.current = false;
+      return;
+    }
     backdropMouseDownRef.current = e.target === e.currentTarget;
   };
   const handleBackdropClick = (e) => {
+    if (showWelcome) return; // 欢迎弹窗显示时，点击外侧不关闭
     if (!backdropMouseDownRef.current) return;
     if (e.target !== e.currentTarget) return;
     onClose && onClose();

@@ -76,19 +76,22 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
 
   // Close on outside click (but keep register/login popups interactive)
   useEffect(() => {
+    // 弹出注册/登录窗口时，不注册外点关闭逻辑，避免与子弹窗冲突
+    if (showRegisterPopup || showLoginPopup) return;
+
     const onDocMouseDown = (e) => {
       const panel = contentRef.current;
       if (!panel) return;
       if (panel.contains(e.target)) return;
       // 忽略所有注册/登录弹窗内部的点击（含欢迎弹窗）
-      const regs = Array.from(document.querySelectorAll('.register-modal-content'));
+      const regs = Array.from(document.querySelectorAll('.register-modal-content, .student-welcome-overlay'));
       const logs = Array.from(document.querySelectorAll('.login-modal-content'));
       if (regs.some((el) => el.contains(e.target)) || logs.some((el) => el.contains(e.target))) return;
       onClose && onClose();
     };
     document.addEventListener('mousedown', onDocMouseDown, true);
     return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, [onClose]);
+  }, [onClose, showRegisterPopup, showLoginPopup]);
 
   const isPopupOpen = (showRegisterPopup || showLoginPopup);
 
