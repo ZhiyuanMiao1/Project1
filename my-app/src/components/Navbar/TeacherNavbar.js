@@ -29,6 +29,7 @@ function TeacherNavbar() {
   const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate(); // 获取 navigate 函数
   const location = useLocation(); // 获取当前路径
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
@@ -50,6 +51,27 @@ function TeacherNavbar() {
       setPendingFilter('');
     }
   }, [pendingFilter, showTimezoneModal, showCourseTypeModal, showStartDateModal]);
+  
+  // 登录状态：登录后显示三条横线（与学生页一致）
+  useEffect(() => {
+    try {
+      setIsLoggedIn(!!localStorage.getItem('authToken'));
+    } catch {}
+
+    const onAuthChanged = (e) => {
+      const next = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
+      setIsLoggedIn(next);
+    };
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken') setIsLoggedIn(!!ev.newValue);
+    };
+    window.addEventListener('auth:changed', onAuthChanged);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:changed', onAuthChanged);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
   
   return (
     <header className="navbar">
@@ -91,7 +113,21 @@ function TeacherNavbar() {
               setShowAuthModal(true);
             }}
           >
-            <i className="fa fa-user"></i>
+            {isLoggedIn ? (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <line x1="5" y1="8"  x2="20" y2="8"  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <i className="fa fa-user"></i>
+            )}
           </span>
         </div>
       </div>
@@ -211,6 +247,5 @@ function TeacherNavbar() {
 }
 
 export default TeacherNavbar;
-
 
 
