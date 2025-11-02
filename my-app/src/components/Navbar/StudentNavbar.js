@@ -64,7 +64,7 @@ function StudentNavbar() {
   const firstAuthRef = useRef(true);
   useEffect(() => {
     if (firstAuthRef.current) { firstAuthRef.current = false; return; }
-    if (location.pathname.startsWith('/student')) {
+    if (!isLoggedIn && location.pathname.startsWith('/student')) {
       try { window.dispatchEvent(new Event('home:enter')); } catch {}
     }
   }, [isLoggedIn, location.pathname]);

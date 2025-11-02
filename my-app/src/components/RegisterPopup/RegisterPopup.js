@@ -74,6 +74,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             }
             onClose && onClose();
             navigate('/student');
+            // 三点动画完成并跳转后，再触发首页开场效果
+            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
           }, 2000);
           return;
         } catch (loginErr) {
