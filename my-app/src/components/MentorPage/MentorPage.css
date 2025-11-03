@@ -66,4 +66,14 @@
     font-weight: 500; /* 比 600 更细一点 */
     color: #000;
   }
+  .mentor-pending-subtitle {
+    margin-top: 6px;
+    font-size: 14px; /* 更小一行 */
+    line-height: 1.6;
+    font-weight: 400;
+    color: #000; /* 默认纯黑，如需更淡可改 rgba */
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
   

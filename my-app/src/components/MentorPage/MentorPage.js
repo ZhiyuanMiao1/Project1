@@ -87,7 +87,8 @@ function MentorPage() {
               <path d="M6 2h12v2l-4 4 4 4v2H6v-2l4-4-4-4V2z" />
               <path d="M8 20h8" />
             </svg>
-            <div className="mentor-pending-title">审核中</div>
+            <div className="mentor-pending-title">你已准备就绪！</div>
+            <div className="mentor-pending-subtitle">感谢加入我们。我们会尽快为你开通账户，并在一切准备就绪后通知你</div>
           </div>
         </div>
       )}
