@@ -56,6 +56,14 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         if (!isLoggedIn) setShowLoginPopup(true);
         return;
       case 'publish':
+        if (!isLoggedIn) {
+          try {
+            sessionStorage.setItem('postLoginRedirect', '/student/course-request');
+            sessionStorage.setItem('requiredRole', 'student');
+          } catch {}
+          setShowLoginPopup(true);
+          return;
+        }
         onClose && onClose();
         navigate('/student/course-request');
         return;

@@ -191,7 +191,18 @@ function StudentNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={publishBtnRef}
-            onClick={() => navigate('/student/course-request')}
+            onClick={() => {
+              if (isLoggedIn) {
+                navigate('/student/course-request');
+              } else {
+                try {
+                  sessionStorage.setItem('postLoginRedirect', '/student/course-request');
+                  sessionStorage.setItem('requiredRole', 'student');
+                } catch {}
+                setForceLogin(true);
+                setShowAuthModal(true);
+              }
+            }}
           >
             发布课程需求
           </button>
