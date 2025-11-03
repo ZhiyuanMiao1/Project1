@@ -183,7 +183,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             className="helper-link left"
             onClick={(e) => { e.preventDefault(); /* 预留：忘记密码 */ }}
           >
-            忘记密码
+            忘记密码？
           </a>
           <a
             href="#"

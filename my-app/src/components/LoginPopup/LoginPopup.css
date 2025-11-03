@@ -144,7 +144,7 @@
 /* 继续按钮样式 */
 .login-continue-button {
     width: 100%; /* 按钮宽度填满父容器 */
-    margin-top: 30px;
+    margin-top: 14px; /* 与错误提示行距离缩小一点 */
     padding: 15px 0; /* 按钮上下内边距 */
     font-size: 16px; /* 字体大小 */
     font-weight: bold; /* 字体加粗 */
@@ -353,7 +353,8 @@ input[type="password"]::-ms-clear { display: none; }
   text-decoration: none;
   cursor: pointer;
 }
-.login-helper-row .helper-link.right {
-  color: #1a73e8; /* 强调“前往注册” */
+.login-helper-row .helper-link.right { color: rgba(0, 0, 0, 0.7); }
+.login-helper-row .helper-link:hover {
+  color: rgba(0, 0, 0, 0.9);
+  text-decoration: none;
 }
-.login-helper-row .helper-link:hover { text-decoration: underline; }
