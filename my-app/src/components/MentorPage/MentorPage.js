@@ -88,7 +88,7 @@ function MentorPage() {
               <path d="M8 20h8" />
             </svg>
             <div className="mentor-pending-title">你已准备就绪！</div>
-            <div className="mentor-pending-subtitle">感谢加入我们。我们会尽快为你开通账户，并在一切准备就绪后通知你</div>
+            <div className="mentor-pending-subtitle">感谢加入我们。我们会尽快为你解锁导师账户，并在一切完成后通知你</div>
           </div>
         </div>
       )}
