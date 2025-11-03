@@ -81,18 +81,13 @@ function MentorPage() {
       )}
 
       {status === 'pending' && (
-        <div className="listings container">
-          <div className="listing-grid">
-            <div className="sk-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 280 }}>
-              <div style={{ textAlign: 'center', color: '#475569' }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: 'block', margin: '0 auto 8px' }}>
-                  <path d="M6 2h12v2l-4 4 4 4v2H6v-2l4-4-4-4V2z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M8 20h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <div style={{ fontSize: 16 }}>导师审核中</div>
-                <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>审核通过后将显示可见卡片</div>
-              </div>
-            </div>
+        <div className="container mentor-pending-wrap">
+          <div className="mentor-pending">
+            <svg className="mentor-pending-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 2h12v2l-4 4 4 4v2H6v-2l4-4-4-4V2z" />
+              <path d="M8 20h8" />
+            </svg>
+            <div className="mentor-pending-title">审核中</div>
           </div>
         </div>
       )}
