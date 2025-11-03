@@ -39,7 +39,8 @@ router.post(
 
       const passwordHash = await bcrypt.hash(password, 10);
 
-      const mentorApproved = role === 'mentor' ? 0 : 1; // 学生不受审核约束
+      // mentor_approved 仅用于导师审核；创建时统一置 0，由人工审核修改
+      const mentorApproved = 0;
       const result = await query<InsertResult>(
         'INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)',
         [username, email, passwordHash, role, mentorApproved]
@@ -53,7 +54,40 @@ router.post(
       const public_id = inserted?.[0]?.public_id || null;
       const finalRole = inserted?.[0]?.role || role;
 
-      return res.status(201).json({ message: '用户注册成功', userId: result.insertId, public_id, role: finalRole });
+      // 若选择注册为导师，则自动为其创建学生身份（若尚未存在）
+      let pairedStudent: { userId: number; public_id: string | null } | null = null;
+      if (finalRole === 'mentor') {
+        const hasStudent = await query<any[]>(
+          'SELECT id FROM users WHERE email = ? AND role = ? LIMIT 1',
+          [email, 'student']
+        );
+        if (hasStudent.length === 0) {
+          const studentInsert = await query<InsertResult>(
+            'INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)',
+            [username, email, passwordHash, 'student', 0]
+          );
+          const sRow = await query<any[]>(
+            'SELECT public_id FROM users WHERE id = ? LIMIT 1',
+            [studentInsert.insertId]
+          );
+          pairedStudent = { userId: studentInsert.insertId, public_id: sRow?.[0]?.public_id || null };
+        } else {
+          // 已存在则读出其 public_id 以便返回
+          const sInfo = await query<any[]>(
+            'SELECT id, public_id FROM users WHERE email = ? AND role = ? LIMIT 1',
+            [email, 'student']
+          );
+          if (sInfo.length > 0) pairedStudent = { userId: sInfo[0].id, public_id: sInfo[0].public_id };
+        }
+      }
+
+      return res.status(201).json({
+        message: '用户注册成功',
+        userId: result.insertId,
+        public_id,
+        role: finalRole,
+        paired_student: pairedStudent,
+      });
     } catch (err: any) {
       // MySQL 唯一键冲突（如 (email, role) 唯一约束 或 public_id 唯一约束）
       if (err && err.code === 'ER_DUP_ENTRY') {
