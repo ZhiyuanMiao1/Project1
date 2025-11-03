@@ -11,7 +11,7 @@ function MentorListingCard({ data }) {
 
   const toggleFavorite = () => setIsFavorited((v) => !v);
 
-  const name = `Student${data?.id ?? ''}`;
+  const name = `S${data?.id ?? ''}`;
   const degree = data?.degree || '';
   const school = data?.school || '';
   // 课程方向：标准化名称并选择对应图标（共用常量）
