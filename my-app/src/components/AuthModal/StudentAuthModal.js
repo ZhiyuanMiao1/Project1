@@ -8,7 +8,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 
-const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false }) => {
+const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false, forceLogin = false }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -41,6 +41,11 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       window.removeEventListener('scroll', updatePosition, true);
     };
   }, [anchorRef, leftAlignRef]);
+
+  // 若需要，直接打开登录子弹窗
+  useEffect(() => {
+    if (forceLogin) setShowLoginPopup(true);
+  }, [forceLogin]);
 
   const handleAuthAction = (action) => {
     switch (action) {
@@ -202,7 +207,20 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             onClose && onClose();
             const nextRole = payload?.user?.role;
-            try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            let redirected = false;
+            try {
+              const want = sessionStorage.getItem('postLoginRedirect');
+              const required = sessionStorage.getItem('requiredRole');
+              if (want && (!required || required === nextRole)) {
+                sessionStorage.removeItem('postLoginRedirect');
+                sessionStorage.removeItem('requiredRole');
+                window.location.assign(want);
+                redirected = true;
+              }
+            } catch {}
+            if (!redirected) {
+              try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            }
           }}
         />
       )}

@@ -24,6 +24,7 @@ function StudentNavbar() {
   const [activeFilter, setActiveFilter] = useState('');
   const [isSearchBarActive, setIsSearchBarActive] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [forceLogin, setForceLogin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMentorRegistered, setIsMentorRegistered] = useState(false);
   // 精确搜索展开（覆盖左侧筛选）状态
@@ -86,6 +87,16 @@ function StudentNavbar() {
       window.removeEventListener('auth:changed', onAuthChanged);
       window.removeEventListener('storage', onStorage);
     };
+  }, []);
+
+  // 监听全局登录需求事件，直接弹出登录框
+  useEffect(() => {
+    const onLoginRequired = () => {
+      setForceLogin(true);
+      setShowAuthModal(true);
+    };
+    window.addEventListener('auth:login-required', onLoginRequired);
+    return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
 
   // 登录状态变更（注册成功自动登录 / 退出登录）时，在学生首页触发主页开场动画
@@ -319,9 +330,10 @@ function StudentNavbar() {
 
       {showAuthModal && (
         <StudentAuthModal
-          onClose={() => setShowAuthModal(false)}
+          onClose={() => { setShowAuthModal(false); setForceLogin(false); }}
           anchorRef={userIconRef}
           leftAlignRef={publishBtnRef}
+          forceLogin={forceLogin}
           isLoggedIn={isLoggedIn}
         />
       )}

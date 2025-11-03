@@ -8,7 +8,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
 
-const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
+const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -44,6 +44,11 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
       window.removeEventListener('scroll', updatePosition, true);
     };
   }, [anchorRef, leftAlignRef]);
+
+  // 若需要，直接打开登录子弹窗
+  useEffect(() => {
+    if (forceLogin) setShowLoginPopup(true);
+  }, [forceLogin]);
 
   const handleAuthAction = (action) => {
     switch (action) {
@@ -208,7 +213,20 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
             onClose && onClose();
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             const nextRole = payload?.user?.role;
-            try { window.location.pathname = (nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            let redirected = false;
+            try {
+              const want = sessionStorage.getItem('postLoginRedirect');
+              const required = sessionStorage.getItem('requiredRole');
+              if (want && (!required || required === nextRole)) {
+                sessionStorage.removeItem('postLoginRedirect');
+                sessionStorage.removeItem('requiredRole');
+                window.location.assign(want);
+                redirected = true;
+              }
+            } catch {}
+            if (!redirected) {
+              try { window.location.pathname = (nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            }
           }}
         />
       )}

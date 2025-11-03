@@ -25,6 +25,7 @@ function MentorNavbar() {
   const [activeFilter, setActiveFilter] = useState(''); // 当前激活的搜索框
   const [isSearchBarActive, setIsSearchBarActive] = useState(false); // 搜索栏是否被激活
   const [showAuthModal, setShowAuthModal] = useState(false); // 控制注册和登录弹窗显示
+  const [forceLogin, setForceLogin] = useState(false); // 是否强制直接打开登录
   // 延后切换激活项，避免点击到弹窗出现之间的白->灰闪烁
   const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate(); // 获取 navigate 函数
@@ -71,6 +72,16 @@ function MentorNavbar() {
       window.removeEventListener('auth:changed', onAuthChanged);
       window.removeEventListener('storage', onStorage);
     };
+  }, []);
+
+  // 监听全局登录需求事件，直接弹出登录框
+  useEffect(() => {
+    const onLoginRequired = () => {
+      setForceLogin(true);
+      setShowAuthModal(true);
+    };
+    window.addEventListener('auth:login-required', onLoginRequired);
+    return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
   
   return (
@@ -237,9 +248,10 @@ function MentorNavbar() {
 
       {showAuthModal && (
         <MentorAuthModal
-          onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
+          onClose={() => { setShowAuthModal(false); setForceLogin(false); }} // 关闭注册和登录弹窗
           anchorRef={userIconRef}
           leftAlignRef={editProfileBtnRef}
+          forceLogin={forceLogin}
         />
       )}
     </header>
@@ -247,4 +259,3 @@ function MentorNavbar() {
 }
 
 export default MentorNavbar;
-

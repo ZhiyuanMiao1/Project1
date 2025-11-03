@@ -5,10 +5,14 @@ const baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
 const client = axios.create({
   baseURL,
-  // Attach cookies if backend ever needs them
   withCredentials: false,
   headers: { 'Content-Type': 'application/json' },
 });
 
-export default client;
+// Initialize Authorization header from stored token (page refresh case)
+try {
+  const token = localStorage.getItem('authToken');
+  if (token) client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+} catch {}
 
+export default client;
