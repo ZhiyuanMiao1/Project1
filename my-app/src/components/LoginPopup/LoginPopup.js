@@ -178,20 +178,20 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
 
         {/* 顶部辅助链接行：左“忘记密码”，右“前往注册” */}
         <div className="login-helper-row">
-          <a
-            href="#"
+          <button
+            type="button"
             className="helper-link left"
             onClick={(e) => { e.preventDefault(); /* 预留：忘记密码 */ }}
           >
             忘记密码？
-          </a>
-          <a
-            href="#"
+          </button>
+          <button
+            type="button"
             className="helper-link right"
             onClick={(e) => { e.preventDefault(); if (typeof onGoRegister === 'function') onGoRegister(); }}
           >
             前往注册
-          </a>
+          </button>
         </div>
 
         {/* 错误提示行（下移一行显示） */}

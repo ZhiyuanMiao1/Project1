@@ -358,3 +358,14 @@ input[type="password"]::-ms-clear { display: none; }
   color: rgba(0, 0, 0, 0.9);
   text-decoration: none;
 }
+
+.helper-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #1a73e8;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
