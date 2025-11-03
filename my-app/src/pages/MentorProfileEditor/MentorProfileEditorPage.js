@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import TeacherNavbar from '../../components/Navbar/TeacherNavbar';
-import './TeacherProfileEditorPage.css';
+import MentorNavbar from '../../components/Navbar/MentorNavbar';
+import './MentorProfileEditorPage.css';
 
 const INITIAL_PROFILE = {
   avatar: '',
@@ -17,7 +17,7 @@ const INITIAL_PROFILE = {
   highlights: '',
 };
 
-function TeacherProfileEditorPage() {
+function MentorProfileEditorPage() {
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [saved, setSaved] = useState(false);
 
@@ -41,8 +41,8 @@ function TeacherProfileEditorPage() {
   };
 
   return (
-    <div className="teacher-profile-editor-page">
-      <TeacherNavbar />
+    <div className="mentor-profile-editor-page">
+      <MentorNavbar />
 
       <main className="profile-editor-content">
         <section className="profile-hero">
@@ -321,4 +321,4 @@ function TeacherProfileEditorPage() {
   );
 }
 
-export default TeacherProfileEditorPage;
+export default MentorProfileEditorPage;

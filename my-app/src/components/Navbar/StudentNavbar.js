@@ -34,7 +34,7 @@ function StudentNavbar() {
   const location = useLocation();
 
   const isStudentActive = location.pathname.startsWith('/student');
-  const isTeacherActive = location.pathname.startsWith('/teacher');
+  const isMentorActive = location.pathname.startsWith('/mentor');
 
   const [isExactAnimating, setIsExactAnimating] = useState(false);
 
@@ -166,8 +166,8 @@ function StudentNavbar() {
               学生
             </button>
             <button
-              className={`nav-tab ${isTeacherActive ? 'active' : ''} ${!isMentorRegistered ? 'disabled' : ''}`}
-              onClick={() => { if (isMentorRegistered) navigate('/teacher'); }}
+              className={`nav-tab ${isMentorActive ? 'active' : ''} ${!isMentorRegistered ? 'disabled' : ''}`}
+              onClick={() => { if (isMentorRegistered) navigate('/mentor'); }}
               disabled={!isMentorRegistered}
               aria-disabled={!isMentorRegistered}
             >

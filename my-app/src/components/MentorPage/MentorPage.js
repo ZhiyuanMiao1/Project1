@@ -1,21 +1,21 @@
 import React from 'react';
-import TeacherNavbar from '../Navbar/TeacherNavbar';
+import MentorNavbar from '../Navbar/MentorNavbar';
 import CategoryFilters from '../CategoryFilters/CategoryFilters';
-import TeacherListings from '../Listings/TeacherListings';
-import './TeacherPage.css';
+import MentorListings from '../Listings/MentorListings';
+import './MentorPage.css';
 
-function TeacherPage() {
+function MentorPage() {
   return (
     <div className="app">
       {/* 顶部双层导航 */}
-      <TeacherNavbar />
+      <MentorNavbar />
       
       {/* 分类标签 */}
       <CategoryFilters />
 
-      <TeacherListings />
+      <MentorListings />
     </div>
   );
 }
 
-export default TeacherPage;
+export default MentorPage;

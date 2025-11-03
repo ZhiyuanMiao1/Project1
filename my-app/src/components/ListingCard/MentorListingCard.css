@@ -1,4 +1,4 @@
-.teacher-listing-avatar {
+.mentor-listing-avatar {
   width: 120px;
   height: 120px;
   border-radius: 50%;
@@ -9,20 +9,20 @@
   margin-right: auto; /* 居中 */
 }
 
-.teacher-listing-name {
+.mentor-listing-name {
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 2px;
   margin-top: -5px;
 }
 
-.teacher-listing-tags {
+.mentor-listing-tags {
   display: flex;
   gap: 6px; /* 两个 tag 之间的间距 */
   margin-bottom: 2px;
 }
 
-.teacher-listing-tag {
+.mentor-listing-tag {
   font-size: 14px;
   color: #888;
   background-color: #f0f0f0; /* 添加背景颜色，作为 Tag */
@@ -51,7 +51,7 @@
   background-color: #ff9999;
 }
 
-.teacher-listing-timezone {
+.mentor-listing-timezone {
   display: flex;
   align-items: center; /* 垂直居中对齐 */
   gap: 8px; /* 时区和语言之间的间距 */
@@ -61,12 +61,12 @@
   text-align: left;
 }
 
-.teacher-timezone {
+.mentor-timezone {
   font-size: 14px;
   color: #333; /* 时区文字颜色 */
 }
 
-.teacher-listing-courses {
+.mentor-listing-courses {
   font-size: 14px;
   color: #333; /* 设置为主文字颜色 */
   margin: 4px 0; /* 增加上下间距 */
@@ -74,16 +74,16 @@
   line-height: 1.5; /* 增加行高以便更易读 */
 }
 
-.teacher-listing-duration,
-.teacher-listing-expected-time,
-.teacher-listing-requirements {
+.mentor-listing-duration,
+.mentor-listing-expected-time,
+.mentor-listing-requirements {
   font-size: 14px;
   margin: 4px 0;
 }
 
 /* --- Preview-card look copied from StudentCourseRequest --- */
 /* Keep size via existing .listing-card rules (from StudentListingCard.css) */
-.teacher-preview-card {
+.mentor-preview-card {
   position: relative;
   background: #ffffff;
   border: 1px solid #e5e7eb;
@@ -92,7 +92,7 @@
   box-shadow: 0 16px 36px rgba(0,0,0,0.08);
 }
 
-.teacher-preview-card .card-fav {
+.mentor-preview-card .card-fav {
   position: absolute;
   right: 12px;
   top: 10px;
@@ -101,20 +101,20 @@
   border: 0;
   cursor: pointer;
 }
-.teacher-preview-card .card-fav.favorited { color: #ef4444; }
+.mentor-preview-card .card-fav.favorited { color: #ef4444; }
 
-.teacher-preview-card .card-header { display: flex; align-items: center; gap: 12px; }
-.teacher-preview-card .avatar {
+.mentor-preview-card .card-header { display: flex; align-items: center; gap: 12px; }
+.mentor-preview-card .avatar {
   width: 64px; height: 64px; border-radius: 999px; background: #0f172a; color: #fff;
   display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
 }
-.teacher-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
-.teacher-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
-.teacher-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
-.teacher-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
-.teacher-preview-card .chip.gray { background: #eef2f7; color: #475569; }
-.teacher-preview-card .card-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
-.teacher-preview-card .item {
+.mentor-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
+.mentor-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+.mentor-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
+.mentor-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
+.mentor-preview-card .chip.gray { background: #eef2f7; color: #475569; }
+.mentor-preview-card .card-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.mentor-preview-card .item {
   display: flex;
   align-items: center; /* 图标与文字垂直居中 */
   gap: 10px;
@@ -123,7 +123,7 @@
   line-height: 20px; /* 统一行高，避免各行视觉高度不一致 */
   min-height: 20px; /* 保底高度，与行高一致 */
 }
-.teacher-preview-card .icon {
+.mentor-preview-card .icon {
   color: #111827;
   width: 16px;
   height: 16px;
@@ -133,11 +133,11 @@
   flex: 0 0 16px; /* 防止被压缩，宽度固定 */
   margin-top: 0; /* 去除不同图标导致的顶边差异 */
 }
-.teacher-preview-card .icon svg {
+.mentor-preview-card .icon svg {
   width: 16px;
   height: 16px;
   display: block; /* 去除行内元素基线空隙 */
 }
 
 /* 覆盖通用卡片的固定最小高度，避免底部留白 */
-.listing-card.teacher-preview-card { min-height: unset; }
+.listing-card.mentor-preview-card { min-height: unset; }

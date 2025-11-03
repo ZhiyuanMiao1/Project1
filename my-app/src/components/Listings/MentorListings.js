@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import TeacherListingCard from '../ListingCard/TeacherListingCard';
+import MentorListingCard from '../ListingCard/MentorListingCard';
 import './Listings.css';
 
-function TeacherListings() {
+function MentorListings() {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 500);
@@ -208,10 +208,10 @@ function TeacherListings() {
                 <div className="sk sk-line short" />
               </div>
             ))
-          : listingData.map((item) => <TeacherListingCard key={item.id} data={item} />)}
+          : listingData.map((item) => <MentorListingCard key={item.id} data={item} />)}
       </div>
     </div>
   );
 }
 
-export default TeacherListings;
+export default MentorListings;

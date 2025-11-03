@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import './TeacherListingCard.css';
+import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
 
-function TeacherListingCard({ data }) {
+function MentorListingCard({ data }) {
   // 收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
   const { ref: revealRef, visible } = useRevealOnScroll();
@@ -30,7 +30,7 @@ function TeacherListingCard({ data }) {
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
-    <div ref={revealRef} className={`listing-card teacher-preview-card reveal ${visible ? 'is-visible' : ''}`}>
+    <div ref={revealRef} className={`listing-card mentor-preview-card reveal ${visible ? 'is-visible' : ''}`}>
       <button
         type="button"
         aria-label={isFavorited ? '取消收藏' : '收藏'}
@@ -91,4 +91,4 @@ function TeacherListingCard({ data }) {
   );
 }
 
-export default TeacherListingCard;
+export default MentorListingCard;

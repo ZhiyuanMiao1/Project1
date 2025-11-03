@@ -1,5 +1,5 @@
 // Shared mappings for course directions and course types
-// Keep in sync across Teacher cards and Student course request page
+// Keep in sync across Mentor cards and Student course request page
 
 import {
   FaCode,

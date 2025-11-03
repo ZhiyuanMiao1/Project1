@@ -1,16 +1,16 @@
 // 引入必要的库和组件
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import './TeacherNavbar.css';
+import './MentorNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
-import TeacherAuthModal from '../AuthModal/TeacherAuthModal'; // 引入学生版本的注册和登录弹窗组件
+import MentorAuthModal from '../AuthModal/MentorAuthModal'; // 引入学生版本的注册和登录弹窗组件
 import BrandMark from '../common/BrandMark/BrandMark';
 import { courseTypeToCnLabel } from '../../constants/courseMappings';
 
-function TeacherNavbar() {
+function MentorNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
   const courseTypeRef = useRef(null); // 课程类型锚点
   const startDateRef = useRef(null); // 首课日期锚点
@@ -33,7 +33,7 @@ function TeacherNavbar() {
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
-  const isTeacherActive = location.pathname.startsWith('/teacher');
+  const isMentorActive = location.pathname.startsWith('/mentor');
   
   // 弹窗打开后再切换激活项，避免点击瞬间的白->灰闪烁
   useEffect(() => {
@@ -75,11 +75,11 @@ function TeacherNavbar() {
   
   return (
     <header className="navbar">
-      {/* 第一行：LOGO + Students/Teacher + 右侧菜单 */}
+      {/* 第一行：LOGO + Students/Mentor + 右侧菜单 */}
       <div className="navbar-top container">
         <div className="navbar-left">
-          {/* 点击 LOGO 在教师视图返回教师首页 */}
-          <BrandMark className="nav-logo-text" to="/teacher" />
+          {/* 点击 LOGO 在导师视图返回导师首页 */}
+          <BrandMark className="nav-logo-text" to="/mentor" />
         </div>
         <div className="navbar-center">
           <nav className="nav-tabs">
@@ -90,8 +90,8 @@ function TeacherNavbar() {
               学生
             </button>
             <button
-              className={`nav-tab ${isTeacherActive ? 'active' : ''}`}
-              onClick={() => navigate('/teacher')}
+              className={`nav-tab ${isMentorActive ? 'active' : ''}`}
+              onClick={() => navigate('/mentor')}
             >
               导师
             </button>
@@ -102,7 +102,7 @@ function TeacherNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={editProfileBtnRef}
-            onClick={() => navigate('/teacher/profile-editor')}
+            onClick={() => navigate('/mentor/profile-editor')}
           >
             编辑个人名片
           </button>
@@ -236,7 +236,7 @@ function TeacherNavbar() {
       )}
 
       {showAuthModal && (
-        <TeacherAuthModal
+        <MentorAuthModal
           onClose={() => setShowAuthModal(false)} // 关闭注册和登录弹窗
           anchorRef={userIconRef}
           leftAlignRef={editProfileBtnRef}
@@ -246,6 +246,5 @@ function TeacherNavbar() {
   );
 }
 
-export default TeacherNavbar;
-
+export default MentorNavbar;
 

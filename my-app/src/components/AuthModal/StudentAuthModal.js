@@ -202,7 +202,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             onClose && onClose();
             const nextRole = payload?.user?.role;
-            try { navigate(nextRole === 'mentor' ? '/teacher' : '/student'); } catch {}
+            try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
           }}
         />
       )}

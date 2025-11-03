@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import StudentPage from './components/StudentPage/StudentPage';
-import TeacherPage from './components/TeacherPage/TeacherPage';
+import MentorPage from './components/MentorPage/MentorPage';
 import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourseRequestPage';
-import TeacherProfileEditorPage from './pages/TeacherProfileEditor/TeacherProfileEditorPage';
+import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEditorPage';
 
 function App() {
   return (
@@ -18,11 +18,11 @@ function App() {
         {/* 发布课程需求页面 */}
         <Route path="/student/course-request" element={<StudentCourseRequestPage />} />
 
-        {/* 教师个人名片编辑页面 */}
-        <Route path="/teacher/profile-editor" element={<TeacherProfileEditorPage />} />
+        {/* 导师个人名片编辑页面 */}
+        <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
 
-        {/* 教师页面 */}
-        <Route path="/teacher" element={<TeacherPage />} />
+        {/* 导师页面 */}
+        <Route path="/mentor" element={<MentorPage />} />
       </Routes>
     </Router>
   );

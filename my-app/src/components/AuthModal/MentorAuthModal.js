@@ -8,7 +8,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
 
-const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
+const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -63,7 +63,7 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
         return;
       case 'editProfile':
         onClose && onClose();
-        try { navigate('/teacher/profile-editor'); } catch {}
+        try { navigate('/mentor/profile-editor'); } catch {}
         return;
       case 'logout':
         try {
@@ -208,7 +208,7 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
             onClose && onClose();
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             const nextRole = payload?.user?.role;
-            try { window.location.pathname = (nextRole === 'mentor' ? '/teacher' : '/student'); } catch {}
+            try { window.location.pathname = (nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
           }}
         />
       )}
@@ -216,4 +216,4 @@ const TeacherAuthModal = ({ onClose, anchorRef, leftAlignRef }) => {
   );
 };
 
-export default TeacherAuthModal;
+export default MentorAuthModal;
