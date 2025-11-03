@@ -337,3 +337,23 @@
 /* 隐藏浏览器自带的密码显示按钮（避免双眼睛） */
 input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear { display: none; }
+
+/* 辅助链接行：忘记密码 / 前往注册 */
+.login-helper-row {
+  width: 88%;
+  margin: 8px auto 0; /* 位于错误行之上，给下方留白 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 22px; /* 与错误行高度协调 */
+}
+.login-helper-row .helper-link {
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.7);
+  text-decoration: none;
+  cursor: pointer;
+}
+.login-helper-row .helper-link.right {
+  color: #1a73e8; /* 强调“前往注册” */
+}
+.login-helper-row .helper-link:hover { text-decoration: underline; }

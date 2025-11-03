@@ -203,6 +203,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       {showLoginPopup && (
         <LoginPopup
           onClose={() => setShowLoginPopup(false)}
+          onGoRegister={() => { setShowLoginPopup(false); setShowRegisterPopup(true); }}
           onSuccess={(payload) => {
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             onClose && onClose();

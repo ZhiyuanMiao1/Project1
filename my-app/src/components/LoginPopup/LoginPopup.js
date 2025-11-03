@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import './LoginPopup.css';
 import api from '../../api/client';
 
-const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '' }) => {
+const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '', onGoRegister }) => {
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
   const backdropMouseDownRef = useRef(false);
   const emailRef = useRef(null);
@@ -176,7 +176,25 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
           </div>
         </div>
 
-        {/* 错误提示行（默认留空） */}
+        {/* 顶部辅助链接行：左“忘记密码”，右“前往注册” */}
+        <div className="login-helper-row">
+          <a
+            href="#"
+            className="helper-link left"
+            onClick={(e) => { e.preventDefault(); /* 预留：忘记密码 */ }}
+          >
+            忘记密码
+          </a>
+          <a
+            href="#"
+            className="helper-link right"
+            onClick={(e) => { e.preventDefault(); if (typeof onGoRegister === 'function') onGoRegister(); }}
+          >
+            前往注册
+          </a>
+        </div>
+
+        {/* 错误提示行（下移一行显示） */}
         <div className="login-validation-slot">
           {fieldError ? <span className="validation-error">{fieldError}</span> : null}
         </div>

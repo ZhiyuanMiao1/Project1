@@ -209,6 +209,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
       {showLoginPopup && (
         <LoginPopup
           onClose={() => setShowLoginPopup(false)}
+          onGoRegister={() => { setShowLoginPopup(false); setShowRegisterPopup(true); }}
           onSuccess={(payload) => {
             onClose && onClose();
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
