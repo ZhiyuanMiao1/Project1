@@ -46,9 +46,10 @@
   .mentor-pending {
     text-align: center;
     color: #000; /* 纯黑 */
+    /* 统一与列表卡片的入场动画（listing-fade-in） */
     opacity: 0;
     transform: translateY(8px) scale(0.98);
-    animation: mentor-pending-fade 420ms ease-out forwards;
+    animation: listing-fade-in 360ms ease-out forwards;
   }
   .mentor-pending-icon {
     display: block;
@@ -56,8 +57,6 @@
     width: 72px;
     height: 72px;
     color: #000; /* 配合 path 的 currentColor */
-    transform-origin: 50% 50%;
-    animation: mentor-hourglass 1400ms ease-in-out infinite; /* 轻微载入动画 */
   }
   .mentor-pending-icon path {
     stroke: currentColor;
@@ -84,17 +83,4 @@
     margin-right: auto;
   }
 
-  @keyframes mentor-pending-fade {
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  /* 轻微上下浮动，营造等待感 */
-  @keyframes mentor-hourglass {
-    0%   { transform: translateY(0); }
-    50%  { transform: translateY(-3px); }
-    100% { transform: translateY(0); }
-  }
   
