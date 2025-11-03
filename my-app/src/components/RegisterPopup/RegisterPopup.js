@@ -92,7 +92,43 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         }
       }
 
-      // 导师注册或其他情况：沿用原有成功提示与自动关闭（2秒）
+      // 导师注册：自动登录并跳转导师页；导师卡片将因未审核而显示“审核中”
+      if (role === 'mentor') {
+        try {
+          const loginRes = await api.post('/api/login', { email, password, role: 'mentor' });
+          const { token, user } = loginRes.data || {};
+          if (token) {
+            try {
+              localStorage.setItem('authToken', token);
+              localStorage.setItem('authUser', JSON.stringify(user || {}));
+            } catch {}
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            try {
+              window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));
+            } catch {}
+          }
+          setOk('注册成功，已自动登录');
+          // 三点动画 2 秒后，关闭弹窗并进入导师页
+          setTimeout(() => {
+            try { onClose && onClose(); } catch {}
+            try { onSuccess && onSuccess({ autoLoggedIn: true, role: 'mentor' }); } catch {}
+            try { navigate('/mentor'); } catch {}
+          }, 2000);
+          return;
+        } catch (loginErr) {
+          const data = loginErr?.response?.data;
+          const fallbackMsg = data?.error || '注册成功，但自动登录失败，请手动登录';
+          setFieldError(fallbackMsg);
+          setErrorField('');
+          setSubmitError('');
+          if (typeof onSuccess === 'function') {
+            onSuccess({ ...res.data, autoLoggedIn: false, role: 'mentor' });
+          }
+          return;
+        }
+      }
+
+      // 其他情况：沿用原有成功提示与自动关闭（2秒）
       setOk('注册成功，正在关闭...');
       if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 2000);
       setTimeout(() => { onClose && onClose(); }, 2000);

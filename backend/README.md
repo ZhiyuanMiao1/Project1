@@ -2,8 +2,9 @@
 
 - Entry point: `src/app.ts` (compiled to `dist/app.js`)
 - Routes:
-  - `POST /api/register` — 用户注册（email、password、role、可选 username）。同一邮箱可在不同角色各注册一次。
-  - `POST /api/login` — 用户登录（email、password[, role]），返回 JWT。若某邮箱在多个角色下已注册，需额外提供 `role` 以消歧。
+- `POST /api/register` — 用户注册（email、password、role、可选 username）。同一邮箱可在不同角色各注册一次。
+- `POST /api/login` — 用户登录（email、password[, role]），返回 JWT。若某邮箱在多个角色下已注册，需额外提供 `role` 以消歧。
+ - `GET /api/mentor/cards` — 导师卡片。仅 `role=mentor` 且 `mentor_approved=1` 的账号可访问；未审核返回 403 `{ error: '导师审核中' }`。
 - DB Helper: `src/db.ts`（MySQL 连接池，基于 `mysql2/promise`）
 
 ## 环境变量
@@ -93,6 +94,18 @@ SELECT * FROM role_counters;
 ```
 
 接口返回建议：注册成功后可同时返回 `public_id` 给前端展示；查询时按需 `SELECT public_id FROM users WHERE id = ?`。
+
+### 审核字段（导师）
+
+在 `users` 表新增 `mentor_approved TINYINT(1) NOT NULL DEFAULT 0` 字段，用于控制导师卡片访问权限。
+
+迁移示例：
+
+```
+ALTER TABLE `users` ADD COLUMN `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
+```
+
+注册导师账号时该字段默认 0（未审核）；审核通过后将其置为 1，方可访问 `/api/mentor/cards`。
 
 ## 重要变更：邮箱唯一性调整为 (email, role)
 

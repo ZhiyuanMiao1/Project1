@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
+import { query } from '../db';
 
 const router = Router();
 
@@ -8,6 +9,17 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
   const role = req.user?.role;
   if (role !== 'mentor') {
     return res.status(403).json({ error: '仅导师可访问' });
+  }
+
+  // 审核 gating：仅审核通过的导师可查看卡片
+  try {
+    const rows = await query<any[]>('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user!.id]);
+    const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
+    if (!approved) {
+      return res.status(403).json({ error: '导师审核中' });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 
   // Demo data; replace with DB query if needed
@@ -20,4 +32,3 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
 });
 
 export default router;
-

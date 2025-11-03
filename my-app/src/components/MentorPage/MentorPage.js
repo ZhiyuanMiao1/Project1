@@ -7,7 +7,7 @@ import api from '../../api/client';
 import './MentorPage.css';
 
 function MentorPage() {
-  const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | error
+  const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [cards, setCards] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,7 +49,12 @@ function MentorPage() {
           return;
         }
         if (status === 403) {
-          setStatus('forbidden');
+          const msg = e?.response?.data?.error || '';
+          if (msg && (msg.includes('审核') || msg.toLowerCase().includes('pending'))) {
+            setStatus('pending');
+          } else {
+            setStatus('forbidden');
+          }
           return;
         }
         setStatus('error');
@@ -72,6 +77,23 @@ function MentorPage() {
       {status === 'forbidden' && (
         <div className="container" style={{ padding: '40px 0', textAlign: 'center', color: '#374151' }}>
           仅导师可访问，请用导师身份登录/注册
+        </div>
+      )}
+
+      {status === 'pending' && (
+        <div className="listings container">
+          <div className="listing-grid">
+            <div className="sk-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 280 }}>
+              <div style={{ textAlign: 'center', color: '#475569' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: 'block', margin: '0 auto 8px' }}>
+                  <path d="M6 2h12v2l-4 4 4 4v2H6v-2l4-4-4-4V2z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M8 20h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <div style={{ fontSize: 16 }}>导师审核中</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>审核通过后将显示可见卡片</div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

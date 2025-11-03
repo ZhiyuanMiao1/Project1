@@ -39,9 +39,10 @@ router.post(
 
       const passwordHash = await bcrypt.hash(password, 10);
 
+      const mentorApproved = role === 'mentor' ? 0 : 1; // 学生不受审核约束
       const result = await query<InsertResult>(
-        'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
-        [username, email, passwordHash, role]
+        'INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)',
+        [username, email, passwordHash, role, mentorApproved]
       );
 
       // 读取触发器生成的 public_id 返回给前端

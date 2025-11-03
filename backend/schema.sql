@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('mentor','student') NOT NULL,
+  -- 审核状态：导师账号需审核通过方可访问导师卡片
+  `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0,
   -- role-scoped public id: student => s#, mentor => m#
   `public_id` VARCHAR(20) NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
@@ -68,3 +70,9 @@ DELIMITER ;
 
 -- 创建新的 (email, role) 复合唯一索引（若不存在）
 -- CREATE UNIQUE INDEX `uniq_users_email_role` ON `users` (`email`, `role`);
+
+-- ========== 审核字段迁移（如为已有库升级） ==========
+-- 若已存在 `users` 表但没有 `mentor_approved` 字段，请执行：
+--   ALTER TABLE `users` ADD COLUMN `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
+-- 宿主 MySQL 版本若支持，可使用 IF NOT EXISTS 变体：
+--   ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
