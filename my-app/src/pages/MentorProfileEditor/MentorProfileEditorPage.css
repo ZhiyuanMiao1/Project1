@@ -24,14 +24,14 @@
 
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 16px 0 48px; }
-/* 收窄右侧列宽，让预览更紧凑一些 */
-.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 28px; align-items: start; }
+/* 调整两列比例：左侧更窄，右侧略宽 */
+.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 28px; align-items: start; }
 /* 让右侧列自身在网格中靠右 */
 .mx-editor-preview { justify-self: end; }
 
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
-.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 20px 20px 20px 0; }
+.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 20px 20px 20px 0; max-width: 680px; }
 .mx-editor-form .form-title { font-size: 18px; margin: 4px 0 14px; }
 .mx-editor-form .form-row { display: grid; gap: 8px; margin: 12px 0; }
 .mx-editor-form label { font-size: 13px; color: #374151; }
