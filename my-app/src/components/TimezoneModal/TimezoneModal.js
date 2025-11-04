@@ -34,19 +34,17 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
   }, [anchorRef]);
 
   const handleRegionSelect = (region) => {
-    onSelect(region); // 回调函数设置选中区域
-    onClose(); // 关闭弹窗
+    onSelect(region);
+    onClose();
   };
 
-  // 点击弹窗外部时关闭：改为在 click 冒泡阶段处理，保证按下未松开时不立即关闭
+  // 点击弹窗外部时关闭：在 click 冒泡阶段处理
   useEffect(() => {
     const handleDocumentClick = (e) => {
       const panel = contentRef.current;
       const anchorEl = anchorRef?.current;
       if (!panel) return;
-      // 点击在弹窗内部：不关闭
       if (panel.contains(e.target)) return;
-      // 点击在触发元素或其子元素上（例如首次点击打开）：不关闭
       if (anchorEl && anchorEl.contains(e.target)) return;
       onClose();
     };
@@ -60,7 +58,6 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
         className="modal-content"
         ref={contentRef}
         style={{ position: 'fixed', top: position.top, left: position.left }}
-        // 交互由文档级监听控制，无需阻止冒泡
       >
         <h3>按地区搜索</h3>
         <div className="regions">
@@ -76,9 +73,9 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
             <img src="/images/北美.png" alt="北美" />
             <span>北美</span>
           </button>
-          <button onClick={() => handleRegionSelect('东南亚')}>
-            <img src="/images/东南亚.png" alt="东南亚" />
-            <span>东南亚</span>
+          <button onClick={() => handleRegionSelect('澳洲')}>
+            <img src="/images/澳洲.png" alt="澳洲" />
+            <span>澳洲</span>
           </button>
           <button onClick={() => handleRegionSelect('日韩')}>
             <img src="/images/日韩.png" alt="日韩" />
@@ -95,3 +92,4 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
 };
 
 export default TimezoneModal;
+
