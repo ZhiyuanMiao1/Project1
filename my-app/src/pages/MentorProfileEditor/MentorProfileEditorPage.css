@@ -47,5 +47,59 @@
   width: min(380px, 90%);  /* 收窄一些 */
 }
 
+/* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
+/* 三个连续的 .form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
+.mx-editor-form > .form-row:nth-of-type(-n+3) {
+  display: grid;
+  grid-template-columns: 96px 1fr;  /* 左标签固定宽度，右侧自适应 */
+  align-items: center;
+  gap: 14px;
+  margin: 0;                         /* 取消外距，拼接成一个整体 */
+  padding: 12px 16px;
+  background: #ffffff;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+.mx-editor-form > .form-row:nth-of-type(1) {
+  border-top: 1px solid #e5e7eb;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+.mx-editor-form > .form-row:nth-of-type(2) {
+  border-top: 1px solid #e5e7eb;     /* 中间分割线 */
+}
+.mx-editor-form > .form-row:nth-of-type(3) {
+  border-top: 1px solid #e5e7eb;     /* 中间分割线 */
+  border-bottom: 1px solid #e5e7eb;  /* 底部闭合 */
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+/* 左侧标签样式：与输入同高居中显示 */
+.mx-editor-form > .form-row:nth-of-type(-n+3) > label {
+  margin: 0;
+  font-size: 14px;
+  color: #111827;
+}
+
+/* 组内输入去掉独立边框，像在一个大框中填写 */
+.mx-editor-form > .form-row:nth-of-type(-n+3) input,
+.mx-editor-form > .form-row:nth-of-type(-n+3) select {
+  height: 40px;
+  border: none;
+  border-radius: 0;
+  padding: 8px 4px;         /* 留一点内边距，保持易用 */
+  background: transparent;
+  box-shadow: none;
+}
+.mx-editor-form > .form-row:nth-of-type(-n+3) input:focus,
+.mx-editor-form > .form-row:nth-of-type(-n+3) select:focus {
+  outline: none;
+  box-shadow: none;
+}
+.mx-editor-form > .form-row:nth-of-type(-n+3) input::placeholder {
+  color: #9ca3af;
+}
+
 /* 容器宽度（与现有页面保持一致） */
 .mx-editor-page .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
