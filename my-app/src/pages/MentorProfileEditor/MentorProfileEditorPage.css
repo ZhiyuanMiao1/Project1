@@ -24,11 +24,13 @@
 
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 16px 0 48px; }
-.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+/* 收窄右侧列宽，让预览更紧凑一些 */
+.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 
 /* 左侧表单 */
-.mx-editor-form { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; }
-.mx-editor-form .form-title { font-size: 18px; margin: 4px 2px 14px; }
+/* 移除外圈边框线，仅保留圆角与白色背景 */
+.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 20px 20px 20px 0; }
+.mx-editor-form .form-title { font-size: 18px; margin: 4px 0 14px; }
 .mx-editor-form .form-row { display: grid; gap: 8px; margin: 12px 0; }
 .mx-editor-form label { font-size: 13px; color: #374151; }
 .mx-editor-form input, .mx-editor-form select { height: 40px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 0 12px; font-size: 14px; background: #fff; }
@@ -37,7 +39,13 @@
 .chip-item { padding: 4px 10px; background: #eef2f7; color: #475569; border-radius: 999px; font-size: 12px; }
 
 /* 右侧预览 */
-.mx-editor-preview .preview-wrap { position: sticky; top: 24px; }
+/* 让预览卡片在视口内垂直居中，整体稍微靠下，并控制最大宽度 */
+.mx-editor-preview .preview-wrap {
+  position: sticky;
+  top: 50vh;               /* 视口高度一半 */
+  transform: translateY(-50%);
+  width: min(380px, 90%);  /* 收窄一些 */
+}
 
 /* 容器宽度（与现有页面保持一致） */
 .mx-editor-page .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
