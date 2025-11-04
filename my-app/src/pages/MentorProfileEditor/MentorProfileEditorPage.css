@@ -1,9 +1,9 @@
 /* 页面外层 */
-.mx-editor-page { min-height: 100vh; background: #f9fafb; color: #111827; }
+.mx-editor-page { min-height: 100vh; background: #ffffff; color: #111827; }
 
 /* 仅保留左上角 MentorX 标志 */
-.mx-editor-header { background: #fff; border-bottom: 1px solid #e5e7eb; }
-.mx-editor-header .container { padding: 14px 0; }
+.mx-editor-header { background: #fff; /* 移除分割线 */ }
+.mx-editor-header .container { padding: 32px 24px 0; }
 
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 28px 0 48px; }
@@ -23,4 +23,4 @@
 .mx-editor-preview .preview-wrap { position: sticky; top: 24px; }
 
 /* 容器宽度（与现有页面保持一致） */
-.mx-editor-page .container { width: min(1100px, 92%); margin: 0 auto; }
+.mx-editor-page .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
