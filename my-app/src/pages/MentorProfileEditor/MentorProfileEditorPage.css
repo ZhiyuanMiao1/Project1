@@ -1,12 +1,29 @@
 /* 页面外层 */
-.mx-editor-page { min-height: 100vh; background: #ffffff; color: #111827; }
+.mx-editor-page {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #111827;
+  padding-top: 24px;
+  font-family: "Helvetica Neue", Arial, sans-serif; /* 与其它页面一致 */
+}
 
 /* 仅保留左上角 MentorX 标志 */
-.mx-editor-header { background: #fff; /* 移除分割线 */ }
-.mx-editor-header .container { padding: 32px 24px 0; }
+.mx-editor-header { background: #fff; padding-top: 8px;}
+.mx-editor-header .container { padding: 0 24px; }
+/* 兜底统一 BrandMark 的字体样式，确保与主页一致 */
+.mx-editor-header .nav-logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+}
 
 /* 主区域：左右两栏 */
-.mx-editor-main { padding: 28px 0 48px; }
+.mx-editor-main { padding: 16px 0 48px; }
 .mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
 
 /* 左侧表单 */
