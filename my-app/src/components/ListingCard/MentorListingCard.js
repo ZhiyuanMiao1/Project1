@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import './MentorListingCard.css';
+// 复用学生卡片的基础样式（.listing-card），确保外观一致
+import './StudentListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';

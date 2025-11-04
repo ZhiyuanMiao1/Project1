@@ -25,7 +25,9 @@
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 16px 0 48px; }
 /* 收窄右侧列宽，让预览更紧凑一些 */
-.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 28px; align-items: start; }
+/* 让右侧列自身在网格中靠右 */
+.mx-editor-preview { justify-self: end; }
 
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
@@ -44,7 +46,9 @@
   position: sticky;
   top: 50vh;               /* 视口高度一半 */
   transform: translateY(-50%);
-  width: min(380px, 90%);  /* 收窄一些 */
+  width: min(420px, 95%);  /* 尺寸更接近学生卡片 */
+  margin-left: auto;       /* 水平靠右 */
+  margin-right: 0;
 }
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */

@@ -3,17 +3,17 @@ import './MentorProfileEditorPage.css';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
-import MentorListingCard from '../../components/ListingCard/MentorListingCard';
+import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 
 function MentorProfileEditorPage() {
   const navigate = useNavigate();
 
-  // 简化的资料字段
-  const [name, setName] = useState('');
-  const [degree, setDegree] = useState(''); // 本科 / 硕士 / PhD
-  const [school, setSchool] = useState('');
-  const [timezone, setTimezone] = useState(''); // 例：UTC+8 (北京)
-  const [coursesInput, setCoursesInput] = useState(''); // 逗号分隔
+  // 简化的资料字段（给出默认值，右侧预览一开始就完整）
+  const [name, setName] = useState('导师姓名');
+  const [degree, setDegree] = useState('硕士'); // 本科 / 硕士 / PhD
+  const [school, setSchool] = useState('哈佛大学');
+  const [timezone, setTimezone] = useState('UTC+8 (北京)'); // 例：UTC+8 (北京)
+  const [coursesInput, setCoursesInput] = useState('Python编程, 机器学习, 深度学习'); // 逗号分隔
 
   const courses = useMemo(
     () => coursesInput.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
@@ -54,11 +54,26 @@ function MentorProfileEditorPage() {
   }, [navigate]);
 
   const previewData = useMemo(() => ({
-    name: name || '导师姓名',
-    degree: degree || '',
-    school: school || '',
-    timezone: timezone || '',
-    courses: courses.length ? courses : [],
+    name,
+    degree,
+    school,
+    timezone,
+    courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
+    courseType: '选课指导',
+    expectedDuration: '每周 2 小时',
+    expectedTime: '每周日晚 19:00',
+  }), [name, degree, school, timezone, courses]);
+
+  // 为右侧预览准备“学生卡片样式”的数据，以便外观与学生页面一致
+  const previewCardData = useMemo(() => ({
+    name,
+    degree: degree || '硕士',
+    school: school || '哈佛大学',
+    rating: 4.9,
+    reviewCount: 120,
+    timezone,
+    languages: '中文, 英语',
+    courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
   }), [name, degree, school, timezone, courses]);
 
   return (
@@ -121,7 +136,8 @@ function MentorProfileEditorPage() {
           {/* 右侧：实时预览 */}
           <aside className="mx-editor-preview">
             <div className="preview-wrap">
-              <MentorListingCard data={previewData} />
+              {/* 使用学生卡片组件渲染预览，保证样式一致 */}
+              <StudentListingCard data={previewCardData} />
             </div>
           </aside>
         </div>
@@ -131,4 +147,3 @@ function MentorProfileEditorPage() {
 }
 
 export default MentorProfileEditorPage;
-

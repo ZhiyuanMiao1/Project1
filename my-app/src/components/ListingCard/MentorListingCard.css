@@ -81,16 +81,9 @@
   margin: 4px 0;
 }
 
-/* --- Preview-card look copied from StudentCourseRequest --- */
-/* Keep size via existing .listing-card rules (from StudentListingCard.css) */
-.mentor-preview-card {
-  position: relative;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 18px;
-  padding: 16px 16px 16px; /* 收紧内边距，减少高度 */
-  box-shadow: 0 16px 36px rgba(0,0,0,0.08);
-}
+/* --- Preview-card look: defer to StudentListingCard.css (.listing-card) --- */
+/* 仅保留必要的定位，不覆盖基础外观，便于与学生页面保持一致 */
+.mentor-preview-card { position: relative; }
 
 .mentor-preview-card .card-fav {
   position: absolute;
@@ -140,4 +133,5 @@
 }
 
 /* 覆盖通用卡片的固定最小高度，避免底部留白 */
-.listing-card.mentor-preview-card { min-height: unset; }
+/* 使用学生卡片的默认高度 */
+.listing-card.mentor-preview-card { min-height: 320px; }
