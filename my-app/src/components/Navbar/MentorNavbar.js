@@ -9,6 +9,7 @@ import StartDateModal from '../StartDateModal/StartDateModal';
 import MentorAuthModal from '../AuthModal/MentorAuthModal'; // 引入学生版本的注册和登录弹窗组件
 import BrandMark from '../common/BrandMark/BrandMark';
 import { courseTypeToCnLabel } from '../../constants/courseMappings';
+import api from '../../api/client';
 
 function MentorNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
@@ -31,6 +32,7 @@ function MentorNavbar() {
   const navigate = useNavigate(); // 获取 navigate 函数
   const location = useLocation(); // 获取当前路径
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 无权限（审核中/非导师）
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
@@ -74,6 +76,24 @@ function MentorNavbar() {
     };
   }, []);
 
+  // 登录状态变更后预取“编辑名片”权限，用于禁用样式与行为
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!isLoggedIn) { setCanEditProfile(null); return; }
+      try {
+        const res = await api.get('/api/mentor/permissions');
+        if (!alive) return;
+        setCanEditProfile(!!res?.data?.canEditProfile);
+      } catch (e) {
+        if (!alive) return;
+        const status = e?.response?.status;
+        if (status === 403) setCanEditProfile(false); else setCanEditProfile(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
   // 监听全局登录需求事件，直接弹出登录框
   useEffect(() => {
     const onLoginRequired = () => {
@@ -83,6 +103,33 @@ function MentorNavbar() {
     window.addEventListener('auth:login-required', onLoginRequired);
     return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
+
+  const handleEditProfileClick = async () => {
+    // 无权限（审核中/非导师）直接不可点
+    if (canEditProfile === false) return;
+    try {
+      const res = await api.get('/api/mentor/permissions');
+      if (res?.data?.canEditProfile) {
+        navigate('/mentor/profile-editor');
+        return;
+      }
+      // 后端非预期的返回，做兜底提示
+      alert(res?.data?.error || '暂不可编辑个人名片');
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (status === 401) {
+        setForceLogin(true);
+        setShowAuthModal(true);
+        return;
+      }
+      if (status === 403) {
+        alert(msg || '导师审核中，暂不可编辑个人名片');
+        return;
+      }
+      alert(msg || '操作失败，请稍后再试');
+    }
+  };
   
   return (
     <header className="navbar">
@@ -113,7 +160,10 @@ function MentorNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={editProfileBtnRef}
-            onClick={() => navigate('/mentor/profile-editor')}
+            onClick={handleEditProfileClick}
+            disabled={canEditProfile === false}
+            aria-disabled={canEditProfile === false}
+            title={canEditProfile === false ? '审核中，暂不可编辑' : undefined}
           >
             编辑个人名片
           </button>

@@ -16,6 +16,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 审核中/非导师
   const navigate = useNavigate();
 
   // 锚定到触发图标下方 10px
@@ -50,6 +51,48 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
     if (forceLogin) setShowLoginPopup(true);
   }, [forceLogin]);
 
+  // 预取权限以控制“编辑个人名片”禁用样式
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!isLoggedIn) { setCanEditProfile(null); return; }
+      try {
+        const res = await api.get('/api/mentor/permissions');
+        if (!alive) return;
+        setCanEditProfile(!!res?.data?.canEditProfile);
+      } catch (e) {
+        if (!alive) return;
+        const status = e?.response?.status;
+        if (status === 403) setCanEditProfile(false); else setCanEditProfile(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  const checkEditPermission = async () => {
+    try {
+      const res = await api.get('/api/mentor/permissions');
+      if (res?.data?.canEditProfile) {
+        onClose && onClose();
+        try { navigate('/mentor/profile-editor'); } catch {}
+        return;
+      }
+      alert(res?.data?.error || '暂不可编辑个人名片');
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (status === 401) {
+        setShowLoginPopup(true);
+        return;
+      }
+      if (status === 403) {
+        alert(msg || '导师审核中，暂不可编辑个人名片');
+        return;
+      }
+      alert(msg || '操作失败，请稍后再试');
+    }
+  };
+
   const handleAuthAction = (action) => {
     switch (action) {
       case 'register':
@@ -67,8 +110,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
         onClose && onClose();
         return;
       case 'editProfile':
-        onClose && onClose();
-        try { navigate('/mentor/profile-editor'); } catch {}
+        // 检查权限后再跳转（若禁用则不处理）
+        if (canEditProfile === false) return;
+        checkEditPermission();
         return;
       case 'logout':
         try {
@@ -158,6 +202,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('editProfile')}
+                disabled={isLoggedIn && canEditProfile === false}
+                aria-disabled={isLoggedIn && canEditProfile === false}
+                title={isLoggedIn && canEditProfile === false ? '审核中，暂不可编辑' : undefined}
               >
                 <HiOutlineIdentification className="auth-icon" />
                 编辑个人名片

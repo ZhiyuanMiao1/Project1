@@ -4,6 +4,29 @@ import { query } from '../db';
 
 const router = Router();
 
+// GET /api/mentor/permissions
+// Check mentor permissions (e.g., can edit profile card)
+router.get('/permissions', requireAuth, async (req: Request, res: Response) => {
+  const role = req.user?.role;
+  if (role !== 'mentor') {
+    return res.status(403).json({ error: '仅导师可访问', canEditProfile: false, reason: 'not_mentor' });
+  }
+
+  try {
+    const rows = await query<any[]>(
+      'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+      [req.user!.id]
+    );
+    const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
+    if (!approved) {
+      return res.status(403).json({ error: '导师审核中，暂不可编辑个人名片', canEditProfile: false, reason: 'pending_review' });
+    }
+    return res.json({ canEditProfile: true });
+  } catch (e) {
+    return res.status(500).json({ error: '服务器错误，请稍后再试', canEditProfile: false });
+  }
+});
+
 // GET /api/mentor/cards — only mentors can access
 router.get('/cards', requireAuth, async (req: Request, res: Response) => {
   const role = req.user?.role;

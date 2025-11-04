@@ -73,6 +73,18 @@
 .auth-modal-option-button:hover {
     background-color: #f0f0f0;
 }
+
+/* 禁用状态：文字变浅、指针为禁止符号，禁用 hover 背景 */
+.auth-modal-option-button:disabled,
+.auth-modal-option-button.disabled {
+    color: #9aa0a6; /* 浅灰 */
+    cursor: not-allowed;
+}
+
+.auth-modal-option-button:disabled:hover,
+.auth-modal-option-button.disabled:hover {
+    background-color: transparent;
+}
   
 .auth-modal-option-button:last-child::after {
     display: none; /* Remove line for the last button */

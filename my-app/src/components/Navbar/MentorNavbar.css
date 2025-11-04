@@ -114,6 +114,18 @@
     background-color: rgba(0, 0, 0, 0.1); /* 鼠标悬停时背景色 */
     color: #333; /* 鼠标悬停时字体颜色 */
   }
+
+  /* 禁用的“编辑个人名片”样式：文字变浅，鼠标为禁止符号，禁用 hover 背景 */
+  .navbar-right .nav-link[disabled],
+  .navbar-right .nav-link.disabled {
+    color: #9aa0a6;
+    cursor: not-allowed;
+  }
+  .navbar-right .nav-link[disabled]:hover,
+  .navbar-right .nav-link.disabled:hover {
+    background-color: transparent;
+    color: #9aa0a6;
+  }
   
   .icon-circle {
     display: inline-flex; /* 使用 flex 布局以便内容居中 */

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MentorNavbar from '../../components/Navbar/MentorNavbar';
 import './MentorProfileEditorPage.css';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/client';
 
 const INITIAL_PROFILE = {
   avatar: '',
@@ -18,6 +20,7 @@ const INITIAL_PROFILE = {
 };
 
 function MentorProfileEditorPage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [saved, setSaved] = useState(false);
 
@@ -39,6 +42,39 @@ function MentorProfileEditorPage() {
     setProfile(INITIAL_PROFILE);
     setSaved(false);
   };
+
+  // 进入页面时校验权限；未登录或审核未通过不允许停留
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get('/api/mentor/permissions');
+        if (!alive) return;
+        if (!res?.data?.canEditProfile) {
+          alert(res?.data?.error || '暂不可编辑个人名片');
+          navigate('/mentor', { replace: true });
+        }
+      } catch (e) {
+        if (!alive) return;
+        const status = e?.response?.status;
+        const msg = e?.response?.data?.error;
+        if (status === 401) {
+          try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: '/mentor/profile-editor' } })); } catch {}
+          alert('请先登录');
+          navigate('/mentor', { replace: true });
+          return;
+        }
+        if (status === 403) {
+          alert(msg || '导师审核中，暂不可编辑个人名片');
+          navigate('/mentor', { replace: true });
+          return;
+        }
+        alert(msg || '加载失败，请稍后再试');
+        navigate('/mentor', { replace: true });
+      }
+    })();
+    return () => { alive = false; };
+  }, [navigate]);
 
   return (
     <div className="mentor-profile-editor-page">
