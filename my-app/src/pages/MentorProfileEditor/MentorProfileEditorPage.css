@@ -1,14 +1,17 @@
 /* 页面外层 */
 .mx-editor-page {
-  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr; /* 顶部品牌 + 主区域 */
+  height: 100dvh;               /* 视口高度 */
+  overflow: hidden;             /* 禁止外层滚动 */
   background: #ffffff;
   color: #111827;
-  padding-top: 24px;
+  padding-top: 0;
   font-family: "Helvetica Neue", Arial, sans-serif; /* 与其它页面一致 */
 }
 
 /* 仅保留左上角 MentorX 标志 */
-.mx-editor-header { background: #fff; padding-top: 8px;}
+.mx-editor-header { background: #fff; padding: 8px 0 0; }
 .mx-editor-header .container { padding: 0 24px; }
 /* 兜底统一 BrandMark 的字体样式，确保与主页一致 */
 .mx-editor-header .nav-logo-text {
@@ -23,36 +26,30 @@
 }
 
 /* 主区域：左右两栏 */
-.mx-editor-main { padding: 16px 0 48px; }
+.mx-editor-main { padding: 8px 0; height: 100%; overflow: hidden; display: grid; }
 /* 调整两列比例：左侧更窄，右侧略宽 */
-.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 28px; align-items: start; }
-/* 让右侧列自身在网格中靠右，并固定在视口内 */
-.mx-editor-preview { justify-self: end; position: sticky; top: 0; }
+.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 18px; align-items: center; height: 100%; }
+/* 右侧列靠右并跟随网格垂直居中 */
+.mx-editor-preview { justify-self: end; align-self: center; }
+/* 保证左右与容器边缘对齐 */
+.mx-editor-grid > .mx-editor-form { justify-self: start; }
+.mx-editor-grid > .mx-editor-preview { justify-self: end; }
 
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
-.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 20px 20px 20px 0; max-width: 680px; }
-.mx-editor-form .form-title { font-size: 18px; margin: 4px 0 14px; }
-.mx-editor-form .form-row { display: grid; gap: 8px; margin: 12px 0; }
+.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 8px 16px 8px 0; max-width: 660px; }
+.mx-editor-form .form-title { font-size: 18px; margin: 2px 0 8px; }
+.mx-editor-form .form-row { display: grid; gap: 6px; margin: 8px 0; }
 .mx-editor-form label { font-size: 13px; color: #374151; }
-.mx-editor-form input, .mx-editor-form select { height: 40px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 0 12px; font-size: 14px; background: #fff; }
+.mx-editor-form input, .mx-editor-form select { height: 36px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 0 10px; font-size: 14px; background: #fff; }
 .mx-editor-form input::placeholder { color: #9ca3af; }
-.chips-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chips-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .chip-item { padding: 4px 10px; background: #eef2f7; color: #475569; border-radius: 999px; font-size: 12px; }
 
-/* 右侧预览：使用满高 flex 容器实现真实垂直居中 */
-.mx-editor-preview .preview-wrap {
-  position: static;                 /* 不再使用 sticky + transform 方案 */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;          /* 垂直方向居中 */
-  align-items: flex-end;            /* 水平方向靠右 */
-  min-height: 100vh;                /* 以视口高度为对齐基准 */
-  padding-top: 8px;                 /* 与顶部品牌留少许间距 */
-  padding-bottom: 8px;
-}
-/* 预览卡片宽度与学生卡片一致（右侧预览范围内生效） */
-.mx-editor-preview .listing-card { width: 420px; max-width: 95%; }
+/* 右侧预览容器：普通块级，靠右宽度限制 */
+.mx-editor-preview .preview-wrap { width: 420px; max-width: 95%; margin-left: auto; margin-right: 0; }
+/* 预览卡片宽度与学生卡片一致 */
+.mx-editor-preview .listing-card { width: 100%; }
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
 /* 三个连续的 .form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
@@ -60,9 +57,9 @@
   display: grid;
   grid-template-columns: 96px 1fr;  /* 左标签固定宽度，右侧自适应 */
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin: 0;                         /* 取消外距，拼接成一个整体 */
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: #ffffff;
   border-left: 1px solid #e5e7eb;
   border-right: 1px solid #e5e7eb;
@@ -92,10 +89,10 @@
 /* 组内输入去掉独立边框，像在一个大框中填写 */
 .mx-editor-form > .form-row:nth-of-type(-n+3) input,
 .mx-editor-form > .form-row:nth-of-type(-n+3) select {
-  height: 40px;
+  height: 34px;
   border: none;
   border-radius: 0;
-  padding: 8px 4px;         /* 留一点内边距，保持易用 */
+  padding: 6px 4px;         /* 留一点内边距，保持易用 */
   background: transparent;
   box-shadow: none;
 }
