@@ -26,8 +26,8 @@
 .mx-editor-main { padding: 16px 0 48px; }
 /* 调整两列比例：左侧更窄，右侧略宽 */
 .mx-editor-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 28px; align-items: start; }
-/* 让右侧列自身在网格中靠右 */
-.mx-editor-preview { justify-self: end; }
+/* 让右侧列自身在网格中靠右，并固定在视口内 */
+.mx-editor-preview { justify-self: end; position: sticky; top: 0; }
 
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
@@ -40,16 +40,19 @@
 .chips-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .chip-item { padding: 4px 10px; background: #eef2f7; color: #475569; border-radius: 999px; font-size: 12px; }
 
-/* 右侧预览 */
-/* 让预览卡片在视口内垂直居中，整体稍微靠下，并控制最大宽度 */
+/* 右侧预览：使用满高 flex 容器实现真实垂直居中 */
 .mx-editor-preview .preview-wrap {
-  position: sticky;
-  top: 50vh;               /* 视口高度一半 */
-  transform: translateY(-50%);
-  width: min(420px, 95%);  /* 尺寸更接近学生卡片 */
-  margin-left: auto;       /* 水平靠右 */
-  margin-right: 0;
+  position: static;                 /* 不再使用 sticky + transform 方案 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;          /* 垂直方向居中 */
+  align-items: flex-end;            /* 水平方向靠右 */
+  min-height: 100vh;                /* 以视口高度为对齐基准 */
+  padding-top: 8px;                 /* 与顶部品牌留少许间距 */
+  padding-bottom: 8px;
 }
+/* 预览卡片宽度与学生卡片一致（右侧预览范围内生效） */
+.mx-editor-preview .listing-card { width: 420px; max-width: 95%; }
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
 /* 三个连续的 .form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
