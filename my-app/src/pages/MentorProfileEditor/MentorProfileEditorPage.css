@@ -94,9 +94,10 @@
 /* 调整两列比例：左侧更窄，右侧略宽 */
 .mx-editor-grid { 
   display: grid; 
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); 
-  gap: 18px; align-items: 
-  center; height: 100%; 
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
+  gap: 18px;
+  align-items: center; 
+  height: 100%; 
   justify-items: stretch;
 }
 /* 右侧列靠右并跟随网格垂直居中 */
@@ -111,14 +112,37 @@
 
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
-.mx-editor-form { background: #fff; border: none; border-radius: 16px; padding: 8px 16px 8px 0; max-width: 660px; }
+.mx-editor-form { 
+  background: #fff; 
+  border: none; 
+  border-radius: 16px; 
+  padding: 8px 16px 8px 0; 
+  width: 450px; 
+}
 .mx-editor-form .form-title { font-size: 18px; margin: 2px 0 8px; }
-.mx-editor-form .form-row { display: grid; gap: 6px; margin: 8px 0; }
+.mx-editor-form .form-row { 
+  display: grid; 
+  gap: 6px; 
+  margin: 8px 0; 
+}
 .mx-editor-form label { font-size: 13px; color: #374151; }
-.mx-editor-form input, .mx-editor-form select { height: 36px; border-radius: 10px; border: 1px solid #e5e7eb; padding: 0 10px; font-size: 14px; background: #fff; }
+.mx-editor-form input, .mx-editor-form select { 
+  height: 36px; 
+  border-radius: 10px; 
+  border: 1px solid #e5e7eb; 
+  padding: 0 10px; 
+  font-size: 14px; 
+  background: #fff; 
+}
 .mx-editor-form input::placeholder { color: #9ca3af; }
 .chips-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.chip-item { padding: 4px 10px; background: #eef2f7; color: #475569; border-radius: 999px; font-size: 12px; }
+.chip-item { 
+  padding: 4px 10px; 
+  background: #eef2f7; 
+  color: #475569; 
+  border-radius: 999px; 
+  font-size: 12px; 
+}
 
 /* 右侧预览容器：普通块级，靠右宽度限制 */
 .mx-editor-preview .preview-wrap {  
@@ -136,7 +160,7 @@
   align-items: center;
   gap: 12px;
   margin: 0;                         /* 取消外距，拼接成一个整体 */
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: #ffffff;
   border-left: 1px solid #e5e7eb;
   border-right: 1px solid #e5e7eb;
@@ -166,13 +190,16 @@
 /* 组内输入去掉独立边框，像在一个大框中填写 */
 .mx-editor-form > .form-row:nth-of-type(-n+3) input,
 .mx-editor-form > .form-row:nth-of-type(-n+3) select {
-  height: 34px;
+  height: 30px;
+  line-height: 30px;
   border: none;
   border-radius: 0;
-  padding: 6px 4px;         /* 留一点内边距，保持易用 */
+  padding: 0px 8px;         /* 留一点内边距，保持易用 */
   background: transparent;
   box-shadow: none;
+  box-sizing: border-box;
 }
+
 .mx-editor-form > .form-row:nth-of-type(-n+3) input:focus,
 .mx-editor-form > .form-row:nth-of-type(-n+3) select:focus {
   outline: none;
@@ -182,3 +209,8 @@
   color: #9ca3af;
 }
 
+/* 去掉各浏览器对 select 的默认样式差异（尤其是高度） */
+.mx-editor-form > .form-row:nth-of-type(-n+3) select {
+  -webkit-appearance: none;
+  appearance: none;
+}

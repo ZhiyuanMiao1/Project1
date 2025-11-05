@@ -102,7 +102,6 @@ function MentorProfileEditorPage() {
             <div className="form-row">
               <label htmlFor="mx-degree">学历</label>
               <select id="mx-degree" value={degree} onChange={(e) => setDegree(e.target.value)}>
-                <option value="">选择学历</option>
                 <option value="本科">本科</option>
                 <option value="硕士">硕士</option>
                 <option value="PhD">PhD</option>
