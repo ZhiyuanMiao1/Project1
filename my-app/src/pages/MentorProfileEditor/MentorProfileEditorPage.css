@@ -19,6 +19,9 @@
   margin: 0;         /* 取消左右 auto 居中 */
   width: 100%;       /* 占满宽度 */
   padding-inline: 120px; /* 左右安全间距自己定 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 /* 垂直控制：用 flex 中线对齐，更稳 */
@@ -41,11 +44,13 @@
   align-items: center;
 }
 
-/* 顶部容器改为左右分布，右侧放操作按钮 */
-.mx-editor-header .container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+
+/* 让主内容跟头部保持同一“通栏 + 左右 120px”基线 */
+.mx-editor-main > .container {
+  max-width: none;     /* 不再限制 1200 */
+  margin: 0;           /* 取消 0 auto 居中 */
+  width: 100%;         /* 占满一行 */
+  padding-inline: 120px; /* 与头部一致的左右内边距 */
 }
 
 /* 顶部右侧操作区，与课程需求页一致 */
