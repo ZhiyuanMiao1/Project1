@@ -80,6 +80,15 @@
 }
 .ghost-button:hover { border-color: #111827; color: #111827; }
 
+/* 页面级大标题（独立于表单卡片） */
+.mx-editor-title {
+  font-size: 32px;         /* 放大 */
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 6px 0 12px;      /* 往上贴一点，上方留 6px，下方留 12px */
+  color: #111827;
+}
+
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 8px 0; height: 100%; overflow: hidden; display: grid; }
 /* 调整两列比例：左侧更窄，右侧略宽 */

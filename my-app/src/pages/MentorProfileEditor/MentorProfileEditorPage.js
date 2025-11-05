@@ -86,10 +86,12 @@ function MentorProfileEditorPage() {
       </header>
 
       <main className="mx-editor-main">
+        <div className="container">
+          <h1 className="mx-editor-title">编辑个人名片</h1>
+        </div>
         <div className="container mx-editor-grid">
           {/* 左侧：表单 */}
           <section className="mx-editor-form">
-            <h2 className="form-title">编辑个人名片</h2>
 
             <div className="form-row">
               <label htmlFor="mx-name">名字</label>
