@@ -41,6 +41,29 @@
   align-items: center;
 }
 
+/* 顶部容器改为左右分布，右侧放操作按钮 */
+.mx-editor-header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 顶部右侧操作区，与课程需求页一致 */
+.step-header-actions { display: flex; gap: 16px; }
+
+/* “保存并退出”同款样式 */
+.ghost-button {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.ghost-button:hover { border-color: #111827; color: #111827; }
+
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 8px 0; height: 100%; overflow: hidden; display: grid; }
 /* 调整两列比例：左侧更窄，右侧略宽 */
@@ -120,5 +143,4 @@
 .mx-editor-form > .form-row:nth-of-type(-n+3) input::placeholder {
   color: #9ca3af;
 }
-
 

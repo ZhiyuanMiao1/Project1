@@ -73,6 +73,15 @@ function MentorProfileEditorPage() {
       <header className="mx-editor-header">
         <div className="container">
           <BrandMark className="nav-logo-text" to="/mentor" />
+          <div className="step-header-actions">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => navigate('/mentor')}
+            >
+              保存并退出
+            </button>
+          </div>
         </div>
       </header>
 
