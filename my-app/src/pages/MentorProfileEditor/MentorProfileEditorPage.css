@@ -7,11 +7,16 @@
   background: #ffffff;
   color: #111827;
   padding-top: 0;
+  --page-gutter: 120px;
   font-family: "Helvetica Neue", Arial, sans-serif; /* 与其它页面一致 */
 }
 
 /* 容器宽度（与现有页面保持一致） */
-.mx-editor-page .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.mx-editor-page .container { 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 0 24px;
+}
 
 /* 让头部这一个 .container 变成通栏，不受居中约束 */
 .mx-editor-header .container {
@@ -22,6 +27,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.mx-editor-header .container,
+.mx-editor-main > .container {
+  padding-inline: var(--page-gutter) !important;
+  box-sizing: border-box;
 }
 
 /* 垂直控制：用 flex 中线对齐，更稳 */
@@ -54,7 +65,7 @@
 }
 
 /* 顶部右侧操作区，与课程需求页一致 */
-.step-header-actions { display: flex; gap: 16px; }
+.step-header-actions { display: flex; gap: 16px; margin-right: 0; }
 
 /* “保存并退出”同款样式 */
 .ghost-button {
@@ -72,9 +83,19 @@
 /* 主区域：左右两栏 */
 .mx-editor-main { padding: 8px 0; height: 100%; overflow: hidden; display: grid; }
 /* 调整两列比例：左侧更窄，右侧略宽 */
-.mx-editor-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 18px; align-items: center; height: 100%; }
+.mx-editor-grid { 
+  display: grid; 
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); 
+  gap: 18px; align-items: 
+  center; height: 100%; 
+  justify-items: stretch;
+}
 /* 右侧列靠右并跟随网格垂直居中 */
-.mx-editor-preview { justify-self: end; align-self: center; }
+.mx-editor-preview { 
+  display: flex;
+  justify-content: flex-end;   /* 现有就有，保留 */
+  align-items: center;
+}
 /* 保证左右与容器边缘对齐 */
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
 .mx-editor-grid > .mx-editor-preview { justify-self: end; }
@@ -91,9 +112,12 @@
 .chip-item { padding: 4px 10px; background: #eef2f7; color: #475569; border-radius: 999px; font-size: 12px; }
 
 /* 右侧预览容器：普通块级，靠右宽度限制 */
-.mx-editor-preview .preview-wrap { width: 420px; max-width: 95%; margin-left: auto; margin-right: 0; }
+.mx-editor-preview .preview-wrap {  
+  margin-left: auto;   /* 新增：把自身推到父容器最右 */
+  margin-right: 24px;     /* 保证紧贴右边 */
+}
 /* 预览卡片宽度与学生卡片一致 */
-.mx-editor-preview .listing-card { width: 100%; }
+.mx-editor-preview .listing-card { width: 100%; margin: 0;}
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
 /* 三个连续的 .form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
