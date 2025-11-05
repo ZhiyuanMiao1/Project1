@@ -54,7 +54,7 @@ function MentorProfileEditorPage() {
   }, [navigate]);
 
 
-  
+
   // 为右侧预览准备“学生卡片样式”的数据，以便外观与学生页面一致
   const previewCardData = useMemo(() => ({
     name,
@@ -69,7 +69,7 @@ function MentorProfileEditorPage() {
 
   return (
     <div className="mx-editor-page">
-      {/* 顶部仅保留 MentorX 标志，位置与导航一致 */}
+      
       <header className="mx-editor-header">
         <div className="container">
           <BrandMark className="nav-logo-text" to="/mentor" />
