@@ -53,17 +53,8 @@ function MentorProfileEditorPage() {
     return () => { alive = false; };
   }, [navigate]);
 
-  const previewData = useMemo(() => ({
-    name,
-    degree,
-    school,
-    timezone,
-    courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
-    courseType: '选课指导',
-    expectedDuration: '每周 2 小时',
-    expectedTime: '每周日晚 19:00',
-  }), [name, degree, school, timezone, courses]);
 
+  
   // 为右侧预览准备“学生卡片样式”的数据，以便外观与学生页面一致
   const previewCardData = useMemo(() => ({
     name,
