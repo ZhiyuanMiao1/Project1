@@ -13,9 +13,22 @@
 /* 容器宽度（与现有页面保持一致） */
 .mx-editor-page .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 
-/* 仅保留左上角 MentorX 标志 */
-.mx-editor-header { background: #fff; padding: 24px 0 0; }
-.mx-editor-header .container { padding: 0px 24px; }
+/* 让头部这一个 .container 变成通栏，不受居中约束 */
+.mx-editor-header .container {
+  max-width: none;   /* 取消 1200px 上限 */
+  margin: 0;         /* 取消左右 auto 居中 */
+  width: 100%;       /* 占满宽度 */
+  padding-inline: 120px; /* 左右安全间距自己定 */
+}
+
+/* 垂直控制：用 flex 中线对齐，更稳 */
+.mx-editor-header {
+  display: flex;
+  align-items: center;  /* 垂直置中 BrandMark */
+  min-height: 88px;     /* 控制头部高度（可按另一页的高度改） */
+  padding: 0;           /* 用 min-height + align-items 控竖向更直观 */
+}
+
 /* 兜底统一 BrandMark 的字体样式，确保与主页一致 */
 .mx-editor-header .nav-logo-text {
   font-size: 24px;
