@@ -214,3 +214,79 @@
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* ---- Custom Select (复用学生页“首课时区”样式) ---- */
+.mx-select {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* 在表单中放宽限制，填满可用宽度 */
+.mx-editor-form .mx-select { max-width: 100%; }
+
+.mx-select__button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 12px 40px 12px 16px;
+  font-size: 14px;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.mx-select__button:focus {
+  outline: none;
+  border-color: #111827;
+  box-shadow: none;
+}
+
+.mx-select__caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+}
+
+.mx-select__popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2000;
+}
+
+.mx-select__list {
+  max-height: 300px;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px 0;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE 10+ / Edge legacy */
+}
+
+.mx-select__list::-webkit-scrollbar { width: 0; height: 0; }
+
+.mx-select__option {
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.mx-select__option:hover { background: #f3f4f6; }
+
+/* 选中项显示黑色描边 */
+.mx-select__option.selected {
+  background: transparent;
+  color: inherit;
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
