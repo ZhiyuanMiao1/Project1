@@ -5,6 +5,103 @@ import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 
+// ===== Time zone helpers (shared style/logic with student step 3) =====
+const TIMEZONE_NAME_OVERRIDES = {
+  'Asia/Shanghai': '中国标准时间',
+  'Asia/Tokyo': '日本标准时间',
+  'Asia/Bangkok': '泰国时间',
+  'Asia/Dubai': '海湾标准时间',
+  'Europe/London': '格林尼治标准时间',
+  'Europe/Berlin': '中欧标准时间',
+  'Europe/Moscow': '莫斯科时间',
+  'America/Los_Angeles': '美国太平洋时间',
+  'America/Denver': '美国山地时间',
+  'America/Chicago': '美国中部时间',
+  'America/New_York': '美国东部时间',
+  'Australia/Brisbane': '澳大利亚东部时间',
+  'Pacific/Auckland': '新西兰标准时间',
+  'Pacific/Honolulu': '夏威夷时间',
+  'Pacific/Pago_Pago': '萨摩亚时间',
+  'Atlantic/Azores': '亚速尔群岛时间',
+  'Atlantic/South_Georgia': '南乔治亚时间',
+  'Africa/Johannesburg': '南非时间',
+  'Asia/Karachi': '巴基斯坦标准时间',
+  'Asia/Dhaka': '孟加拉国标准时间',
+  'Pacific/Guadalcanal': '所罗门群岛时间',
+  'America/Halifax': '加拿大大西洋时间',
+  'America/Sao_Paulo': '巴西时间',
+};
+
+const FALLBACK_TIMEZONES = [
+  'Pacific/Pago_Pago', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles',
+  'America/Denver', 'America/Chicago', 'America/New_York', 'America/Halifax',
+  'America/Sao_Paulo', 'Atlantic/South_Georgia', 'Atlantic/Azores', 'Europe/London',
+  'Europe/Berlin', 'Africa/Johannesburg', 'Europe/Moscow', 'Asia/Dubai',
+  'Asia/Karachi', 'Asia/Dhaka', 'Asia/Bangkok', 'Asia/Shanghai',
+  'Asia/Tokyo', 'Australia/Brisbane', 'Pacific/Guadalcanal', 'Pacific/Auckland',
+];
+
+const extractCityName = (tz) => {
+  const segs = (tz || '').split('/');
+  return segs.length > 1 ? segs.slice(1).join(' / ').replace(/_/g, ' ') : tz;
+};
+const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const parts = Object.fromEntries(fmt.formatToParts(referenceDate).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+    const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(iso);
+    return Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+  } catch { return 0; }
+};
+const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
+  const off = getTimeZoneOffsetMinutes(timeZone, referenceDate);
+  const sign = off >= 0 ? '+' : '-';
+  const abs = Math.abs(off);
+  const h = String(Math.floor(abs / 60)).padStart(2, '0');
+  const m = String(abs % 60).padStart(2, '0');
+  return `(UTC${sign}${h}:${m})`;
+};
+const buildTimeZoneLabel = (timeZone, referenceDate = new Date()) => {
+  const offset = formatTimeZoneOffset(timeZone, referenceDate);
+  const city = extractCityName(timeZone);
+  const zh = TIMEZONE_NAME_OVERRIDES[timeZone];
+  const base = zh || city || timeZone;
+  const suffix = zh && city && zh !== city ? ` - ${city}` : '';
+  return `${offset} ${base}${suffix}`;
+};
+const buildTimeZoneOptions = (referenceDate = new Date()) => (
+  FALLBACK_TIMEZONES.map((tz) => ({ value: tz, label: buildTimeZoneLabel(tz, referenceDate) }))
+);
+const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date()) => {
+  if (!selectedValue) return options;
+  const decorated = options.map((o) => ({ ...o, _off: getTimeZoneOffsetMinutes(o.value, referenceDate) }));
+  const selOff = getTimeZoneOffsetMinutes(selectedValue, referenceDate);
+  const later = decorated.filter(o=>o._off>selOff).sort((a,b)=>b._off-a._off);
+  const earlier = decorated.filter(o=>o._off<selOff).sort((a,b)=>b._off-a._off);
+  const selectedInList = decorated.find(o=>o.value===selectedValue) || { value: selectedValue, label: buildTimeZoneLabel(selectedValue, referenceDate), _off: selOff };
+  const merged = [...later, selectedInList, ...earlier].map(({_off, ...r})=>r);
+  const seen = new Set();
+  return merged.filter(o=> (seen.has(o.value) ? false : (seen.add(o.value), true)));
+};
+
+// Short UTC like "UTC+8" for preview card
+const buildShortUTC = (timeZone) => {
+  if (!timeZone) return 'UTC±0';
+  try {
+    const ref = new Date();
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const parts = Object.fromEntries(f.formatToParts(ref).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
+    const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(iso);
+    const offMin = Math.round((tzAsUTC.getTime() - ref.getTime()) / 60000);
+    const sign = offMin >= 0 ? '+' : '-';
+    const h = Math.floor(Math.abs(offMin) / 60);
+    const m = Math.abs(offMin) % 60;
+    return `UTC${sign}${h}${m?`:${String(m).padStart(2,'0')}`:''}`;
+  } catch { return 'UTC±0'; }
+};
+
 function MentorProfileEditorPage() {
   const navigate = useNavigate();
 
@@ -57,25 +154,6 @@ function MentorProfileEditorPage() {
   }, [navigate]);
 
   // 预览卡片数据
-  const buildShortUTC = (timeZone) => {
-    if (!timeZone) return 'UTC±0';
-    try {
-      const fmtOffset = (tz) => {
-        const ref = new Date();
-        const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const parts = Object.fromEntries(f.formatToParts(ref).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
-        const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
-        const tzAsUTC = new Date(iso);
-        const offMin = Math.round((tzAsUTC.getTime() - ref.getTime()) / 60000);
-        const sign = offMin >= 0 ? '+' : '-';
-        const h = Math.floor(Math.abs(offMin) / 60);
-        const m = Math.abs(offMin) % 60;
-        return `UTC${sign}${h}${m?`:${String(m).padStart(2,'0')}`:''}`;
-      };
-      return fmtOffset(timezone);
-    } catch { return 'UTC±0'; }
-  };
-
   const previewCardData = useMemo(() => ({
     name,
     degree: degree || '硕士',
@@ -180,86 +258,6 @@ function MentorProfileEditorPage() {
         )}
       </div>
     );
-  };
-
-  // —— 时区选择：与学生发布课程需求页面第三步一致 —— //
-  const TIMEZONE_NAME_OVERRIDES = {
-    'Asia/Shanghai': '中国标准时间',
-    'Asia/Tokyo': '日本标准时间',
-    'Asia/Bangkok': '泰国时间',
-    'Asia/Dubai': '海湾标准时间',
-    'Europe/London': '格林尼治标准时间',
-    'Europe/Berlin': '中欧标准时间',
-    'Europe/Moscow': '莫斯科时间',
-    'America/Los_Angeles': '美国太平洋时间',
-    'America/Denver': '美国山地时间',
-    'America/Chicago': '美国中部时间',
-    'America/New_York': '美国东部时间',
-    'Australia/Brisbane': '澳大利亚东部时间',
-    'Pacific/Auckland': '新西兰标准时间',
-    'Pacific/Honolulu': '夏威夷时间',
-    'Pacific/Pago_Pago': '萨摩亚时间',
-    'Atlantic/Azores': '亚速尔群岛时间',
-    'Atlantic/South_Georgia': '南乔治亚时间',
-    'Africa/Johannesburg': '南非时间',
-    'Asia/Karachi': '巴基斯坦标准时间',
-    'Asia/Dhaka': '孟加拉国标准时间',
-    'Pacific/Guadalcanal': '所罗门群岛时间',
-    'America/Halifax': '加拿大大西洋时间',
-    'America/Sao_Paulo': '巴西时间',
-  };
-
-  const FALLBACK_TIMEZONES = [
-    'Pacific/Pago_Pago', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles',
-    'America/Denver', 'America/Chicago', 'America/New_York', 'America/Halifax',
-    'America/Sao_Paulo', 'Atlantic/South_Georgia', 'Atlantic/Azores', 'Europe/London',
-    'Europe/Berlin', 'Africa/Johannesburg', 'Europe/Moscow', 'Asia/Dubai',
-    'Asia/Karachi', 'Asia/Dhaka', 'Asia/Bangkok', 'Asia/Shanghai',
-    'Asia/Tokyo', 'Australia/Brisbane', 'Pacific/Guadalcanal', 'Pacific/Auckland',
-  ];
-
-  const extractCityName = (tz) => {
-    const segs = (tz || '').split('/');
-    return segs.length > 1 ? segs.slice(1).join(' / ').replace(/_/g, ' ') : tz;
-  };
-  const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
-    try {
-      const fmt = new Intl.DateTimeFormat('en-US', { timeZone, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const parts = Object.fromEntries(fmt.formatToParts(referenceDate).filter(p=>p.type!=='literal').map(p=>[p.type,p.value]));
-      const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
-      const tzAsUTC = new Date(iso);
-      return Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
-    } catch { return 0; }
-  };
-  const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
-    const off = getTimeZoneOffsetMinutes(timeZone, referenceDate);
-    const sign = off >= 0 ? '+' : '-';
-    const abs = Math.abs(off);
-    const h = String(Math.floor(abs / 60)).padStart(2, '0');
-    const m = String(abs % 60).padStart(2, '0');
-    return `(UTC${sign}${h}:${m})`;
-  };
-  const buildTimeZoneLabel = (timeZone, referenceDate = new Date()) => {
-    const offset = formatTimeZoneOffset(timeZone, referenceDate);
-    const city = extractCityName(timeZone);
-    const zh = TIMEZONE_NAME_OVERRIDES[timeZone];
-    const base = zh || city || timeZone;
-    const suffix = zh && city && zh !== city ? ` - ${city}` : '';
-    return `${offset} ${base}${suffix}`;
-  };
-  const buildTimeZoneOptions = (referenceDate = new Date()) => (
-    FALLBACK_TIMEZONES.map((tz) => ({ value: tz, label: buildTimeZoneLabel(tz, referenceDate) }))
-  );
-  const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date()) => {
-    if (!selectedValue) return options;
-    const decorated = options.map((o) => ({ ...o, _off: getTimeZoneOffsetMinutes(o.value, referenceDate) }));
-    const selOff = getTimeZoneOffsetMinutes(selectedValue, referenceDate);
-    const later = decorated.filter(o=>o._off>selOff).sort((a,b)=>b._off-a._off);
-    const earlier = decorated.filter(o=>o._off<selOff).sort((a,b)=>b._off-a._off);
-    const selectedInList = decorated.find(o=>o.value===selectedValue) || { value: selectedValue, label: buildTimeZoneLabel(selectedValue, referenceDate), _off: selOff };
-    const merged = [...later, selectedInList, ...earlier].map(({_off, ...r})=>r);
-    const seen = new Set();
-    return merged.filter(o=> (seen.has(o.value) ? false : (seen.add(o.value), true)));
   };
 
   const orderedTimeZoneOptions = useMemo(() => {
