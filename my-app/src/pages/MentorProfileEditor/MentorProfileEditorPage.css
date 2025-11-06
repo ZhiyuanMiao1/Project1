@@ -290,3 +290,19 @@
   outline-offset: -2px;
   border-radius: 8px;
 }
+
+/* —— 与“名字/学校名称”同框的前三行内：让学历选择看起来像无边框输入 —— */
+.mx-editor-form > .form-row:nth-of-type(-n+3) .mx-select__button {
+  height: 30px;
+  line-height: 30px;
+  border: none;              /* 去掉可见边框 */
+  background: transparent;   /* 透明背景，与组内输入一致 */
+  border-radius: 0;          /* 去掉圆角 */
+  padding: 0 8px;            /* 与输入同样的左右内边距 */
+  box-shadow: none;
+}
+.mx-editor-form > .form-row:nth-of-type(-n+3) .mx-select__button:focus {
+  outline: none;
+  border: none;              /* 聚焦也不出现边框 */
+  box-shadow: none;
+}
