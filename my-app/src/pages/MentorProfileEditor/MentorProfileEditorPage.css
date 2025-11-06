@@ -248,7 +248,15 @@
   top: 50%;
   transform: translateY(-50%);
   color: #6b7280;
+  width: 20px;              /* 更大一点 */
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;     /* 不拦截点击 */
 }
+
+.mx-select__caret svg { width: 18px; height: 18px; display: block; }
 
 .mx-select__popover {
   position: absolute;
