@@ -188,7 +188,7 @@
 .mx-editor-form > .form-row:nth-of-type(-n+5) > label {
   margin: 0;
   font-size: 14px;
-  color: #111827;
+  color: #1f2937; /* 较深的灰色 */
 }
 
 /* 组内输入去掉独立边框，像在一个大框中填写 */
@@ -202,6 +202,7 @@
   background: transparent;
   box-shadow: none;
   box-sizing: border-box;
+  color: #111827;           /* 实际输入为黑色 */
 }
 
 .mx-editor-form > .form-row:nth-of-type(-n+5) input:focus,
@@ -217,6 +218,31 @@
 .mx-editor-form > .form-row:nth-of-type(-n+5) select {
   -webkit-appearance: none;
   appearance: none;
+}
+
+/* 下拉按钮里的文本颜色：保持黑色（包括默认选中） */
+.mx-select__label { color: #111827; }
+
+/* 可授课课程改为多行文本，放在信息框内保持统一左对齐、无边框 */
+.mx-editor-form > .form-row:nth-of-type(5) textarea {
+  width: 100%;
+  min-height: 72px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 8px 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;  /* 允许用户拉伸 */
+  box-shadow: none;
+  color: #111827;           /* 实际输入为黑色 */
+}
+.mx-editor-form > .form-row:nth-of-type(5) textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+.mx-editor-form > .form-row:nth-of-type(5) textarea::placeholder {
+  color: #9ca3af;           /* 预设占位变浅灰 */
 }
 
 /* ---- Custom Select (复用学生页“首课时区”样式) ---- */

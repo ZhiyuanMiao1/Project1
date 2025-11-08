@@ -106,14 +106,14 @@ function MentorProfileEditorPage() {
   const navigate = useNavigate();
 
   // 基本资料（默认值使右侧预览完整）
-  const [name, setName] = useState('导师姓名');
+  const [name, setName] = useState('');
   const [degree, setDegree] = useState('硕士'); // 本科 / 硕士 / PhD
-  const [school, setSchool] = useState('哈佛大学');
+  const [school, setSchool] = useState('');
   // 时区（IANA 名称），用于自定义下拉
   const [timezone, setTimezone] = useState(() => {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'; } catch { return 'Asia/Shanghai'; }
   });
-  const [coursesInput, setCoursesInput] = useState('Python编程, 机器学习, 深度学习');
+  const [coursesInput, setCoursesInput] = useState('');
 
   const courses = useMemo(
     () => coursesInput.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
@@ -352,7 +352,7 @@ function MentorProfileEditorPage() {
           <section className="mx-editor-form">
             <div className="form-row">
               <label htmlFor="mx-name">名字</label>
-              <input id="mx-name" type="text" placeholder="请输入姓名" value={name} onChange={(e) => setName(e.target.value)} />
+              <input id="mx-name" type="text" placeholder="导师姓名" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="form-row">
@@ -363,7 +363,7 @@ function MentorProfileEditorPage() {
 
             <div className="form-row">
               <label htmlFor="mx-school">学校名称</label>
-              <input id="mx-school" type="text" placeholder="例如：哈佛大学" value={school} onChange={(e) => setSchool(e.target.value)} />
+              <input id="mx-school" type="text" placeholder="例如：哈佛大学（可选）" value={school} onChange={(e) => setSchool(e.target.value)} />
             </div>
 
             <div className="form-row">
