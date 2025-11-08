@@ -155,9 +155,9 @@ function MentorProfileEditorPage() {
 
   // 预览卡片数据
   const previewCardData = useMemo(() => ({
-    name,
+    name: '导师称呼',
     degree: degree || '硕士',
-    school: school || '哈佛大学',
+    school: school || '学校',
     rating: 4.9,
     reviewCount: 120,
     timezone: buildShortUTC(timezone),
@@ -352,7 +352,7 @@ function MentorProfileEditorPage() {
           <section className="mx-editor-form">
             <div className="form-row">
               <label htmlFor="mx-name">名字</label>
-              <input id="mx-name" type="text" placeholder="导师姓名" value={name} onChange={(e) => setName(e.target.value)} />
+              <input id="mx-name" type="text" placeholder="导师称呼" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="form-row">
@@ -363,7 +363,7 @@ function MentorProfileEditorPage() {
 
             <div className="form-row">
               <label htmlFor="mx-school">学校名称</label>
-              <input id="mx-school" type="text" placeholder="例如：哈佛大学（可选）" value={school} onChange={(e) => setSchool(e.target.value)} />
+              <input id="mx-school" type="text" placeholder="可选填" value={school} onChange={(e) => setSchool(e.target.value)} />
             </div>
 
             <div className="form-row">
@@ -375,7 +375,7 @@ function MentorProfileEditorPage() {
               <label htmlFor="mx-courses">可授课课程</label>
               <textarea
                 id="mx-courses"
-                placeholder="可换行输入：例如\nPython编程\n机器学习\n深度学习"
+                placeholder="Python编程，机器学习，深度学习"
                 value={coursesInput}
                 onChange={(e) => setCoursesInput(e.target.value)}
                 rows={3}
