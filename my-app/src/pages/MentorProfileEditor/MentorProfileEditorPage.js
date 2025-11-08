@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+// Use clean-encoded stylesheet to avoid garbled comments
 import './MentorProfileEditorPage.css';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
@@ -108,6 +109,7 @@ function MentorProfileEditorPage() {
 
   // 基本资料（默认值使右侧预览完整）
   const [name, setName] = useState('');
+  const [gender, setGender] = useState(''); // 男 / 女（空=未选择）
   const [degree, setDegree] = useState('硕士'); // 本科 / 硕士 / PhD
   const [school, setSchool] = useState('');
   // 时区（IANA 名称），用于自定义下拉
@@ -156,7 +158,7 @@ function MentorProfileEditorPage() {
 
   // 预览卡片数据
   const previewCardData = useMemo(() => ({
-    name: '导师称呼',
+    name: name || '导师称呼',
     degree: degree || '硕士',
     school: school || '学校',
     rating: 4.9,
@@ -172,6 +174,77 @@ function MentorProfileEditorPage() {
     { value: '硕士', label: '硕士' },
     { value: 'PhD', label: 'PhD' },
   ]), []);
+
+  // —— 性别选择 —— //
+  const GENDER_OPTIONS = useMemo(() => ([
+    { value: '男', label: '男' },
+    { value: '女', label: '女' },
+  ]), []);
+
+  const GenderSelect = ({ id, value, onChange }) => {
+    const [open, setOpen] = useState(false);
+    const buttonRef = useRef(null);
+    const listRef = useRef(null);
+
+    useEffect(() => {
+      if (!open) return;
+      const listEl = listRef.current; if (!listEl) return;
+      const idx = Math.max(0, GENDER_OPTIONS.findIndex(o => o.value === value));
+      const itemEl = listEl.querySelector(`[data-index="${idx}"]`); if (!itemEl) return;
+      const listH = listEl.clientHeight; const top = itemEl.offsetTop; const h = itemEl.offsetHeight;
+      const target = top - Math.max(0, (listH - h) / 2);
+      try { listEl.scrollTo({ top: target, behavior: 'auto' }); } catch { listEl.scrollTop = target; }
+    }, [open, value]);
+
+    useEffect(() => {
+      const onDoc = (e) => {
+        if (!open) return;
+        const btn = buttonRef.current; const list = listRef.current;
+        if (btn && btn.contains(e.target)) return;
+        if (list && list.contains(e.target)) return;
+        setOpen(false);
+      };
+      document.addEventListener('mousedown', onDoc);
+      return () => document.removeEventListener('mousedown', onDoc);
+    }, [open]);
+
+    const selectedLabel = useMemo(() => GENDER_OPTIONS.find(o => o.value === value)?.label || '', [value]);
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') { setOpen(false); return; }
+      if (!open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); return; }
+      if (!open) return;
+      const cur = Math.max(0, GENDER_OPTIONS.findIndex(o => o.value === value));
+      if (e.key === 'ArrowDown') { e.preventDefault(); onChange(GENDER_OPTIONS[Math.min(GENDER_OPTIONS.length - 1, cur + 1)].value); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); onChange(GENDER_OPTIONS[Math.max(0, cur - 1)].value); }
+      else if (e.key === 'Enter') { e.preventDefault(); setOpen(false); }
+    };
+
+    return (
+      <div className="mx-select" data-open={open ? 'true' : 'false'}>
+        <button id={id} ref={buttonRef} type="button" className="mx-select__button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(v => !v)} onKeyDown={handleKeyDown}>
+          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+          <span className="mx-select__caret" aria-hidden>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </span>
+        </button>
+        {open && (
+          <div className="mx-select__popover">
+            <ul ref={listRef} role="listbox" aria-labelledby={id} className="mx-select__list">
+              {GENDER_OPTIONS.map((opt, index) => {
+                const selected = opt.value === value;
+                return (
+                  <li key={opt.value} role="option" aria-selected={selected} data-index={index} className={`mx-select__option ${selected ? 'selected' : ''}`} onClick={() => { onChange(opt.value); setOpen(false); }}>
+                    {opt.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const DegreeSelect = ({ id, value, onChange }) => {
     const [open, setOpen] = useState(false);
@@ -354,6 +427,11 @@ function MentorProfileEditorPage() {
             <div className="form-row">
               <label htmlFor="mx-name">名字</label>
               <input id="mx-name" type="text" placeholder="导师称呼" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+
+            <div className="form-row">
+              <label htmlFor="mx-gender">性别</label>
+              <GenderSelect id="mx-gender" value={gender} onChange={setGender} />
             </div>
 
             <div className="form-row">

@@ -1,14 +1,14 @@
 /* 页面外层 */
 .mx-editor-page {
   display: grid;
-  grid-template-rows: auto 1fr; /* 顶部品牌 + 主区域 */
+  grid-template-rows: auto 1fr;  /* 顶部品牌 + 主区域 */
   height: 100dvh;               /* 视口高度 */
   overflow: hidden;             /* 禁止外层滚动 */
   background: #ffffff;
   color: #111827;
   padding-top: 0;
   --page-gutter: 120px;
-  font-family: "Helvetica Neue", Arial, sans-serif; /* 与其它页面一致 */
+  font-family: "Helvetica Neue", Arial, sans-serif;  /* 与其它页面一致 */
 }
 
 /* 容器宽度（与现有页面保持一致） */
@@ -23,7 +23,7 @@
   max-width: none;   /* 取消 1200px 上限 */
   margin: 0;         /* 取消左右 auto 居中 */
   width: 100%;       /* 占满宽度 */
-  padding-inline: 120px; /* 左右安全间距自己定 */
+  padding-inline: 120px;  /* 左右安全间距自己定 */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -146,20 +146,20 @@
 
 /* 右侧预览容器：普通块级，靠右宽度限制 */
 .mx-editor-preview .preview-wrap {  
-  margin-left: auto;   /* 新增：把自身推到父容器最右 */
+  margin-left: auto;   /* 新增：把自身推到父容器最�?*/
   margin-right: 24px;     /* 保证紧贴右边 */
 }
-/* 预览卡片宽度与学生卡片一致 */
+/* 预览卡片宽度与学生卡片一致*/
 .mx-editor-preview .listing-card { width: 100%; margin: 0;}
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
-/* 三个连续的 .form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
-.mx-editor-form > .form-row:nth-of-type(-n+5) {
+/* 三个连续�?.form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
+.mx-editor-form > .form-row:nth-of-type(-n+6) {
   display: grid;
   grid-template-columns: 96px 1fr;  /* 左标签固定宽度，右侧自适应 */
   align-items: center;
   gap: 12px;
-  margin: 0;                         /* 取消外距，拼接成一个整体 */
+  margin: 0;                         /* 取消外距，拼接成一个整体*/
   padding: 8px 12px;
   background: #ffffff;
   border-left: 1px solid #e5e7eb;
@@ -171,60 +171,61 @@
   border-top-right-radius: 12px;
 }
 .mx-editor-form > .form-row:nth-of-type(2) {
-  border-top: 1px solid #e5e7eb;     /* 中间分割线 */
+  border-top: 1px solid #e5e7eb;     /* 中间分割线*/
 }
 .mx-editor-form > .form-row:nth-of-type(3) {
-  border-top: 1px solid #e5e7eb;     /* 中间分割线 */
+  border-top: 1px solid #e5e7eb;     /* 中间分割线*/
 }
 .mx-editor-form > .form-row:nth-of-type(4) { border-top: 1px solid #e5e7eb; }
-.mx-editor-form > .form-row:nth-of-type(5) {
-  border-top: 1px solid #e5e7eb;     /* 中间分割线 */
+.mx-editor-form > .form-row:nth-of-type(5) { border-top: 1px solid #e5e7eb; }
+.mx-editor-form > .form-row:nth-of-type(6) {
+  border-top: 1px solid #e5e7eb;     /* 中间分割线*/
   border-bottom: 1px solid #e5e7eb;  /* 底部闭合 */
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 12px;
 }
 
 /* 左侧标签样式：与输入同高居中显示 */
-.mx-editor-form > .form-row:nth-of-type(-n+5) > label {
+.mx-editor-form > .form-row:nth-of-type(-n+6) > label {
   margin: 0;
   font-size: 14px;
-  color: #1f2937; /* 较深的灰色 */
+  color: #1f2937; /* 较深的灰色*/
 }
 
 /* 组内输入去掉独立边框，像在一个大框中填写 */
-.mx-editor-form > .form-row:nth-of-type(-n+5) input,
-.mx-editor-form > .form-row:nth-of-type(-n+5) select {
+.mx-editor-form > .form-row:nth-of-type(-n+6) input,
+.mx-editor-form > .form-row:nth-of-type(-n+6) select {
   height: 30px;
   line-height: 30px;
   border: none;
   border-radius: 0;
-  padding: 0px 8px;         /* 留一点内边距，保持易用 */
+  padding: 0px 8px;         /* 留一点内边距，保持易用*/
   background: transparent;
   box-shadow: none;
   box-sizing: border-box;
-  color: #111827;           /* 实际输入为黑色 */
+  color: #111827;           /* 实际输入为黑色*/
 }
 
-.mx-editor-form > .form-row:nth-of-type(-n+5) input:focus,
-.mx-editor-form > .form-row:nth-of-type(-n+5) select:focus {
+.mx-editor-form > .form-row:nth-of-type(-n+6) input:focus,
+.mx-editor-form > .form-row:nth-of-type(-n+6) select:focus {
   outline: none;
   box-shadow: none;
 }
-.mx-editor-form > .form-row:nth-of-type(-n+5) input::placeholder {
+.mx-editor-form > .form-row:nth-of-type(-n+6) input::placeholder {
   color: #9ca3af;
 }
 
-/* 去掉各浏览器对 select 的默认样式差异（尤其是高度） */
-.mx-editor-form > .form-row:nth-of-type(-n+5) select {
+/* 去掉各浏览器�?select 的默认样式差异（尤其是高度） */
+.mx-editor-form > .form-row:nth-of-type(-n+6) select {
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* 下拉按钮里的文本颜色：保持黑色（包括默认选中） */
+/* 下拉按钮里的文本颜色：保持黑色（包括默认选中) */
 .mx-select__label { color: #111827; }
 
 /* 可授课课程改为多行文本，放在信息框内保持统一左对齐、无边框 */
-.mx-editor-form > .form-row:nth-of-type(5) textarea {
+.mx-editor-form > .form-row:nth-of-type(6) textarea {
   width: 100%;
   min-height: 72px;
   border: none;
@@ -237,22 +238,22 @@
   box-shadow: none;
   color: #111827;           /* 实际输入为黑色 */
 }
-.mx-editor-form > .form-row:nth-of-type(5) textarea:focus {
+.mx-editor-form > .form-row:nth-of-type(6) textarea:focus {
   outline: none;
   box-shadow: none;
 }
-.mx-editor-form > .form-row:nth-of-type(5) textarea::placeholder {
+.mx-editor-form > .form-row:nth-of-type(6) textarea::placeholder {
   color: #9ca3af;           /* 预设占位变浅灰 */
 }
 
-/* ---- Custom Select (复用学生页“首课时区”样式) ---- */
+/* ---- Custom Select (复用学生页“首课时区”样式 ---- */
 .mx-select {
   position: relative;
   width: 100%;
   max-width: 400px;
 }
 
-/* 在表单中放宽限制，填满可用宽度 */
+/* 在表单中放宽限制，填满可用宽度*/
 .mx-editor-form .mx-select { max-width: 100%; }
 
 .mx-select__button {
@@ -278,7 +279,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: #6b7280;
-  width: 20px;              /* 更大一点 */
+  width: 20px;              /* 更大一点*/
   height: 20px;
   display: inline-flex;
   align-items: center;
@@ -320,7 +321,7 @@
 
 .mx-select__option:hover { background: #f3f4f6; }
 
-/* 选中项显示黑色描边 */
+/* 选中项显示黑色描�?*/
 .mx-select__option.selected {
   background: transparent;
   color: inherit;
@@ -330,7 +331,7 @@
 }
 
 /* —— 与“名字/学校名称”同框的前三行内：让学历选择看起来像无边框输入 —— */
-.mx-editor-form > .form-row:nth-of-type(-n+5) .mx-select__button {
+.mx-editor-form > .form-row:nth-of-type(-n+6) .mx-select__button {
   height: 30px;
   line-height: 30px;
   border: none;              /* 去掉可见边框 */
@@ -339,14 +340,14 @@
   padding: 0 8px;            /* 与输入同样的左右内边距 */
   box-shadow: none;
 }
-.mx-editor-form > .form-row:nth-of-type(-n+5) .mx-select__button:focus {
+.mx-editor-form > .form-row:nth-of-type(-n+6) .mx-select__button:focus {
   outline: none;
   border: none;              /* 聚焦也不出现边框 */
   box-shadow: none;
 }
 
 /* 可授课课程改为多行文本，放在信息框内保持统一左对齐、无边框 */
-.mx-editor-form > .form-row:nth-of-type(5) textarea {
+.mx-editor-form > .form-row:nth-of-type(6) textarea {
   width: 100%;
   min-height: 72px;
   border: none;
@@ -358,7 +359,7 @@
   resize: vertical;  /* 允许用户拉伸 */
   box-shadow: none;
 }
-.mx-editor-form > .form-row:nth-of-type(5) textarea:focus {
+.mx-editor-form > .form-row:nth-of-type(6) textarea:focus {
   outline: none;
   box-shadow: none;
 }
