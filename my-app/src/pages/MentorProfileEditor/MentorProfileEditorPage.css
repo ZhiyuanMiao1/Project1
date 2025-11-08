@@ -318,3 +318,21 @@
   border: none;              /* 聚焦也不出现边框 */
   box-shadow: none;
 }
+
+/* 可授课课程改为多行文本，放在信息框内保持统一左对齐、无边框 */
+.mx-editor-form > .form-row:nth-of-type(5) textarea {
+  width: 100%;
+  min-height: 72px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 8px 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;  /* 允许用户拉伸 */
+  box-shadow: none;
+}
+.mx-editor-form > .form-row:nth-of-type(5) textarea:focus {
+  outline: none;
+  box-shadow: none;
+}

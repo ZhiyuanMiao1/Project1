@@ -373,14 +373,13 @@ function MentorProfileEditorPage() {
 
             <div className="form-row">
               <label htmlFor="mx-courses">可授课课程</label>
-              <input id="mx-courses" type="text" placeholder="用逗号分隔多个课程，例如：Python编程, 机器学习, 深度学习" value={coursesInput} onChange={(e) => setCoursesInput(e.target.value)} />
-              {courses.length > 0 && (
-                <div className="chips-preview">
-                  {courses.map((c) => (
-                    <span key={c} className="chip-item">{c}</span>
-                  ))}
-                </div>
-              )}
+              <textarea
+                id="mx-courses"
+                placeholder="可换行输入：例如\nPython编程\n机器学习\n深度学习"
+                value={coursesInput}
+                onChange={(e) => setCoursesInput(e.target.value)}
+                rows={3}
+              />
             </div>
           </section>
 
