@@ -15,6 +15,7 @@ const TIMEZONE_NAME_OVERRIDES = {
   'Europe/Berlin': '中欧标准时间',
   'Europe/Moscow': '莫斯科时间',
   'America/Los_Angeles': '美国太平洋时间',
+  'America/Anchorage': '美国阿拉斯加时间',
   'America/Denver': '美国山地时间',
   'America/Chicago': '美国中部时间',
   'America/New_York': '美国东部时间',
