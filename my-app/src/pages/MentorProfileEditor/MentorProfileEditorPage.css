@@ -8,6 +8,7 @@
   color: #111827;
   padding-top: 0;
   --page-gutter: 120px;
+  --editor-form-width: 450px;  /* 新增：左列表单的统一宽度 */
   font-family: "Helvetica Neue", Arial, sans-serif;  /* 与其它页面一致 */
 }
 
@@ -116,14 +117,41 @@
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
 .mx-editor-grid > .mx-editor-preview { justify-self: end; }
 
+
+.mx-editor-avatar-shell {
+  width: var(--editor-form-width);  /* 和表单同宽 */
+  display: flex;
+  justify-content: center;          /* 圆形在这 450px 里面水平居中 */
+}
+
+/* 标题下方的头像圆形按钮 */
+.mx-editor-avatar {
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  border: 2px dashed #d1d5db;
+  background: #f9fafb;
+  margin-top: 20px;    /* 标题 和 圆 之间的距离 */
+  margin-bottom: 4px; /* 圆 和 左右两列 之间的距离 => 决定“左侧往下多少” */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mx-editor-avatar-text {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 /* 左侧表单 */
 /* 移除外圈边框线，仅保留圆角与白色背景 */
 .mx-editor-form { 
   background: #fff; 
   border: none; 
   border-radius: 16px; 
-  padding: 8px 16px 8px 0; 
-  width: 450px; 
+  padding: 0 16px 8px 0; 
+  width: var(--editor-form-width); 
 }
 .mx-editor-form .form-title { font-size: 18px; margin: 2px 0 8px; }
 .mx-editor-form .form-row { 

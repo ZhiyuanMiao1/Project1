@@ -420,6 +420,16 @@ function MentorProfileEditorPage() {
       <main className="mx-editor-main">
         <div className="container">
           <h1 className="mx-editor-title">编辑个人名片</h1>
+          {/* 头像圆形按钮：在标题和下面内容中间 */}
+          <div className="mx-editor-avatar-shell">
+            <button
+              type="button"
+              className="mx-editor-avatar"
+              aria-label="修改头像"
+            >
+              <span className="mx-editor-avatar-text">修改头像</span>
+            </button>
+          </div>
         </div>
         <div className="container mx-editor-grid">
           {/* 左侧：表单 */}
