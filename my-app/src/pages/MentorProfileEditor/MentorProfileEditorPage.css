@@ -86,7 +86,7 @@
   font-size: 32px;         /* 放大 */
   font-weight: 700;
   line-height: 1.25;
-  margin: 6px 0 12px;      /* 往上贴一点，上方留 6px，下方留 12px */
+  margin: 6px 0 6px;      /* 往上贴一点，上方留 6px，下方留 12px */
   color: #111827;
 }
 
@@ -132,7 +132,7 @@
   border: 2px dashed #d1d5db;
   background: #f9fafb;
   margin-top: 20px;    /* 标题 和 圆 之间的距离 */
-  margin-bottom: 4px; /* 圆 和 左右两列 之间的距离 => 决定“左侧往下多少” */
+  margin-bottom: 0; /* 圆 和 左右两列 之间的距离 => 决定“左侧往下多少” */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -189,7 +189,7 @@
 .mx-editor-preview .listing-card { width: 100%; margin: 0;}
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
-/* 三个连续�?.form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
+/* 三个连续.form-row 组成一个“卡片框”，左侧为标签，右侧为可填写区域 */
 .mx-editor-form > .form-row:nth-of-type(-n+6) {
   display: grid;
   grid-template-columns: 96px 1fr;  /* 左标签固定宽度，右侧自适应 */
