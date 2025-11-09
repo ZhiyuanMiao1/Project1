@@ -103,7 +103,7 @@
   display: grid; 
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); 
   gap: 18px;
-  align-items: center; 
+  align-items: flex-start; 
   height: 100%; 
   justify-items: stretch;
 }
@@ -112,6 +112,7 @@
   display: flex;
   justify-content: flex-end;   /* 现有就有，保留 */
   align-items: center;
+  align-self: center;   /* 新增：自己在这一行里垂直居中 */
 }
 /* 保证左右与容器边缘对齐 */
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
@@ -132,7 +133,7 @@
   border: 2px dashed #d1d5db;
   background: #f9fafb;
   margin-top: 20px;    /* 标题 和 圆 之间的距离 */
-  margin-bottom: 0; /* 圆 和 左右两列 之间的距离 => 决定“左侧往下多少” */
+  margin-bottom: 20px; /* 圆 和 左右两列 之间的距离 => 决定“左侧往下多少” */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,7 +183,7 @@
 .mx-editor-preview .preview-wrap {  
   margin-left: auto;   /* 新增：把自身推到父容器最�?*/
   margin-right: 120px;     /* 保证紧贴右边 */
-  transform: translateY(-60px) scale(1.3);          /* 整体放大 */
+  transform: translateY(-160px) scale(1.3);          /* 整体放大 */
   transform-origin: center right;  /* 以右侧中线为中心放大 */
 }
 /* 预览卡片宽度与学生卡片一致*/
