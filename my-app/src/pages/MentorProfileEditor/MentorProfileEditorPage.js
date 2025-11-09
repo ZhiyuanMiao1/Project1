@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
+import defaultAvatar from '../../assets/images/default-avatar.jpg';
 
 // ===== Time zone helpers (shared style/logic with student step 3) =====
 const TIMEZONE_NAME_OVERRIDES = {
@@ -123,6 +124,28 @@ function MentorProfileEditorPage() {
     [coursesInput]
   );
 
+  // 头像：默认显示项目内的 default-avatar，可点击上传预览
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const avatarInputRef = useRef(null);
+
+  const onPickAvatar = () => {
+    if (avatarInputRef.current) avatarInputRef.current.click();
+  };
+
+  const onAvatarChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const nextUrl = URL.createObjectURL(file);
+    setAvatarUrl((prev) => {
+      try { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); } catch {}
+      return nextUrl;
+    });
+  };
+
+  useEffect(() => () => {
+    try { if (avatarUrl && avatarUrl.startsWith('blob:')) URL.revokeObjectURL(avatarUrl); } catch {}
+  }, [avatarUrl]);
+
   // 权限校验
   useEffect(() => {
     let alive = true;
@@ -166,7 +189,8 @@ function MentorProfileEditorPage() {
     timezone: buildShortUTC(timezone),
     languages: '中文, 英语',
     courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
-  }), [name, degree, school, timezone, courses]);
+    imageUrl: avatarUrl || null,
+  }), [name, degree, school, timezone, courses, avatarUrl]);
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
@@ -420,15 +444,27 @@ function MentorProfileEditorPage() {
       <main className="mx-editor-main">
         <div className="container">
           <h1 className="mx-editor-title">编辑个人名片</h1>
-          {/* 头像圆形按钮：在标题和下面内容中间 */}
+          {/* 头像：默认显示 default-avatar，点击可上传 */}
           <div className="mx-editor-avatar-shell">
             <button
               type="button"
               className="mx-editor-avatar"
               aria-label="修改头像"
+              onClick={onPickAvatar}
             >
-              <span className="mx-editor-avatar-text">修改头像</span>
+              <img
+                className="mx-editor-avatar-img"
+                src={avatarUrl || defaultAvatar}
+                alt="头像"
+              />
             </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={onAvatarChange}
+            />
           </div>
         </div>
         <div className="container mx-editor-grid">
