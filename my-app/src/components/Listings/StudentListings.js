@@ -20,6 +20,7 @@ function StudentListings() {
     {
       id: 1,
       name: '张三',
+      gender: '男',
       degree: 'PhD',
       school: '哈佛大学',
       rating: 4.9,
@@ -32,6 +33,7 @@ function StudentListings() {
     {
       id: 2,
       name: '李四',
+      gender: '女',
       degree: 'MSc',
       school: '斯坦福大学',
       rating: 4.8,
@@ -44,6 +46,7 @@ function StudentListings() {
     {
       id: 3,
       name: '王五',
+      gender: '男',
       degree: 'PhD',
       school: '麻省理工学院',
       rating: 4.7,
@@ -56,6 +59,7 @@ function StudentListings() {
     {
       id: 4,
       name: '赵六',
+      gender: '男',
       degree: 'MSc',
       school: '清华大学',
       rating: 5.0,
@@ -68,6 +72,7 @@ function StudentListings() {
     {
       id: 5,
       name: 'Emily Smith',
+      gender: '女',
       degree: 'PhD',
       school: '剑桥大学',
       rating: 4.85,
@@ -80,6 +85,7 @@ function StudentListings() {
     {
       id: 6,
       name: 'Michael Johnson',
+      gender: '男',
       degree: 'MSc',
       school: '加州理工学院',
       rating: 4.75,
@@ -92,6 +98,7 @@ function StudentListings() {
     {
       id: 7,
       name: '刘强',
+      gender: '男',
       degree: 'PhD',
       school: '香港大学',
       rating: 4.9,
@@ -104,6 +111,7 @@ function StudentListings() {
     {
       id: 8,
       name: 'Anna Müller',
+      gender: '女',
       degree: 'MSc',
       school: '慕尼黑工业大学',
       rating: 4.6,
@@ -116,6 +124,7 @@ function StudentListings() {
     {
       id: 9,
       name: '田七',
+      gender: '男',
       degree: 'PhD',
       school: '东京大学',
       rating: 5.0,
@@ -128,6 +137,7 @@ function StudentListings() {
     {
       id: 10,
       name: 'Carlos Lopez',
+      gender: '男',
       degree: 'PhD',
       school: '墨西哥国立自治大学',
       rating: 4.8,
