@@ -127,6 +127,8 @@ function MentorProfileEditorPage() {
   // 头像：默认显示项目内的 default-avatar，可点击上传预览
   const [avatarUrl, setAvatarUrl] = useState(null);
   const avatarInputRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const onPickAvatar = () => {
     if (avatarInputRef.current) avatarInputRef.current.click();
@@ -145,6 +147,16 @@ function MentorProfileEditorPage() {
   useEffect(() => () => {
     try { if (avatarUrl && avatarUrl.startsWith('blob:')) URL.revokeObjectURL(avatarUrl); } catch {}
   }, [avatarUrl]);
+
+  const handleSave = () => {
+    // TODO: 接入后端保存接口
+    setIsRefreshing(true);
+    // 模拟一次轻量“整页刷新”动画：先显示遮罩，再重建页面主体
+    setTimeout(() => {
+      setRefreshKey((k) => k + 1);
+      setTimeout(() => setIsRefreshing(false), 600);
+    }, 200);
+  };
 
   // 权限校验
   useEffect(() => {
@@ -431,6 +443,7 @@ function MentorProfileEditorPage() {
 
   return (
     <div className="mx-editor-page">
+      <div key={refreshKey}>
       <header className="mx-editor-header">
         <div className="container">
           <BrandMark className="nav-logo-text" to="/mentor" />
@@ -525,6 +538,15 @@ function MentorProfileEditorPage() {
           </aside>
         </div>
       </main>
+      </div>
+      {/* 底部居中的保存按钮 */}
+      <div className="mx-editor-save-floating">
+        <button type="button" className="mx-save-button" onClick={handleSave}>保存</button>
+      </div>
+      {/* 整页刷新遮罩 */}
+      <div className={`mx-page-refresh-mask ${isRefreshing ? 'show' : ''}`} aria-hidden={!isRefreshing}>
+        <div className="mx-refresh-spinner" />
+      </div>
     </div>
   );
 }
