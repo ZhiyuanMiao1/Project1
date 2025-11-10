@@ -171,10 +171,13 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  font-size: 18px;
+  font-size: 22px;       /* 稍大，提升可读性 */
+  font-weight: 1000;      /* 加粗 */
   line-height: 1;
   user-select: none;
   z-index: 2;
+  /* 额外加粗轮廓，兼容 WebKit 内核 */
+  -webkit-text-stroke: 0.6px currentColor;
 }
 .gender-male { color: #3b82f6; }  /* 蓝色 */
 .gender-female { color: #ec4899; } /* 粉色 */
