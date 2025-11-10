@@ -541,7 +541,11 @@ function MentorProfileEditorPage() {
       </div>
       {/* 底部居中的保存按钮 */}
       <div className="mx-editor-save-floating">
-        <button type="button" className="mx-save-button" onClick={handleSave}>保存</button>
+        <button
+          type="button"
+          className="mx-save-button"
+          onClick={(e) => { try { e.currentTarget.blur(); } catch {} handleSave(); }}
+        >保存</button>
       </div>
       {/* 整页刷新遮罩 */}
       <div className={`mx-page-refresh-mask ${isRefreshing ? 'show' : ''}`} aria-hidden={!isRefreshing}>

@@ -193,7 +193,9 @@
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 .mx-save-button:hover { filter: brightness(0.95); }
-.mx-save-button:focus { outline: 2px solid #000; outline-offset: 2px; }
+/* 移除鼠标点击后的黑色外描边，仅键盘聚焦显示 */
+.mx-save-button:focus { outline: none; }
+.mx-save-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
 
 /* 保存成功提示（更优雅的前端方式） */
 /* 整页刷新遮罩 */
