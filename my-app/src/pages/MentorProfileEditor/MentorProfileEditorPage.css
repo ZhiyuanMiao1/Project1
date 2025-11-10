@@ -167,7 +167,8 @@
     沿半径平移到圆周上（半径=90px），使图标中心落在圆上，
     然后反向旋转回去，保持图标正向。
   */
-  transform: translate(-50%, -50%) rotate(30deg) translateX(90px) rotate(-30deg);
+  /* 约 5 点半方向，更靠下 */
+  transform: translate(-50%, -50%) rotate(48deg) translateX(90px) rotate(-48deg);
 }
 
 /* 左侧表单 */

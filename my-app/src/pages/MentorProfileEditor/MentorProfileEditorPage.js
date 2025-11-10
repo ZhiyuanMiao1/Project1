@@ -458,10 +458,12 @@ function MentorProfileEditorPage() {
                 alt="头像"
               />
               <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                {/* 实心相机：黑色占比更高 */}
-                <path d="M8.8 4h6.4l1.2 2H20a2 2 0 0 1 2 2v8.5A3.5 3.5 0 0 1 18.5 20H5.5A3.5 3.5 0 0 1 2 16.5V8a2 2 0 0 1 2-2h3.6L8.8 4z" fill="currentColor"/>
-                <circle cx="12" cy="13" r="4.5" fill="#fff"/>
-                <circle cx="12" cy="13" r="2.6" fill="currentColor"/>
+                {/* 黑色实心圆底 */}
+                <circle cx="12" cy="12" r="12" fill="currentColor" />
+                {/* 白色线框相机 */}
+                <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
               </svg>
             </button>
             <input
