@@ -30,6 +30,12 @@ function StudentListingCard({ data }) {
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
         </svg>
       </div>
+      {/* 左上角性别标记：男=蓝色♂，女=粉色♀ */}
+      {data.gender && (data.gender === '男' || data.gender === '女') && (
+        <div className={`gender-badge ${data.gender === '男' ? 'gender-male' : 'gender-female'}`} aria-hidden="true">
+          {data.gender === '男' ? '♂' : '♀'}
+        </div>
+      )}
       <img
         className="listing-avatar"
         src={data.imageUrl ? data.imageUrl : defaultImage} // 如果没有头像，使用默认头像

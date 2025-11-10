@@ -182,6 +182,7 @@ function MentorProfileEditorPage() {
   // 预览卡片数据
   const previewCardData = useMemo(() => ({
     name: name || '导师称呼',
+    gender: gender || '',
     degree: degree || '硕士',
     school: school || '学校',
     rating: 4.9,
@@ -190,7 +191,7 @@ function MentorProfileEditorPage() {
     languages: '中文, 英语',
     courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
     imageUrl: avatarUrl || null,
-  }), [name, degree, school, timezone, courses, avatarUrl]);
+  }), [name, gender, degree, school, timezone, courses, avatarUrl]);
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
