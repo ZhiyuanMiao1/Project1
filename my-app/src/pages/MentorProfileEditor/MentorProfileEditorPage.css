@@ -313,6 +313,10 @@
   -webkit-mask: 
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
+  /* 标准属性，解决 lint 对 vendor 前缀的告警 */
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;   /* Safari/WebKit */
           mask-composite: exclude; /* 现代浏览器 */
 }
