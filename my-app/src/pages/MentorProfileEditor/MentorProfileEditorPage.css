@@ -290,10 +290,12 @@
   position: relative;            /* 供伪元素定位 */
   border-color: transparent;     /* 隐去原有边线，交给伪元素处理 */
   background-clip: padding-box;  /* 防止外圈颜色渗入内容 */
-  /* 软阴影：层叠两层更自然 */
+  /* 软阴影：增强层次，依然柔和 */
   box-shadow:
-    0 16px 40px -16px rgba(17,24,39,0.18),
-    0 8px 24px -12px rgba(17,24,39,0.10);
+    0 24px 60px -16px rgba(17,24,39,0.24),
+    0 12px 32px -12px rgba(17,24,39,0.16),
+    0 2px 8px -2px rgba(17,24,39,0.08);
+  transition: transform 0.3s ease, box-shadow 0.35s ease;
 }
 .mx-editor-preview .listing-card::before {
   /* 细到发丝的渐变描边：外扩 1px，视觉更精致 */
@@ -331,8 +333,9 @@
 /* 悬停时保持柔和阴影，不改变布局与动效 */
 .mx-editor-preview .listing-card:hover {
   box-shadow:
-    0 22px 60px -20px rgba(17,24,39,0.22),
-    0 10px 32px -14px rgba(17,24,39,0.14);
+    0 28px 80px -12px rgba(17,24,39,0.30),
+    0 16px 48px -12px rgba(17,24,39,0.22),
+    0 4px 12px -2px rgba(17,24,39,0.12);
 }
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
