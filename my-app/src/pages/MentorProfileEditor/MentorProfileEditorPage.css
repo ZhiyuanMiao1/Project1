@@ -135,9 +135,10 @@
   margin-top: 20px;        /* 标题 和 头像 之间的距离 */
   margin-bottom: 20px;     /* 头像 与 下方内容 的距离 */
   display: inline-block;
-  overflow: hidden;        /* 裁剪为圆形 */
+  overflow: visible;       /* 允许角标越出圆外 */
   padding: 0;              /* 按钮默认内边距清零 */
   cursor: pointer;
+  position: relative;      /* 以便放置角标图标 */
 }
 
 .mx-editor-avatar:focus { outline: 2px solid #111827; }
@@ -149,6 +150,24 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: inherit;  /* 仍按圆形裁剪头像 */
+}
+
+/* 5点钟方向的照相机标志（黑色） */
+.mx-editor-avatar-camera {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  color: #111827;         /* 黑色 */
+  pointer-events: none;   /* 不阻挡点击上传 */
+  /*
+    从中心出发，顺时针旋转 30°（约 5 点钟方向），
+    沿半径平移到圆周上（半径=90px），使图标中心落在圆上，
+    然后反向旋转回去，保持图标正向。
+  */
+  transform: translate(-50%, -50%) rotate(30deg) translateX(90px) rotate(-30deg);
 }
 
 /* 左侧表单 */

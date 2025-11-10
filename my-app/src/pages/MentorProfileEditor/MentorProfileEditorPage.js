@@ -457,6 +457,12 @@ function MentorProfileEditorPage() {
                 src={avatarUrl || defaultAvatar}
                 alt="头像"
               />
+              <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                {/* 实心相机：黑色占比更高 */}
+                <path d="M8.8 4h6.4l1.2 2H20a2 2 0 0 1 2 2v8.5A3.5 3.5 0 0 1 18.5 20H5.5A3.5 3.5 0 0 1 2 16.5V8a2 2 0 0 1 2-2h3.6L8.8 4z" fill="currentColor"/>
+                <circle cx="12" cy="13" r="4.5" fill="#fff"/>
+                <circle cx="12" cy="13" r="2.6" fill="currentColor"/>
+              </svg>
             </button>
             <input
               ref={avatarInputRef}
