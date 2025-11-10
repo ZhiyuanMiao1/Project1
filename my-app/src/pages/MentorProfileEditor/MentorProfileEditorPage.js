@@ -159,7 +159,6 @@ function MentorProfileEditorPage() {
         avatarUrl,
       };
       await api.put('/api/mentor/profile', payload);
-      alert('保存成功');
       // 重建右侧预览卡片，使其重新执行 reveal 动画
       setPreviewReplayKey((k) => k + 1);
     } catch (e) {
