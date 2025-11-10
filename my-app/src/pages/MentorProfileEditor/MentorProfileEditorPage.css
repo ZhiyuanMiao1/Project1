@@ -288,7 +288,12 @@
 /* 1) 发丝级渐变描边（置于卡片外侧，不占据布局空间） */
 .mx-editor-preview .listing-card {
   position: relative;            /* 供伪元素定位 */
-  box-shadow: 0 10px 30px rgba(17,24,39,0.08); /* 柔和环境阴影 */
+  border-color: transparent;     /* 隐去原有边线，交给伪元素处理 */
+  background-clip: padding-box;  /* 防止外圈颜色渗入内容 */
+  /* 软阴影：层叠两层更自然 */
+  box-shadow:
+    0 16px 40px -16px rgba(17,24,39,0.18),
+    0 8px 24px -12px rgba(17,24,39,0.10);
 }
 .mx-editor-preview .listing-card::before {
   /* 细到发丝的渐变描边：外扩 1px，视觉更精致 */
@@ -310,23 +315,24 @@
           mask-composite: exclude; /* 现代浏览器 */
 }
 
-/* 2) 左侧高级色带（贴在卡片之外，保持内部不动） */
+/* 2) 内凹细线（位于卡片内部，提升质感） */
 .mx-editor-preview .listing-card::after {
   content: "";
   position: absolute;
-  left: -10px;                   /* 位于卡片之外 */
-  top: 18px;
-  bottom: 18px;
-  width: 6px;                    /* 纤细色带 */
-  border-radius: 6px;
-  background: linear-gradient(180deg,
-              #8b5cf6 0%,      /* 紫 */
-              #22d3ee 50%,     /* 青 */
-              #34d399 100%);    /* 绿 */
+  inset: 0;                       /* 完全覆盖卡片 */
+  border-radius: 12px;
+  pointer-events: none;
+  /* 细内描边 + 顶部高光，形成轻微内凹感 */
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.85) inset,  /* 发光内描 */
-    0 8px 18px rgba(34, 211, 238, 0.25);     /* 柔和外发光 */
-  pointer-events: none;           /* 不影响交互 */
+    inset 0 0 0 1px rgba(17,24,39,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.85);
+}
+
+/* 悬停时保持柔和阴影，不改变布局与动效 */
+.mx-editor-preview .listing-card:hover {
+  box-shadow:
+    0 22px 60px -20px rgba(17,24,39,0.22),
+    0 10px 32px -14px rgba(17,24,39,0.14);
 }
 
 /* === 信息组：名字 / 学校 / 学历 放入同一个框 === */
