@@ -1,4 +1,5 @@
 -- MySQL schema for basic auth + role-scoped public IDs
+SET NAMES utf8mb4;
 
 -- 1) Base table (fresh install path)
 CREATE TABLE IF NOT EXISTS `users` (
@@ -58,6 +59,22 @@ BEGIN
   END IF;
 END //
 DELIMITER ;
+
+-- 4) Mentor profile table: one row per mentor user
+CREATE TABLE IF NOT EXISTS `mentor_profiles` (
+  `user_id` INT NOT NULL,
+  `display_name` VARCHAR(100) NULL,
+  `gender` ENUM('男','女') NULL,
+  `degree` ENUM('本科','硕士','PhD') NULL,
+  `school` VARCHAR(200) NULL,
+  `timezone` VARCHAR(64) NULL,
+  `courses_json` TEXT NULL,          -- JSON array of strings
+  `avatar_url` VARCHAR(500) NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_mentor_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ========== 兼容性迁移：从 email 唯一 改为 (email, role) 唯一 ==========
 -- 说明：若早期版本已创建了 `uniq_users_email` 唯一索引，请执行以下语句迁移。

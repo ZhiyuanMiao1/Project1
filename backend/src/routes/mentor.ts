@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { query } from '../db';
+import { body, validationResult } from 'express-validator';
 
 const router = Router();
 
@@ -63,5 +64,110 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
 
   return res.json({ cards });
 });
+
+// ===== Mentor Profile: CRUD (create/update via upsert, get) =====
+// GET /api/mentor/profile
+router.get('/profile', requireAuth, async (req: Request, res: Response) => {
+  if (req.user?.role !== 'mentor') return res.status(403).json({ error: '仅导师可访问' });
+  try {
+    const rows = await query<any[]>(
+      'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+      [req.user!.id]
+    );
+    const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
+    if (!approved) return res.status(403).json({ error: '导师审核中' });
+
+    const prof = await query<any[]>(
+      'SELECT user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1',
+      [req.user!.id]
+    );
+    if (prof.length === 0) return res.json({ profile: null });
+    const row = prof[0];
+    let courses: string[] = [];
+    try { courses = row.courses_json ? JSON.parse(row.courses_json) : []; } catch { courses = []; }
+    return res.json({
+      profile: {
+        displayName: row.display_name || '',
+        gender: row.gender || '',
+        degree: row.degree || '',
+        school: row.school || '',
+        timezone: row.timezone || '',
+        courses,
+        avatarUrl: row.avatar_url || null,
+        updatedAt: row.updated_at,
+      }
+    });
+  } catch (e) {
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+// PUT /api/mentor/profile
+router.put(
+  '/profile',
+  requireAuth,
+  [
+    body('displayName').optional().isString().isLength({ max: 100 }),
+    body('gender').optional().isIn(['男', '女', '']).withMessage('性别无效'),
+    body('degree').optional().isIn(['本科', '硕士', 'PhD', '']).withMessage('学历无效'),
+    body('school').optional().isString().isLength({ max: 200 }),
+    body('timezone').optional().isString().isLength({ max: 64 }),
+    body('courses').optional().isArray().custom((arr) => arr.every((s: any) => typeof s === 'string' && s.length <= 100)).withMessage('课程需为字符串数组'),
+    body('avatarUrl').optional({ nullable: true }).isString().isLength({ max: 500 }),
+  ],
+  async (req: Request, res: Response) => {
+    if (req.user?.role !== 'mentor') return res.status(403).json({ error: '仅导师可访问' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      // 审核 gating
+      const rows = await query<any[]>(
+        'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+        [req.user!.id]
+      );
+      const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
+      if (!approved) return res.status(403).json({ error: '导师审核中，暂不可保存' });
+
+      const {
+        displayName = '',
+        gender = '',
+        degree = '',
+        school = '',
+        timezone = '',
+        courses = [],
+        avatarUrl = null,
+      } = req.body as {
+        displayName?: string; gender?: string; degree?: string; school?: string; timezone?: string; courses?: string[]; avatarUrl?: string | null;
+      };
+
+      const coursesJson = JSON.stringify((courses || []).filter(Boolean));
+
+      // Upsert by user_id
+      await query(
+        `INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           display_name = VALUES(display_name),
+           gender = VALUES(gender),
+           degree = VALUES(degree),
+           school = VALUES(school),
+           timezone = VALUES(timezone),
+           courses_json = VALUES(courses_json),
+           avatar_url = VALUES(avatar_url),
+           updated_at = CURRENT_TIMESTAMP`,
+        [req.user!.id, displayName, gender || null, degree || null, school || null, timezone || null, coursesJson, avatarUrl]
+      );
+
+      return res.json({ message: '保存成功' });
+    } catch (e) {
+      console.error('Save mentor profile error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
 
 export default router;

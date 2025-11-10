@@ -147,10 +147,25 @@ function MentorProfileEditorPage() {
     try { if (avatarUrl && avatarUrl.startsWith('blob:')) URL.revokeObjectURL(avatarUrl); } catch {}
   }, [avatarUrl]);
 
-  const handleSave = () => {
-    // TODO: 接入后端保存接口
-    // 重建右侧预览卡片，使其重新执行 reveal 动画
-    setPreviewReplayKey((k) => k + 1);
+  const handleSave = async () => {
+    try {
+      const payload = {
+        displayName: name,
+        gender,
+        degree,
+        school,
+        timezone,
+        courses,
+        avatarUrl,
+      };
+      await api.put('/api/mentor/profile', payload);
+      alert('保存成功');
+      // 重建右侧预览卡片，使其重新执行 reveal 动画
+      setPreviewReplayKey((k) => k + 1);
+    } catch (e) {
+      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      alert(msg);
+    }
   };
 
   // 权限校验
@@ -185,6 +200,31 @@ function MentorProfileEditorPage() {
     })();
     return () => { alive = false; };
   }, [navigate]);
+
+  // 加载已有资料（如已保存）
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get('/api/mentor/profile');
+        if (!alive) return;
+        const p = res?.data?.profile;
+        if (p) {
+          setName(p.displayName || '');
+          setGender(p.gender || '');
+          setDegree(p.degree || '硕士');
+          setSchool(p.school || '');
+          if (p.timezone) setTimezone(p.timezone);
+          setCoursesInput(Array.isArray(p.courses) ? p.courses.join('，') : '');
+          setAvatarUrl(p.avatarUrl || null);
+        }
+      } catch (e) {
+        // 忽略 404/空数据，仅在控制台提示
+        try { console.warn('Load profile failed', e?.response?.data || e?.message); } catch {}
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   // 预览卡片数据
   const previewCardData = useMemo(() => ({
