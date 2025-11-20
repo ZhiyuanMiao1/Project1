@@ -150,6 +150,10 @@
   position: relative;      /* 以便放置角标图标 */
 }
 
+.mx-editor-avatar.has-avatar {
+  border-width: 1px;       /* 已上传头像时边框更细 */
+}
+
 .mx-editor-avatar:focus { outline: 2px solid #111827; }
 .mx-editor-avatar:hover { filter: brightness(0.98); }
 

@@ -495,7 +495,7 @@ function MentorProfileEditorPage() {
           <div className="mx-editor-avatar-shell">
             <button
               type="button"
-              className="mx-editor-avatar"
+              className={`mx-editor-avatar ${avatarUrl ? 'has-avatar' : ''}`}
               aria-label="修改头像"
               onClick={onPickAvatar}
             >
