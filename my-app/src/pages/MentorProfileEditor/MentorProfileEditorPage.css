@@ -113,6 +113,8 @@
   justify-content: flex-end;   /* 现有就有，保留 */
   align-items: center;
   align-self: center;   /* 新增：自己在这一行里垂直居中 */
+  --preview-card-width: 280px;
+  --preview-card-height: 340px;
 }
 /* 保证左右与容器边缘对齐 */
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
@@ -289,29 +291,36 @@
 }
 
 /* 右侧预览容器：普通块级，靠右宽度限制 */
-.mx-editor-preview .preview-wrap {  
-  margin-left: auto;   /* 新增：把自身推到父容器最�?*/
-  margin-right: 120px;     /* 保证紧贴右边 */
-  transform: translateY(-160px) scale(1.3);          /* 整体放大 */
-  transform-origin: center right;  /* 以右侧中线为中心放大 */
-  position: relative; /* 供局部加载遮罩定位 */
+.mx-editor-preview .preview-wrap {
+  margin-left: auto;   /* stick to the right */
+  margin-right: 120px; /* keep right padding */
+  width: var(--preview-card-width);
+  height: var(--preview-card-height);
+  flex: 0 0 var(--preview-card-width);
+  display: flex;       /* lock preview footprint */
+  transform: translateY(-160px) scale(1.3);
+  transform-origin: center right;
+  position: relative;  /* for preview overlay */
 }
-/* 预览卡片宽度与学生卡片一致*/
-.mx-editor-preview .listing-card { width: 100%; margin: 0; }
-
-/* 右侧预览卡片：在不改变布局的前提下增加“外部高级感” */
-/* 1) 发丝级渐变描边（置于卡片外侧，不占据布局空间） */
+/* Preview card: fixed size with decorative styling */
 .mx-editor-preview .listing-card {
-  position: relative;            /* 供伪元素定位 */
-  border-color: transparent;     /* 隐去原有边线，交给伪元素处理 */
-  background-clip: padding-box;  /* 防止外圈颜色渗入内容 */
-  /* 软阴影：增强层次，依然柔和 */
+  width: 100%;
+  height: var(--preview-card-height);
+  margin: 0;
+  max-width: 100%;
+  min-height: var(--preview-card-height);
+  box-sizing: border-box;
+  position: relative;            /* keep pseudo elements positioned */
+  border-color: transparent;     /* outline handled by pseudo elements */
+  background-clip: padding-box;  /* keep gradient outside content */
+  /* soft shadow for depth */
   box-shadow:
     0 24px 60px -16px rgba(17,24,39,0.24),
     0 12px 32px -12px rgba(17,24,39,0.16),
     0 2px 8px -2px rgba(17,24,39,0.08);
   transition: transform 0.3s ease, box-shadow 0.35s ease;
 }
+
 .mx-editor-preview .listing-card::before {
   /* 细到发丝的渐变描边：外扩 1px，视觉更精致 */
   content: "";

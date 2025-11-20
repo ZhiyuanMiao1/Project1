@@ -8,6 +8,8 @@
   min-height: 320px; /* 设置高度 */
   cursor: pointer; /* 鼠标悬停时显示为手型 */
   position: relative;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .listing-card:hover {
@@ -34,11 +36,17 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px; /* 为名字和 tag 提供间距 */
+  min-width: 0;
+  width: 100%;
+  word-break: break-word;
 }
 
 .listing-tags {
   display: flex;
   gap: 6px; /* 两个 tag 之间的间距 */
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .listing-tag {
@@ -50,6 +58,7 @@
   display: inline-block;
   line-height: 1; /* 确保行高与字体大小一致 */
   vertical-align: middle; /* 垂直居中对齐 */
+  overflow-wrap: anywhere; /* 防止超长单词撑开容器 */
 }
 
 .degree-bachelor,
@@ -83,21 +92,25 @@
   margin: 8px 0; /* 增加上下间距 */
   text-align: left; /* 左对齐 */
   line-height: 1.5; /* 增加行高以便更易读 */
+  word-break: break-word;
 }
 
 .listing-timezone-languages {
   display: flex;
-  align-items: center; /* 垂直居中对齐 */
+  align-items: flex-start; /* 多行时顶部对齐 */
   gap: 8px; /* 时区和语言之间的间距 */
   font-size: 14px;
   color: #333;
   margin: 4px 0; /* 调整上下间距 */
   text-align: left;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .timezone {
   font-size: 14px;
   color: #333; /* 时区文字颜色 */
+  word-break: break-word;
 }
 
 .language-tag {
