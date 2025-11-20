@@ -504,6 +504,9 @@ function MentorProfileEditorPage() {
                 src={avatarUrl || defaultAvatar}
                 alt="头像"
               />
+              {!avatarUrl && (
+                <span className="mx-editor-avatar-placeholder">头像</span>
+              )}
               <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 {/* 黑色实心圆底 */}
                 <circle cx="12" cy="12" r="12" fill="currentColor" />

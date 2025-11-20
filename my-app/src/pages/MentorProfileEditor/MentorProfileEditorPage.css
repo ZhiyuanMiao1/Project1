@@ -139,7 +139,7 @@
   width: 180px;
   height: 180px;
   border-radius: 999px;
-  border: none;            /* 去掉灰色虚线 */
+  border: 2px solid #111827;            /* 始终显示的黑色边框 */
   background: transparent; /* 改为透明，展示真实头像 */
   margin-top: 20px;        /* 标题 和 头像 之间的距离 */
   margin-bottom: 20px;     /* 头像 与 下方内容 的距离 */
@@ -160,6 +160,17 @@
   object-fit: cover;
   display: block;
   border-radius: inherit;  /* 仍按圆形裁剪头像 */
+}
+
+.mx-editor-avatar-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  pointer-events: none;
 }
 
 /* 5点钟方向的照相机标志（黑色） */
