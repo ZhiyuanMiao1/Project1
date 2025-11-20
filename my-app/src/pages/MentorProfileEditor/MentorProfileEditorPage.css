@@ -313,6 +313,7 @@
   position: relative;            /* keep pseudo elements positioned */
   border-color: transparent;     /* outline handled by pseudo elements */
   background-clip: padding-box;  /* keep gradient outside content */
+  overflow: hidden;              /* hide overflowing content in preview */
   /* soft shadow for depth */
   box-shadow:
     0 24px 60px -16px rgba(17,24,39,0.24),
