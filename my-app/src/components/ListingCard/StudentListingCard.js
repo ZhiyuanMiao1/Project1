@@ -13,6 +13,14 @@ function StudentListingCard({ data }) {
     setIsFavorited(!isFavorited);
   };
 
+  const degreeClass = (() => {
+    const d = (data.degree || '').toLowerCase();
+    if (d.includes('phd') || d.includes('博士')) return 'degree-phd';
+    if (d.includes('本科') || d.includes('bachelor')) return 'degree-bachelor';
+    if (d.includes('硕士') || d.includes('master')) return 'degree-master';
+    return '';
+  })();
+
   return (
     <div ref={revealRef} className={`listing-card reveal ${visible ? 'is-visible' : ''}`}>
       {/* 右上角的爱心图标 */}
@@ -44,7 +52,7 @@ function StudentListingCard({ data }) {
       <h3 className="listing-name">
         {data.name}{' '}
         <span className="listing-tags">
-          <span className={`listing-tag ${data.degree === 'PhD' ? 'phd-tag' : 'msc-tag'}`}>
+          <span className={`listing-tag ${degreeClass}`}>
             {data.degree}
           </span>
           <span className="listing-tag">{data.school}</span>

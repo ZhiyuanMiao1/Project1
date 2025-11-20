@@ -16,6 +16,14 @@ function MentorListingCard({ data }) {
   const school = data?.school || '';
   // 课程方向：标准化名称并选择对应图标（共用常量）
 
+  const degreeClass = (() => {
+    const d = (degree || '').toLowerCase();
+    if (d.includes('phd') || d.includes('博士')) return 'degree-phd';
+    if (d.includes('本科') || d.includes('bachelor')) return 'degree-bachelor';
+    if (d.includes('硕士') || d.includes('master')) return 'degree-master';
+    return '';
+  })();
+
   const courseTitles = Array.isArray(data?.courses)
     ? data.courses
     : (data?.courses ? [data.courses] : []);
@@ -47,7 +55,7 @@ function MentorListingCard({ data }) {
         <div className="header-texts">
           <div className="name">{name}</div>
           <div className="chips">
-            {!!degree && <span className="chip green">{degree}</span>}
+            {!!degree && <span className={`chip ${degreeClass}`}>{degree}</span>}
             {!!school && <span className="chip gray">{school}</span>}
           </div>
         </div>

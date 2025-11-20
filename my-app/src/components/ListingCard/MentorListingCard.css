@@ -34,17 +34,18 @@
 }
 
 .phd-tag {
-  background-color: rgba(30, 144, 255, 0.15); /* 很淡的蓝色 */
-  color: #1e90ff; /* 蓝色字体，突出博士 */
+  background-color: #f1e9ff; /* 淡紫色底 */
+  color: #6b30c5; /* 更深的紫色文字 */
 }
 
 .硕士-tag {
-  background-color: rgba(50, 205, 50, 0.15); /* 很淡的绿色 */
-  color: #32cd32; /* 绿色字体，突出硕士 */
+  background-color: #e7efff; /* 淡蓝色底 */
+  color: #1f4fbf; /* 更深的蓝色文字 */
 }
 
 .bachelor-tag {
-  background-color: #99ff99;
+  background-color: #e6f4ec;
+  color: #1e6b38;
 }
 
 .highschool-tag {
@@ -111,7 +112,9 @@
 .mentor-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
 .mentor-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
 .mentor-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
-.mentor-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
+.mentor-preview-card .chip.degree-bachelor { background: #e6f4ec; color: #1e6b38; }
+.mentor-preview-card .chip.degree-master { background: #e7efff; color: #1f4fbf; }
+.mentor-preview-card .chip.degree-phd { background: #f1e9ff; color: #6b30c5; }
 .mentor-preview-card .chip.gray { background: #eef2f7; color: #475569; }
 .mentor-preview-card .card-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .mentor-preview-card .item {

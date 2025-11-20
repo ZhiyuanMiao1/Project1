@@ -52,15 +52,22 @@
   vertical-align: middle; /* 垂直居中对齐 */
 }
 
-
-.phd-tag {
-  background-color: rgba(30, 144, 255, 0.15); /* 很淡的蓝色 */
-  color: #1e90ff; /* 蓝色字体，突出博士 */
+.degree-bachelor,
+.bachelor-tag {
+  background-color: #e6f4ec; /* 淡绿色底 */
+  color: #1e6b38; /* 更深的绿色文字 */
 }
 
+.degree-master,
 .msc-tag {
-  background-color: rgba(50, 205, 50, 0.15); /* 很淡的绿色 */
-  color: #32cd32; /* 绿色字体，突出硕士 */
+  background-color: #e7efff; /* 淡蓝色底 */
+  color: #1f4fbf; /* 更深的蓝色文字 */
+}
+
+.degree-phd,
+.phd-tag {
+  background-color: #f1e9ff; /* 淡紫色底 */
+  color: #6b30c5; /* 更深的紫色文字 */
 }
 
 .listing-rating {
