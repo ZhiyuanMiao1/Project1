@@ -114,7 +114,7 @@
   align-items: center;
   align-self: center;   /* 新增：自己在这一行里垂直居中 */
   --preview-card-width: 280px;
-  --preview-card-height: 340px;
+  --preview-card-height: 380px;
 }
 /* 保证左右与容器边缘对齐 */
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
@@ -293,7 +293,7 @@
 /* 右侧预览容器：普通块级，靠右宽度限制 */
 .mx-editor-preview .preview-wrap {
   margin-left: auto;   /* stick to the right */
-  margin-right: 120px; /* keep right padding */
+  margin-right: 80px; /* keep right padding, nudged right */
   width: var(--preview-card-width);
   height: var(--preview-card-height);
   flex: 0 0 var(--preview-card-width);
