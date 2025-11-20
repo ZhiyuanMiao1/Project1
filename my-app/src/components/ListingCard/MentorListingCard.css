@@ -111,7 +111,14 @@
 }
 .mentor-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
 .mentor-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
-.mentor-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
+.mentor-preview-card .chip {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  line-height: 1.2;         /* 恢复更饱满的高度 */
+  display: inline-flex;
+  align-items: center;      /* 垂直居中文字，修正 PhD 偏上问题 */
+}
 .mentor-preview-card .chip.degree-bachelor { background: #e6f4ec; color: #1e6b38; }
 .mentor-preview-card .chip.degree-master { background: #e7efff; color: #1f4fbf; }
 .mentor-preview-card .chip.degree-phd { background: #f1e9ff; color: #6b30c5; }
