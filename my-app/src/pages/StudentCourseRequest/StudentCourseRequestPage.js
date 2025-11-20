@@ -13,7 +13,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   onChange,              // (next:number) => void
   listRef,               // 传入你原来的 timesListRef
   min = 0.25,
-  max = 6,
+  max = 10,
   step = 0.25,
   // 受控：当外部需要按“天”管理选择时传入
   blocks,                // 可选，形如 [{start:number,end:number}]
@@ -252,7 +252,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   return (
     <div className="schedule-times-panel">
       <div className="times-panel-header">
-        <div className="day-title">单次时长</div>
+        <div className="day-title">可约时长</div>
         <div className="duration-input">
           <button
             type="button"
@@ -290,7 +290,7 @@ export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onBlur={(e) => setValue(e.target.value)}
-            aria-label="单次上课时长（小时）"
+            aria-label="可约时长（小时）"
             style={{ display: 'none' }}
           />
         </div>
