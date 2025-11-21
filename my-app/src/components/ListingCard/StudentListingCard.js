@@ -29,14 +29,14 @@ const TZ_CITY_MAP = {
 
 const formatTimezoneWithCity = (tz) => {
   if (!tz) return '';
-  if (tz.includes('(')) return tz; // 已有城市名
-  const match = tz.match(/UTC\s*([+-])\s*(\d{1,2})(?::\d{2})?/i);
+  const base = tz.replace(/\s*\(.*\)\s*$/, '').trim(); // 去掉已有括号
+  const match = base.match(/UTC\s*([+-])\s*(\d{1,2})(?::\d{2})?/i);
   if (!match) return tz;
   const sign = match[1] === '-' ? '-' : '+';
   const hoursRaw = match[2];
   const hoursKey = hoursRaw.length === 1 ? `${sign}${hoursRaw}` : `${sign}${hoursRaw.padStart(2, '0')}`;
   const city = TZ_CITY_MAP[hoursKey] || TZ_CITY_MAP[`${sign}${hoursRaw}`];
-  return city ? `${tz.trim()} (${city})` : tz;
+  return city ? `${base} (${city})` : base;
 };
 
 function StudentListingCard({ data }) {
