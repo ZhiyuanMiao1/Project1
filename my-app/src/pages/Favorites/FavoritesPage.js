@@ -1,6 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaHeart } from 'react-icons/fa';
+import { useLocation } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
 import tutor3 from '../../assets/images/tutor3.jpg';
@@ -35,6 +38,38 @@ const collections = [
 ];
 
 function FavoritesPage() {
+  const location = useLocation();
+  const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [showMentorAuth, setShowMentorAuth] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+  });
+  const menuAnchorRef = useRef(null);
+
+  const preferredRole = useMemo(() => {
+    const fromState = location.state?.from;
+    if (fromState === 'mentor' || fromState === 'student') return fromState;
+    try {
+      const raw = localStorage.getItem('authUser');
+      const user = raw ? JSON.parse(raw) : {};
+      return user?.role === 'mentor' ? 'mentor' : 'student';
+    } catch {
+      return 'student';
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (typeof e?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(!!e.detail.isLoggedIn);
+      } else {
+        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+      }
+    };
+    window.addEventListener('auth:changed', handler);
+    return () => window.removeEventListener('auth:changed', handler);
+  }, []);
+
   const normalizedCollections = useMemo(() => {
     return collections.map((item) => {
       const source = Array.isArray(item.images) && item.images.length > 0 ? item.images : [tutor1, tutor2, tutor3, tutor4];
@@ -50,11 +85,23 @@ function FavoritesPage() {
     <div className="favorites-page">
       <div className="container">
         <header className="favorites-header">
-          <BrandMark className="nav-logo-text favorites-logo" to="/student" />
-          <button type="button" className="icon-circle favorites-menu" aria-label="更多菜单">
+          <BrandMark className="nav-logo-text" to="/student" />
+          <button
+            type="button"
+            className="plain-menu-btn"
+            aria-label="更多菜单"
+            ref={menuAnchorRef}
+            onClick={() => {
+              if (preferredRole === 'mentor') {
+                setShowMentorAuth(true);
+              } else {
+                setShowStudentAuth(true);
+              }
+            }}
+          >
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               aria-hidden="true"
               focusable="false"
@@ -107,6 +154,25 @@ function FavoritesPage() {
           </article>
         </section>
       </div>
+
+      {showStudentAuth && (
+        <StudentAuthModal
+          onClose={() => setShowStudentAuth(false)}
+          anchorRef={menuAnchorRef}
+          leftAlignRef={menuAnchorRef}
+          forceLogin={false}
+          isLoggedIn={isLoggedIn}
+        />
+      )}
+
+      {showMentorAuth && (
+        <MentorAuthModal
+          onClose={() => setShowMentorAuth(false)}
+          anchorRef={menuAnchorRef}
+          leftAlignRef={menuAnchorRef}
+          forceLogin={false}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
   min-height: 100vh;
   background: #ffffff;
   color: #0f172a;
+  font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
 .favorites-header {
@@ -11,27 +12,18 @@
   padding: 24px 0 12px;
 }
 
-.favorites-logo.nav-logo-text {
-  font-size: 24px;
-  font-weight: bold;
+.plain-menu-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #000;
 }
 
-.favorites-header .icon-circle {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #f0f0f0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.favorites-header .icon-circle:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+.plain-menu-btn:hover {
   color: #333;
 }
 
