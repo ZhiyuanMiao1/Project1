@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FaEllipsisH, FaHeart } from 'react-icons/fa';
+import { FaHeart } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
@@ -50,9 +50,19 @@ function FavoritesPage() {
     <div className="favorites-page">
       <div className="container">
         <header className="favorites-header">
-          <BrandMark className="favorites-logo" to="/student" />
-          <button className="favorites-kebab" aria-label="更多菜单">
-            <FaEllipsisH />
+          <BrandMark className="nav-logo-text favorites-logo" to="/student" />
+          <button type="button" className="icon-circle favorites-menu" aria-label="更多菜单">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <line x1="5" y1="8"  x2="20" y2="8"  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </button>
         </header>
 
