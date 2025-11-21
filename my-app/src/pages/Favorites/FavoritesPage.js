@@ -88,7 +88,7 @@ function FavoritesPage() {
           <BrandMark className="nav-logo-text" to="/student" />
           <button
             type="button"
-            className="plain-menu-btn"
+            className="icon-circle favorites-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={() => {

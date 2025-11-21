@@ -12,19 +12,8 @@
   padding: 24px 0 12px;
 }
 
-.plain-menu-btn {
-  background: none;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #000;
-}
-
-.plain-menu-btn:hover {
-  color: #333;
+.favorites-menu {
+  margin-left: 8px;
 }
 
 .favorites-hero {
