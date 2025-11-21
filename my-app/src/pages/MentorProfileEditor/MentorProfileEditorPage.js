@@ -9,30 +9,57 @@ import defaultAvatar from '../../assets/images/default-avatar.jpg';
 
 // ===== Time zone helpers (shared style/logic with student step 3) =====
 const TIMEZONE_NAME_OVERRIDES = {
-  'Asia/Shanghai': '中国标准时间',
-  'Asia/Tokyo': '日本标准时间',
-  'Asia/Bangkok': '泰国时间',
-  'Asia/Dubai': '海湾标准时间',
-  'Europe/London': '格林尼治标准时间',
-  'Europe/Berlin': '中欧标准时间',
-  'Europe/Moscow': '莫斯科时间',
-  'America/Los_Angeles': '美国太平洋时间',
-  'America/Anchorage': '美国阿拉斯加时间',
-  'America/Denver': '美国山地时间',
-  'America/Chicago': '美国中部时间',
-  'America/New_York': '美国东部时间',
-  'Australia/Brisbane': '澳大利亚东部时间',
-  'Pacific/Auckland': '新西兰标准时间',
-  'Pacific/Honolulu': '夏威夷时间',
-  'Pacific/Pago_Pago': '萨摩亚时间',
-  'Atlantic/Azores': '亚速尔群岛时间',
-  'Atlantic/South_Georgia': '南乔治亚时间',
-  'Africa/Johannesburg': '南非时间',
-  'Asia/Karachi': '巴基斯坦标准时间',
-  'Asia/Dhaka': '孟加拉国标准时间',
-  'Pacific/Guadalcanal': '所罗门群岛时间',
-  'America/Halifax': '加拿大大西洋时间',
-  'America/Sao_Paulo': '巴西时间',
+  'Asia/Shanghai': '\u4e2d\u56fd\u6807\u51c6\u65f6\u95f4',
+  'Asia/Tokyo': '\u65e5\u672c\u6807\u51c6\u65f6\u95f4',
+  'Asia/Bangkok': '\u6cf0\u56fd\u65f6\u95f4',
+  'Asia/Dubai': '\u6d77\u6e7e\u6807\u51c6\u65f6\u95f4',
+  'Europe/London': '\u683c\u6797\u5c3c\u6cbb\u6807\u51c6\u65f6\u95f4',
+  'Europe/Berlin': '\u4e2d\u6b27\u6807\u51c6\u65f6\u95f4',
+  'Europe/Moscow': '\u83ab\u65af\u79d1\u65f6\u533a',
+  'America/Los_Angeles': '\u7f8e\u56fd\u592a\u5e73\u6d0b\u65f6\u533a',
+  'America/Anchorage': '\u7f8e\u56fd\u963f\u62c9\u65af\u52a0\u65f6\u95f4',
+  'America/Denver': '\u7f8e\u56fd\u5c71\u5730\u65f6\u95f4',
+  'America/Chicago': '\u7f8e\u56fd\u4e2d\u90e8\u65f6\u95f4',
+  'America/New_York': '\u7f8e\u56fd\u4e1c\u90e8\u65f6\u95f4',
+  'Australia/Brisbane': '\u6fb3\u5927\u5229\u4e9a\u4e1c\u90e8\u65f6\u95f4',
+  'Pacific/Auckland': '\u65b0\u897f\u5170\u6807\u51c6\u65f6\u533a',
+  'Pacific/Honolulu': '\u590f\u5a01\u5937\u65f6\u533a',
+  'Pacific/Pago_Pago': '\u8428\u6469\u4e9a\u65f6\u533a',
+  'Atlantic/Azores': '\u4e9a\u901f\u5c14\u7fa4\u5c9b\u65f6\u95f4',
+  'Atlantic/South_Georgia': '\u5357\u4e54\u6cbb\u4e9a\u65f6\u95f4',
+  'Africa/Johannesburg': '\u5357\u975e\u65f6\u95f4',
+  'Asia/Karachi': '\u5df4\u57fa\u65af\u5766\u6807\u51c6\u65f6\u95f4',
+  'Asia/Dhaka': '\u5b5f\u52a0\u62c9\u56fd\u6807\u51c6\u65f6\u95f4',
+  'Pacific/Guadalcanal': '\u6240\u7f57\u95e8\u7fa4\u5c9b\u65f6\u95f4',
+  'America/Halifax': '\u52a0\u62ff\u5927\u5927\u897f\u6d0b\u65f6\u95f4',
+  'America/Sao_Paulo': '\u5df4\u897f\u65f6\u95f4',
+};
+
+const TIMEZONE_CITY_ZH = {
+  'Asia/Shanghai': '\u5317\u4eac',
+  'Asia/Tokyo': '\u4e1c\u4eac',
+  'Asia/Bangkok': '\u66fc\u8c37',
+  'Asia/Dubai': '\u8fea\u62dc',
+  'Europe/London': '\u4f26\u6566',
+  'Europe/Berlin': '\u67cf\u6797',
+  'Europe/Moscow': '\u83ab\u65af\u79d1',
+  'America/Los_Angeles': '\u6d1b\u6749\u77f6',
+  'America/Anchorage': '\u5b89\u514b\u96f7\u5947',
+  'America/Denver': '\u4e39\u4f5b',
+  'America/Chicago': '\u829d\u52a0\u54e5',
+  'America/New_York': '\u7ebd\u7ea6',
+  'Australia/Brisbane': '\u5e03\u91cc\u65af\u73ed',
+  'Pacific/Auckland': '\u5965\u514b\u5170',
+  'Pacific/Honolulu': '\u706b\u5974\u9c81\u9c81',
+  'Pacific/Pago_Pago': '\u5e15\u679c\u5e15\u679c',
+  'Atlantic/Azores': '\u4e9a\u901f\u5c14',
+  'Atlantic/South_Georgia': '\u5357\u4e54\u6cbb\u4e9a',
+  'Africa/Johannesburg': '\u7ea6\u7ff0\u5185\u65af\u5821',
+  'Asia/Karachi': '\u5361\u62c9\u5947',
+  'Asia/Dhaka': '\u8fbe\u5361',
+  'Pacific/Guadalcanal': '\u970d\u5c3c\u4e9a\u62c9',
+  'America/Halifax': '\u54c8\u5229\u6cd5\u514b\u65af',
+  'America/Sao_Paulo': '\u5723\u4fdd\u7f57',
 };
 
 const FALLBACK_TIMEZONES = [
@@ -103,6 +130,11 @@ const buildShortUTC = (timeZone) => {
     const m = Math.abs(offMin) % 60;
     return `UTC${sign}${h}${m?`:${String(m).padStart(2,'0')}`:''}`;
   } catch { return 'UTC±0'; }
+};
+const buildShortUTCWithCity = (timeZone) => {
+  const utc = buildShortUTC(timeZone);
+  const city = TIMEZONE_CITY_ZH[timeZone] || TIMEZONE_NAME_OVERRIDES[timeZone] || extractCityName(timeZone);
+  return city ? `${utc} (${city})` : utc;
 };
 
 function MentorProfileEditorPage() {
@@ -233,7 +265,7 @@ function MentorProfileEditorPage() {
     school: school || '学校',
     rating: 4.9,
     reviewCount: 120,
-    timezone: buildShortUTC(timezone),
+    timezone: buildShortUTCWithCity(timezone),
     languages: '中文, 英语',
     courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
     imageUrl: avatarUrl || null,

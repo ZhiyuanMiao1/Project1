@@ -3,12 +3,46 @@ import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 
+// 统一时区城市显示（与时区下拉一致）
+const TZ_CITY_MAP = {
+  '+13': '奥克兰',
+  '+11': '所罗门群岛',
+  '+10': '布里斯班',
+  '+9': '东京',
+  '+08': '上海',
+  '+8': '上海',
+  '+7': '曼谷',
+  '+6': '达卡',
+  '+5': '卡拉奇',
+  '+4': '迪拜',
+  '+3': '莫斯科',
+  '+2': '约翰内斯堡',
+  '+1': '柏林',
+  '+0': '伦敦',
+  '-8': '洛杉矶',
+  '-7': '加州',
+  '-6': '芝加哥',
+  '-5': '纽约',
+  '-4': '哈利法克斯',
+  '-3': '圣保罗',
+};
+
+const formatTimezoneWithCity = (tz) => {
+  if (!tz) return '';
+  if (tz.includes('(')) return tz; // 已有城市名
+  const match = tz.match(/UTC\s*([+-])\s*(\d{1,2})(?::\d{2})?/i);
+  if (!match) return tz;
+  const sign = match[1] === '-' ? '-' : '+';
+  const hoursRaw = match[2];
+  const hoursKey = hoursRaw.length === 1 ? `${sign}${hoursRaw}` : `${sign}${hoursRaw.padStart(2, '0')}`;
+  const city = TZ_CITY_MAP[hoursKey] || TZ_CITY_MAP[`${sign}${hoursRaw}`];
+  return city ? `${tz.trim()} (${city})` : tz;
+};
+
 function StudentListingCard({ data }) {
-  // 添加一个 state 用于管理收藏状态
   const [isFavorited, setIsFavorited] = useState(false);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
-  // 切换收藏状态的函数
   const toggleFavorite = () => {
     setIsFavorited(!isFavorited);
   };
@@ -20,6 +54,8 @@ function StudentListingCard({ data }) {
     if (d.includes('硕士') || d.includes('master')) return 'degree-master';
     return '';
   })();
+
+  const timezoneLabel = formatTimezoneWithCity(data.timezone);
 
   return (
     <div ref={revealRef} className={`listing-card reveal ${visible ? 'is-visible' : ''}`}>
@@ -72,7 +108,7 @@ function StudentListingCard({ data }) {
       </p>
       {/* 时区和语言合并 */}
       <div className="listing-timezone-languages">
-        <span className="timezone">🌍 {data.timezone}</span>
+        <span className="timezone">🌍 {timezoneLabel}</span>
         <div className="listing-languages">
           {data.languages.split(',').map((lang, index) => (
             <span key={index} className={`language-tag ${lang.trim()}-tag`}>
