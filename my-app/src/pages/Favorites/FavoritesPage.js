@@ -162,6 +162,7 @@ function FavoritesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           isLoggedIn={isLoggedIn}
+          align="right"
         />
       )}
 
@@ -171,6 +172,7 @@ function FavoritesPage() {
           anchorRef={menuAnchorRef}
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
+          align="right"
         />
       )}
     </div>

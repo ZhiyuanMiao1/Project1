@@ -8,7 +8,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 
-const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false, forceLogin = false }) => {
+const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false, forceLogin = false, align = 'left' }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -25,7 +25,9 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
       const minGap = 8;
       const alignEl = leftAlignRef?.current;
-      const baseLeft = alignEl ? alignEl.getBoundingClientRect().left : rect.left;
+      const baseLeft = align === 'right'
+        ? rect.right - modalWidth
+        : (alignEl ? alignEl.getBoundingClientRect().left : rect.left);
       let left = baseLeft;
       const maxLeft = viewportWidth - modalWidth - minGap;
       if (left > maxLeft) left = Math.max(minGap, maxLeft);
