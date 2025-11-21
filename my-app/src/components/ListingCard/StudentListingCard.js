@@ -59,7 +59,16 @@ function StudentListingCard({ data }) {
         </span>
       </h3>
       <p className="listing-rating">
-        ⭐ {data.rating} | {data.reviewCount} 条评价
+        <svg
+          className="rating-star"
+          viewBox="0 0 24 24"
+          role="img"
+          aria-label="rating star"
+          focusable="false"
+        >
+          <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+        </svg>
+        <span className="rating-text">{data.rating} | {data.reviewCount} 条评价</span>
       </p>
       {/* 时区和语言合并 */}
       <div className="listing-timezone-languages">
