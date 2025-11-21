@@ -115,7 +115,6 @@ function FavoritesPage() {
 
         <section className="favorites-hero">
           <h1>收藏</h1>
-          <p>把心仪的导师集中放在一个地方，随时回来挑选或继续沟通。</p>
         </section>
 
         <section className="favorites-grid">
