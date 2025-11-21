@@ -55,6 +55,10 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       case 'login':
         if (!isLoggedIn) setShowLoginPopup(true);
         return;
+      case 'favorites':
+        onClose && onClose();
+        navigate('/student/favorites');
+        return;
       case 'publish':
         if (!isLoggedIn) {
           try {

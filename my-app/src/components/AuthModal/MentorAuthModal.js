@@ -102,6 +102,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false 
         setShowLoginPopup(true);
         return;
       case 'favorites':
+        onClose && onClose();
+        navigate('/student/favorites');
+        return;
       case 'courses':
       case 'messages':
       case 'settings':
