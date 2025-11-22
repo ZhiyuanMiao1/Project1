@@ -136,9 +136,13 @@ function FavoritesPage() {
               <div className="favorites-card-body">
                 <div className="favorites-card-title">
                   <h3>{item.title}</h3>
-                  <span className="favorites-meta">{item.meta}</span>
+                  {item.id !== 'recent' && <span className="favorites-meta">{item.meta}</span>}
                 </div>
-                <p className="favorites-desc">{item.description}</p>
+                {item.id === 'recent' ? (
+                  <div className="favorites-meta recent-meta">{item.meta}</div>
+                ) : (
+                  <p className="favorites-desc">{item.description}</p>
+                )}
               </div>
             </article>
           ))}
