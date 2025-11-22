@@ -131,7 +131,6 @@ function FavoritesPage() {
                     </div>
                   ))}
                 </div>
-                {item.id === 'recent' && <span className="cover-pill">最近浏览</span>}
               </div>
               <div className="favorites-card-body">
                 <div className="favorites-card-title">
