@@ -119,10 +119,10 @@
 }
 
 .favorites-card-body {
-  padding: 10px 12px 12px;
+  padding: 8px 12px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .favorites-card-title {
@@ -154,21 +154,21 @@
 
 .recent-meta {
   text-align: left;
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .favorites-card--create {
-  border: 1.5px dashed #d7dce4;
-  background: linear-gradient(145deg, #f6f8fb, #fbfcff);
+  border: none;
+  background: #ffffff;
   align-items: flex-start;
-  padding: 18px;
-  gap: 10px;
-  min-height: 340px;
-  justify-content: flex-start;
+  padding: 14px 12px;
+  gap: 8px;
+  min-height: 0;
+  justify-content: space-between;
 }
 
 .favorites-card--create:hover {
-  border-color: #bec4cf;
+  border-color: transparent;
 }
 
 .create-icon {
