@@ -19,7 +19,6 @@ const collections = [
     meta: '1周前',
     description: '你最近看过的导师会暂时保留在这里，方便随时回到上次的位置。',
     images: [tutor1, tutor2, tutor3, tutor4],
-    highlight: true,
   },
   {
     id: 'ml',
@@ -118,10 +117,10 @@ function FavoritesPage() {
         </section>
 
         <section className="favorites-grid">
-          {normalizedCollections.map((item, index) => (
+          {normalizedCollections.map((item) => (
             <article
               key={item.id}
-              className={`favorites-card ${item.highlight ? 'favorites-card--highlight' : ''} ${index === 0 ? 'favorites-card--first' : ''}`}
+              className={`favorites-card ${item.id === 'recent' ? 'favorites-card--highlight' : ''}`}
             >
               <div className="favorites-cover">
                 <div className="cover-grid">
@@ -135,13 +134,8 @@ function FavoritesPage() {
               <div className="favorites-card-body">
                 <div className="favorites-card-title">
                   <h3>{item.title}</h3>
-                  {item.id !== 'recent' && <span className="favorites-meta">{item.meta}</span>}
                 </div>
-                {item.id === 'recent' ? (
-                  <div className="favorites-meta recent-meta">{item.meta}</div>
-                ) : (
-                  <p className="favorites-desc">{item.description}</p>
-                )}
+                <div className="favorites-meta recent-meta">{item.meta}</div>
               </div>
             </article>
           ))}
