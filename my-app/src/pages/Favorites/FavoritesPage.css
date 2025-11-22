@@ -161,9 +161,10 @@
   border: none;
   background: #ffffff;
   align-items: flex-start;
-  padding: 14px 12px;
+  padding: 8px 12px 10px;
   gap: 8px;
   min-height: 0;
+  max-height: 335px;
   justify-content: space-between;
 }
 
