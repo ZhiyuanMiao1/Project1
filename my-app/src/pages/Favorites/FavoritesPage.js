@@ -117,28 +117,46 @@ function FavoritesPage() {
         </section>
 
         <section className="favorites-grid">
-          {normalizedCollections.map((item) => (
-            <article
-              key={item.id}
-              className={`favorites-card ${item.id === 'recent' ? 'favorites-card--highlight' : ''}`}
-            >
-              <div className="favorites-cover">
-                <div className="cover-grid">
-                  {item.cover.map((src, idx) => (
-                    <div key={idx} className={`cover-cell cover-cell-${idx}`}>
-                      <img src={src} alt={`${item.title} 封面 ${idx + 1}`} />
-                    </div>
-                  ))}
+          {normalizedCollections.map((item) => {
+            const isRecent = item.id === 'recent';
+            const cardClass = `favorites-card ${isRecent ? 'favorites-card--highlight' : 'favorites-card--removable'}`;
+            return (
+              <article
+                key={item.id}
+                className={cardClass}
+              >
+                <div className="favorites-cover">
+                  {!isRecent && (
+                    <button type="button" className="favorites-remove" aria-label="移除收藏">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        focusable="false"
+                      >
+                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  )}
+                  <div className="cover-grid">
+                    {item.cover.map((src, idx) => (
+                      <div key={idx} className={`cover-cell cover-cell-${idx}`}>
+                        <img src={src} alt={`${item.title} 封面 ${idx + 1}`} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="favorites-card-body">
-                <div className="favorites-card-title">
-                  <h3>{item.title}</h3>
+                <div className="favorites-card-body">
+                  <div className="favorites-card-title">
+                    <h3>{item.title}</h3>
+                  </div>
+                  <div className="favorites-meta recent-meta">{item.meta}</div>
                 </div>
-                <div className="favorites-meta recent-meta">{item.meta}</div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
 
           <article className="favorites-card favorites-card--create">
             <div className="create-icon">
