@@ -129,8 +129,8 @@ function FavoritesPage() {
                   {!isRecent && (
                     <button type="button" className="favorites-remove" aria-label="移除收藏">
                       <svg
-                        width="14"
-                        height="14"
+                        width="18"
+                        height="18"
                         viewBox="0 0 24 24"
                         aria-hidden="true"
                         focusable="false"

@@ -99,6 +99,7 @@
   transform: translateY(-8px);
   pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
 }
 
 .favorites-card--removable:hover .favorites-remove,
@@ -111,6 +112,7 @@
 
 .favorites-remove:hover {
   box-shadow: 0 10px 26px rgba(15, 23, 42, 0.22);
+  transform: translateY(0) scale(1.06);
 }
 
 .favorites-remove svg {
