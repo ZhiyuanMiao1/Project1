@@ -299,6 +299,22 @@
   color: #6b7280;
 }
 
+.favorites-input {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px 14px;
+  border: 1px solid #b3b3b3;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.favorites-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
 .favorites-modal-footer {
   display: flex;
   justify-content: space-between;

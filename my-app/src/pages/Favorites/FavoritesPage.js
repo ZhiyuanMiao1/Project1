@@ -41,7 +41,9 @@ function FavoritesPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
+  const [newCollectionName, setNewCollectionName] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
@@ -73,14 +75,15 @@ function FavoritesPage() {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.key === 'Escape' && showDeleteModal) {
+      if (e.key === 'Escape' && (showDeleteModal || showCreateModal)) {
         setShowDeleteModal(false);
+        setShowCreateModal(false);
         setPendingDelete(null);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [showDeleteModal]);
+  }, [showDeleteModal, showCreateModal]);
 
   const counterpartLabel = preferredRole === 'mentor' ? '学生' : '导师';
 
@@ -116,6 +119,24 @@ function FavoritesPage() {
   const handleDeleteConfirm = () => {
     // Place deletion logic here when backend wiring is ready.
     closeDeleteModal();
+  };
+
+  const openCreateModal = () => {
+    setNewCollectionName('');
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setNewCollectionName('');
+  };
+
+  const handleCreateConfirm = () => {
+    if (!newCollectionName.trim()) {
+      return;
+    }
+    // Hook your creation logic here with `newCollectionName`.
+    closeCreateModal();
   };
 
   return (
@@ -210,7 +231,13 @@ function FavoritesPage() {
             </div>
             <h3>创建新的收藏夹</h3>
             <p className="favorites-desc">{createDesc}</p>
-            <button type="button" className="create-btn">新建收藏</button>
+            <button
+              type="button"
+              className="create-btn"
+              onClick={openCreateModal}
+            >
+              新建收藏
+            </button>
           </article>
         </section>
       </div>
@@ -247,6 +274,48 @@ function FavoritesPage() {
             <div className="favorites-modal-footer">
               <button type="button" className="favorites-btn ghost" onClick={closeDeleteModal}>取消</button>
               <button type="button" className="favorites-btn danger" onClick={handleDeleteConfirm}>删除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="favorites-modal-backdrop" role="presentation" onClick={closeCreateModal}>
+          <div
+            className="favorites-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-title"
+            aria-describedby="create-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="favorites-modal-close"
+              aria-label="关闭"
+              onClick={closeCreateModal}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <div className="favorites-modal-body">
+              <h3 id="create-title">新建收藏夹</h3>
+              <p id="create-desc">为新的收藏夹取一个名称。</p>
+              <input
+                type="text"
+                className="favorites-input"
+                placeholder="名称"
+                value={newCollectionName}
+                onChange={(e) => setNewCollectionName(e.target.value)}
+              />
+            </div>
+
+            <div className="favorites-modal-footer">
+              <button type="button" className="favorites-btn ghost" onClick={closeCreateModal}>取消</button>
+              <button type="button" className="favorites-btn danger" onClick={handleCreateConfirm}>创建</button>
             </div>
           </div>
         </div>
