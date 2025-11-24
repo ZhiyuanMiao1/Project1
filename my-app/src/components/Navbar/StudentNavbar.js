@@ -7,6 +7,8 @@ import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 // 移除首课日期弹窗，改为直接输入
 import StudentAuthModal from '../AuthModal/StudentAuthModal';
 import BrandMark from '../common/BrandMark/BrandMark';
+import api from '../../api/client';
+import { ensureFreshAuth } from '../../utils/auth';
 
 function StudentNavbar() {
   const timezoneRef = useRef(null);
@@ -41,10 +43,6 @@ function StudentNavbar() {
 
   // 初始化登录状态与监听登录变化
   useEffect(() => {
-    try {
-      setIsLoggedIn(!!localStorage.getItem('authToken'));
-    } catch {}
-
     const computeIsMentor = () => {
       try {
         const raw = localStorage.getItem('authUser');
@@ -55,6 +53,12 @@ function StudentNavbar() {
         return false;
       }
     };
+
+    ensureFreshAuth(api);
+
+    try {
+      setIsLoggedIn(!!localStorage.getItem('authToken'));
+    } catch {}
 
     setIsMentorRegistered(computeIsMentor());
 

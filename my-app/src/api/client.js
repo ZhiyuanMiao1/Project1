@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { clearAuth, ensureFreshAuth } from '../utils/auth';
 
 // Prefer env var; fall back to local dev server
 const baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
@@ -9,10 +10,17 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Initialize Authorization header from stored token (page refresh case)
-try {
-  const token = localStorage.getItem('authToken');
-  if (token) client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-} catch {}
+// Sync stored token into axios; clears storage if已过期
+ensureFreshAuth(client);
+
+client.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearAuth(client);
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default client;
