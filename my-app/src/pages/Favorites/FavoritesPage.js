@@ -177,7 +177,7 @@ function FavoritesPage() {
           forceLogin={false}
           isLoggedIn={isLoggedIn}
           align="right"
-          alignOffset={20}
+          alignOffset={23}
         />
       )}
 
