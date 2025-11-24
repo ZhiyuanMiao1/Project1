@@ -76,6 +76,18 @@ CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   CONSTRAINT `fk_mentor_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5) 收藏夹表：按 user_id + role 隔离学生/导师收藏
+CREATE TABLE IF NOT EXISTS `favorite_collections` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `role` ENUM('mentor','student') NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_fav_user_role_name` (`user_id`, `role`, `name`),
+  CONSTRAINT `fk_fav_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ========== 兼容性迁移：从 email 唯一 改为 (email, role) 唯一 ==========
 -- 说明：若早期版本已创建了 `uniq_users_email` 唯一索引，请执行以下语句迁移。
 -- 注意：MySQL 低版本不支持 DROP INDEX IF EXISTS，如无该索引会报错，可手动忽略。

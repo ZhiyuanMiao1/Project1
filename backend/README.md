@@ -28,6 +28,10 @@ DB_NAME=project1
 mysql -u <user> -p <db_name> < schema.sql
 ```
 
+```
+mysql -u root -p project1 < schema.sql
+```
+
 ## 安装与启动
 
 ```

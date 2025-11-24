@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaHeart } from 'react-icons/fa';
 import { useLocation } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection } from '../../api/favorites';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
 import tutor3 from '../../assets/images/tutor3.jpg';
@@ -12,29 +13,30 @@ import tutor5 from '../../assets/images/tutor5.jpg';
 import tutor6 from '../../assets/images/tutor6.jpg';
 import './FavoritesPage.css';
 
-const collections = [
-  {
-    id: 'recent',
-    title: '最近浏览',
-    meta: '1周前',
-    description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
-    images: [tutor1, tutor2, tutor3, tutor4],
-  },
-  {
-    id: 'ml',
-    title: 'AI / 机器学习',
-    count: 6,
-    description: '算法、建模、科研写作的灵感随时可见。',
-    images: [tutor6, tutor3, tutor2],
-  },
-  {
-    id: 'communication',
-    title: '语言与表达',
-    count: 3,
-    description: '演讲、写作与表达力训练集合。',
-    images: [tutor4, tutor5, tutor1],
-  },
-];
+const COVER_POOL = [tutor1, tutor2, tutor3, tutor4, tutor5, tutor6];
+
+const RECENT_COLLECTION = {
+  id: 'recent',
+  title: '最近浏览',
+  meta: '最近访问',
+  description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
+  images: [tutor1, tutor2, tutor3, tutor4],
+};
+
+const buildCover = (seed = 0) => {
+  const covers = [];
+  for (let i = 0; i < 4; i += 1) {
+    covers.push(COVER_POOL[(seed + i) % COVER_POOL.length]);
+  }
+  return covers;
+};
+
+const formatCreatedAt = (value) => {
+  if (!value) return '新建收藏夹';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '新建收藏夹';
+  return `创建于 ${d.toLocaleDateString()}`;
+};
 
 function FavoritesPage() {
   const location = useLocation();
@@ -44,6 +46,12 @@ function FavoritesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [userCollections, setUserCollections] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
@@ -85,21 +93,78 @@ function FavoritesPage() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [showDeleteModal, showCreateModal]);
 
-  const counterpartLabel = preferredRole === 'mentor' ? '学生' : '导师';
+  const heroCopy = preferredRole === 'mentor'
+    ? '导师收藏与学生收藏完全独立，可在此建立你的学生收藏夹。'
+    : '学生收藏与导师收藏互不干扰，按方向或目标建立你的导师收藏夹。';
+
+  const requireAuth = useCallback(() => {
+    if (isLoggedIn) return true;
+    if (preferredRole === 'mentor') {
+      setShowMentorAuth(true);
+    } else {
+      setShowStudentAuth(true);
+    }
+    return false;
+  }, [isLoggedIn, preferredRole]);
+
+  const loadCollections = useCallback(async () => {
+    if (!isLoggedIn) {
+      setUserCollections([]);
+      setErrorMessage('请登录后查看收藏夹');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage('');
+    try {
+      const res = await fetchFavoriteCollections(preferredRole);
+      const list = Array.isArray(res?.data?.collections) ? res.data.collections : [];
+      setUserCollections(list);
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (status === 401) {
+        setErrorMessage('请登录后查看收藏夹');
+      } else if (status === 403) {
+        setErrorMessage(msg || '当前身份暂无权限访问收藏夹');
+      } else {
+        setErrorMessage(msg || '加载收藏夹失败，请稍后再试');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [isLoggedIn, preferredRole]);
+
+  useEffect(() => {
+    loadCollections();
+  }, [loadCollections]);
 
   const normalizedCollections = useMemo(() => {
-    return collections.map((item) => {
-      const source = Array.isArray(item.images) && item.images.length > 0 ? item.images : [tutor1, tutor2, tutor3, tutor4];
-      const filled = [...source];
-      while (filled.length < 4) {
-        filled.push(source[filled.length % source.length]);
-      }
-      const metaText = item.id === 'recent'
-        ? item.meta
-        : `已收藏 ${item.count} 位${counterpartLabel}`;
-      return { ...item, cover: filled.slice(0, 4), metaText };
-    });
-  }, [counterpartLabel]);
+    const source = Array.isArray(RECENT_COLLECTION.images) && RECENT_COLLECTION.images.length > 0
+      ? RECENT_COLLECTION.images
+      : COVER_POOL;
+    const filled = [...source];
+    while (filled.length < 4) {
+      filled.push(source[filled.length % source.length]);
+    }
+    const recentCard = {
+      id: RECENT_COLLECTION.id,
+      title: RECENT_COLLECTION.title,
+      cover: filled.slice(0, 4),
+      metaText: `最近浏览 · ${RECENT_COLLECTION.meta || ''}`,
+      isRecent: true,
+    };
+
+    const mapped = userCollections.map((item, idx) => ({
+      id: item.id,
+      title: item.name,
+      cover: buildCover(item.id || idx),
+      metaText: formatCreatedAt(item.createdAt),
+      isRecent: false,
+    }));
+
+    return [recentCard, ...mapped];
+  }, [userCollections]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
@@ -107,6 +172,7 @@ function FavoritesPage() {
     : '按课程方向、导师风格或目标，整理出你的导师收藏分组。';
 
   const openDeleteModal = (item) => {
+    if (!requireAuth()) return;
     setPendingDelete(item);
     setShowDeleteModal(true);
   };
@@ -117,11 +183,24 @@ function FavoritesPage() {
   };
 
   const handleDeleteConfirm = () => {
-    // Place deletion logic here when backend wiring is ready.
-    closeDeleteModal();
+    if (!pendingDelete) return;
+    if (!requireAuth()) return;
+    setDeletingId(pendingDelete.id);
+    deleteFavoriteCollection(pendingDelete.id)
+      .then(() => {
+        setUserCollections((prev) => prev.filter((c) => c.id !== pendingDelete.id));
+        closeDeleteModal();
+      })
+      .catch((e) => {
+        const msg = e?.response?.data?.error || '删除失败，请稍后再试';
+        alert(msg); // 快速反馈给用户
+      })
+      .finally(() => setDeletingId(null));
   };
 
   const openCreateModal = () => {
+    if (!requireAuth()) return;
+    setCreateError('');
     setNewCollectionName('');
     setShowCreateModal(true);
   };
@@ -129,14 +208,39 @@ function FavoritesPage() {
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setNewCollectionName('');
+    setCreateError('');
   };
 
-  const handleCreateConfirm = () => {
+  const handleCreateConfirm = async () => {
     if (!newCollectionName.trim()) {
+      setCreateError('请填写收藏夹名称');
       return;
     }
-    // Hook your creation logic here with `newCollectionName`.
-    closeCreateModal();
+    if (!requireAuth()) return;
+    setCreating(true);
+    setCreateError('');
+    try {
+      const res = await createFavoriteCollection(newCollectionName.trim(), preferredRole);
+      const created = res?.data?.collection;
+      if (created) {
+        setUserCollections((prev) => [created, ...prev]);
+      }
+      closeCreateModal();
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error || '创建失败，请稍后再试';
+      if (status === 401) {
+        setCreateError('请登录后再创建收藏夹');
+      } else if (status === 409) {
+        setCreateError(msg);
+      } else if (status === 403) {
+        setCreateError(msg);
+      } else {
+        setCreateError(msg);
+      }
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -173,11 +277,15 @@ function FavoritesPage() {
 
         <section className="favorites-hero">
           <h1>收藏</h1>
+          <p>{heroCopy}</p>
         </section>
+
+        {errorMessage && <div className="favorites-alert">{errorMessage}</div>}
+        {loading && <p className="favorites-hint">加载中...</p>}
 
         <section className="favorites-grid">
           {normalizedCollections.map((item) => {
-            const isRecent = item.id === 'recent';
+            const isRecent = item.isRecent;
             const cardClass = `favorites-card ${isRecent ? 'favorites-card--highlight' : 'favorites-card--removable'}`;
             return (
               <article
@@ -273,7 +381,14 @@ function FavoritesPage() {
 
             <div className="favorites-modal-footer">
               <button type="button" className="favorites-btn ghost" onClick={closeDeleteModal}>取消</button>
-              <button type="button" className="favorites-btn danger" onClick={handleDeleteConfirm}>删除</button>
+              <button
+                type="button"
+                className="favorites-btn danger"
+                onClick={handleDeleteConfirm}
+                disabled={deletingId === pendingDelete?.id}
+              >
+                {deletingId === pendingDelete?.id ? '删除中...' : '删除'}
+              </button>
             </div>
           </div>
         </div>
@@ -310,11 +425,19 @@ function FavoritesPage() {
                 value={newCollectionName}
                 onChange={(e) => setNewCollectionName(e.target.value)}
               />
+              {createError && <p className="favorites-inline-error">{createError}</p>}
             </div>
 
             <div className="favorites-modal-footer">
               <button type="button" className="favorites-btn ghost" onClick={closeCreateModal}>取消</button>
-              <button type="button" className="favorites-btn danger" onClick={handleCreateConfirm}>创建</button>
+              <button
+                type="button"
+                className="favorites-btn danger"
+                onClick={handleCreateConfirm}
+                disabled={creating}
+              >
+                {creating ? '创建中...' : '创建'}
+              </button>
             </div>
           </div>
         </div>

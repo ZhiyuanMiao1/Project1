@@ -27,27 +27,36 @@ router.post('/', [
             return res.status(409).json({ error: '该邮箱在该角色下已被注册' });
         }
         const passwordHash = await bcryptjs_1.default.hash(password, 10);
-        const mentorApproved = 0; // 统一置 0，人工审核修改
+        // mentor_approved 仅用于导师审核；创建时统一置 0，由人工审核修改
+        const mentorApproved = 0;
         const result = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [username, email, passwordHash, role, mentorApproved]);
+        // 读取触发器生成的 public_id 返回给前端
         const inserted = await (0, db_1.query)('SELECT public_id, role FROM users WHERE id = ? LIMIT 1', [result.insertId]);
-        const public_id = (inserted === null || inserted === void 0 ? void 0 : inserted[0]) && inserted[0].public_id || null;
-        const finalRole = (inserted === null || inserted === void 0 ? void 0 : inserted[0]) && inserted[0].role || role;
-        // 若注册为导师，自动创建学生身份（若不存在）
+        const public_id = inserted?.[0]?.public_id || null;
+        const finalRole = inserted?.[0]?.role || role;
+        // 若选择注册为导师，则自动为其创建学生身份（若尚未存在）
         let pairedStudent = null;
         if (finalRole === 'mentor') {
             const hasStudent = await (0, db_1.query)('SELECT id FROM users WHERE email = ? AND role = ? LIMIT 1', [email, 'student']);
             if (hasStudent.length === 0) {
                 const studentInsert = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [username, email, passwordHash, 'student', 0]);
                 const sRow = await (0, db_1.query)('SELECT public_id FROM users WHERE id = ? LIMIT 1', [studentInsert.insertId]);
-                pairedStudent = { userId: studentInsert.insertId, public_id: (sRow === null || sRow === void 0 ? void 0 : sRow[0]) && sRow[0].public_id || null };
+                pairedStudent = { userId: studentInsert.insertId, public_id: sRow?.[0]?.public_id || null };
             }
             else {
+                // 已存在则读出其 public_id 以便返回
                 const sInfo = await (0, db_1.query)('SELECT id, public_id FROM users WHERE email = ? AND role = ? LIMIT 1', [email, 'student']);
                 if (sInfo.length > 0)
                     pairedStudent = { userId: sInfo[0].id, public_id: sInfo[0].public_id };
             }
         }
-        return res.status(201).json({ message: '用户注册成功', userId: result.insertId, public_id, role: finalRole, paired_student: pairedStudent });
+        return res.status(201).json({
+            message: '用户注册成功',
+            userId: result.insertId,
+            public_id,
+            role: finalRole,
+            paired_student: pairedStudent,
+        });
     }
     catch (err) {
         // MySQL 唯一键冲突（如 (email, role) 唯一约束 或 public_id 唯一约束）
