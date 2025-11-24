@@ -308,14 +308,13 @@
   border-radius: 12px;
   font-size: 15px;
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, border-width 0.1s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   box-sizing: border-box;
 }
 
 .favorites-input:focus {
-  border-width: 2px;
   border-color: #000000;
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px #000000;
 }
 
 .favorites-modal-footer {
