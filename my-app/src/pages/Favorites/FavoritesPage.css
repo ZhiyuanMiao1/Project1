@@ -5,6 +5,11 @@
   font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
+
+.favorites-page .container {
+  margin-left: 96px;
+}
+
 .favorites-header {
   display: flex;
   align-items: center;
