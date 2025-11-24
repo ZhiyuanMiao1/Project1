@@ -80,11 +80,13 @@ function FavoritesPage() {
     });
   }, []);
 
+  const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
+
   return (
     <div className="favorites-page">
       <div className="container">
         <header className="favorites-header">
-          <BrandMark className="nav-logo-text" to="/student" />
+          <BrandMark className="nav-logo-text" to={logoTo} />
           <button
             type="button"
             className="icon-circle favorites-menu"
@@ -188,7 +190,7 @@ function FavoritesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           align="right"
-          alignOffset={20}
+          alignOffset={23}
         />
       )}
     </div>
