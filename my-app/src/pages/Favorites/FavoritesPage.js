@@ -17,20 +17,20 @@ const collections = [
     id: 'recent',
     title: '最近浏览',
     meta: '1周前',
-    description: '你最近看过的导师会暂时保留在这里，方便随时回到上次的位置。',
+    description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
     images: [tutor1, tutor2, tutor3, tutor4],
   },
   {
     id: 'ml',
     title: 'AI / 机器学习',
-    meta: '已收藏 6 位导师',
+    count: 6,
     description: '算法、建模、科研写作的灵感随时可见。',
     images: [tutor6, tutor3, tutor2],
   },
   {
     id: 'communication',
     title: '语言与表达',
-    meta: '已收藏 3 位导师',
+    count: 3,
     description: '演讲、写作与表达力训练集合。',
     images: [tutor4, tutor5, tutor1],
   },
@@ -69,6 +69,8 @@ function FavoritesPage() {
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
+  const counterpartLabel = preferredRole === 'mentor' ? '学生' : '导师';
+
   const normalizedCollections = useMemo(() => {
     return collections.map((item) => {
       const source = Array.isArray(item.images) && item.images.length > 0 ? item.images : [tutor1, tutor2, tutor3, tutor4];
@@ -76,11 +78,17 @@ function FavoritesPage() {
       while (filled.length < 4) {
         filled.push(source[filled.length % source.length]);
       }
-      return { ...item, cover: filled.slice(0, 4) };
+      const metaText = item.id === 'recent'
+        ? item.meta
+        : `已收藏 ${item.count} 位${counterpartLabel}`;
+      return { ...item, cover: filled.slice(0, 4), metaText };
     });
-  }, []);
+  }, [counterpartLabel]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
+  const createDesc = preferredRole === 'mentor'
+    ? '按课程方向、学生特点或目标，整理出你的学生收藏分组。'
+    : '按课程方向、导师风格或目标，整理出你的导师收藏分组。';
 
   return (
     <div className="favorites-page">
@@ -154,7 +162,7 @@ function FavoritesPage() {
                   <div className="favorites-card-title">
                     <h3>{item.title}</h3>
                   </div>
-                  <div className="favorites-meta recent-meta">{item.meta}</div>
+                  <div className="favorites-meta recent-meta">{item.metaText}</div>
                 </div>
               </article>
             );
@@ -165,7 +173,7 @@ function FavoritesPage() {
               <FaHeart />
             </div>
             <h3>创建新的收藏夹</h3>
-            <p className="favorites-desc">按课程方向、导师风格或目标，整理出你的收藏分组。</p>
+            <p className="favorites-desc">{createDesc}</p>
             <button type="button" className="create-btn">新建收藏</button>
           </article>
         </section>
