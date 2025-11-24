@@ -247,6 +247,99 @@
   box-shadow: 0 16px 30px rgba(37, 99, 235, 0.3);
 }
 
+.favorites-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 999;
+}
+
+.favorites-modal {
+  position: relative;
+  width: 360px;
+  max-width: 100%;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  padding: 28px 22px 18px;
+  color: #0f172a;
+}
+
+.favorites-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #0f172a;
+  padding: 6px;
+  line-height: 0;
+}
+
+.favorites-modal-body {
+  text-align: center;
+  padding: 12px 10px 22px;
+}
+
+.favorites-modal-body h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.favorites-modal-body p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.favorites-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.favorites-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.favorites-btn.ghost {
+  border: none;
+  background: transparent;
+  color: #111827;
+}
+
+.favorites-btn.danger {
+  border: none;
+  background: #1f1f1f;
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(17, 17, 17, 0.18);
+}
+
+.favorites-btn:hover {
+  transform: translateY(-1px);
+}
+
+.favorites-btn.danger:hover {
+  background: #111827;
+  box-shadow: 0 14px 28px rgba(17, 17, 17, 0.22);
+}
+
 @media (max-width: 640px) {
   .favorites-header {
     padding-top: 18px;

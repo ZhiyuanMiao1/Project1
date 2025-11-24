@@ -40,6 +40,8 @@ function FavoritesPage() {
   const location = useLocation();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
@@ -69,6 +71,17 @@ function FavoritesPage() {
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape' && showDeleteModal) {
+        setShowDeleteModal(false);
+        setPendingDelete(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showDeleteModal]);
+
   const counterpartLabel = preferredRole === 'mentor' ? '学生' : '导师';
 
   const normalizedCollections = useMemo(() => {
@@ -89,6 +102,21 @@ function FavoritesPage() {
   const createDesc = preferredRole === 'mentor'
     ? '按课程方向、学生特点或目标，整理出你的学生收藏分组。'
     : '按课程方向、导师风格或目标，整理出你的导师收藏分组。';
+
+  const openDeleteModal = (item) => {
+    setPendingDelete(item);
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setPendingDelete(null);
+  };
+
+  const handleDeleteConfirm = () => {
+    // Place deletion logic here when backend wiring is ready.
+    closeDeleteModal();
+  };
 
   return (
     <div className="favorites-page">
@@ -137,7 +165,15 @@ function FavoritesPage() {
               >
                 <div className="favorites-cover">
                   {!isRecent && (
-                    <button type="button" className="favorites-remove" aria-label="移除收藏">
+                    <button
+                      type="button"
+                      className="favorites-remove"
+                      aria-label="移除收藏"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDeleteModal(item);
+                      }}
+                    >
                       <svg
                         width="18"
                         height="18"
@@ -178,6 +214,43 @@ function FavoritesPage() {
           </article>
         </section>
       </div>
+
+      {showDeleteModal && (
+        <div className="favorites-modal-backdrop" role="presentation" onClick={closeDeleteModal}>
+          <div
+            className="favorites-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-title"
+            aria-describedby="delete-desc"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="favorites-modal-close"
+              aria-label="关闭"
+              onClick={closeDeleteModal}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <div className="favorites-modal-body">
+              <h3 id="delete-title">删除此收藏夹？</h3>
+              <p id="delete-desc">
+                「{pendingDelete?.title ?? ''}」将被永久删除。
+              </p>
+            </div>
+
+            <div className="favorites-modal-footer">
+              <button type="button" className="favorites-btn ghost" onClick={closeDeleteModal}>取消</button>
+              <button type="button" className="favorites-btn danger" onClick={handleDeleteConfirm}>删除</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showStudentAuth && (
         <StudentAuthModal
