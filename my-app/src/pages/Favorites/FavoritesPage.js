@@ -303,7 +303,6 @@ function FavoritesPage() {
 
             <div className="favorites-modal-body">
               <h3 id="create-title">新建收藏夹</h3>
-              <p id="create-desc">为新的收藏夹取一个名称。</p>
               <input
                 type="text"
                 className="favorites-input"

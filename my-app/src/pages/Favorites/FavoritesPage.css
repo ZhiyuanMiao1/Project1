@@ -284,7 +284,7 @@
 
 .favorites-modal-body {
   text-align: center;
-  padding: 12px 10px 22px;
+  padding: 12px 22px 16px;
 }
 
 .favorites-modal-body h3 {
@@ -301,6 +301,7 @@
 
 .favorites-input {
   width: 100%;
+  max-width: 100%;
   margin-top: 14px;
   padding: 14px 14px;
   border: 1px solid #b3b3b3;
@@ -308,11 +309,12 @@
   font-size: 15px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
 }
 
 .favorites-input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.16);
 }
 
 .favorites-modal-footer {
