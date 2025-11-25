@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH } from 'react-icons/fa';
+import { FaEllipsisH, FaCalendarAlt } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import {
@@ -157,6 +157,7 @@ function CoursesPage() {
                               </span>
                             </div>
                             <div className="course-meta">
+                              <span className="course-meta-icon"><FaCalendarAlt size={12} /></span>
                               <span className="meta-item">{course.dateText}</span>
                               <span className="meta-sep">•</span>
                               <span className="meta-item">{course.duration}</span>

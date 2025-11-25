@@ -137,7 +137,7 @@
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  padding: 14px 16px 12px 36px;
+  padding: 14px 16px 12px 44px;
   transition: transform 0.16s ease, border-color 0.16s ease;
   min-height: 150px;
   display: flex;
@@ -189,8 +189,8 @@
   position: absolute;
   left: 12px;
   top: 16px;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 1.2px solid #0f172a;
   display: inline-flex;
@@ -210,6 +210,7 @@
 .course-type-row {
   margin-top: 6px;
   align-self: flex-start;
+  padding-left: 0;
 }
 
 .course-pill {
@@ -242,10 +243,18 @@
   gap: 6px;
   justify-content: flex-start;
   align-self: flex-start;
+  padding-left: 0;
 }
 
 .meta-sep {
   color: #cbd5e1;
+}
+
+.course-meta-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
 }
 
 @media (max-width: 960px) {
