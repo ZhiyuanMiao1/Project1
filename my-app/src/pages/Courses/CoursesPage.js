@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH, FaStar, FaRegStar, FaTimes, FaUserCircle } from 'react-icons/fa';
+import { FaEllipsisH, FaStar, FaRegStar, FaUserCircle } from 'react-icons/fa';
+import { FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import {
@@ -227,7 +228,7 @@ function CoursesPage() {
               aria-label="关闭课程详情"
               onClick={handleCourseClose}
             >
-              <FaTimes size={14} />
+              <FiX size={20} />
             </button>
             {(() => {
               const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
