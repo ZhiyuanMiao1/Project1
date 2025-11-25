@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH } from 'react-icons/fa';
+import { FaEllipsisH, FaStar, FaRegStar, FaTimes, FaUserCircle } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import {
@@ -10,23 +10,23 @@ import {
 import './CoursesPage.css';
 
 const MOCK_COURSES = [
-  { id: 'c-2025-11-28-a', title: '编程基础', type: '课前预习', date: '2025-11-28', duration: '2h' },
-  { id: 'c-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h' },
-  { id: 'c-2025-11-18-a', title: '软件工程实践', type: '课前预习', date: '2025-11-18', duration: '2h' },
-  { id: 'c-2025-11-12-b', title: '产品思维', type: '选课指导', date: '2025-11-12', duration: '1.5h' },
-  { id: 'c-2025-11-06-a', title: '编译原理', type: '作业项目', date: '2025-11-06', duration: '2h' },
-  { id: 'c-2025-10-18-a', title: '系统设计导论', type: '选课指导', date: '2025-10-18', duration: '2h' },
-  { id: 'c-2025-10-04-a', title: '机器学习基础', type: '课前预习', date: '2025-10-04', duration: '2h' },
-  { id: 'c-2025-09-15-a', title: '算法刷题营', type: '期末复习', date: '2025-09-15', duration: '1h' },
-  { id: 'c-2025-08-30-a', title: '前端工程化', type: '课前预习', date: '2025-08-30', duration: '1.5h' },
-  { id: 'c-2024-12-06-a', title: '数据库系统', type: '期末复习', date: '2024-12-06', duration: '2h' },
-  { id: 'c-2024-11-28-a', title: '软件测试', type: '课前预习', date: '2024-11-28', duration: '1.5h' },
-  { id: 'c-2024-11-20-a', title: '数据可视化', type: '其它类型', date: '2024-11-20', duration: '1h' },
-  { id: 'c-2024-11-15-a', title: '人工智能导论', type: '期末复习', date: '2024-11-15', duration: '1.5h' },
-  { id: 'c-2024-11-12-a', title: '操作系统', type: '其它类型', date: '2024-11-12', duration: '1.5h' },
-  { id: 'c-2024-11-08-a', title: '移动开发', type: '作业项目', date: '2024-11-08', duration: '2h' },
-  { id: 'c-2024-11-02-a', title: '网络基础', type: '课前预习', date: '2024-11-02', duration: '1h' },
-  { id: 'c-2024-09-16-a', title: '毕业论文辅导', type: '毕业论文', date: '2024-09-16', duration: '1h' },
+  { id: 'c-2025-11-28-a', title: '编程基础', type: '课前预习', date: '2025-11-28', duration: '2h', mentorName: '李老师', mentorAvatar: 'https://i.pravatar.cc/120?img=34', rating: 4.8 },
+  { id: 'c-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h', mentorName: '王导师', mentorAvatar: 'https://i.pravatar.cc/120?img=20', rating: 4.6 },
+  { id: 'c-2025-11-18-a', title: '软件工程实践', type: '课前预习', date: '2025-11-18', duration: '2h', mentorName: '赵老师', mentorAvatar: 'https://i.pravatar.cc/120?img=41', rating: 4.7 },
+  { id: 'c-2025-11-12-b', title: '产品思维', type: '选课指导', date: '2025-11-12', duration: '1.5h', mentorName: '陈导师', mentorAvatar: 'https://i.pravatar.cc/120?img=10', rating: 4.5 },
+  { id: 'c-2025-11-06-a', title: '编译原理', type: '作业项目', date: '2025-11-06', duration: '2h', mentorName: '刘老师', mentorAvatar: 'https://i.pravatar.cc/120?img=24', rating: 4.4 },
+  { id: 'c-2025-10-18-a', title: '系统设计导论', type: '选课指导', date: '2025-10-18', duration: '2h', mentorName: '周导师', mentorAvatar: 'https://i.pravatar.cc/120?img=30', rating: 4.6 },
+  { id: 'c-2025-10-04-a', title: '机器学习基础', type: '课前预习', date: '2025-10-04', duration: '2h', mentorName: '李导师', mentorAvatar: 'https://i.pravatar.cc/120?img=32', rating: 4.7 },
+  { id: 'c-2025-09-15-a', title: '算法刷题营', type: '期末复习', date: '2025-09-15', duration: '1h', mentorName: '冯老师', mentorAvatar: 'https://i.pravatar.cc/120?img=38', rating: 4.3 },
+  { id: 'c-2025-08-30-a', title: '前端工程化', type: '课前预习', date: '2025-08-30', duration: '1.5h', mentorName: '郑导师', mentorAvatar: 'https://i.pravatar.cc/120?img=6', rating: 4.5 },
+  { id: 'c-2024-12-06-a', title: '数据库系统', type: '期末复习', date: '2024-12-06', duration: '2h', mentorName: '王老师', mentorAvatar: 'https://i.pravatar.cc/120?img=12', rating: 4.4 },
+  { id: 'c-2024-11-28-a', title: '软件测试', type: '课前预习', date: '2024-11-28', duration: '1.5h', mentorName: '李老师', mentorAvatar: 'https://i.pravatar.cc/120?img=21', rating: 4.6 },
+  { id: 'c-2024-11-20-a', title: '数据可视化', type: '其它类型', date: '2024-11-20', duration: '1h', mentorName: '宋导师', mentorAvatar: 'https://i.pravatar.cc/120?img=43', rating: 4.4 },
+  { id: 'c-2024-11-15-a', title: '人工智能导论', type: '期末复习', date: '2024-11-15', duration: '1.5h', mentorName: '刘老师', mentorAvatar: 'https://i.pravatar.cc/120?img=18', rating: 4.7 },
+  { id: 'c-2024-11-12-a', title: '操作系统', type: '其它类型', date: '2024-11-12', duration: '1.5h', mentorName: '钱老师', mentorAvatar: 'https://i.pravatar.cc/120?img=16', rating: 4.5 },
+  { id: 'c-2024-11-08-a', title: '移动开发', type: '作业项目', date: '2024-11-08', duration: '2h', mentorName: '马导师', mentorAvatar: 'https://i.pravatar.cc/120?img=48', rating: 4.4 },
+  { id: 'c-2024-11-02-a', title: '网络基础', type: '课前预习', date: '2024-11-02', duration: '1h', mentorName: '朱老师', mentorAvatar: 'https://i.pravatar.cc/120?img=27', rating: 4.3 },
+  { id: 'c-2024-09-16-a', title: '毕业论文辅导', type: '毕业论文', date: '2024-09-16', duration: '1h', mentorName: '导师组', mentorAvatar: 'https://i.pravatar.cc/120?img=14', rating: 4.8 },
 ];
 
 const formatDate = (value) => {
@@ -49,6 +49,7 @@ const isCoursePast = (value) => {
 function CoursesPage() {
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [activeCourse, setActiveCourse] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
@@ -93,6 +94,23 @@ function CoursesPage() {
       }));
   }, []);
 
+  const handleCourseOpen = (course) => setActiveCourse(course);
+  const handleCourseClose = () => setActiveCourse(null);
+  const handleCardKeyDown = (event, course) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleCourseOpen(course);
+    }
+  };
+
+  const renderStars = (ratingValue) => {
+    const value = typeof ratingValue === 'number' ? ratingValue : 0;
+    const rounded = Math.round(value);
+    return Array.from({ length: 5 }).map((_, idx) => (
+      idx < rounded ? <FaStar key={idx} size={14} /> : <FaRegStar key={idx} size={14} />
+    ));
+  };
+
   return (
     <div className="courses-page">
       <div className="container">
@@ -112,7 +130,7 @@ function CoursesPage() {
               aria-hidden="true"
               focusable="false"
             >
-              <line x1="5" y1="8"  x2="20" y2="8"  stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
@@ -136,18 +154,26 @@ function CoursesPage() {
                     <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
                       <span className="month-label">{monthBlock.month}月</span>
                     </div>
-                      <div className="month-cards" role="list">
+                    <div className="month-cards" role="list">
                       {monthBlock.courses.map((course) => {
                         const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
                         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
                         const isPast = isCoursePast(course.date);
                         return (
-                          <article className="course-card" key={course.id} role="listitem">
+                          <article
+                            className="course-card"
+                            key={course.id}
+                            role="listitem"
+                            tabIndex={0}
+                            onClick={() => handleCourseOpen(course)}
+                            onKeyDown={(event) => handleCardKeyDown(event, course)}
+                            aria-label={`${normalizedTitle} ${course.type}`}
+                          >
                             <div className="course-head">
                               <div className="course-title-wrap">
                                 <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
-                                  {isPast ? '✔' : ''}
+                                  {isPast ? '\u2713' : ''}
                                 </span>
                                 <span className="course-title-icon">
                                   <TitleIcon size={20} />
@@ -165,7 +191,7 @@ function CoursesPage() {
                             </div>
                             <div className="course-meta">
                               <span className="meta-item">{course.dateText}</span>
-                              <span className="meta-sep">•</span>
+                              <span className="meta-sep">·</span>
                               <span className="meta-item">{course.duration}</span>
                             </div>
                           </article>
@@ -190,6 +216,74 @@ function CoursesPage() {
           align="right"
           alignOffset={23}
         />
+      )}
+
+      {activeCourse && (
+        <div className="course-detail-overlay" role="dialog" aria-modal="true">
+          <div className="course-detail-card">
+            <button
+              type="button"
+              className="course-detail-close"
+              aria-label="关闭课程详情"
+              onClick={handleCourseClose}
+            >
+              <FaTimes size={16} />
+            </button>
+            {(() => {
+              const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
+              const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+              const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[activeCourse.type] || FaEllipsisH;
+              const ratingValue = typeof activeCourse.rating === 'number' ? activeCourse.rating : 0;
+              return (
+                <>
+                  <div className="course-detail-mentor">
+                    <div
+                      className="course-detail-avatar"
+                      style={activeCourse.mentorAvatar ? { backgroundImage: `url(${activeCourse.mentorAvatar})` } : {}}
+                    >
+                      {!activeCourse.mentorAvatar && <FaUserCircle size={36} />}
+                    </div>
+                    <div className="course-detail-mentor-info">
+                      <span className="course-detail-label">导师</span>
+                      <span className="course-detail-mentor-name">{activeCourse.mentorName}</span>
+                    </div>
+                    <div className="course-detail-rating">
+                      <div className="course-detail-stars">
+                        {renderStars(ratingValue)}
+                      </div>
+                      <span className="course-detail-rating-value">{ratingValue.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <div className="course-detail-body">
+                    <div className="course-detail-title">
+                      <span className="course-detail-title-icon">
+                        <TitleIcon size={18} />
+                      </span>
+                      <span>{normalizedTitle}</span>
+                    </div>
+                    <div className="course-detail-meta-grid">
+                      <div className="course-detail-meta-chip">
+                        <span className="course-detail-chip-label">课程类型</span>
+                        <div className="course-detail-chip-value">
+                          <TypeIcon size={14} />
+                          <span>{activeCourse.type}</span>
+                        </div>
+                      </div>
+                      <div className="course-detail-meta-chip">
+                        <span className="course-detail-chip-label">日期</span>
+                        <div className="course-detail-chip-value">{formatDate(activeCourse.date)}</div>
+                      </div>
+                      <div className="course-detail-meta-chip">
+                        <span className="course-detail-chip-label">时长</span>
+                        <div className="course-detail-chip-value">{activeCourse.duration}</div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
       )}
     </div>
   );
