@@ -174,8 +174,8 @@
   width: 30px;
   height: 30px;
   border-radius: 10px;
-  background: #e0f2fe;
-  color: #0ea5e9;
+  background: #eef2f7;
+  color: #111827;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -185,12 +185,12 @@
 .course-pill {
   padding: 6px 10px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+  background: #eef2f7;
   color: #0f172a;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  border: 1px solid #bfdbfe;
+  border: 1px solid #e5e7eb;
   display: inline-flex;
   align-items: center;
   gap: 6px;

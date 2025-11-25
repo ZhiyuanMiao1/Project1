@@ -1,23 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FiBookOpen,
-  FiBook,
-  FiList,
-  FiCheckCircle,
-  FiMoreHorizontal,
-  FiSun,
-  FiLayers,
-  FiTarget,
-  FiCpu,
-  FiDatabase,
-  FiGitBranch,
-  FiLayout,
-  FiWifi,
-  FiFlag,
-  FiCode,
-} from 'react-icons/fi';
+import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import {
+  DIRECTION_LABEL_ICON_MAP,
+  COURSE_TYPE_LABEL_ICON_MAP,
+  normalizeCourseLabel,
+} from '../../constants/courseMappings';
 import './CoursesPage.css';
 
 const MOCK_COURSES = [
@@ -32,28 +21,6 @@ const MOCK_COURSES = [
   { id: 'c-2024-11-02-a', title: '网络基础', type: '课前预习', date: '2024-11-02', duration: '1h' },
   { id: 'c-2024-09-16-a', title: '毕业论文辅导', type: '毕业论文', date: '2024-09-16', duration: '1h' },
 ];
-
-const TYPE_ICON_MAP = {
-  选课指导: FiSun,
-  课前预习: FiBook,
-  作业项目: FiList,
-  期末复习: FiCheckCircle,
-  毕业论文: FiFlag,
-  其它类型: FiMoreHorizontal,
-};
-
-const COURSE_ICON_MAP = {
-  编程基础: FiCode,
-  数据结构与算法: FiGitBranch,
-  系统设计导论: FiLayers,
-  机器学习基础: FiCpu,
-  算法刷题营: FiTarget,
-  前端工程化: FiLayout,
-  数据库系统: FiDatabase,
-  操作系统: FiCpu,
-  网络基础: FiWifi,
-  毕业论文辅导: FiFlag,
-};
 
 const formatDate = (value) => {
   const d = new Date(value);
@@ -154,18 +121,22 @@ function CoursesPage() {
                       <span className="month-label">{monthBlock.month}月</span>
                     </div>
                       <div className="month-cards" role="list">
-                        {monthBlock.courses.map((course) => (
+                      {monthBlock.courses.map((course) => {
+                        const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
+                        const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+                        const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
+                        return (
                           <article className="course-card" key={course.id} role="listitem">
                             <div className="course-head">
                               <div className="course-title-wrap">
                                 <span className="course-title-icon">
-                                  {(COURSE_ICON_MAP[course.title] || FiBookOpen)({ size: 18 })}
+                                  <TitleIcon size={18} />
                                 </span>
-                                <span className="course-title">{course.title}</span>
+                                <span className="course-title">{normalizedTitle}</span>
                               </div>
                               <span className="course-pill">
                                 <span className="course-pill-icon">
-                                  {(TYPE_ICON_MAP[course.type] || FiMoreHorizontal)({ size: 14 })}
+                                  <TypeIcon size={14} />
                                 </span>
                                 <span>{course.type}</span>
                               </span>
@@ -174,9 +145,10 @@ function CoursesPage() {
                               <span className="meta-item">{course.dateText}</span>
                               <span className="meta-sep">•</span>
                               <span className="meta-item">{course.duration}</span>
-                          </div>
-                        </article>
-                      ))}
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
