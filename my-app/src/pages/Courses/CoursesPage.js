@@ -130,10 +130,12 @@ function CoursesPage() {
                             <div className="course-head">
                               <div className="course-title-wrap">
                                 <span className="course-title-icon">
-                                  <TitleIcon size={18} />
+                                  <TitleIcon size={20} />
                                 </span>
                                 <span className="course-title">{normalizedTitle}</span>
                               </div>
+                            </div>
+                            <div className="course-type-row">
                               <span className="course-pill">
                                 <span className="course-pill-icon">
                                   <TypeIcon size={14} />

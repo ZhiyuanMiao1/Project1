@@ -133,12 +133,13 @@
 }
 
 .course-card {
-  min-width: 230px;
+  min-width: 240px;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 16px;
+  padding: 16px 16px 14px;
   transition: transform 0.16s ease, border-color 0.16s ease;
+  min-height: 150px;
 }
 
 .course-card:hover {
@@ -149,8 +150,8 @@
 .course-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 12px;
 }
 
 .course-title-wrap {
@@ -161,8 +162,8 @@
 }
 
 .course-title {
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: 800;
+  font-size: 16px;
   letter-spacing: -0.01em;
   color: #0f172a;
   white-space: nowrap;
@@ -171,15 +172,19 @@
 }
 
 .course-title-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   background: #eef2f7;
   color: #111827;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.course-type-row {
+  margin-top: 12px;
 }
 
 .course-pill {
@@ -204,7 +209,7 @@
 }
 
 .course-meta {
-  margin-top: 8px;
+  margin-top: 10px;
   color: #6b7280;
   font-size: 13px;
   display: inline-flex;
