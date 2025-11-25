@@ -99,14 +99,12 @@ function CoursesPage() {
 
         <section className="courses-hero">
           <h1>课程</h1>
-          <p>以时间轴查看你最近的课程，方便快速回忆每一次上课的重点。</p>
         </section>
 
         <section className="courses-timeline">
           {timelineData.map((yearBlock) => (
             <div className="courses-year-block" key={yearBlock.year}>
               <div className="year-side">
-                <div className="year-dot" />
                 <div className="year-label">{yearBlock.year}</div>
                 <div className="year-line" />
               </div>
@@ -114,7 +112,6 @@ function CoursesPage() {
                 {yearBlock.months.map((monthBlock, idx) => (
                   <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
                     <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
-                      <div className="month-dot" />
                       <span className="month-label">{monthBlock.month}月</span>
                     </div>
                     <div className="month-cards" role="list">

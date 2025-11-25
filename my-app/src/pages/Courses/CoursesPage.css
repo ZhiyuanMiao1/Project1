@@ -41,13 +41,6 @@
   letter-spacing: -0.03em;
 }
 
-.courses-hero p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
 .courses-timeline {
   display: flex;
   flex-direction: column;
@@ -64,7 +57,6 @@
 
 .year-side {
   position: relative;
-  padding-left: 18px;
   min-height: 32px;
 }
 
@@ -74,21 +66,10 @@
   letter-spacing: -0.02em;
 }
 
-.year-dot {
-  position: absolute;
-  left: 0;
-  top: 6px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
-}
-
 .year-line {
   position: absolute;
   top: 20px;
-  left: 5px;
+  left: 0;
   bottom: -20px;
   width: 2px;
   background: linear-gradient(180deg, rgba(229, 231, 235, 0.2), #e5e7eb, rgba(229, 231, 235, 0.8));
@@ -112,7 +93,6 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding-left: 16px;
   color: #4b5563;
   font-weight: 700;
 }
@@ -120,7 +100,7 @@
 .month-marker::after {
   content: '';
   position: absolute;
-  left: 5px;
+  left: 0;
   top: 16px;
   bottom: -24px;
   width: 1px;
@@ -129,14 +109,6 @@
 
 .month-marker.is-last::after {
   display: none;
-}
-
-.month-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #0ea5e9;
-  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
 }
 
 .month-label {
