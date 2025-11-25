@@ -261,7 +261,7 @@
 
 .course-detail-card {
   width: 360px;
-  height: 300px;
+  height: 360px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 20px;
@@ -377,7 +377,7 @@
 }
 
 .course-detail-rating-value {
-  color: #0f172a;
+  color: #f59e0b;
   font-weight: 700;
   font-size: 16px;
 }
@@ -407,6 +407,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  align-items: center;
 }
 
 .course-detail-meta-chip {
@@ -431,6 +432,11 @@
   color: #0f172a;
   font-weight: 700;
   font-size: 14px;
+  line-height: 1.2;
+}
+
+.course-detail-chip-value svg {
+  display: block;
 }
 
 
