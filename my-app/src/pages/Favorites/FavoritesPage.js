@@ -18,7 +18,7 @@ const COVER_POOL = [tutor1, tutor2, tutor3, tutor4, tutor5, tutor6];
 const RECENT_COLLECTION = {
   id: 'recent',
   title: '最近浏览',
-  meta: '最近访问',
+  meta: '今天',
   description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
   images: [tutor1, tutor2, tutor3, tutor4],
 };
@@ -47,6 +47,7 @@ function FavoritesPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [userCollections, setUserCollections] = useState([]);
+  const [recentVisitLabel] = useState(RECENT_COLLECTION.meta || '今天');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [createError, setCreateError] = useState('');
@@ -151,7 +152,7 @@ function FavoritesPage() {
       id: RECENT_COLLECTION.id,
       title: RECENT_COLLECTION.title,
       cover: filled.slice(0, 4),
-      metaText: `最近浏览 · ${RECENT_COLLECTION.meta || ''}`,
+      metaText: `${recentVisitLabel}`,
       isRecent: true,
     };
 
@@ -164,7 +165,7 @@ function FavoritesPage() {
     }));
 
     return [recentCard, ...mapped];
-  }, [userCollections]);
+  }, [recentVisitLabel, userCollections]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
