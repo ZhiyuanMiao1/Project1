@@ -195,9 +195,9 @@
 .course-status {
   position: absolute;
   left: 12px;
-  top: 22px;
-  width: 12px;
-  height: 12px;
+  top: 24px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   border: 1.5px solid #0f172a;
   display: inline-flex;
