@@ -9,6 +9,10 @@
   margin-left: 96px;
 }
 
+.courses-timeline {
+  padding-left: 0; /* 与头部 Logo 左侧对齐 */
+}
+
 .courses-header {
   display: flex;
   align-items: center;
@@ -50,7 +54,7 @@
 
 .courses-year-block {
   position: relative;
-  padding-left: 18px;
+  padding-left: 0;
 }
 
 .year-side {
@@ -65,12 +69,7 @@
 }
 
 .year-line {
-  position: absolute;
-  top: 30px;
-  left: 0;
-  bottom: 0;
-  width: 2px;
-  background: linear-gradient(180deg, rgba(229, 231, 235, 0.2), #e5e7eb, rgba(229, 231, 235, 0.8));
+  display: none;
 }
 
 .year-content {
@@ -98,13 +97,7 @@
 }
 
 .month-marker::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 16px;
-  bottom: -24px;
-  width: 1px;
-  background: #e5e7eb;
+  display: none;
 }
 
 .month-marker.is-last::after {
