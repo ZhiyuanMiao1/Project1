@@ -227,7 +227,7 @@ function CoursesPage() {
               aria-label="关闭课程详情"
               onClick={handleCourseClose}
             >
-              <FaTimes size={16} />
+              <FaTimes size={14} />
             </button>
             {(() => {
               const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
@@ -237,16 +237,15 @@ function CoursesPage() {
               return (
                 <>
                   <div className="course-detail-mentor">
-                    <div
-                      className="course-detail-avatar"
-                      style={activeCourse.mentorAvatar ? { backgroundImage: `url(${activeCourse.mentorAvatar})` } : {}}
-                    >
-                      {!activeCourse.mentorAvatar && <FaUserCircle size={36} />}
-                    </div>
-                    <div className="course-detail-mentor-info">
-                      <span className="course-detail-label">导师</span>
-                      <span className="course-detail-mentor-name">{activeCourse.mentorName}</span>
-                    </div>
+                  <div
+                    className="course-detail-avatar"
+                    style={activeCourse.mentorAvatar ? { backgroundImage: `url(${activeCourse.mentorAvatar})` } : {}}
+                  >
+                    {!activeCourse.mentorAvatar && <FaUserCircle size={36} />}
+                  </div>
+                  <div className="course-detail-mentor-info">
+                    <span className="course-detail-mentor-name">{activeCourse.mentorName}</span>
+                  </div>
                     <div className="course-detail-rating">
                       <div className="course-detail-stars">
                         {renderStars(ratingValue)}
@@ -255,12 +254,10 @@ function CoursesPage() {
                     </div>
                   </div>
                   <div className="course-detail-body">
-                    <div className="course-detail-title">
-                      <span className="course-detail-title-icon">
-                        <TitleIcon size={18} />
-                      </span>
-                      <span>{normalizedTitle}</span>
-                    </div>
+                  <div className="course-detail-title">
+                    <TitleIcon size={18} className="course-detail-title-icon-plain" />
+                    <span>{normalizedTitle}</span>
+                  </div>
                     <div className="course-detail-meta-grid">
                       <div className="course-detail-meta-chip">
                         <span className="course-detail-chip-label">课程类型</span>
