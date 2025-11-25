@@ -143,7 +143,7 @@
   /*min-height: 150px;*/
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
   align-items: flex-start;
   position: relative;
 }
@@ -166,7 +166,6 @@
 .course-title-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
   min-width: 0;
   width: 100%;
 }
@@ -190,7 +189,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-left: -2px; /* visually align with following rows */
+  margin-left: 0px; /* visually align with following rows */
 }
 
 .course-status {
@@ -217,7 +216,7 @@
 }
 
 .course-type-row {
-  margin-top: 0px;
+  margin-top: -5px;
   align-self: flex-start;
   padding-left: var(--course-content-indent);
   width: 100%;
@@ -246,7 +245,7 @@
 
 .course-meta {
   margin-top: 2px;
-  color: #6b7280;
+  color: #555963;
   font-size: 13px;
   display: inline-flex;
   align-items: flex-start;
@@ -259,7 +258,7 @@
 }
 
 .meta-sep {
-  color: #cbd5e1;
+  color: #555963;
 }
 
 
