@@ -134,8 +134,8 @@
 
 .course-card {
   width: 210px;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  background: transparent;
+  border: none;
   border-radius: 16px;
   padding: 14px 16px 12px 32px;
   --course-content-indent: 0px;
