@@ -110,30 +110,15 @@
 }
 
 .month-cards {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
-  flex-wrap: nowrap;
-  overflow-x: auto;
   padding-bottom: 10px;
-  scrollbar-width: thin;
-}
-
-.month-cards::-webkit-scrollbar {
-  height: 6px;
-}
-
-.month-cards::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
-  border-radius: 999px;
-}
-
-.month-cards::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .course-card {
-  width: 210px;
+  width: 100%;
   background: transparent;
   border: none;
   border-radius: 16px;
@@ -268,6 +253,10 @@
   .courses-page .container {
     margin-left: 48px;
   }
+
+  .month-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -290,5 +279,15 @@
 
   .month-row {
     grid-template-columns: 90px 1fr;
+  }
+
+  .month-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .month-cards {
+    grid-template-columns: 1fr;
   }
 }
