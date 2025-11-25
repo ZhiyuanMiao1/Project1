@@ -63,8 +63,8 @@
 }
 
 .year-label {
-  font-size: 26px;
-  font-weight: 800;
+  font-size: 27px;
+  font-weight: 750;
   letter-spacing: -0.02em;
 }
 
@@ -105,7 +105,7 @@
 }
 
 .month-label {
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0.01em;
 }
 
@@ -137,12 +137,14 @@
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
-  padding: 14px 16px 12px 44px;
+  padding: 14px 16px 12px 32px;
+  --course-content-indent: 0px;
   transition: transform 0.16s ease, border-color 0.16s ease;
   min-height: 150px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  align-items: flex-start;
   position: relative;
 }
 
@@ -156,18 +158,23 @@
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
+  width: 100%;
+  padding-left: var(--course-content-indent);
+  box-sizing: border-box;
 }
 
 .course-title-wrap {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
   min-width: 0;
+  width: 100%;
 }
 
 .course-title {
   font-weight: 700;
   font-size: 24px;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   color: #0f172a;
   white-space: nowrap;
@@ -183,22 +190,24 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-left: -2px; /* visually align with following rows */
 }
 
 .course-status {
   position: absolute;
   left: 12px;
-  top: 16px;
-  width: 10px;
-  height: 10px;
+  top: 22px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  border: 1.2px solid #0f172a;
+  border: 1.5px solid #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   color: #ffffff;
+  font-weight: 800;
   flex-shrink: 0;
 }
 
@@ -208,9 +217,10 @@
 }
 
 .course-type-row {
-  margin-top: 6px;
+  margin-top: 0px;
   align-self: flex-start;
-  padding-left: 0;
+  padding-left: var(--course-content-indent);
+  width: 100%;
 }
 
 .course-pill {
@@ -235,27 +245,24 @@
 }
 
 .course-meta {
-  margin-top: 4px;
+  margin-top: 2px;
   color: #6b7280;
   font-size: 13px;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   justify-content: flex-start;
   align-self: flex-start;
-  padding-left: 0;
+  padding-left: var(--course-content-indent);
+  width: 100%;
+  text-align: left;
 }
 
 .meta-sep {
   color: #cbd5e1;
 }
 
-.course-meta-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-}
+
 
 @media (max-width: 960px) {
   .courses-page .container {

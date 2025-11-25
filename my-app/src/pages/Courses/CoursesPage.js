@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH, FaCalendarAlt } from 'react-icons/fa';
+import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import {
@@ -140,7 +140,7 @@ function CoursesPage() {
                             <div className="course-head">
                               <div className="course-title-wrap">
                                 <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
-                                  {isPast ? '✓' : ''}
+                                  {isPast ? '✔' : ''}
                                 </span>
                                 <span className="course-title-icon">
                                   <TitleIcon size={20} />
@@ -157,7 +157,6 @@ function CoursesPage() {
                               </span>
                             </div>
                             <div className="course-meta">
-                              <span className="course-meta-icon"><FaCalendarAlt size={12} /></span>
                               <span className="meta-item">{course.dateText}</span>
                               <span className="meta-sep">•</span>
                               <span className="meta-item">{course.duration}</span>
