@@ -30,6 +30,15 @@ const formatDate = (value) => {
   return `${d.getFullYear()}/${m}/${day}`;
 };
 
+const isCoursePast = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() < today.getTime();
+};
+
 function CoursesPage() {
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -125,10 +134,14 @@ function CoursesPage() {
                         const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
                         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
+                        const isPast = isCoursePast(course.date);
                         return (
                           <article className="course-card" key={course.id} role="listitem">
                             <div className="course-head">
                               <div className="course-title-wrap">
+                                <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
+                                  {isPast ? '✓' : ''}
+                                </span>
                                 <span className="course-title-icon">
                                   <TitleIcon size={20} />
                                 </span>
