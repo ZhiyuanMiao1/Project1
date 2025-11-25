@@ -133,14 +133,14 @@
 }
 
 .course-card {
-  min-width: 240px;
+  width: 210px;
   background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   padding: 14px 16px 12px 32px;
   --course-content-indent: 0px;
   transition: transform 0.16s ease, border-color 0.16s ease;
-  min-height: 150px;
+  /*min-height: 150px;*/
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -253,7 +253,7 @@
   gap: 6px;
   justify-content: flex-start;
   align-self: flex-start;
-  padding-left: var(--course-content-indent);
+  padding-left: calc(var(--course-content-indent) + 10px);
   width: 100%;
   text-align: left;
 }
