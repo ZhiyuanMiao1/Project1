@@ -146,6 +146,7 @@
   gap: 0px;
   align-items: flex-start;
   position: relative;
+  cursor: pointer;
 }
 
 .course-card:hover {
