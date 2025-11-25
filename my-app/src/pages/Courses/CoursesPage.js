@@ -1,20 +1,59 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FiBookOpen,
+  FiBook,
+  FiList,
+  FiCheckCircle,
+  FiMoreHorizontal,
+  FiSun,
+  FiLayers,
+  FiTarget,
+  FiCpu,
+  FiDatabase,
+  FiGitBranch,
+  FiLayout,
+  FiWifi,
+  FiFlag,
+  FiCode,
+} from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import './CoursesPage.css';
 
 const MOCK_COURSES = [
-  { id: 'c-2025-11-28-a', title: '编程基础', type: '课程预习', date: '2025-11-28', duration: '2h' },
+  { id: 'c-2025-11-28-a', title: '编程基础', type: '课前预习', date: '2025-11-28', duration: '2h' },
   { id: 'c-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h' },
   { id: 'c-2025-10-18-a', title: '系统设计导论', type: '选课指导', date: '2025-10-18', duration: '2h' },
-  { id: 'c-2025-10-04-a', title: '机器学习基础', type: '课程预习', date: '2025-10-04', duration: '2h' },
-  { id: 'c-2025-09-15-a', title: '算法刷题营', type: '作业项目', date: '2025-09-15', duration: '1h' },
-  { id: 'c-2025-08-30-a', title: '前端工程化', type: '课程预习', date: '2025-08-30', duration: '1.5h' },
-  { id: 'c-2024-12-06-a', title: '数据库系统', type: '课程预习', date: '2024-12-06', duration: '2h' },
-  { id: 'c-2024-11-12-a', title: '操作系统', type: '作业项目', date: '2024-11-12', duration: '1.5h' },
-  { id: 'c-2024-11-02-a', title: '网络基础', type: '课程预习', date: '2024-11-02', duration: '1h' },
-  { id: 'c-2024-09-16-a', title: '编程基础', type: '选课指导', date: '2024-09-16', duration: '1h' },
+  { id: 'c-2025-10-04-a', title: '机器学习基础', type: '课前预习', date: '2025-10-04', duration: '2h' },
+  { id: 'c-2025-09-15-a', title: '算法刷题营', type: '期末复习', date: '2025-09-15', duration: '1h' },
+  { id: 'c-2025-08-30-a', title: '前端工程化', type: '课前预习', date: '2025-08-30', duration: '1.5h' },
+  { id: 'c-2024-12-06-a', title: '数据库系统', type: '期末复习', date: '2024-12-06', duration: '2h' },
+  { id: 'c-2024-11-12-a', title: '操作系统', type: '其它类型', date: '2024-11-12', duration: '1.5h' },
+  { id: 'c-2024-11-02-a', title: '网络基础', type: '课前预习', date: '2024-11-02', duration: '1h' },
+  { id: 'c-2024-09-16-a', title: '毕业论文辅导', type: '毕业论文', date: '2024-09-16', duration: '1h' },
 ];
+
+const TYPE_ICON_MAP = {
+  选课指导: FiSun,
+  课前预习: FiBook,
+  作业项目: FiList,
+  期末复习: FiCheckCircle,
+  毕业论文: FiFlag,
+  其它类型: FiMoreHorizontal,
+};
+
+const COURSE_ICON_MAP = {
+  编程基础: FiCode,
+  数据结构与算法: FiGitBranch,
+  系统设计导论: FiLayers,
+  机器学习基础: FiCpu,
+  算法刷题营: FiTarget,
+  前端工程化: FiLayout,
+  数据库系统: FiDatabase,
+  操作系统: FiCpu,
+  网络基础: FiWifi,
+  毕业论文辅导: FiFlag,
+};
 
 const formatDate = (value) => {
   const d = new Date(value);
@@ -114,17 +153,27 @@ function CoursesPage() {
                     <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
                       <span className="month-label">{monthBlock.month}月</span>
                     </div>
-                    <div className="month-cards" role="list">
-                      {monthBlock.courses.map((course) => (
-                        <article className="course-card" key={course.id} role="listitem">
-                          <div className="course-head">
-                            <span className="course-title">{course.title}</span>
-                            <span className="course-pill">{course.type}</span>
-                          </div>
-                          <div className="course-meta">
-                            <span className="meta-item">{course.dateText}</span>
-                            <span className="meta-sep">•</span>
-                            <span className="meta-item">{course.duration}</span>
+                      <div className="month-cards" role="list">
+                        {monthBlock.courses.map((course) => (
+                          <article className="course-card" key={course.id} role="listitem">
+                            <div className="course-head">
+                              <div className="course-title-wrap">
+                                <span className="course-title-icon">
+                                  {(COURSE_ICON_MAP[course.title] || FiBookOpen)({ size: 18 })}
+                                </span>
+                                <span className="course-title">{course.title}</span>
+                              </div>
+                              <span className="course-pill">
+                                <span className="course-pill-icon">
+                                  {(TYPE_ICON_MAP[course.type] || FiMoreHorizontal)({ size: 14 })}
+                                </span>
+                                <span>{course.type}</span>
+                              </span>
+                            </div>
+                            <div className="course-meta">
+                              <span className="meta-item">{course.dateText}</span>
+                              <span className="meta-sep">•</span>
+                              <span className="meta-item">{course.duration}</span>
                           </div>
                         </article>
                       ))}
