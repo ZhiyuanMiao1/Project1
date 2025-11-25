@@ -5,6 +5,7 @@ import MentorPage from './components/MentorPage/MentorPage';
 import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourseRequestPage';
 import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEditorPage';
 import FavoritesPage from './pages/Favorites/FavoritesPage';
+import CoursesPage from './pages/Courses/CoursesPage';
 
 function App() {
   return (
@@ -21,6 +22,9 @@ function App() {
 
         {/* 收藏页面 */}
         <Route path="/student/favorites" element={<FavoritesPage />} />
+
+        {/* 课程时间轴页面 */}
+        <Route path="/student/courses" element={<CoursesPage />} />
 
         {/* 导师个人名片编辑页面 */}
         <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
