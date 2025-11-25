@@ -105,11 +105,22 @@ function CoursesPage() {
   };
 
   const renderStars = (ratingValue) => {
-    const value = typeof ratingValue === 'number' ? ratingValue : 0;
-    const rounded = Math.round(value);
-    return Array.from({ length: 5 }).map((_, idx) => (
-      idx < rounded ? <FaStar key={idx} size={14} /> : <FaRegStar key={idx} size={14} />
-    ));
+    const value = typeof ratingValue === 'number' && !Number.isNaN(ratingValue) ? ratingValue : 0;
+    const starSize = 14;
+    return Array.from({ length: 5 }).map((_, idx) => {
+      const fill = Math.max(0, Math.min(1, value - idx));
+      const clipPath = `inset(0 ${100 - fill * 100}% 0 0)`; // vertical cut based on remaining unfilled width
+      return (
+        <span className="course-detail-star" key={idx} aria-hidden="true">
+          <FaRegStar size={starSize} className="course-detail-star-base" />
+          {fill > 0 && (
+            <span className="course-detail-star-fill" style={{ clipPath }}>
+              <FaStar size={starSize} />
+            </span>
+          )}
+        </span>
+      );
+    });
   };
 
   return (
