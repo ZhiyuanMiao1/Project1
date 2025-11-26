@@ -133,9 +133,6 @@ function MessagesPage({ mode = 'student' }) {
   }, [threads]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
-  const heroCopy = isMentorView
-    ? '集中查看学生的消息、作业反馈与预约沟通，像邮箱一样快速回复。'
-    : '把导师的沟通集中在一处，方便确认排期、作业反馈与课前准备。';
 
   return (
     <div className="messages-page">
@@ -165,7 +162,6 @@ function MessagesPage({ mode = 'student' }) {
 
         <section className="messages-hero">
           <h1>消息</h1>
-          <p>{heroCopy}</p>
         </section>
 
         <section className="messages-shell" aria-label="消息列表与详情">

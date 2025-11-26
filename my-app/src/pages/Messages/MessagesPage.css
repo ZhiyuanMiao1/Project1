@@ -52,12 +52,6 @@
   display: grid;
   grid-template-columns: 340px 1px 1fr;
   min-height: 540px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 22px;
-  box-shadow:
-    0 20px 40px rgba(15, 23, 42, 0.08),
-    0 4px 10px rgba(15, 23, 42, 0.04);
   overflow: hidden;
 }
 
