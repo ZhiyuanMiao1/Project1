@@ -3,6 +3,7 @@ import { FaEllipsisH, FaUserCircle } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import api from '../../api/client';
 import {
   DIRECTION_LABEL_ICON_MAP,
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -54,6 +55,8 @@ function MentorCoursesPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const handler = (e) => {
@@ -65,6 +68,56 @@ function MentorCoursesPage() {
     };
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
+  }, [isLoggedIn]);
+
+  // 访问控制：导师且审核通过才能查看
+  useEffect(() => {
+    let alive = true;
+    const askLogin = () => {
+      try { sessionStorage.setItem('postLoginRedirect', '/mentor/courses'); } catch {}
+      try { sessionStorage.setItem('requiredRole', 'mentor'); } catch {}
+      setShowMentorAuth(true);
+    };
+
+    setStatus('loading');
+    setErrorMessage('');
+
+    (async () => {
+      try {
+        const res = await api.get('/api/mentor/permissions');
+        if (!alive) return;
+        if (res?.data?.canEditProfile) {
+          setStatus('ok');
+          setErrorMessage('');
+          return;
+        }
+        setStatus('forbidden');
+        setErrorMessage(res?.data?.error || '当前身份暂无权限访问');
+      } catch (e) {
+        if (!alive) return;
+        const code = e?.response?.status;
+        const msg = e?.response?.data?.error || '';
+        if (code === 401) {
+          setStatus('unauthenticated');
+          setErrorMessage('请先登录导师账号');
+          askLogin();
+          return;
+        }
+        if (code === 403) {
+          if (msg && (msg.includes('审核') || msg.toLowerCase().includes('pending'))) {
+            setStatus('pending');
+          } else {
+            setStatus('forbidden');
+          }
+          setErrorMessage(msg || '当前身份暂无权限访问');
+          return;
+        }
+        setStatus('error');
+        setErrorMessage(msg || '加载失败，请稍后再试');
+      }
+    })();
+
+    return () => { alive = false; };
   }, []);
 
   const timelineData = useMemo(() => {
@@ -134,69 +187,113 @@ function MentorCoursesPage() {
           <h1>课程</h1>
         </section>
 
-        <section className="courses-timeline">
-          {timelineData.map((yearBlock) => (
-            <div className="courses-year-block" key={yearBlock.year}>
-              <div className="year-side">
-                <div className="year-label">{yearBlock.year}</div>
-                <div className="year-line" />
-              </div>
-              <div className="year-content">
-                {yearBlock.months.map((monthBlock, idx) => (
-                  <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
-                    <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
-                      <span className="month-label">{monthBlock.month}月</span>
-                    </div>
-                    <div className="month-cards" role="list">
-                      {monthBlock.courses.map((course) => {
-                        const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
-                        const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-                        const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
-                        const isPast = isCoursePast(course.date);
-                        return (
-                          <article
-                            className="course-card"
-                            key={course.id}
-                            role="listitem"
-                            tabIndex={0}
-                            onClick={() => handleCourseOpen(course)}
-                            onKeyDown={(event) => handleCardKeyDown(event, course)}
-                            aria-label={`${normalizedTitle} ${course.type}`}
-                          >
-                            <div className="course-head">
-                              <div className="course-title-wrap">
-                                <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
-                                  {isPast ? '\u2713' : ''}
-                                </span>
-                                <span className="course-title-icon">
-                                  <TitleIcon size={20} />
-                                </span>
-                                <span className="course-title">{normalizedTitle}</span>
+        {status === 'ok' && (
+          <section className="courses-timeline">
+            {timelineData.map((yearBlock) => (
+              <div className="courses-year-block" key={yearBlock.year}>
+                <div className="year-side">
+                  <div className="year-label">{yearBlock.year}</div>
+                  <div className="year-line" />
+                </div>
+                <div className="year-content">
+                  {yearBlock.months.map((monthBlock, idx) => (
+                    <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
+                      <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
+                        <span className="month-label">{monthBlock.month}月</span>
+                      </div>
+                      <div className="month-cards" role="list">
+                        {monthBlock.courses.map((course) => {
+                          const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
+                          const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+                          const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
+                          const isPast = isCoursePast(course.date);
+                          return (
+                            <article
+                              className="course-card"
+                              key={course.id}
+                              role="listitem"
+                              tabIndex={0}
+                              onClick={() => handleCourseOpen(course)}
+                              onKeyDown={(event) => handleCardKeyDown(event, course)}
+                              aria-label={`${normalizedTitle} ${course.type}`}
+                            >
+                              <div className="course-head">
+                                <div className="course-title-wrap">
+                                  <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
+                                    {isPast ? '\u2713' : ''}
+                                  </span>
+                                  <span className="course-title-icon">
+                                    <TitleIcon size={20} />
+                                  </span>
+                                  <span className="course-title">{normalizedTitle}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="course-type-row">
-                              <span className="course-pill">
-                                <span className="course-pill-icon">
-                                  <TypeIcon size={14} />
+                              <div className="course-type-row">
+                                <span className="course-pill">
+                                  <span className="course-pill-icon">
+                                    <TypeIcon size={14} />
+                                  </span>
+                                  <span>{course.type}</span>
                                 </span>
-                                <span>{course.type}</span>
-                              </span>
-                            </div>
-                            <div className="course-meta">
-                              <span className="meta-item">{course.dateText}</span>
-                              <span className="meta-sep">·</span>
-                              <span className="meta-item">{course.duration}</span>
-                            </div>
-                          </article>
-                        );
-                      })}
+                              </div>
+                              <div className="course-meta">
+                                <span className="meta-item">{course.dateText}</span>
+                                <span className="meta-sep">·</span>
+                                <span className="meta-item">{course.duration}</span>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
+        )}
+
+        {status !== 'ok' && (
+          <div className="courses-guard">
+            {status === 'loading' && <p className="courses-guard-hint">加载中...</p>}
+            {status === 'unauthenticated' && (
+              <>
+                <p className="courses-guard-title">请先登录导师账号</p>
+                <p className="courses-guard-subtitle">登录后即可访问导师课程日历。</p>
+                <div className="courses-guard-actions">
+                  <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>登录 / 注册</button>
+                </div>
+              </>
+            )}
+            {status === 'pending' && (
+              <div className="mentor-pending">
+                <svg className="mentor-pending-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 4h8v2l-3 3 3 3v2H8v-2l3-3-3-3V4z" />
+                  <path d="M9 20h6" />
+                </svg>
+                <div className="mentor-pending-title">你已准备就绪！</div>
+                <div className="mentor-pending-subtitle">
+                  我们会尽快完成导师审核，审核通过后即可访问导师课程页面。
+                </div>
+              </div>
+            )}
+            {status === 'forbidden' && (
+              <>
+                <p className="courses-guard-title">仅导师可访问</p>
+                <p className="courses-guard-subtitle">{errorMessage || '请使用导师身份登录后查看。'}</p>
+                <div className="courses-guard-actions">
+                  <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>切换账号</button>
+                </div>
+              </>
+            )}
+            {status === 'error' && (
+              <>
+                <p className="courses-guard-title">加载失败</p>
+                <p className="courses-guard-subtitle">{errorMessage || '请稍后重试。'}</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {showMentorAuth && (

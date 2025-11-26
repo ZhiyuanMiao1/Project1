@@ -438,6 +438,87 @@
   display: block;
 }
 
+.courses-guard {
+  min-height: 48vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #0f172a;
+  gap: 10px;
+}
+
+.courses-guard-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.courses-guard-subtitle {
+  font-size: 14px;
+  color: #4b5563;
+  margin: 0;
+}
+
+.courses-guard-hint {
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.courses-guard-actions {
+  margin-top: 8px;
+}
+
+.courses-btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.courses-btn:hover {
+  background: #111827;
+}
+
+.mentor-pending {
+  text-align: center;
+  color: #0f172a;
+}
+
+.mentor-pending-icon {
+  display: block;
+  margin: 0 auto 18px;
+  width: 72px;
+  height: 72px;
+  color: #0f172a;
+}
+
+.mentor-pending-icon path {
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.mentor-pending-title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.mentor-pending-subtitle {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #0f172a;
+  max-width: 720px;
+}
+
 
 
 @media (max-width: 960px) {
