@@ -108,6 +108,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         navigate('/student/favorites', { state: { from: 'mentor' } });
         return;
       case 'courses':
+        onClose && onClose();
+        navigate('/mentor/courses', { state: { from: 'mentor' } });
+        return;
       case 'messages':
       case 'settings':
       case 'help':

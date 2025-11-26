@@ -6,6 +6,7 @@ import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourse
 import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEditorPage';
 import FavoritesPage from './pages/Favorites/FavoritesPage';
 import CoursesPage from './pages/Courses/CoursesPage';
+import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
 
 function App() {
   return (
@@ -28,6 +29,9 @@ function App() {
 
         {/* 导师个人名片编辑页面 */}
         <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
+
+        {/* 导师课程时间轴页 */}
+        <Route path="/mentor/courses" element={<MentorCoursesPage />} />
 
         {/* 导师页面 */}
         <Route path="/mentor" element={<MentorPage />} />
