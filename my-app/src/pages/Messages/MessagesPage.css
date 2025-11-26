@@ -107,11 +107,11 @@
   flex-direction: column;
   gap: 6px;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+  transition: box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
 }
 
 .message-item:hover {
-  transform: translateY(-1px);
+  background: #f4f6f9;
 }
 
 .message-item.is-active {
