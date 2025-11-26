@@ -7,6 +7,7 @@ import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEd
 import FavoritesPage from './pages/Favorites/FavoritesPage';
 import CoursesPage from './pages/Courses/CoursesPage';
 import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
+import MessagesPage from './pages/Messages/MessagesPage';
 
 function App() {
   return (
@@ -26,12 +27,14 @@ function App() {
 
         {/* 课程时间轴页面 */}
         <Route path="/student/courses" element={<CoursesPage />} />
+        <Route path="/student/messages" element={<MessagesPage mode="student" />} />
 
         {/* 导师个人名片编辑页面 */}
         <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
 
         {/* 导师课程时间轴页 */}
         <Route path="/mentor/courses" element={<MentorCoursesPage />} />
+        <Route path="/mentor/messages" element={<MessagesPage mode="mentor" />} />
 
         {/* 导师页面 */}
         <Route path="/mentor" element={<MentorPage />} />
