@@ -12,7 +12,7 @@ import './CoursesPage.css';
 
 const MOCK_COURSES = [
   { id: 'c-2025-11-28-a', title: '编程基础', type: '课前预习', date: '2025-11-28', duration: '2h', mentorName: '李老师', mentorAvatar: 'https://i.pravatar.cc/120?img=34', rating: 4.8 },
-  { id: 'c-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h', mentorName: '王导师', mentorAvatar: 'https://i.pravatar.cc/120?img=20', rating: 4.6 },
+  { id: 'c-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h', mentorName: 'Thomas Muller', mentorAvatar: 'https://i.pravatar.cc/120?img=20', rating: 4.6 },
   { id: 'c-2025-11-18-a', title: '软件工程实践', type: '课前预习', date: '2025-11-18', duration: '2h', mentorName: '赵老师', mentorAvatar: 'https://i.pravatar.cc/120?img=41', rating: 4.7 },
   { id: 'c-2025-11-12-b', title: '产品思维', type: '选课指导', date: '2025-11-12', duration: '1.5h', mentorName: '陈导师', mentorAvatar: 'https://i.pravatar.cc/120?img=10', rating: 4.5 },
   { id: 'c-2025-11-06-a', title: '编译原理', type: '作业项目', date: '2025-11-06', duration: '2h', mentorName: '刘老师', mentorAvatar: 'https://i.pravatar.cc/120?img=24', rating: 4.4 },
