@@ -94,7 +94,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       alert(msg || '操作失败，请稍后再试');
     }
   };
-
+  const isPendingMentor = isLoggedIn && canEditProfile === false;
   const handleAuthAction = (action) => {
     switch (action) {
       case 'register':
@@ -104,10 +104,12 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         setShowLoginPopup(true);
         return;
       case 'favorites':
+        if (isPendingMentor) return;
         onClose && onClose();
         navigate('/student/favorites', { state: { from: 'mentor' } });
         return;
       case 'courses':
+        if (isPendingMentor) return;
         onClose && onClose();
         navigate('/mentor/courses', { state: { from: 'mentor' } });
         return;
@@ -177,6 +179,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
             <>
               <button
                 className="auth-modal-option-button"
+                disabled={isPendingMentor}
+                aria-disabled={isPendingMentor}
+                title={isPendingMentor ? '导师审核中，暂不可用' : undefined}
                 onClick={() => handleAuthAction('favorites')}
               >
                 <i className="far fa-heart auth-icon" aria-hidden="true"></i>
@@ -184,6 +189,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button"
+                disabled={isPendingMentor}
+                aria-disabled={isPendingMentor}
+                title={isPendingMentor ? '导师审核中，暂不可用' : undefined}
                 onClick={() => handleAuthAction('courses')}
               >
                 <FiBookOpen className="auth-icon" />
