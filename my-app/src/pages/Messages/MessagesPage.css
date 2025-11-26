@@ -98,9 +98,9 @@
 
 .message-item {
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: none;
   border-radius: 14px;
-  background: #ffffff;
+  background: transparent;
   text-align: left;
   padding: 12px 12px 10px;
   display: flex;
@@ -112,26 +112,23 @@
 
 .message-item:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-  border-color: #d9e2ec;
 }
 
 .message-item.is-active {
-  background: linear-gradient(120deg, #0f172a 0%, #1f2937 100%);
-  color: #ffffff;
-  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.2);
-  border-color: #0f172a;
+  background: #f4f6f9;
+  color: #0f172a;
+  box-shadow: none;
 }
 
 .message-item.is-active .message-snippet,
 .message-item.is-active .message-time,
 .message-item.is-active .message-tag {
-  color: #e5e7eb;
+  color: #4b5563;
 }
 
 .message-item.is-active .message-tag {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: #e5e7eb;
+  border-color: #e5e7eb;
 }
 
 .message-item-head {
