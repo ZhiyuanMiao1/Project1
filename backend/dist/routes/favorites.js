@@ -9,7 +9,7 @@ const normalizeRole = (value, fallback) => {
     return value === 'mentor' || value === 'student' ? value : fallback;
 };
 const getUserById = async (userId) => {
-    const rows = await (0, db_1.query)('SELECT id, email, role, mentor_approved FROM users WHERE id = ? LIMIT 1', [userId]);
+    const rows = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE id = ? LIMIT 1', [userId]);
     return rows[0] || null;
 };
 /**
@@ -40,9 +40,26 @@ async function resolveTargetUser(req, res, requestedRole) {
             return { userId: current.id, role: current.role };
         }
         // 查找同邮箱的另一身份账号，让用户无需切换登录
-        const siblings = await (0, db_1.query)('SELECT id, email, role, mentor_approved FROM users WHERE email = ? AND role = ? LIMIT 1', [current.email, requestedRole]);
+        const siblings = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1', [current.email, requestedRole]);
         if (!siblings.length) {
-            const msg = requestedRole === 'mentor' ? '当前账号未开通导师身份' : '当前账号未开通学生身份';
+            if (requestedRole === 'student') {
+                try {
+                    const created = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [current.username || null, current.email, current.password_hash, 'student', 0]);
+                    return { userId: created.insertId, role: 'student' };
+                }
+                catch (err) {
+                    if (err && err.code === 'ER_DUP_ENTRY') {
+                        const fallback = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1', [current.email, 'student']);
+                        if (fallback[0]) {
+                            return { userId: fallback[0].id, role: fallback[0].role };
+                        }
+                    }
+                    console.error('Auto-create student identity failed:', err);
+                    res.status(500).json({ error: '服务器错误，请稍后再试' });
+                    return null;
+                }
+            }
+            const msg = '当前账号未开通导师身份';
             res.status(403).json({ error: msg, reason: 'role_not_available' });
             return null;
         }

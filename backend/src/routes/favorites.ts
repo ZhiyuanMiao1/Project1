@@ -11,11 +11,18 @@ const normalizeRole = (value: any, fallback: Role): Role => {
   return value === 'mentor' || value === 'student' ? value : fallback;
 };
 
-type UserRow = { id: number; email: string; role: Role; mentor_approved?: number | boolean };
+type UserRow = {
+  id: number;
+  email: string;
+  role: Role;
+  mentor_approved?: number | boolean;
+  username?: string | null;
+  password_hash: string;
+};
 
 const getUserById = async (userId: number): Promise<UserRow | null> => {
   const rows = await dbQuery<UserRow[]>(
-    'SELECT id, email, role, mentor_approved FROM users WHERE id = ? LIMIT 1',
+    'SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE id = ? LIMIT 1',
     [userId]
   );
   return rows[0] || null;
@@ -53,11 +60,33 @@ async function resolveTargetUser(req: Request, res: Response, requestedRole: Rol
 
     // 查找同邮箱的另一身份账号，让用户无需切换登录
     const siblings = await dbQuery<UserRow[]>(
-      'SELECT id, email, role, mentor_approved FROM users WHERE email = ? AND role = ? LIMIT 1',
+      'SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1',
       [current.email, requestedRole]
     );
     if (!siblings.length) {
-      const msg = requestedRole === 'mentor' ? '当前账号未开通导师身份' : '当前账号未开通学生身份';
+      if (requestedRole === 'student') {
+        try {
+          const created = await dbQuery<InsertResult>(
+            'INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)',
+            [current.username || null, current.email, current.password_hash, 'student', 0]
+          );
+          return { userId: created.insertId, role: 'student' };
+        } catch (err: any) {
+          if (err && err.code === 'ER_DUP_ENTRY') {
+            const fallback = await dbQuery<UserRow[]>(
+              'SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1',
+              [current.email, 'student']
+            );
+            if (fallback[0]) {
+              return { userId: fallback[0].id, role: fallback[0].role };
+            }
+          }
+          console.error('Auto-create student identity failed:', err);
+          res.status(500).json({ error: '服务器错误，请稍后再试' });
+          return null;
+        }
+      }
+      const msg = '当前账号未开通导师身份';
       res.status(403).json({ error: msg, reason: 'role_not_available' });
       return null;
     }
