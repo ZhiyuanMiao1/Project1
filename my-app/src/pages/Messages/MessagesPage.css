@@ -64,10 +64,7 @@
 }
 
 .messages-list-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: none;
 }
 
 .messages-title-label {
@@ -198,7 +195,7 @@
 }
 
 .messages-detail-pane {
-  background: linear-gradient(140deg, #f8fafc 0%, #eef2ff 100%);
+  background: #ffffff;
   padding: 22px 24px 20px;
   display: flex;
   flex-direction: column;
@@ -276,10 +273,11 @@
 }
 
 .message-bubble.from-me {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
   margin-left: auto;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.1);
 }
 
 .message-bubble-head {
@@ -300,7 +298,7 @@
 }
 
 .message-bubble.from-me .message-bubble-time {
-  color: #cbd5e1;
+  color: #94a3b8;
 }
 
 .message-bubble-text {
@@ -311,7 +309,7 @@
 
 .message-bubble-hint {
   font-size: 12px;
-  color: #cbd5e1;
+  color: #94a3b8;
 }
 
 .message-quick-actions {
