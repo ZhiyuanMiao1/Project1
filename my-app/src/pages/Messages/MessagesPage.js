@@ -179,7 +179,9 @@ function MessagesPage({ mode = 'student' }) {
               {threads.map((thread) => {
                 const initial = (thread.counterpart || '').trim().charAt(0) || '·';
                 const isActive = thread.id === activeThread?.id;
-                const displayDate = (thread.time || '').split(' ')[0] || thread.time || '';
+                const rawTime = thread.time || '';
+                const timeParts = rawTime.split(/\s+/).filter(Boolean);
+                const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || rawTime);
                 return (
                   <button
                     key={thread.id}

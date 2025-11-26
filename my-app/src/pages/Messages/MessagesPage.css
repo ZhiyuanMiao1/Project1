@@ -120,13 +120,13 @@
 }
 
 .message-avatar {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   background: #e2e8f0;
   color: #0f172a;
   font-weight: 750;
-  font-size: 16px;
+  font-size: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -164,20 +164,20 @@
 }
 
 .message-name {
-  font-weight: 700;
+  font-weight: 500;
   font-size: 15px;
   letter-spacing: -0.01em;
 }
 
 .message-time {
-  color: #94a3b8;
+  color: #000000;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .message-subject {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 
@@ -220,17 +220,12 @@
   justify-content: space-between;
 }
 
-.message-time {
-  color: #94a3b8;
-  font-size: 12px;
-  white-space: nowrap;
-}
 
 .message-more {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: #94a3b8;
+  color: #0f172a;
 }
 
 .message-more span {
