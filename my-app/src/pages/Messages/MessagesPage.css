@@ -228,20 +228,28 @@
 .message-more {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
   color: #0f172a;
   padding: 6px;
   border-radius: 999px;
+  line-height: 1;
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
   margin-top: 10px;
 }
 
-.message-more span {
+.message-more::after {
+  content: '';
   width: 3px;
   height: 3px;
   border-radius: 50%;
   background: currentColor;
-  display: inline-block;
+  display: block;
+  flex-shrink: 0;
+  box-shadow: 5px 0 0 currentColor, 10px 0 0 currentColor;
+}
+
+.message-more span {
+  display: none;
 }
 
 .message-more:hover {
