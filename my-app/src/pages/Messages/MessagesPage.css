@@ -234,7 +234,7 @@
   border-radius: 999px;
   line-height: 1;
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
-  margin-top: 10px;
+  margin-top: auto;
 }
 
 .message-more::after {
