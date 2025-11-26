@@ -176,28 +176,42 @@ function MessagesPage({ mode = 'student' }) {
               <div className="messages-pill">{threads.length} 个会话</div>
             </div>
             <div className="messages-list">
-              {threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  className={`message-item ${thread.id === activeThread?.id ? 'is-active' : ''}`}
-                  onClick={() => setActiveId(thread.id)}
-                  aria-pressed={thread.id === activeThread?.id}
-                >
-                  <div className="message-item-head">
-                    <div className="message-name">{thread.counterpart}</div>
-                    <div className="message-time">{thread.time}</div>
-                  </div>
-                  <div className="message-subject">{thread.subject}</div>
-                  <div className="message-snippet">{thread.summary}</div>
-                  <div className="message-tags">
-                    {thread.unread && <span className="message-unread-dot" aria-label="未读"></span>}
-                    {thread.tags.map((tag) => (
-                      <span key={tag} className="message-tag">{tag}</span>
-                    ))}
-                  </div>
-                </button>
-              ))}
+              {threads.map((thread) => {
+                const initial = (thread.counterpart || '').trim().charAt(0) || '·';
+                const isActive = thread.id === activeThread?.id;
+                return (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={`message-item ${isActive ? 'is-active' : ''}`}
+                    onClick={() => setActiveId(thread.id)}
+                    aria-pressed={isActive}
+                  >
+                    <div className="message-item-shell">
+                      <div className="message-avatar" aria-hidden="true">{initial}</div>
+                      <div className="message-content">
+                        <div className="message-row-top">
+                          <div className="message-name">{thread.counterpart}</div>
+                          <div className="message-time">{thread.time}</div>
+                        </div>
+                        <div className="message-subject">{thread.subject}</div>
+                        <div className="message-snippet">{thread.summary}</div>
+                        <div className="message-tags">
+                          {thread.unread && <span className="message-unread-dot" aria-label="未读"></span>}
+                          {thread.tags.map((tag) => (
+                            <span key={tag} className="message-tag">{tag}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="message-more" aria-label="更多操作" role="presentation">
+                        <span />
+                        <span />
+                        <span />
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
