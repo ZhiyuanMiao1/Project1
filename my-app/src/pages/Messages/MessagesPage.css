@@ -236,6 +236,7 @@
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
   margin-top: auto;
   margin-right: 4px;
+  position: relative;
 }
 
 .message-more::after {
@@ -246,7 +247,22 @@
   background: currentColor;
   display: block;
   flex-shrink: 0;
-  box-shadow: 5px 0 0 currentColor, 10px 0 0 currentColor;
+  box-shadow: -5px 0 0 currentColor, 5px 0 0 currentColor;
+}
+
+.message-more::before {
+  content: '';
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.82);
+  opacity: 0;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  pointer-events: none;
 }
 
 .message-more span {
@@ -256,6 +272,11 @@
 .message-more:hover {
   background: rgba(15, 23, 42, 0.04);
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.1);
+}
+
+.message-more:hover::before {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .messages-divider {
