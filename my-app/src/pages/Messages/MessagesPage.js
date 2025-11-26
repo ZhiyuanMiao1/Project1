@@ -179,6 +179,7 @@ function MessagesPage({ mode = 'student' }) {
               {threads.map((thread) => {
                 const initial = (thread.counterpart || '').trim().charAt(0) || '·';
                 const isActive = thread.id === activeThread?.id;
+                const displayDate = (thread.time || '').split(' ')[0] || thread.time || '';
                 return (
                   <button
                     key={thread.id}
@@ -190,23 +191,16 @@ function MessagesPage({ mode = 'student' }) {
                     <div className="message-item-shell">
                       <div className="message-avatar" aria-hidden="true">{initial}</div>
                       <div className="message-content">
-                        <div className="message-row-top">
-                          <div className="message-name">{thread.counterpart}</div>
-                          <div className="message-time">{thread.time}</div>
-                        </div>
+                        <div className="message-name">{thread.counterpart}</div>
                         <div className="message-subject">{thread.subject}</div>
-                        <div className="message-snippet">{thread.summary}</div>
-                        <div className="message-tags">
-                          {thread.unread && <span className="message-unread-dot" aria-label="未读"></span>}
-                          {thread.tags.map((tag) => (
-                            <span key={tag} className="message-tag">{tag}</span>
-                          ))}
-                        </div>
                       </div>
-                      <div className="message-more" aria-label="更多操作" role="presentation">
-                        <span />
-                        <span />
-                        <span />
+                      <div className="message-meta-col">
+                        <div className="message-time">{displayDate}</div>
+                        <div className="message-more" aria-label="更多操作" role="presentation">
+                          <span />
+                          <span />
+                          <span />
+                        </div>
                       </div>
                     </div>
                   </button>

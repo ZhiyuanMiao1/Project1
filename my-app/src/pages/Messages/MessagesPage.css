@@ -114,9 +114,8 @@
 
 .message-item-shell {
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 48px 1fr auto;
   gap: 12px;
-  position: relative;
   align-items: flex-start;
 }
 
@@ -138,14 +137,6 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-right: 28px;
-}
-
-.message-row-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .message-item.is-active {
@@ -220,10 +211,22 @@
   color: #111827;
 }
 
+.message-meta-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  height: 100%;
+  justify-content: space-between;
+}
+
+.message-time {
+  color: #94a3b8;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .message-more {
-  position: absolute;
-  right: 6px;
-  bottom: 8px;
   display: inline-flex;
   align-items: center;
   gap: 3px;
