@@ -46,7 +46,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef, leftAlignRef]);
+  }, [anchorRef, leftAlignRef, align, alignOffset]);
 
   // 若需要，直接打开登录子弹窗
   useEffect(() => {
