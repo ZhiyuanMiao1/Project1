@@ -98,6 +98,52 @@ const MENTOR_THREADS = [
   },
 ];
 
+const formatHoverTime = (rawValue) => {
+  if (!rawValue) return '';
+  const text = String(rawValue).trim();
+  if (!text) return '';
+
+  const now = new Date();
+  const toDateLabel = (date) => `${date.getMonth() + 1}\u6708${date.getDate()}\u65e5`;
+  const timeMatch = text.match(/(\d{1,2}:\d{2})/);
+  const timePart = timeMatch ? timeMatch[1] : '';
+
+  if (text.startsWith('今天')) {
+    const trimmed = text.replace(/^今天\s*/, '').trim();
+    return timePart || trimmed || text;
+  }
+
+  if (text.startsWith('昨天')) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 1);
+    const dateLabel = toDateLabel(d);
+    return timePart ? `${dateLabel} ${timePart}` : dateLabel;
+  }
+
+  const weekMatch = text.match(/^(周[一二三四五六日天])/);
+  if (weekMatch) {
+    const map = { 周日: 0, 周天: 0, 周一: 1, 周二: 2, 周三: 3, 周四: 4, 周五: 5, 周六: 6 };
+    const targetDay = map[weekMatch[1]];
+    if (typeof targetDay === 'number') {
+      const d = new Date(now);
+      const currentDay = now.getDay();
+      const diff = currentDay === targetDay ? 7 : (currentDay - targetDay + 7) % 7;
+      d.setDate(d.getDate() - diff);
+      const dateLabel = toDateLabel(d);
+      return timePart ? `${dateLabel} ${timePart}` : dateLabel;
+    }
+  }
+
+  const monthDayMatch = text.match(/(\d{1,2}月\d{1,2}日)/);
+  if (monthDayMatch) {
+    return timePart ? `${monthDayMatch[1]} ${timePart}` : monthDayMatch[1];
+  }
+
+  if (timePart) return timePart;
+
+  return text;
+};
+
 function MessagesPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -139,6 +185,14 @@ function MessagesPage({ mode = 'student' }) {
   const scheduleTitle = activeThread?.subject || '日程';
   const scheduleWindow = '11月11日 周二 14:00-15:00 (GMT+8)';
   const meetingId = '会议号：123 456 789';
+  const scheduleHoverTime = useMemo(() => {
+    if (!activeThread) return '';
+    const lastMessage = Array.isArray(activeThread.messages) && activeThread.messages.length > 0
+      ? activeThread.messages[activeThread.messages.length - 1]
+      : null;
+    const candidateTime = activeThread.time || lastMessage?.time || '';
+    return formatHoverTime(candidateTime);
+  }, [activeThread]);
 
   return (
     <div className="messages-page">
@@ -265,6 +319,11 @@ function MessagesPage({ mode = 'student' }) {
                           拒绝
                         </button>
                       </div>
+                      {scheduleHoverTime && (
+                        <div className="schedule-hover-time" aria-hidden="true">
+                          {scheduleHoverTime}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

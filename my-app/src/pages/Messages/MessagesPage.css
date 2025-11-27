@@ -359,13 +359,14 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
-  padding: 18px 18px 16px;
+  padding: 18px 18px 24px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   max-width: 300px;
   margin-left: -8px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
 }
 
 .schedule-card-top {
@@ -498,6 +499,24 @@
 .schedule-btn-icon.reject {
   color: #ef4444;
   border-color: #ef4444;
+}
+
+.schedule-hover-time {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  font-size: 12px;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+
+.schedule-card:hover .schedule-hover-time {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .message-bubble-hint {
