@@ -154,6 +154,7 @@ function MessagesPage({ mode = 'student' }) {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
   const [scheduleDecision, setScheduleDecision] = useState(null);
+  const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -177,6 +178,7 @@ function MessagesPage({ mode = 'student' }) {
   useEffect(() => {
     setActiveId(threads[0]?.id || null);
     setScheduleDecision(null);
+    setDecisionMenuOpen(false);
   }, [threads]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
@@ -198,11 +200,13 @@ function MessagesPage({ mode = 'student' }) {
 
   useEffect(() => {
     setScheduleDecision(null);
+    setDecisionMenuOpen(false);
   }, [activeThread?.id]);
 
   const handleScheduleDecision = (value) => {
     if (!value) return;
     setScheduleDecision(value);
+    setDecisionMenuOpen(false);
   };
 
   return (
@@ -322,16 +326,43 @@ function MessagesPage({ mode = 'student' }) {
 
                       <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
                         {scheduleDecision ? (
-                          <button
-                            type="button"
-                            className={`schedule-btn merged ${scheduleDecision === 'accepted' ? 'accept-btn' : 'reject-btn'}`}
-                            disabled
+                          <div
+                            className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
+                            onMouseEnter={() => setDecisionMenuOpen(true)}
+                            onMouseLeave={() => setDecisionMenuOpen(false)}
                           >
-                            <span className={`schedule-btn-icon ${scheduleDecision === 'accepted' ? 'accept' : 'reject'}`}>
-                              {scheduleDecision === 'accepted' ? '✓' : '−'}
-                            </span>
-                            {scheduleDecision === 'accepted' ? '已接受' : '已拒绝'}
-                          </button>
+                            <button
+                              type="button"
+                              className={`schedule-btn merged ${scheduleDecision === 'accepted' ? 'accept-btn' : 'reject-btn'}`}
+                            >
+                              <span className={`schedule-btn-icon ${scheduleDecision === 'accepted' ? 'accept' : 'reject'}`}>
+                                {scheduleDecision === 'accepted' ? '✓' : '−'}
+                              </span>
+                              {scheduleDecision === 'accepted' ? '已接受' : '已拒绝'}
+                              <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+                            </button>
+                            {decisionMenuOpen && (
+                              <div className="schedule-decision-popover" role="menu">
+                                <div className="schedule-decision-popover-title">修改日程状态为</div>
+                                <div className="schedule-decision-popover-actions">
+                                  <button
+                                    type="button"
+                                    className="schedule-btn small accept-btn"
+                                    onClick={() => handleScheduleDecision('accepted')}
+                                  >
+                                    接受
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="schedule-btn small reject-btn"
+                                    onClick={() => handleScheduleDecision('rejected')}
+                                  >
+                                    拒绝
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <>
                             <button
