@@ -230,34 +230,36 @@ function MessagesPage({ mode = 'student' }) {
                 </div>
 
                 <div className="message-detail-body">
-                  <div className="schedule-card">
-                    <div className="schedule-card-top">
-                      <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
-                      <div className="schedule-card-top-info">
-                        <div className="schedule-card-title">对方发来日程卡片</div>
-                        <div className="schedule-card-sub">{activeThread.subject} · {activeThread.counterpartMeta}</div>
+                  <div className="schedule-row">
+                    <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                    <div className="schedule-card">
+                      <div className="schedule-card-top">
+                        <div className="schedule-card-top-info">
+                          <div className="schedule-card-title">对方发来日程卡片</div>
+                          <div className="schedule-card-sub">{activeThread.subject} · {activeThread.counterpartMeta}</div>
+                        </div>
+                        <div className="schedule-card-status">待回应</div>
                       </div>
-                      <div className="schedule-card-status">待回应</div>
-                    </div>
 
-                    <div className="schedule-card-meta">
-                      <div className="schedule-field">
-                        <div className="field-label">发起人</div>
-                        <div className="field-value">{activeThread.counterpart}</div>
+                      <div className="schedule-card-meta">
+                        <div className="schedule-field">
+                          <div className="field-label">发起人</div>
+                          <div className="field-value">{activeThread.counterpart}</div>
+                        </div>
+                        <div className="schedule-field">
+                          <div className="field-label">拟定时间</div>
+                          <div className="field-value">{scheduleTime}</div>
+                        </div>
+                        <div className="schedule-field">
+                          <div className="field-label">备注</div>
+                          <div className="schedule-note">{scheduleNote}</div>
+                        </div>
                       </div>
-                      <div className="schedule-field">
-                        <div className="field-label">拟定时间</div>
-                        <div className="field-value">{scheduleTime}</div>
-                      </div>
-                      <div className="schedule-field">
-                        <div className="field-label">备注</div>
-                        <div className="schedule-note">{scheduleNote}</div>
-                      </div>
-                    </div>
 
-                    <div className="schedule-actions">
-                      <button type="button" className="schedule-btn primary">接受日程</button>
-                      <button type="button" className="schedule-btn ghost">不接受</button>
+                      <div className="schedule-actions">
+                        <button type="button" className="schedule-btn primary">接受日程</button>
+                        <button type="button" className="schedule-btn ghost">不接受</button>
+                      </div>
                     </div>
                   </div>
                 </div>

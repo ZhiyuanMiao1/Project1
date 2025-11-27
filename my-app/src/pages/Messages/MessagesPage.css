@@ -342,6 +342,13 @@
   max-height: 520px;
 }
 
+.schedule-row {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: flex-start;
+  gap: 10px;
+}
+
 .schedule-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
