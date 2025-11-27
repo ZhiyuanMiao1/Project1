@@ -442,6 +442,10 @@
   flex-wrap: wrap;
 }
 
+.schedule-actions.decision-resolved {
+  width: 100%;
+}
+
 .schedule-btn {
   padding: 10px 14px;
   border-radius: 12px;
@@ -456,6 +460,29 @@
 .schedule-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.schedule-btn:disabled {
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.schedule-btn.merged {
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  padding: 12px 14px;
+}
+
+.schedule-btn.merged.accept-btn {
+  background: #e8f5ec;
+  color: #0f172a;
+}
+
+.schedule-btn.merged.reject-btn {
+  background: #f9ebec;
+  color: #0f172a;
 }
 
 .schedule-btn-icon {

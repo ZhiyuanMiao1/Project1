@@ -153,6 +153,7 @@ function MessagesPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [scheduleDecision, setScheduleDecision] = useState(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -175,6 +176,7 @@ function MessagesPage({ mode = 'student' }) {
 
   useEffect(() => {
     setActiveId(threads[0]?.id || null);
+    setScheduleDecision(null);
   }, [threads]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
@@ -193,6 +195,15 @@ function MessagesPage({ mode = 'student' }) {
     const candidateTime = activeThread.time || lastMessage?.time || '';
     return formatHoverTime(candidateTime);
   }, [activeThread]);
+
+  useEffect(() => {
+    setScheduleDecision(null);
+  }, [activeThread?.id]);
+
+  const handleScheduleDecision = (value) => {
+    if (!value) return;
+    setScheduleDecision(value);
+  };
 
   return (
     <div className="messages-page">
@@ -309,15 +320,38 @@ function MessagesPage({ mode = 'student' }) {
 
                       <div className="schedule-meeting-id">{meetingId}</div>
 
-                      <div className="schedule-actions">
-                        <button type="button" className="schedule-btn accept-btn">
-                          <span className="schedule-btn-icon accept">✓</span>
-                          接受
-                        </button>
-                        <button type="button" className="schedule-btn reject-btn">
-                          <span className="schedule-btn-icon reject">−</span>
-                          拒绝
-                        </button>
+                      <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
+                        {scheduleDecision ? (
+                          <button
+                            type="button"
+                            className={`schedule-btn merged ${scheduleDecision === 'accepted' ? 'accept-btn' : 'reject-btn'}`}
+                            disabled
+                          >
+                            <span className={`schedule-btn-icon ${scheduleDecision === 'accepted' ? 'accept' : 'reject'}`}>
+                              {scheduleDecision === 'accepted' ? '✓' : '−'}
+                            </span>
+                            {scheduleDecision === 'accepted' ? '已接受' : '已拒绝'}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="schedule-btn accept-btn"
+                              onClick={() => handleScheduleDecision('accepted')}
+                            >
+                              <span className="schedule-btn-icon accept">✓</span>
+                              接受
+                            </button>
+                            <button
+                              type="button"
+                              className="schedule-btn reject-btn"
+                              onClick={() => handleScheduleDecision('rejected')}
+                            >
+                              <span className="schedule-btn-icon reject">−</span>
+                              拒绝
+                            </button>
+                          </>
+                        )}
                       </div>
                       {scheduleHoverTime && (
                         <div className="schedule-hover-time" aria-hidden="true">
