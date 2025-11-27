@@ -452,6 +452,9 @@
 }
 
 .schedule-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px 14px;
   border-radius: 12px;
   border: none;
@@ -542,17 +545,17 @@
 .schedule-decision-arrow {
   display: inline-block;
   margin-left: 8px;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-left: 2px solid #0f172a;
   border-bottom: 2px solid #0f172a;
-  transform: rotate(-45deg);
+  transform: translateY(1px) rotate(-45deg);
   transition: transform 0.16s ease;
   vertical-align: middle;
 }
 
 .schedule-decision-arrow.open {
-  transform: rotate(135deg);
+  transform: translateY(1px) rotate(135deg);
 }
 
 .schedule-decision-popover {
