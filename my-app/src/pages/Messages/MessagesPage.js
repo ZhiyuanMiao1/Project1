@@ -137,6 +137,8 @@ function MessagesPage({ mode = 'student' }) {
     const name = activeThread?.counterpart || '';
     return name.trim().charAt(0) || '·';
   }, [activeThread]);
+  const scheduleNote = activeThread?.messages?.[0]?.text || '暂无补充说明';
+  const scheduleTime = activeThread?.time || '待定';
 
   return (
     <div className="messages-page">
@@ -228,22 +230,36 @@ function MessagesPage({ mode = 'student' }) {
                 </div>
 
                 <div className="message-detail-body">
-                  {activeThread.messages.map((msg) => {
-                    const isMe = msg.from === 'me';
-                    const bubbleInitial = (msg.author || '').trim().charAt(0) || '·';
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`message-row ${isMe ? 'align-right' : 'align-left'}`}
-                      >
-                        {!isMe && <div className="message-inline-avatar" aria-hidden="true">{bubbleInitial}</div>}
-                        <div className={`message-bubble ${isMe ? 'from-me' : 'from-them'}`}>
-                          <div className="message-bubble-time-inline">{msg.time}</div>
-                          <div className="message-bubble-text">{msg.text}</div>
-                        </div>
+                  <div className="schedule-card">
+                    <div className="schedule-card-top">
+                      <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                      <div className="schedule-card-top-info">
+                        <div className="schedule-card-title">对方发来日程卡片</div>
+                        <div className="schedule-card-sub">{activeThread.subject} · {activeThread.counterpartMeta}</div>
                       </div>
-                    );
-                  })}
+                      <div className="schedule-card-status">待回应</div>
+                    </div>
+
+                    <div className="schedule-card-meta">
+                      <div className="schedule-field">
+                        <div className="field-label">发起人</div>
+                        <div className="field-value">{activeThread.counterpart}</div>
+                      </div>
+                      <div className="schedule-field">
+                        <div className="field-label">拟定时间</div>
+                        <div className="field-value">{scheduleTime}</div>
+                      </div>
+                      <div className="schedule-field">
+                        <div className="field-label">备注</div>
+                        <div className="schedule-note">{scheduleNote}</div>
+                      </div>
+                    </div>
+
+                    <div className="schedule-actions">
+                      <button type="button" className="schedule-btn primary">接受日程</button>
+                      <button type="button" className="schedule-btn ghost">不接受</button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="message-quick-actions">
