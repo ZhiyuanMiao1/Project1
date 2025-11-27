@@ -364,35 +364,34 @@
 .schedule-card-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
-.schedule-card-top-info {
+.schedule-card-icon {
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.schedule-card-top-text {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+}
+
+.schedule-card-title-text {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 650;
 }
 
 .schedule-card-title {
   font-size: 16px;
   font-weight: 760;
   color: #0f172a;
-}
-
-.schedule-card-sub {
-  font-size: 13px;
-  color: #64748b;
-}
-
-.schedule-card-status {
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
 }
 
 .schedule-card-meta {

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FiPaperclip, FiSend } from 'react-icons/fi';
+import { FiPaperclip, FiSend, FiCalendar } from 'react-icons/fi';
 import { FaRegCircle } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -139,6 +139,7 @@ function MessagesPage({ mode = 'student' }) {
   }, [activeThread]);
   const scheduleNote = activeThread?.messages?.[0]?.text || '暂无补充说明';
   const scheduleTime = activeThread?.time || '待定';
+  const scheduleTitle = activeThread?.subject || '日程';
 
   return (
     <div className="messages-page">
@@ -234,11 +235,13 @@ function MessagesPage({ mode = 'student' }) {
                     <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
                     <div className="schedule-card">
                       <div className="schedule-card-top">
-                        <div className="schedule-card-top-info">
-                          <div className="schedule-card-title">对方发来日程卡片</div>
-                          <div className="schedule-card-sub">{activeThread.subject} · {activeThread.counterpartMeta}</div>
+                        <div className="schedule-card-icon" aria-hidden="true">
+                          <FiCalendar size={18} />
                         </div>
-                        <div className="schedule-card-status">待回应</div>
+                        <div className="schedule-card-top-text">
+                          <div className="schedule-card-title-text">日程</div>
+                          <div className="schedule-card-title">{scheduleTitle}</div>
+                        </div>
                       </div>
 
                       <div className="schedule-card-meta">
