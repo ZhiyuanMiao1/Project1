@@ -203,6 +203,19 @@ function MessagesPage({ mode = 'student' }) {
     setDecisionMenuOpen(false);
   }, [activeThread?.id]);
 
+  const decisionPopoverActions = useMemo(() => {
+    if (scheduleDecision === 'accepted') {
+      return [{ key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' }];
+    }
+    if (scheduleDecision === 'rejected') {
+      return [{ key: 'accept', label: '接受', value: 'accepted', tone: 'accept' }];
+    }
+    return [
+      { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+      { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+    ];
+  }, [scheduleDecision]);
+
   const handleScheduleDecision = (value) => {
     if (!value) return;
     setScheduleDecision(value);
@@ -344,21 +357,17 @@ function MessagesPage({ mode = 'student' }) {
                             {decisionMenuOpen && (
                               <div className="schedule-decision-popover" role="menu">
                                 <div className="schedule-decision-popover-title">修改日程状态为</div>
-                                <div className="schedule-decision-popover-actions">
-                                  <button
-                                    type="button"
-                                    className="schedule-btn small accept-btn"
-                                    onClick={() => handleScheduleDecision('accepted')}
-                                  >
-                                    接受
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="schedule-btn small reject-btn"
-                                    onClick={() => handleScheduleDecision('rejected')}
-                                  >
-                                    拒绝
-                                  </button>
+                                <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
+                                  {decisionPopoverActions.map((action) => (
+                                    <button
+                                      key={action.key}
+                                      type="button"
+                                      className={`schedule-btn small ${action.tone === 'accept' ? 'accept-btn' : 'reject-btn'}`}
+                                      onClick={() => handleScheduleDecision(action.value)}
+                                    >
+                                      {action.label}
+                                    </button>
+                                  ))}
                                 </div>
                               </div>
                             )}

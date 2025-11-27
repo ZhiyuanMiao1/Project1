@@ -567,12 +567,14 @@
   position: absolute;
   bottom: 110%;
   right: 0;
+  left: 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
   padding: 10px 12px 12px;
-  min-width: 180px;
+  width: auto;
+  min-width: 0;
   z-index: 10;
 }
 
@@ -587,6 +589,10 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.schedule-decision-popover-actions.single-action {
+  justify-content: center;
 }
 
 .schedule-btn.small {
