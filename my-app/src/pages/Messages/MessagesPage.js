@@ -240,13 +240,7 @@ function MessagesPage({ mode = 'student' }) {
                         <div className={`message-bubble ${isMe ? 'from-me' : 'from-them'}`}>
                           <div className="message-bubble-time-inline">{msg.time}</div>
                           <div className="message-bubble-text">{msg.text}</div>
-                          {isMe && (
-                            <div className="message-bubble-hint">
-                              已通过 MentorX 发送
-                            </div>
-                          )}
                         </div>
-                        {isMe && <div className="message-inline-avatar" aria-hidden="true">{bubbleInitial}</div>}
                       </div>
                     );
                   })}
