@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FiPaperclip, FiSend, FiCalendar } from 'react-icons/fi';
+import { FiPaperclip, FiSend, FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
 import { FaRegCircle } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -137,9 +137,8 @@ function MessagesPage({ mode = 'student' }) {
     const name = activeThread?.counterpart || '';
     return name.trim().charAt(0) || '·';
   }, [activeThread]);
-  const scheduleNote = activeThread?.messages?.[0]?.text || '暂无补充说明';
-  const scheduleTime = activeThread?.time || '待定';
   const scheduleTitle = activeThread?.subject || '日程';
+  const scheduleWindow = '11月11日 周二 14:00-15:00 (GMT+8)';
 
   return (
     <div className="messages-page">
@@ -244,19 +243,14 @@ function MessagesPage({ mode = 'student' }) {
                         <div className="schedule-card-title">{scheduleTitle}</div>
                       </div>
 
-                      <div className="schedule-card-meta">
-                        <div className="schedule-field">
-                          <div className="field-label">发起人</div>
-                          <div className="field-value">{activeThread.counterpart}</div>
-                        </div>
-                        <div className="schedule-field">
-                          <div className="field-label">拟定时间</div>
-                          <div className="field-value">{scheduleTime}</div>
-                        </div>
-                        <div className="schedule-field">
-                          <div className="field-label">备注</div>
-                          <div className="schedule-note">{scheduleNote}</div>
-                        </div>
+                      <div className="schedule-time-row">
+                        <FiClock size={16} aria-hidden="true" />
+                        <span>{scheduleWindow}</span>
+                      </div>
+
+                      <div className="schedule-link-row">
+                        <FiVideo size={16} aria-hidden="true" />
+                        <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
                       </div>
 
                       <div className="schedule-actions">

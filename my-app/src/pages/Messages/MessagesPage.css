@@ -358,7 +358,7 @@
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .schedule-card-top {
@@ -394,39 +394,23 @@
   color: #0f172a;
 }
 
-.schedule-card-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.schedule-field {
-  display: flex;
-  align-items: flex-start;
+.schedule-time-row,
+.schedule-link-row {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
-}
-
-.field-label {
-  width: 64px;
-  flex-shrink: 0;
-  font-size: 13px;
-  color: #94a3b8;
-}
-
-.field-value {
   font-size: 14px;
   color: #0f172a;
-  font-weight: 600;
 }
 
-.schedule-note {
-  font-size: 14px;
+.schedule-link {
   color: #0f172a;
-  line-height: 1.6;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.schedule-link:hover {
+  text-decoration: underline;
 }
 
 .schedule-actions {
