@@ -326,6 +326,12 @@
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.schedule-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+
 .message-detail-name {
   font-size: 18px;
   font-weight: 780;

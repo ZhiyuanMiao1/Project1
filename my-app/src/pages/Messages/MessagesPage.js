@@ -232,7 +232,7 @@ function MessagesPage({ mode = 'student' }) {
 
                 <div className="message-detail-body">
                   <div className="schedule-row">
-                    <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                    <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
                     <div className="schedule-card">
                       <div className="schedule-card-top">
                         <div className="schedule-card-top-row">
@@ -268,21 +268,6 @@ function MessagesPage({ mode = 'student' }) {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <div className="message-quick-actions">
-                  <button type="button" className="message-action-btn primary">
-                    <FiSend size={16} />
-                    快速回复
-                  </button>
-                  <button type="button" className="message-action-btn ghost">
-                    <FiPaperclip size={16} />
-                    添加备注/附件
-                  </button>
-                  <button type="button" className="message-action-btn ghost">
-                    <FaRegCircle size={14} />
-                    标记未读
-                  </button>
                 </div>
               </>
             ) : (
