@@ -362,9 +362,12 @@ function MessagesPage({ mode = 'student' }) {
                                     <button
                                       key={action.key}
                                       type="button"
-                                      className={`schedule-btn small ${action.tone === 'accept' ? 'accept-btn' : 'reject-btn'}`}
+                                      className={`schedule-btn small inline-action ${action.tone === 'accept' ? 'accept-btn' : 'reject-btn'}`}
                                       onClick={() => handleScheduleDecision(action.value)}
                                     >
+                                      {action.tone === 'reject' && (
+                                        <span className="schedule-btn-icon minus" aria-hidden="true" />
+                                      )}
                                       {action.label}
                                     </button>
                                   ))}
