@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FiPaperclip, FiSend, FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
-import { FaRegCircle } from 'react-icons/fa';
+import { FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
