@@ -363,9 +363,15 @@
 
 .schedule-card-top {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.schedule-card-top-row {
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
+  gap: 6px;
 }
 
 .schedule-card-icon {
@@ -376,16 +382,10 @@
   flex-shrink: 0;
 }
 
-.schedule-card-top-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .schedule-card-title-text {
   font-size: 13px;
-  color: #64748b;
-  font-weight: 650;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .schedule-card-title {

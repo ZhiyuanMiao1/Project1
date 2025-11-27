@@ -235,13 +235,13 @@ function MessagesPage({ mode = 'student' }) {
                     <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
                     <div className="schedule-card">
                       <div className="schedule-card-top">
-                        <div className="schedule-card-icon" aria-hidden="true">
-                          <FiCalendar size={18} />
-                        </div>
-                        <div className="schedule-card-top-text">
+                        <div className="schedule-card-top-row">
+                          <div className="schedule-card-icon" aria-hidden="true">
+                            <FiCalendar size={18} />
+                          </div>
                           <div className="schedule-card-title-text">日程</div>
-                          <div className="schedule-card-title">{scheduleTitle}</div>
                         </div>
+                        <div className="schedule-card-title">{scheduleTitle}</div>
                       </div>
 
                       <div className="schedule-card-meta">
