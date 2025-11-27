@@ -139,6 +139,7 @@ function MessagesPage({ mode = 'student' }) {
   }, [activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
   const scheduleWindow = '11月11日 周二 14:00-15:00 (GMT+8)';
+  const meetingId = '会议号：123 456 789';
 
   return (
     <div className="messages-page">
@@ -252,6 +253,8 @@ function MessagesPage({ mode = 'student' }) {
                         <FiVideo size={16} aria-hidden="true" />
                         <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
                       </div>
+
+                      <div className="schedule-meeting-id">{meetingId}</div>
 
                       <div className="schedule-actions">
                         <button type="button" className="schedule-btn primary">接受日程</button>
