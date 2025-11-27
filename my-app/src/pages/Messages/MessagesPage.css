@@ -455,6 +455,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
   padding: 10px 14px;
   border-radius: 12px;
   border: none;
@@ -543,15 +544,19 @@
 }
 
 .schedule-decision-arrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-left: 8px;
   width: 6px;
   height: 6px;
   border-left: 2px solid #0f172a;
   border-bottom: 2px solid #0f172a;
-  transform: translateY(1px) rotate(-45deg);
+  transform: translateY(-3px) rotate(-45deg);
+  transform-origin: center;
   transition: transform 0.16s ease;
-  vertical-align: middle;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .schedule-decision-arrow.open {
