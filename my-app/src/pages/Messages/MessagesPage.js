@@ -228,23 +228,28 @@ function MessagesPage({ mode = 'student' }) {
                 </div>
 
                 <div className="message-detail-body">
-                  {activeThread.messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`message-bubble ${msg.from === 'me' ? 'from-me' : 'from-them'}`}
-                    >
-                      <div className="message-bubble-head">
-                        <span className="message-bubble-author">{msg.author}</span>
-                        <span className="message-bubble-time">{msg.time}</span>
-                      </div>
-                      <div className="message-bubble-text">{msg.text}</div>
-                      {msg.from === 'me' && (
-                        <div className="message-bubble-hint">
-                          已通过 MentorX 发送
+                  {activeThread.messages.map((msg) => {
+                    const isMe = msg.from === 'me';
+                    const bubbleInitial = (msg.author || '').trim().charAt(0) || '·';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`message-row ${isMe ? 'align-right' : 'align-left'}`}
+                      >
+                        {!isMe && <div className="message-inline-avatar" aria-hidden="true">{bubbleInitial}</div>}
+                        <div className={`message-bubble ${isMe ? 'from-me' : 'from-them'}`}>
+                          <div className="message-bubble-time-inline">{msg.time}</div>
+                          <div className="message-bubble-text">{msg.text}</div>
+                          {isMe && (
+                            <div className="message-bubble-hint">
+                              已通过 MentorX 发送
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        {isMe && <div className="message-inline-avatar" aria-hidden="true">{bubbleInitial}</div>}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="message-quick-actions">
