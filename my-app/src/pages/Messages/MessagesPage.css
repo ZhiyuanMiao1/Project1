@@ -611,11 +611,13 @@
   padding: 0;
   min-width: 0;
   box-shadow: none;
-  border-radius: 6px;
+  border-radius: 10px;
   border: none;
   font-weight: 600;
   color: #111827;
   justify-content: flex-start;
+  width: 100%;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .schedule-btn.inline-action.reject-btn {
@@ -624,8 +626,8 @@
 
 .schedule-btn.inline-action:hover {
   transform: none;
-  box-shadow: none;
-  background: transparent;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  background: #e2e8f0;
 }
 
 .schedule-btn-icon.minus {
@@ -681,9 +683,9 @@
 }
 
 .schedule-btn.small.inline-action {
-  padding: 0;
+  padding: 4px 0;
   min-width: 0;
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 .schedule-hover-time {
