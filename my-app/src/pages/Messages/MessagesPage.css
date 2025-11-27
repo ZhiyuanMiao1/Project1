@@ -436,7 +436,7 @@
 .schedule-btn {
   padding: 10px 14px;
   border-radius: 12px;
-  border: 1px solid #0f172a;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
   color: #0f172a;
   font-weight: 700;
@@ -444,14 +444,52 @@
   transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease, color 0.12s ease;
 }
 
-.schedule-btn.primary {
-  background: #0f172a;
-  color: #ffffff;
-}
-
 .schedule-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+}
+
+.schedule-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.schedule-btn.accept-btn {
+  background: #e7f7ef;
+  border-color: #b7e1cb;
+  color: #0b7a45;
+}
+
+.schedule-btn.accept-btn:hover {
+  box-shadow: 0 10px 22px rgba(11, 122, 69, 0.14);
+}
+
+.schedule-btn-icon.accept {
+  background: #23c16b;
+  color: #ffffff;
+}
+
+.schedule-btn.reject-btn {
+  background: #fff3f3;
+  border-color: #f4c7c7;
+  color: #b42323;
+}
+
+.schedule-btn.reject-btn:hover {
+  box-shadow: 0 10px 22px rgba(180, 35, 35, 0.12);
+}
+
+.schedule-btn-icon.reject {
+  background: #ef4444;
+  color: #ffffff;
 }
 
 .message-bubble-hint {

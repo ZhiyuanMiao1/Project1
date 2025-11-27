@@ -257,8 +257,14 @@ function MessagesPage({ mode = 'student' }) {
                       <div className="schedule-meeting-id">{meetingId}</div>
 
                       <div className="schedule-actions">
-                        <button type="button" className="schedule-btn primary">接受日程</button>
-                        <button type="button" className="schedule-btn ghost">不接受</button>
+                        <button type="button" className="schedule-btn accept-btn">
+                          <span className="schedule-btn-icon accept">✓</span>
+                          接受
+                        </button>
+                        <button type="button" className="schedule-btn reject-btn">
+                          <span className="schedule-btn-icon reject">−</span>
+                          拒绝
+                        </button>
                       </div>
                     </div>
                   </div>
