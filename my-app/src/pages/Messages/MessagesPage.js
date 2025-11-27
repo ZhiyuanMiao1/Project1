@@ -133,6 +133,10 @@ function MessagesPage({ mode = 'student' }) {
   }, [threads]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
+  const detailAvatarInitial = useMemo(() => {
+    const name = activeThread?.counterpart || '';
+    return name.trim().charAt(0) || '·';
+  }, [activeThread]);
 
   return (
     <div className="messages-page">
@@ -217,19 +221,9 @@ function MessagesPage({ mode = 'student' }) {
             {activeThread ? (
               <>
                 <div className="message-detail-head">
-                  <div>
-                    <div className="message-detail-title">{activeThread.subject}</div>
-                    <div className="message-detail-meta">
-                      <span className="meta-counterpart">{activeThread.counterpart}</span>
-                      <span className="meta-dot">·</span>
-                      <span className="meta-subtext">{activeThread.counterpartMeta}</span>
-                      <span className="meta-dot">·</span>
-                      <span className="meta-time">{activeThread.time}</span>
-                    </div>
-                  </div>
-                  <div className="message-detail-tags">
-                    {isMentorView ? <span className="message-tag tone">学生沟通</span> : <span className="message-tag tone">导师沟通</span>}
-                    <span className="message-tag ghost">集中视图</span>
+                  <div className="message-detail-identity">
+                    <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                    <div className="message-detail-name">{activeThread.counterpart}</div>
                   </div>
                 </div>
 
