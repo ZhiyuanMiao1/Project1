@@ -485,7 +485,7 @@
 .schedule-btn.merged {
   width: 100%;
   justify-content: center;
-  font-weight: 700;
+  font-weight: 600;
   padding: 12px 14px;
   position: relative;
 }
@@ -603,7 +603,7 @@
   box-shadow: none;
   border-radius: 6px;
   border: none;
-  font-weight: 700;
+  font-weight: 600;
   color: #111827;
   justify-content: flex-start;
 }
@@ -640,10 +640,33 @@
   border-radius: 2px;
 }
 
+.schedule-btn-icon.check {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #22c55e;
+  position: relative;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.schedule-btn-icon.check::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 7px;
+  border: solid #22c55e;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+  border-radius: 1px;
+}
+
 .schedule-btn.small {
   padding: 8px 10px;
   border-radius: 10px;
-  font-weight: 650;
+  font-weight: 600;
   min-width: 64px;
 }
 

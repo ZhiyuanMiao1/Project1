@@ -365,6 +365,9 @@ function MessagesPage({ mode = 'student' }) {
                                       className={`schedule-btn small inline-action ${action.tone === 'accept' ? 'accept-btn' : 'reject-btn'}`}
                                       onClick={() => handleScheduleDecision(action.value)}
                                     >
+                                      {action.tone === 'accept' && (
+                                        <span className="schedule-btn-icon check" aria-hidden="true" />
+                                      )}
                                       {action.tone === 'reject' && (
                                         <span className="schedule-btn-icon minus" aria-hidden="true" />
                                       )}
