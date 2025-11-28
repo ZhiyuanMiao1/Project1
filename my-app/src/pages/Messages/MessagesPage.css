@@ -439,12 +439,30 @@
 .schedule-actions {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.schedule-actions .schedule-btn:not(.merged):not(.inline-action) {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .schedule-actions.decision-resolved {
   width: 100%;
+}
+
+@media (max-width: 520px) {
+  .schedule-actions {
+    flex-wrap: wrap;
+  }
+
+  .schedule-actions .schedule-btn:not(.merged):not(.inline-action) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
 }
 
 .schedule-decision-wrapper {
