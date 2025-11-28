@@ -440,6 +440,7 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .schedule-actions.decision-resolved {
@@ -448,7 +449,8 @@
 
 .schedule-decision-wrapper {
   position: relative;
-  width: 100%;
+  flex: 1 1 0%;
+  min-width: 0;
 }
 
 .schedule-btn {
@@ -541,6 +543,18 @@
 .schedule-btn-icon.reject {
   color: #ef4444;
   border-color: #ef4444;
+}
+
+.schedule-btn.reschedule-btn {
+  background: #e9f2ff;
+  color: #0f172a;
+  border: 1px solid #d3e3ff;
+  box-shadow: 0 10px 22px rgba(59, 130, 246, 0.14);
+}
+
+.schedule-btn.reschedule-btn:hover {
+  background: #dfe9ff;
+  box-shadow: 0 12px 26px rgba(59, 130, 246, 0.18);
 }
 
 .schedule-decision-arrow {
@@ -705,6 +719,42 @@
 .schedule-card:hover .schedule-hover-time {
   opacity: 1;
   transform: translateY(0);
+}
+
+.schedule-btn-icon.reschedule {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #3b82f6;
+  position: relative;
+  margin-right: 8px;
+  flex-shrink: 0;
+  background: #f7fbff;
+}
+
+.schedule-btn-icon.reschedule::before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 2px solid #3b82f6;
+  border-color: #3b82f6 transparent transparent #3b82f6;
+  border-radius: 50%;
+  top: 2px;
+  left: 2px;
+  transform: rotate(-20deg);
+}
+
+.schedule-btn-icon.reschedule::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-top: 5px solid #3b82f6;
+  border-left: 5px solid transparent;
+  top: -2px;
+  right: -2px;
+  transform: rotate(10deg);
 }
 
 .message-bubble-hint {

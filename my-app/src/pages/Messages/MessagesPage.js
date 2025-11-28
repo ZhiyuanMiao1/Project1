@@ -398,6 +398,14 @@ function MessagesPage({ mode = 'student' }) {
                             </button>
                           </>
                         )}
+                        <button
+                          type="button"
+                          className="schedule-btn reschedule-btn"
+                          onClick={() => setDecisionMenuOpen(false)}
+                        >
+                          <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                          修改时间
+                        </button>
                       </div>
                       {scheduleHoverTime && (
                         <div className="schedule-hover-time" aria-hidden="true">
