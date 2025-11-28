@@ -205,14 +205,27 @@ function MessagesPage({ mode = 'student' }) {
 
   const decisionPopoverActions = useMemo(() => {
     if (scheduleDecision === 'accepted') {
-      return [{ key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' }];
+      return [
+        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+        { key: 'reschedule', label: '修改时间中', value: 'rescheduling', tone: 'reschedule' },
+      ];
     }
     if (scheduleDecision === 'rejected') {
-      return [{ key: 'accept', label: '接受', value: 'accepted', tone: 'accept' }];
+      return [
+        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+        { key: 'reschedule', label: '修改时间中', value: 'rescheduling', tone: 'reschedule' },
+      ];
+    }
+    if (scheduleDecision === 'rescheduling') {
+      return [
+        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+      ];
     }
     return [
       { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
       { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+      { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
     ];
   }, [scheduleDecision]);
 
@@ -346,12 +359,28 @@ function MessagesPage({ mode = 'student' }) {
                           >
                             <button
                               type="button"
-                              className={`schedule-btn merged ${scheduleDecision === 'accepted' ? 'accept-btn' : 'reject-btn'}`}
+                              className={`schedule-btn merged ${
+                                scheduleDecision === 'accepted'
+                                  ? 'accept-btn'
+                                  : scheduleDecision === 'rejected'
+                                    ? 'reject-btn'
+                                    : 'reschedule-btn'
+                              }`}
                             >
-                              <span className={`schedule-btn-icon ${scheduleDecision === 'accepted' ? 'accept' : 'reject'}`}>
-                                {scheduleDecision === 'accepted' ? '✓' : '−'}
+                              <span
+                                className={`schedule-btn-icon ${
+                                  scheduleDecision === 'accepted'
+                                    ? 'accept'
+                                    : scheduleDecision === 'rejected'
+                                      ? 'reject'
+                                      : 'reschedule'
+                                }`}
+                              >
+                                {scheduleDecision === 'accepted' ? '✓' : scheduleDecision === 'rejected' ? '−' : ''}
                               </span>
-                              {scheduleDecision === 'accepted' ? '已接受' : '已拒绝'}
+                              {scheduleDecision === 'accepted' && '已接受'}
+                              {scheduleDecision === 'rejected' && '已拒绝'}
+                              {scheduleDecision === 'rescheduling' && '修改时间中'}
                               <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
                             </button>
                             {decisionMenuOpen && (
@@ -362,7 +391,13 @@ function MessagesPage({ mode = 'student' }) {
                                     <button
                                       key={action.key}
                                       type="button"
-                                      className={`schedule-btn small inline-action ${action.tone === 'accept' ? 'accept-btn' : 'reject-btn'}`}
+                                      className={`schedule-btn small inline-action ${
+                                        action.tone === 'accept'
+                                          ? 'accept-btn'
+                                          : action.tone === 'reject'
+                                            ? 'reject-btn'
+                                            : 'reschedule-btn'
+                                      }`}
                                       onClick={() => handleScheduleDecision(action.value)}
                                     >
                                       {action.tone === 'accept' && (
@@ -370,6 +405,9 @@ function MessagesPage({ mode = 'student' }) {
                                       )}
                                       {action.tone === 'reject' && (
                                         <span className="schedule-btn-icon minus" aria-hidden="true" />
+                                      )}
+                                      {action.tone === 'reschedule' && (
+                                        <span className="schedule-btn-icon reschedule" aria-hidden="true" />
                                       )}
                                       {action.label}
                                     </button>
@@ -396,16 +434,16 @@ function MessagesPage({ mode = 'student' }) {
                               <span className="schedule-btn-icon reject">−</span>
                               拒绝
                             </button>
+                            <button
+                              type="button"
+                              className="schedule-btn reschedule-btn"
+                              onClick={() => handleScheduleDecision('rescheduling')}
+                            >
+                              <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                              修改时间
+                            </button>
                           </>
                         )}
-                        <button
-                          type="button"
-                          className="schedule-btn reschedule-btn"
-                          onClick={() => setDecisionMenuOpen(false)}
-                        >
-                          <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                          修改时间
-                        </button>
                       </div>
                       {scheduleHoverTime && (
                         <div className="schedule-hover-time" aria-hidden="true">

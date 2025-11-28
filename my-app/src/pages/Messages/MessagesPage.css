@@ -552,6 +552,12 @@
   box-shadow: 0 10px 22px rgba(59, 130, 246, 0.14);
 }
 
+.schedule-btn.merged.reschedule-btn {
+  background: #e9f2ff;
+  color: #0f172a;
+  border: 1px solid #d3e3ff;
+}
+
 .schedule-btn.reschedule-btn:hover {
   background: #dfe9ff;
   box-shadow: 0 12px 26px rgba(59, 130, 246, 0.18);
@@ -632,6 +638,12 @@
   justify-content: flex-start;
   width: 100%;
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.schedule-btn.inline-action.reschedule-btn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .schedule-btn.inline-action.reject-btn {
