@@ -183,6 +183,24 @@ function MessagesPage({ mode = 'student' }) {
     setOpenMoreId(null);
   }, [threads]);
 
+  useEffect(() => {
+    if (!openMoreId) return undefined;
+
+    const handleOutside = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('.message-more')) return;
+      setOpenMoreId(null);
+    };
+
+    window.addEventListener('mousedown', handleOutside, true);
+    window.addEventListener('touchstart', handleOutside, true);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside, true);
+      window.removeEventListener('touchstart', handleOutside, true);
+    };
+  }, [openMoreId]);
+
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
   const detailAvatarInitial = useMemo(() => {
     const name = activeThread?.counterpart || '';
