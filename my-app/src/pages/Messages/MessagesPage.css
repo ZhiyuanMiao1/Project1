@@ -106,6 +106,11 @@
   display: block;
   cursor: pointer;
   transition: box-shadow 0.12s ease, border-color 0.12s ease, background-color 0.12s ease;
+  position: relative;
+}
+
+.message-item.is-menu-open {
+  z-index: 3;
 }
 
 .message-item:hover {
@@ -238,6 +243,52 @@
   margin-right: 4px;
   position: relative;
   z-index: 0;
+}
+
+.message-more-menu {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.2);
+  padding: 8px 0;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+}
+
+.message-more-item {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.message-more-item:hover {
+  background: #f4f6f9;
+}
+
+.message-more-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #111827;
+  flex-shrink: 0;
 }
 
 .message-more::after {

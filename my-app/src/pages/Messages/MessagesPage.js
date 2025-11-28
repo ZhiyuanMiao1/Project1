@@ -174,11 +174,13 @@ function MessagesPage({ mode = 'student' }) {
   );
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
+  const [openMoreId, setOpenMoreId] = useState(null);
 
   useEffect(() => {
     setActiveId(threads[0]?.id || null);
     setScheduleDecision(null);
     setDecisionMenuOpen(false);
+    setOpenMoreId(null);
   }, [threads]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
@@ -287,8 +289,11 @@ function MessagesPage({ mode = 'student' }) {
                   <button
                     key={thread.id}
                     type="button"
-                    className={`message-item ${isActive ? 'is-active' : ''}`}
-                    onClick={() => setActiveId(thread.id)}
+                    className={`message-item ${isActive ? 'is-active' : ''} ${openMoreId === thread.id ? 'is-menu-open' : ''}`}
+                    onClick={() => {
+                      setActiveId(thread.id);
+                      setOpenMoreId(null);
+                    }}
                     aria-pressed={isActive}
                   >
                     <div className="message-item-shell">
@@ -299,10 +304,67 @@ function MessagesPage({ mode = 'student' }) {
                       </div>
                       <div className="message-meta-col">
                         <div className="message-time">{displayDate}</div>
-                        <div className="message-more" aria-label="更多操作" role="presentation">
+                        <div
+                          className="message-more"
+                          aria-label="更多操作"
+                          role="presentation"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMoreId((prev) => (prev === thread.id ? null : thread.id));
+                          }}
+                        >
                           <span />
                           <span />
                           <span />
+                          {openMoreId === thread.id && (
+                            <div className="message-more-menu" role="menu">
+                              <button
+                                type="button"
+                                className="message-more-item"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMoreId(null);
+                                }}
+                              >
+                                <span className="message-more-icon" aria-hidden="true">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <path
+                                      d="M12 4.5l1.88 3.81 4.2.61-3.04 2.96.72 4.19L12 14.97l-3.76 1.98.72-4.19-3.04-2.96 4.2-.61L12 4.5z"
+                                      fill="currentColor"
+                                    />
+                                  </svg>
+                                </span>
+                                加星标
+                              </button>
+                              <button
+                                type="button"
+                                className="message-more-item"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMoreId(null);
+                                }}
+                              >
+                                <span className="message-more-icon" aria-hidden="true">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                    <path
+                                      d="M5.5 7.5h13v11a1 1 0 01-1 1h-11a1 1 0 01-1-1v-11z"
+                                      stroke="currentColor"
+                                      strokeWidth="1.4"
+                                      strokeLinejoin="round"
+                                    />
+                                    <path
+                                      d="M9 7.5V6.2c0-.39.31-.7.7-.7h4.6c.39 0 .7.31.7.7v1.3"
+                                      stroke="currentColor"
+                                      strokeWidth="1.4"
+                                      strokeLinecap="round"
+                                    />
+                                    <path d="M8 11.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                                  </svg>
+                                </span>
+                                归档
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
