@@ -320,7 +320,7 @@
   z-index: 0;
 }
 
-.message-more span {
+.message-more > span {
   display: none;
 }
 
