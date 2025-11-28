@@ -574,6 +574,7 @@
   background: #e8f2ff;
   color: #0f172a;
   border: none;
+  padding: 11px 14px;
 }
 
 .schedule-btn.reschedule-btn:hover {
