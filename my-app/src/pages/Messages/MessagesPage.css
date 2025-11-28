@@ -620,6 +620,7 @@
   gap: 8px;
   justify-content: flex-start;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .schedule-decision-popover-actions.single-action {
@@ -742,6 +743,11 @@
   margin-right: 8px;
   flex-shrink: 0;
   background: #f7fbff;
+}
+
+.schedule-decision-popover-actions .schedule-btn.inline-action.reschedule-btn {
+  flex: 1 1 100%;
+  justify-content: flex-start;
 }
 
 .schedule-btn-icon.reschedule::before {

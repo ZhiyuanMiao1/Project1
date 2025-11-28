@@ -207,13 +207,13 @@ function MessagesPage({ mode = 'student' }) {
     if (scheduleDecision === 'accepted') {
       return [
         { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-        { key: 'reschedule', label: '修改时间中', value: 'rescheduling', tone: 'reschedule' },
+        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
       ];
     }
     if (scheduleDecision === 'rejected') {
       return [
         { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reschedule', label: '修改时间中', value: 'rescheduling', tone: 'reschedule' },
+        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
       ];
     }
     if (scheduleDecision === 'rescheduling') {
