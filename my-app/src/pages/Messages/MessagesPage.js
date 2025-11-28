@@ -345,7 +345,7 @@ function MessagesPage({ mode = 'student' }) {
                                 }}
                               >
                                 <span className="message-more-icon" aria-hidden="true">
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                                     <path
                                       d="M12 4.5l1.88 3.81 4.2.61-3.04 2.96.72 4.19L12 14.97l-3.76 1.98.72-4.19-3.04-2.96 4.2-.61L12 4.5z"
                                       fill="currentColor"
