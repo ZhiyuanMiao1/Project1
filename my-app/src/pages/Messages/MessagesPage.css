@@ -578,7 +578,12 @@
 
 .schedule-btn.reschedule-btn:hover {
   background: #f5f5f5;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
+}
+
+.schedule-btn.merged.reschedule-btn:hover {
+  background: #e8f2ff;
+  box-shadow: none;
 }
 
 .schedule-decision-arrow {
