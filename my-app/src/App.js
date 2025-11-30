@@ -5,6 +5,7 @@ import MentorPage from './components/MentorPage/MentorPage';
 import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourseRequestPage';
 import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEditorPage';
 import FavoritesPage from './pages/Favorites/FavoritesPage';
+import FavoriteCollectionPage from './pages/Favorites/FavoriteCollectionPage';
 import CoursesPage from './pages/Courses/CoursesPage';
 import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
 import MessagesPage from './pages/Messages/MessagesPage';
@@ -25,6 +26,7 @@ function App() {
 
         {/* 收藏页面 */}
         <Route path="/student/favorites" element={<FavoritesPage />} />
+        <Route path="/student/favorites/:collectionId" element={<FavoriteCollectionPage />} />
         <Route path="/student/recent-visits" element={<RecentVisitsPage />} />
 
         {/* 课程时间轴页面 */}

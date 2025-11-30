@@ -299,15 +299,25 @@ function FavoritesPage() {
                 tabIndex={0}
                 onClick={() => {
                   if (isRecent) {
-                    navigate('/student/recent-visits');
+                    navigate('/student/recent-visits', { state: { from: preferredRole } });
+                    return;
                   }
+                  if (!requireAuth()) return;
+                  navigate(`/student/favorites/${item.id}`, {
+                    state: { title: item.title, from: preferredRole },
+                  });
                 }}
                 onKeyDown={(event) => {
-                  if (!isRecent) return;
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    navigate('/student/recent-visits');
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  if (isRecent) {
+                    navigate('/student/recent-visits', { state: { from: preferredRole } });
+                    return;
                   }
+                  if (!requireAuth()) return;
+                  navigate(`/student/favorites/${item.id}`, {
+                    state: { title: item.title, from: preferredRole },
+                  });
                 }}
               >
                 <div className="favorites-cover">
