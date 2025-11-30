@@ -30,6 +30,9 @@ const RECENT_SECTIONS = [
         school: '斯坦福大学',
         timezone: 'UTC+8 (上海)',
         languages: '中文, 英语',
+        studentId: 1,
+        courseType: '选课指导',
+        expectedDuration: '2小时',
         tagline: '用真实分布式案例演练面试思路，输出可落地的设计文档。',
         tags: ['系统设计', '面试模拟'],
         defaultLiked: true,
@@ -47,6 +50,9 @@ const RECENT_SECTIONS = [
         school: '麻省理工学院',
         timezone: 'UTC-7 (加州)',
         languages: '英语, 中文',
+        studentId: 2,
+        courseType: '课前预习',
+        expectedDuration: '1.5小时',
         tagline: '一小时拆 3 题，讲解思路和高频坑位，附带代码点评。',
         tags: ['LeetCode', '算法班'],
       },
@@ -69,6 +75,9 @@ const RECENT_SECTIONS = [
         school: '哥伦比亚大学',
         timezone: 'UTC+8 (上海)',
         languages: '中文, 英语',
+        studentId: 3,
+        courseType: '作业项目',
+        expectedDuration: '2小时',
         tagline: '把课题拆成复盘、实验和汇报三步走，帮你拿出能说服团队的方案。',
         tags: ['案例拆解', '增长策略'],
       },
@@ -85,6 +94,9 @@ const RECENT_SECTIONS = [
         school: '哈佛大学',
         timezone: 'UTC+8 (上海)',
         languages: '中文, 英语',
+        studentId: 4,
+        courseType: '课前预习',
+        expectedDuration: '2小时',
         tagline: '用真实业务数据演示 A/B 测试与指标监控，提供仪表盘模板。',
         tags: ['数据分析', '商业案例'],
         defaultLiked: true,
@@ -102,6 +114,9 @@ const RECENT_SECTIONS = [
         school: '加州大学伯克利分校',
         timezone: 'UTC+8 (上海)',
         languages: '中文, 英语',
+        studentId: 5,
+        courseType: '作业项目',
+        expectedDuration: '2小时',
         tagline: '前后端联调、性能优化与上线方案复盘，附带代码走查。',
         tags: ['前端性能', '系统演练'],
       },
@@ -118,6 +133,9 @@ const RECENT_SECTIONS = [
         school: '芝加哥大学',
         timezone: 'UTC+8 (上海)',
         languages: '中文, 英语',
+        studentId: 6,
+        courseType: '求职辅导',
+        expectedDuration: '1.5小时',
         tagline: '一对一简历精修 + 行业故事库演练，准备即将到来的面试。',
         tags: ['求职', '模拟面试'],
       },
@@ -164,20 +182,21 @@ function RecentVisitsPage() {
     }
   };
 
-  const normalizeCardData = (visit) => {
-    const cleanName = (() => {
-      const raw = visit.name || '';
-      const parts = raw.split('·');
-      return (parts[0] || raw).trim();
+  const normalizeCardData = (visit, idx) => {
+    const numericId = (() => {
+      if (typeof visit.studentId !== 'undefined') return visit.studentId;
+      const match = String(visit.id || '').match(/\d+/);
+      return match ? match[0] : idx + 1;
     })();
+    const studentName = `S${numericId}`;
     return {
-      name: cleanName,
+      name: studentName,
       degree: visit.degree || '硕士',
       school: visit.school || '测试大学',
-      courses: Array.isArray(visit.tags) && visit.tags.length > 0 ? visit.tags : [],
+      courses: visit.discipline ? [visit.discipline] : [],
       timezone: visit.timezone || 'UTC+8 (上海)',
-      courseType: '',
-      expectedDuration: '',
+      courseType: visit.courseType || '',
+      expectedDuration: visit.expectedDuration || '',
       requirements: '',
     };
   };
@@ -238,8 +257,8 @@ function RecentVisitsPage() {
                 <div className="recent-date">{section.dateLabel}</div>
               </div>
               <div className="recent-grid" role="list">
-                {section.visits.map((visit) => {
-                  const cardData = normalizeCardData(visit);
+                {section.visits.map((visit, idx) => {
+                  const cardData = normalizeCardData(visit, idx);
                   return (
                     <div
                       className={`recent-card-shell ${editMode ? 'is-editing' : ''}`}
