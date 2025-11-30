@@ -538,6 +538,144 @@ const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDat
   });
 };
 
+const SLOT_MINUTES = 15;
+const MINUTES_IN_DAY = 24 * 60;
+
+const getZonedParts = (timeZone, date = new Date()) => {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = fmt.formatToParts(date).reduce((acc, cur) => {
+      if (cur.type !== 'literal') acc[cur.type] = cur.value;
+      return acc;
+    }, {});
+    return {
+      year: Number(parts.year),
+      month: Number(parts.month),
+      day: Number(parts.day),
+      hour: Number(parts.hour),
+      minute: Number(parts.minute),
+      second: Number(parts.second),
+    };
+  } catch {
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      hour: date.getHours(),
+      minute: date.getMinutes(),
+      second: date.getSeconds(),
+    };
+  }
+};
+
+const keyFromParts = (year, month, day) => `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+const parseKey = (key) => {
+  if (!key) return null;
+  const [y, m, d] = key.split('-').map((s) => parseInt(s, 10));
+  if (!y || !m || !d) return null;
+  return { year: y, month: m, day: d };
+};
+const keyToUtcMidday = (key) => {
+  const parsed = parseKey(key);
+  if (!parsed) return null;
+  return new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day, 12, 0, 0));
+};
+const addDaysToKey = (key, delta) => {
+  const parsed = parseKey(key);
+  if (!parsed) return key;
+  const utcDate = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day));
+  utcDate.setUTCDate(utcDate.getUTCDate() + delta);
+  return keyFromParts(utcDate.getUTCFullYear(), utcDate.getUTCMonth() + 1, utcDate.getUTCDate());
+};
+const keyToDate = (key) => {
+  const parsed = parseKey(key);
+  if (!parsed) return null;
+  return new Date(parsed.year, parsed.month - 1, parsed.day);
+};
+const mergeBlocksList = (blocks) => {
+  if (!blocks || !blocks.length) return [];
+  const sorted = [...blocks]
+    .map((b) => ({ start: Math.min(b.start, b.end), end: Math.max(b.start, b.end) }))
+    .sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = merged[merged.length - 1];
+    const cur = sorted[i];
+    if (cur.start <= prev.end + 1) {
+      prev.end = Math.max(prev.end, cur.end);
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+};
+const getOffsetForKey = (timeZone, key) => {
+  const ref = keyToUtcMidday(key);
+  if (!ref) return 0;
+  return getTimeZoneOffsetMinutes(timeZone, ref);
+};
+const convertSelectionsBetweenTimeZones = (selections, fromTz, toTz) => {
+  if (!selections || fromTz === toTz) return selections;
+  const result = {};
+  Object.entries(selections).forEach(([key, blocks]) => {
+    if (!Array.isArray(blocks) || !blocks.length) return;
+    const oldOffset = getOffsetForKey(fromTz, key);
+    const newOffset = getOffsetForKey(toTz, key);
+    const delta = newOffset - oldOffset;
+    if (!delta) {
+      result[key] = mergeBlocksList([...(result[key] || []), ...blocks]);
+      return;
+    }
+    blocks.forEach((block) => {
+      const startMin = (block.start ?? 0) * SLOT_MINUTES + delta;
+      const endMinExclusive = ((block.end ?? block.start ?? 0) + 1) * SLOT_MINUTES + delta;
+      const startDay = Math.floor(startMin / MINUTES_IN_DAY);
+      const endDay = Math.floor((endMinExclusive - 1) / MINUTES_IN_DAY);
+      for (let dayOffset = startDay; dayOffset <= endDay; dayOffset++) {
+        const dayStartMin = dayOffset * MINUTES_IN_DAY;
+        const segStartMin = Math.max(startMin, dayStartMin);
+        const segEndMin = Math.min(endMinExclusive, dayStartMin + MINUTES_IN_DAY);
+        if (segStartMin >= segEndMin) continue;
+        const segStartIdx = Math.max(0, Math.floor((segStartMin - dayStartMin) / SLOT_MINUTES));
+        const segEndIdx = Math.min(95, Math.ceil((segEndMin - dayStartMin) / SLOT_MINUTES) - 1);
+        const targetKey = addDaysToKey(key, dayOffset);
+        const existing = result[targetKey] || [];
+        result[targetKey] = mergeBlocksList([...existing, { start: segStartIdx, end: segEndIdx }]);
+      }
+    });
+  });
+  return result;
+};
+const shiftDayKeyForTimezone = (key, fromTz, toTz, anchorMinutes = 12 * 60) => {
+  if (!key || fromTz === toTz) return key;
+  const oldOffset = getOffsetForKey(fromTz, key);
+  const newOffset = getOffsetForKey(toTz, key);
+  const delta = newOffset - oldOffset;
+  if (!delta) return key;
+  const minuteMark = anchorMinutes + delta;
+  const dayOffset = Math.floor(minuteMark / MINUTES_IN_DAY);
+  if (!dayOffset) return key;
+  return addDaysToKey(key, dayOffset);
+};
+const convertRangeKeysBetweenTimeZones = (keys, fromTz, toTz) => {
+  if (!Array.isArray(keys) || fromTz === toTz) return keys;
+  const converted = keys.map((k) => shiftDayKeyForTimezone(k, fromTz, toTz));
+  return Array.from(new Set(converted));
+};
+const buildDateFromTimeZoneNow = (timeZone) => {
+  const parts = getZonedParts(timeZone);
+  return new Date(parts.year, parts.month - 1, parts.day);
+};
+
 const DEFAULT_TIME_ZONE = getDefaultTimeZone();
 
 
@@ -600,13 +738,18 @@ function StudentCourseRequestPage() {
   const [transitionStage, setTransitionStage] = useState('idle');
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
+  const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
+  const previousTimeZoneRef = useRef(selectedTimeZone);
 
   // Stable mock profile for preview (when student info is missing)
   const mockStudent = useMemo(() => generateMockStudentProfile(), []);
 
   // ----- Schedule step local states -----
-  const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(() => buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE));
+  const [viewMonth, setViewMonth] = useState(() => {
+    const initial = buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE);
+    return new Date(initial.getFullYear(), initial.getMonth(), 1);
+  });
   const timesListRef = useRef(null);
   const defaultTimesScrollDoneRef = useRef(false);
   // 每天对应的已选时间段集合（按索引区间存储）
@@ -639,11 +782,12 @@ function StudentCourseRequestPage() {
 
 
   // Start-of-today reference for past/future checks
+  const tzToday = useMemo(() => buildDateFromTimeZoneNow(selectedTimeZone), [selectedTimeZone]);
   const todayStart = useMemo(() => {
-    const t = new Date();
+    const t = new Date(tzToday.getFullYear(), tzToday.getMonth(), tzToday.getDate());
     t.setHours(0, 0, 0, 0);
     return t;
-  }, []);
+  }, [tzToday]);
 
 
   
@@ -690,6 +834,30 @@ function StudentCourseRequestPage() {
     window.addEventListener('mouseup', onUp);
     return () => window.removeEventListener('mouseup', onUp);
   }, [endDragSelection, isDraggingRange]);
+
+  // 时区切换时，同步选中的日期与时间段到新时区的日历上
+  useEffect(() => {
+    const prevTz = previousTimeZoneRef.current || DEFAULT_TIME_ZONE;
+    const nextTz = selectedTimeZone || DEFAULT_TIME_ZONE;
+    if (prevTz === nextTz) return;
+
+    setDaySelections((prev) => convertSelectionsBetweenTimeZones(prev, prevTz, nextTz));
+    setSelectedRangeKeys((prev) => convertRangeKeysBetweenTimeZones(prev, prevTz, nextTz));
+
+    const prevSelectedKey = selectedDate ? buildKey(selectedDate) : null;
+    const shiftedSelectedKey = prevSelectedKey ? shiftDayKeyForTimezone(prevSelectedKey, prevTz, nextTz) : null;
+    const nextSelectedDate = shiftedSelectedKey ? (keyToDate(shiftedSelectedKey) || buildDateFromTimeZoneNow(nextTz)) : buildDateFromTimeZoneNow(nextTz);
+    const nextViewMonth = new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1);
+
+    setSelectedDate(nextSelectedDate);
+    setViewMonth(nextViewMonth);
+    setDragStartKey(null);
+    setDragEndKey(null);
+    setDragPreviewKeys(new Set());
+    setIsDraggingRange(false);
+
+    previousTimeZoneRef.current = nextTz;
+  }, [buildKey, selectedTimeZone]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -1332,7 +1500,7 @@ function StudentCourseRequestPage() {
                   if (outside) {
                     return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
                   }
-                  const isToday = isSameDay(date, new Date());
+                  const isToday = isSameDay(date, tzToday);
                   const selected = isSameDay(date, selectedDate);
                   const isPast = (() => {
                     const d = new Date(date);
@@ -1573,7 +1741,7 @@ function StudentCourseRequestPage() {
                           if (outside) {
                             return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
                           }
-                          const isToday = isSameDay(date, new Date());
+                          const isToday = isSameDay(date, tzToday);
                           const key = ymdKey(date);
                           const selected = isSameDay(date, selectedDate);
                           const hasSelection = !!(daySelections[ymdKey(date)] && daySelections[ymdKey(date)].length);
