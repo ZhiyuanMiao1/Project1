@@ -90,7 +90,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 18px;
   padding: 16px 16px 16px; /* 收紧内边距，减少高度 */
-  box-shadow: 0 16px 36px rgba(0,0,0,0.08);
+  box-shadow: none;
 }
 
 .mentor-preview-card .card-fav {
