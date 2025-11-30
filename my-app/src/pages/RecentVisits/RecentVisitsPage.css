@@ -133,6 +133,10 @@
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
+.recent-hero-edit {
+  align-self: flex-start;
+}
+
 .recent-edit-link:hover {
   background: #f4f6f9;
 }

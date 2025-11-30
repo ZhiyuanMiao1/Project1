@@ -197,6 +197,9 @@ function RecentVisitsPage() {
               <h1>最近浏览</h1>
             </div>
           </div>
+          <button type="button" className="recent-edit-link recent-hero-edit">
+            编辑
+          </button>
         </section>
 
         <section className="recent-sections">
@@ -204,9 +207,6 @@ function RecentVisitsPage() {
             <div className="recent-section" key={section.id}>
               <div className="recent-section-head">
                 <div className="recent-date">{section.dateLabel}</div>
-                <button type="button" className="recent-edit-link">
-                  编辑
-                </button>
               </div>
               <div className="recent-grid" role="list">
                 {section.visits.map((visit) => {
