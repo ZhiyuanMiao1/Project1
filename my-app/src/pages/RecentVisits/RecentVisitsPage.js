@@ -194,20 +194,9 @@ function RecentVisitsPage() {
               <FiArrowLeft size={18} />
             </button>
             <div className="recent-hero-text">
-              <p className="recent-hero-label">浏览记录</p>
               <h1>最近浏览</h1>
-              <p className="recent-hero-sub">
-                你最近查看的导师会暂时保留在这里，方便随时回到上次的位置。
-              </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="recent-edit"
-            onClick={() => navigate('/student/favorites')}
-          >
-            回到收藏
-          </button>
         </section>
 
         <section className="recent-sections">

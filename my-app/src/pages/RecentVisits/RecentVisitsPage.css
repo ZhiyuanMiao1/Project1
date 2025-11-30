@@ -94,25 +94,6 @@
   max-width: 640px;
 }
 
-.recent-edit {
-  align-self: center;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: none;
-  background: #111827;
-  color: #ffffff;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.2);
-  transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
-}
-
-.recent-edit:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 16px 34px rgba(17, 24, 39, 0.24);
-  background: #0b1220;
-}
-
 .recent-sections {
   display: flex;
   flex-direction: column;
