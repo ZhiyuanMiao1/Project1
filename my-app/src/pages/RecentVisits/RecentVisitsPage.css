@@ -150,6 +150,56 @@
 
 .recent-card-shell {
   width: 100%;
+  position: relative;
+}
+
+.recent-edit-remove {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.recent-edit-remove:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.24);
+}
+
+.recent-edit-remove-icon {
+  position: relative;
+  width: 12px;
+  height: 12px;
+}
+
+.recent-edit-remove-icon::before,
+.recent-edit-remove-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 2px;
+  background: #111827;
+  transform-origin: center;
+}
+
+.recent-edit-remove-icon::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.recent-edit-remove-icon::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 

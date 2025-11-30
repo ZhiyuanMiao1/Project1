@@ -129,6 +129,7 @@ function RecentVisitsPage() {
   const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
       return !!localStorage.getItem('authToken');
@@ -223,8 +224,12 @@ function RecentVisitsPage() {
               <h1>最近浏览</h1>
             </div>
           </div>
-          <button type="button" className="recent-edit-link recent-hero-edit">
-            编辑
+          <button
+            type="button"
+            className="recent-edit-link recent-hero-edit"
+            onClick={() => setEditMode((v) => !v)}
+          >
+            {editMode ? '完成' : '编辑'}
           </button>
         </section>
 
@@ -238,7 +243,21 @@ function RecentVisitsPage() {
                 {section.visits.map((visit) => {
                   const cardData = normalizeCardData(visit);
                   return (
-                    <div className="recent-card-shell" key={visit.id} role="listitem">
+                    <div
+                      className={`recent-card-shell ${editMode ? 'is-editing' : ''}`}
+                      key={visit.id}
+                      role="listitem"
+                    >
+                      {editMode && (
+                        <button
+                          type="button"
+                          className="recent-edit-remove"
+                          aria-label="移除此记录"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="recent-edit-remove-icon" aria-hidden="true" />
+                        </button>
+                      )}
                       <StudentListingCard data={cardData} />
                     </div>
                   );
