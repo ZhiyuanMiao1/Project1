@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaHeart, FaRegHeart, FaStar } from 'react-icons/fa';
-import { FiArrowLeft } from 'react-icons/fi';
+import { FiChevronLeft } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import tutor1 from '../../assets/images/tutor1.jpg';
@@ -191,7 +191,7 @@ function RecentVisitsPage() {
               aria-label="返回收藏"
               onClick={handleBack}
             >
-              <FiArrowLeft size={18} />
+              <FiChevronLeft size={20} />
             </button>
             <div className="recent-hero-text">
               <h1>最近浏览</h1>
