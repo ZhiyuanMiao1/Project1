@@ -42,7 +42,8 @@
 .recent-hero-left {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .recent-back {
