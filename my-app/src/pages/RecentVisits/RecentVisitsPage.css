@@ -1,0 +1,347 @@
+.recent-page {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.recent-page .container {
+  margin-left: 96px;
+  padding-bottom: 72px;
+}
+
+.recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 12px;
+}
+
+.recent-menu {
+  margin-left: 8px;
+  border: none;
+  background-color: #f0f0f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: #000;
+  padding: 0;
+}
+
+.recent-menu svg {
+  width: 20px;
+  height: 20px;
+}
+
+.recent-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 28px 0 22px;
+}
+
+.recent-hero-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.recent-back {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.recent-back:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.14);
+  border-color: #d7dee8;
+}
+
+.recent-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recent-hero-label {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+}
+
+.recent-hero h1 {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.recent-hero-sub {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 640px;
+}
+
+.recent-edit {
+  align-self: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.2);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+}
+
+.recent-edit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgba(17, 24, 39, 0.24);
+  background: #0b1220;
+}
+
+.recent-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.recent-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recent-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recent-date {
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.recent-edit-link {
+  border: none;
+  background: transparent;
+  color: #111827;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 10px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.recent-edit-link:hover {
+  background: #f4f6f9;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.recent-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.recent-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 46px rgba(15, 23, 42, 0.12);
+  border-color: #d7dee8;
+}
+
+.recent-cover {
+  position: relative;
+  padding-top: 70%;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0f2fe 100%);
+}
+
+.recent-cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.26s ease;
+}
+
+.recent-card:hover .recent-cover img {
+  transform: scale(1.06);
+}
+
+.recent-like {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, color 0.14s ease;
+}
+
+.recent-like.is-liked {
+  color: #ef4444;
+}
+
+.recent-like:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+}
+
+.recent-time-chip {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(2px);
+}
+
+.recent-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recent-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.recent-card-title-row h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.recent-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #fff3e8;
+  border-radius: 10px;
+  font-weight: 760;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px #ffe0c2;
+  font-size: 13px;
+}
+
+.recent-rating svg {
+  color: #f97316;
+}
+
+.recent-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.recent-meta-dot {
+  color: #cbd5e1;
+}
+
+.recent-desc {
+  margin: 2px 0 0;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 44px;
+}
+
+.recent-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.recent-tag {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-weight: 650;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 900px) {
+  .recent-page .container {
+    margin-left: 48px;
+  }
+
+  .recent-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .recent-edit {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .recent-page .container {
+    margin-left: 0;
+    padding: 0 16px 60px;
+  }
+
+  .recent-hero h1 {
+    font-size: 26px;
+  }
+
+  .recent-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}

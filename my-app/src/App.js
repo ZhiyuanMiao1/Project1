@@ -8,6 +8,7 @@ import FavoritesPage from './pages/Favorites/FavoritesPage';
 import CoursesPage from './pages/Courses/CoursesPage';
 import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
 import MessagesPage from './pages/Messages/MessagesPage';
+import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
 
         {/* 收藏页面 */}
         <Route path="/student/favorites" element={<FavoritesPage />} />
+        <Route path="/student/recent-visits" element={<RecentVisitsPage />} />
 
         {/* 课程时间轴页面 */}
         <Route path="/student/courses" element={<CoursesPage />} />

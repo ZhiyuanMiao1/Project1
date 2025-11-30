@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaHeart } from 'react-icons/fa';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
@@ -23,6 +23,8 @@ const RECENT_COLLECTION = {
   images: [tutor1, tutor2, tutor3, tutor4],
 };
 
+
+
 const buildCover = (seed = 0) => {
   const covers = [];
   for (let i = 0; i < 4; i += 1) {
@@ -40,6 +42,7 @@ const formatCreatedAt = (value) => {
 
 function FavoritesPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -292,6 +295,20 @@ function FavoritesPage() {
               <article
                 key={item.id}
                 className={cardClass}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (isRecent) {
+                    navigate('/student/recent-visits');
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (!isRecent) return;
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate('/student/recent-visits');
+                  }
+                }}
               >
                 <div className="favorites-cover">
                   {!isRecent && (
