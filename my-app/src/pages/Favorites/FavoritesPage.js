@@ -62,8 +62,19 @@ function FavoritesPage() {
   const menuAnchorRef = useRef(null);
 
   const preferredRole = useMemo(() => {
+    const searchRole = (() => {
+      try {
+        const params = new URLSearchParams(location.search || '');
+        const val = params.get('role');
+        if (val === 'mentor' || val === 'student') return val;
+      } catch {}
+      return null;
+    })();
+    if (searchRole) return searchRole;
+
     const fromState = location.state?.from;
     if (fromState === 'mentor' || fromState === 'student') return fromState;
+
     try {
       const raw = localStorage.getItem('authUser');
       const user = raw ? JSON.parse(raw) : {};
@@ -71,7 +82,14 @@ function FavoritesPage() {
     } catch {
       return 'student';
     }
-  }, [location.state]);
+  }, [location.search, location.state]);
+
+  useEffect(() => {
+    if (!preferredRole) return;
+    try {
+      sessionStorage.setItem('favorites:lastRole', preferredRole);
+    } catch {}
+  }, [preferredRole]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -299,24 +317,26 @@ function FavoritesPage() {
                 tabIndex={0}
                 onClick={() => {
                   if (isRecent) {
-                    navigate('/student/recent-visits', { state: { from: preferredRole } });
+                    navigate('/student/recent-visits', { state: { from: preferredRole, fromRole: preferredRole } });
                     return;
                   }
                   if (!requireAuth()) return;
-                  navigate(`/student/favorites/${item.id}`, {
-                    state: { title: item.title, from: preferredRole },
+                  const roleParam = preferredRole || 'student';
+                  navigate(`/student/favorites/${item.id}?role=${roleParam}`, {
+                    state: { title: item.title, from: roleParam, fromRole: roleParam },
                   });
                 }}
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter' && event.key !== ' ') return;
                   event.preventDefault();
                   if (isRecent) {
-                    navigate('/student/recent-visits', { state: { from: preferredRole } });
+                    navigate('/student/recent-visits', { state: { from: preferredRole, fromRole: preferredRole } });
                     return;
                   }
                   if (!requireAuth()) return;
-                  navigate(`/student/favorites/${item.id}`, {
-                    state: { title: item.title, from: preferredRole },
+                  const roleParam = preferredRole || 'student';
+                  navigate(`/student/favorites/${item.id}?role=${roleParam}`, {
+                    state: { title: item.title, from: roleParam, fromRole: roleParam },
                   });
                 }}
               >

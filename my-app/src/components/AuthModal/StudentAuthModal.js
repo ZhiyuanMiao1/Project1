@@ -59,7 +59,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         return;
       case 'favorites':
         onClose && onClose();
-        navigate('/student/favorites', { state: { from: 'student' } });
+        navigate('/student/favorites?role=student', { state: { from: 'student' } });
         return;
       case 'courses':
         onClose && onClose();

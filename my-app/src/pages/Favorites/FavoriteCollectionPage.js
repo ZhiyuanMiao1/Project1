@@ -211,8 +211,22 @@ function FavoriteCollectionPage() {
   }, []);
 
   const preferredRole = useMemo(() => {
+    const searchRole = (() => {
+      try {
+        const params = new URLSearchParams(location.search || '');
+        const val = params.get('role');
+        if (val === 'mentor' || val === 'student') return val;
+      } catch {}
+      return null;
+    })();
+
+    if (searchRole) return searchRole;
     const fromState = location.state?.fromRole || location.state?.from;
     if (fromState === 'mentor' || fromState === 'student') return fromState;
+    try {
+      const lastRole = sessionStorage.getItem('favorites:lastRole');
+      if (lastRole === 'mentor' || lastRole === 'student') return lastRole;
+    } catch {}
     try {
       const raw = localStorage.getItem('authUser');
       const user = raw ? JSON.parse(raw) : {};
@@ -220,7 +234,7 @@ function FavoriteCollectionPage() {
     } catch {
       return 'student';
     }
-  }, [location.state]);
+  }, [location.search, location.state]);
 
   const collectionTitle = location.state?.title
     || location.state?.name
@@ -234,13 +248,13 @@ function FavoriteCollectionPage() {
 
   const studentCards = useMemo(() => STUDENT_FAVORITES, []);
 
-  const cardsToShow = preferredRole === 'mentor' ? studentCards : mentorCards;
+  const cardsToShow = preferredRole === 'mentor' ? mentorCards : studentCards;
 
   const handleBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate('/student/favorites', { state: { from: preferredRole } });
+      navigate('/student/favorites', { state: { from: preferredRole, fromRole: preferredRole } });
     }
   };
 
@@ -323,9 +337,9 @@ function FavoriteCollectionPage() {
                   </button>
                 )}
                 {preferredRole === 'mentor' ? (
-                  <StudentListingCard data={card} />
-                ) : (
                   <MentorListingCard data={card} />
+                ) : (
+                  <StudentListingCard data={card} />
                 )}
               </div>
             ))}

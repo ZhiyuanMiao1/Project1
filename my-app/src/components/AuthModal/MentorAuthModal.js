@@ -106,7 +106,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       case 'favorites':
         if (isPendingMentor) return;
         onClose && onClose();
-        navigate('/student/favorites', { state: { from: 'mentor' } });
+        navigate('/student/favorites?role=mentor', { state: { from: 'mentor' } });
         return;
       case 'courses':
         if (isPendingMentor) return;
