@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaHeart, FaRegHeart, FaStar } from 'react-icons/fa';
 import { FiChevronLeft } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
 import tutor3 from '../../assets/images/tutor3.jpg';
@@ -26,6 +26,10 @@ const RECENT_SECTIONS = [
         rating: 4.9,
         students: 182,
         cover: tutor4,
+        degree: '硕士',
+        school: 'MentorX学院',
+        timezone: 'UTC+8 (上海)',
+        languages: '中文, 英语',
         tagline: '用真实分布式案例演练面试思路，输出可落地的设计文档。',
         tags: ['系统设计', '面试模拟'],
         defaultLiked: true,
@@ -39,6 +43,10 @@ const RECENT_SECTIONS = [
         rating: 4.8,
         students: 236,
         cover: tutor2,
+        degree: '硕士',
+        school: 'MentorX学院',
+        timezone: 'UTC-7 (加州)',
+        languages: '英语, 中文',
         tagline: '一小时拆 3 题，讲解思路和高频坑位，附带代码点评。',
         tags: ['LeetCode', '算法班'],
       },
@@ -57,6 +65,10 @@ const RECENT_SECTIONS = [
         rating: 4.7,
         students: 143,
         cover: tutor3,
+        degree: '硕士',
+        school: 'MentorX学院',
+        timezone: 'UTC+8 (上海)',
+        languages: '中文, 英语',
         tagline: '把课题拆成复盘、实验和汇报三步走，帮你拿出能说服团队的方案。',
         tags: ['案例拆解', '增长策略'],
       },
@@ -69,6 +81,10 @@ const RECENT_SECTIONS = [
         rating: 4.9,
         students: 201,
         cover: tutor1,
+        degree: '博士',
+        school: 'MentorX学院',
+        timezone: 'UTC+8 (上海)',
+        languages: '中文, 英语',
         tagline: '用真实业务数据演示 A/B 测试与指标监控，提供仪表盘模板。',
         tags: ['数据分析', '商业案例'],
         defaultLiked: true,
@@ -82,6 +98,10 @@ const RECENT_SECTIONS = [
         rating: 4.6,
         students: 118,
         cover: tutor5,
+        degree: '硕士',
+        school: 'MentorX学院',
+        timezone: 'UTC+8 (上海)',
+        languages: '中文, 英语',
         tagline: '前后端联调、性能优化与上线方案复盘，附带代码走查。',
         tags: ['前端性能', '系统演练'],
       },
@@ -94,22 +114,16 @@ const RECENT_SECTIONS = [
         rating: 4.7,
         students: 167,
         cover: tutor6,
+        degree: '硕士',
+        school: 'MentorX学院',
+        timezone: 'UTC+8 (上海)',
+        languages: '中文, 英语',
         tagline: '一对一简历精修 + 行业故事库演练，准备即将到来的面试。',
         tags: ['求职', '模拟面试'],
       },
     ],
   },
 ];
-
-const buildInitialLikes = () => {
-  const map = {};
-  RECENT_SECTIONS.forEach((section) => {
-    section.visits.forEach((visit) => {
-      map[visit.id] = !!visit.defaultLiked;
-    });
-  });
-  return map;
-};
 
 function RecentVisitsPage() {
   const navigate = useNavigate();
@@ -122,7 +136,6 @@ function RecentVisitsPage() {
       return false;
     }
   });
-  const [likedMap, setLikedMap] = useState(buildInitialLikes);
 
   useEffect(() => {
     const handler = (event) => {
@@ -150,11 +163,24 @@ function RecentVisitsPage() {
     }
   };
 
-  const toggleLike = (id) => {
-    setLikedMap((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+  const normalizeCardData = (visit) => {
+    const cleanName = (() => {
+      const raw = visit.name || '';
+      const parts = raw.split('·');
+      return (parts[0] || raw).trim();
+    })();
+    return {
+      name: cleanName,
+    degree: visit.degree || '硕士',
+    school: visit.school || 'MentorX学院',
+    rating: visit.rating || 4.8,
+    reviewCount: visit.students || 120,
+    courses: Array.isArray(visit.tags) && visit.tags.length > 0 ? visit.tags : ['导师辅导'],
+    timezone: visit.timezone || 'UTC+8 (上海)',
+    languages: visit.languages || '中文, 英语',
+    imageUrl: visit.cover,
+    gender: visit.gender,
+    };
   };
 
   return (
@@ -210,44 +236,11 @@ function RecentVisitsPage() {
               </div>
               <div className="recent-grid" role="list">
                 {section.visits.map((visit) => {
-                  const liked = !!likedMap[visit.id];
+                  const cardData = normalizeCardData(visit);
                   return (
-                    <article className="recent-card" key={visit.id} role="listitem">
-                      <div className="recent-cover">
-                        <img src={visit.cover} alt={`${visit.name} 封面`} />
-                        <div className="recent-time-chip">{visit.time}</div>
-                        <button
-                          type="button"
-                          className={`recent-like ${liked ? 'is-liked' : ''}`}
-                          aria-label={liked ? '取消收藏' : '收藏'}
-                          onClick={() => toggleLike(visit.id)}
-                        >
-                          {liked ? <FaHeart /> : <FaRegHeart />}
-                        </button>
-                      </div>
-                      <div className="recent-card-body">
-                        <div className="recent-card-title-row">
-                          <h3>{visit.name}</h3>
-                          <div className="recent-rating" aria-label={`评分 ${visit.rating}`}>
-                            <FaStar />
-                            <span>{visit.rating.toFixed(1)}</span>
-                          </div>
-                        </div>
-                        <div className="recent-meta">
-                          <span>{visit.discipline}</span>
-                          <span className="recent-meta-dot" aria-hidden="true">|</span>
-                          <span>{visit.location}</span>
-                          <span className="recent-meta-dot" aria-hidden="true">|</span>
-                          <span>{visit.students} 位学生</span>
-                        </div>
-                        <p className="recent-desc">{visit.tagline}</p>
-                        <div className="recent-tags" aria-label="关注方向">
-                          {visit.tags.map((tag) => (
-                            <span key={tag} className="recent-tag">{tag}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </article>
+                    <div className="recent-card-shell" key={visit.id} role="listitem">
+                      <StudentListingCard data={cardData} />
+                    </div>
                   );
                 })}
               </div>
