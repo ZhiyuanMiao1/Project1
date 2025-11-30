@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
-import StudentListingCard from '../../components/ListingCard/StudentListingCard';
+import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
 import tutor3 from '../../assets/images/tutor3.jpg';
@@ -172,15 +172,13 @@ function RecentVisitsPage() {
     })();
     return {
       name: cleanName,
-    degree: visit.degree || '硕士',
-    school: visit.school || '测试大学',
-    rating: visit.rating || 4.8,
-    reviewCount: visit.students || 120,
-    courses: Array.isArray(visit.tags) && visit.tags.length > 0 ? visit.tags : ['导师辅导'],
-    timezone: visit.timezone || 'UTC+8 (上海)',
-    languages: visit.languages || '中文, 英语',
-    imageUrl: visit.cover,
-    gender: visit.gender,
+      degree: visit.degree || '硕士',
+      school: visit.school || '测试大学',
+      courses: Array.isArray(visit.tags) && visit.tags.length > 0 ? visit.tags : [],
+      timezone: visit.timezone || 'UTC+8 (上海)',
+      courseType: '',
+      expectedDuration: '',
+      requirements: '',
     };
   };
 
@@ -258,7 +256,7 @@ function RecentVisitsPage() {
                           <span className="recent-edit-remove-icon" aria-hidden="true" />
                         </button>
                       )}
-                      <StudentListingCard data={cardData} />
+                      <MentorListingCard data={cardData} />
                     </div>
                   );
                 })}
