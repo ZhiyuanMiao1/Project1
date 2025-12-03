@@ -6,8 +6,8 @@ import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGra
 import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
-import { ScheduleStepContent, ScheduleStepSidebar } from './steps/ScheduleStep';
 import UploadStep from './steps/UploadStep';
+import { ScheduleStepContent, ScheduleStepSidebar } from './steps/ScheduleStep';
 import { INITIAL_FORM_STATE, PAGE_TRANSITION_DURATION, PREVIEW_FREEZE_OFFSET, STEPS, generateMockStudentProfile } from './steps/pageConstants';
 import {
   DEFAULT_TIME_ZONE,
