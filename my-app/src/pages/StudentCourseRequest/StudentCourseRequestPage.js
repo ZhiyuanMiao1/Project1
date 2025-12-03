@@ -857,7 +857,7 @@ function StudentCourseRequestPage() {
     setIsDraggingRange(false);
 
     previousTimeZoneRef.current = nextTz;
-  }, [buildKey, selectedTimeZone]);
+  }, [buildKey, selectedTimeZone, selectedDate]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -1919,22 +1919,5 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
