@@ -1,324 +1,13 @@
-import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback,useLayoutEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
-import { FaFileAlt, FaEllipsisH, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaImages, FaTasks } from 'react-icons/fa';
-import { RiDeleteBin6Line } from 'react-icons/ri';
-import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS, COURSE_TYPE_ICON_MAP } from '../../constants/courseMappings';
-
-const EMPTY_BLOCKS = [];
-
-export const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
-  value,                 // 当前小时数
-  onChange,              // (next:number) => void
-  listRef,               // 传入你原来的 timesListRef
-  min = 0.25,
-  max = 10,
-  step = 0.25,
-  // 受控：当外部需要按“天”管理选择时传入
-  blocks,                // 可选，形如 [{start:number,end:number}]
-  onBlocksChange,        // 可选，(nextBlocks) => void
-  dayKey,                // 可选，'YYYY-MM-DD' 当前天 key
-  getDayBlocks,          // 可选，(key)=>blocks，用于跨天读
-  setDayBlocks,          // 可选，(key,next)=>void，用于跨天写
-}) {
-  const valueRef = useRef(value);
-  useEffect(() => { valueRef.current = value; }, [value]);
-  // —— 工具 & 边界 —— //
-
-  const ensureQuarter = useCallback((raw) => {
-    const n = parseFloat(raw);
-    if (!isFinite(n)) return 2;
-    const clamped = Math.max(min, Math.min(max, n));
-    return Number((Math.round(clamped / 0.25) * 0.25).toFixed(2));
-  }, [min, max]);
-
-  const setValue = useCallback((v) => {
-    onChange(ensureQuarter(v));
-  }, [onChange, ensureQuarter]);
-
-  const adjust = useCallback((delta) => {
-    const cur = valueRef.current ?? 0;                   // 永远拿“最新值”
-    // 单击时也做一次边界拦截（否则会出现点减号没反应的错觉）
-    if ((delta < 0 && cur <= min) || (delta > 0 && cur >= max)) return;
-    const next = ensureQuarter(cur + delta);
-    onChange(next);
-  }, [ensureQuarter, onChange, min, max]);
-
-  // —— 长按（全局收尾）—— //
-  const HOLD_DELAY = 300, HOLD_INTERVAL = 150;
-  const pressTimerRef = useRef(null);
-  const repeatTimerRef = useRef(null);
-  const isHoldingRef = useRef(false);
-  const isPressedRef = useRef(false);
-  const deltaRef = useRef(0);
-  const endHandlerRef = useRef(null);
-
-  const clearTimers = useCallback(() => {
-    if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current = null; }
-    if (repeatTimerRef.current) { clearInterval(repeatTimerRef.current); repeatTimerRef.current = null; }
-    isHoldingRef.current = false;
-    isPressedRef.current = false;
-  }, []);
-
-  const detachGlobal = useCallback(() => {
-    const h = endHandlerRef.current;
-    if (!h) return;
-    window.removeEventListener('mouseup', h);
-    window.removeEventListener('touchend', h);
-    window.removeEventListener('touchcancel', h);
-    window.removeEventListener('blur', h);
-    endHandlerRef.current = null;
-  }, []);
-
-  const endGlobal = useCallback(() => {
-    if (isPressedRef.current && !isHoldingRef.current) adjust(deltaRef.current); // 单击一步
-    detachGlobal();
-    clearTimers();
-  }, [adjust, clearTimers, detachGlobal]);
-
-  useEffect(() => () => { detachGlobal(); clearTimers(); }, [detachGlobal, clearTimers]);
-
-  const startPress = useCallback((delta) => (e) => {
-    if (e.currentTarget.disabled) return;
-    e.preventDefault();
-    isPressedRef.current = true;
-    isHoldingRef.current = false;
-    deltaRef.current = delta;
-
-    endHandlerRef.current = endGlobal;
-    window.addEventListener('mouseup', endGlobal);
-    window.addEventListener('touchend', endGlobal, { passive: true });
-    window.addEventListener('touchcancel', endGlobal, { passive: true });
-    window.addEventListener('blur', endGlobal);
-
-    pressTimerRef.current = setTimeout(() => {
-      if (!isPressedRef.current) return;
-      isHoldingRef.current = true;
-      repeatTimerRef.current = setInterval(() => {
-        const cur = ensureQuarter(valueRef.current ?? 0);
-        if ((delta < 0 && cur <= min) || (delta > 0 && cur >= max)) {
-          endGlobal();
-          return;
-        }
-        adjust(delta);
-      }, HOLD_INTERVAL);
-    }, HOLD_DELAY);
-  }, [adjust, endGlobal, ensureQuarter, min, max]);
-
-  // —— 时间列表（保持你的逻辑）—— //
-  const formatTime = useCallback((h, m) => `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, []);
-  const timeSlots = useMemo(() => {
-    const arr = [];
-    for (let h = 0; h < 24; h++) for (let m = 0; m < 60; m += 15) arr.push({ h, m, label: formatTime(h, m) });
-    return arr;
-  }, [formatTime]);
-
-  // 支持多段选择：受控/非受控两种模式
-  const isControlledBlocks = Array.isArray(blocks) && typeof onBlocksChange === 'function';
-  const [uncontrolledBlocks, setUncontrolledBlocks] = useState([]); // [{start,end}]
-  const selectedBlocks = useMemo(
-    () => (isControlledBlocks ? (blocks ?? EMPTY_BLOCKS) : uncontrolledBlocks),
-    [isControlledBlocks, blocks, uncontrolledBlocks]
-  );
-
-  const applyBlocks = useCallback((next) => {
-    if (isControlledBlocks) {
-      onBlocksChange(next);
-    } else {
-      setUncontrolledBlocks(next);
-    }
-  }, [isControlledBlocks, onBlocksChange]);
-
-  // 计算：当前“单次时长”换算成多少个 15 分钟格
-  const slotsPerSession = useMemo(() => {
-    const SLOT_MINUTES = 15;
-    return Math.max(1, Math.round(((value ?? 0) * 60) / SLOT_MINUTES));
-  }, [value]);
-
-  // 合并重叠/相邻的区间，保证 selectedBlocks 始终为最简集合
-  const mergeBlocks = useCallback((blocks) => {
-    if (!blocks || !blocks.length) return [];
-    const sorted = [...blocks]
-      .map((b) => ({ start: Math.min(b.start, b.end), end: Math.max(b.start, b.end) }))
-      .sort((a, b) => a.start - b.start);
-    const merged = [sorted[0]];
-    for (let i = 1; i < sorted.length; i++) {
-      const prev = merged[merged.length - 1];
-      const cur = sorted[i];
-      if (cur.start <= prev.end + 1) {
-        prev.end = Math.max(prev.end, cur.end);
-      } else {
-        merged.push({ ...cur });
-      }
-    }
-    return merged;
-  }, []);
-
-  // 辅助：dayKey <-> Date 与相邻 day key
-  const keyToDate = useCallback((key) => {
-    if (!key) return null;
-    const [y, m, d] = key.split('-').map((s) => parseInt(s, 10));
-    if (!y || !m || !d) return null;
-    return new Date(y, m - 1, d);
-  }, []);
-  const dateToKey = useCallback((date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }, []);
-  const neighborKey = useCallback((dir) => {
-    // dir: +1 明天，-1 昨天
-    const dt = keyToDate(dayKey);
-    if (!dt) return null;
-    const n = new Date(dt);
-    n.setDate(dt.getDate() + (dir > 0 ? 1 : -1));
-    return dateToKey(n);
-  }, [dayKey, dateToKey, keyToDate]);
-
-  const handleClickSlot = useCallback((idx) => {
-    const len = timeSlots.length;
-    const i = Math.max(0, Math.min(len - 1, idx));
-
-    // 若当前索引已在某个已选区间内，则移除整个区间
-    const containerIndex = (selectedBlocks || []).findIndex((b) => i >= b.start && i <= b.end);
-    if (containerIndex >= 0) {
-      const last = len - 1;
-      const block = (selectedBlocks || [])[containerIndex];
-      const next = (selectedBlocks || []).filter((_, k) => k !== containerIndex);
-      applyBlocks(next);
-
-      // 如果该段触及当天末尾且跨到下一天（即下一天0点起存在衔接段），连同下一天的首段一起删除
-      if (block && block.end === last && typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
-        const nxtKey = neighborKey(+1);
-        const nxtBlocks = (getDayBlocks && nxtKey) ? (getDayBlocks(nxtKey) || []) : [];
-        const idx0 = nxtBlocks.findIndex((b) => 0 >= b.start && 0 <= b.end);
-        if (idx0 >= 0) {
-          const after = nxtBlocks.filter((_, k) => k !== idx0);
-          setDayBlocks(nxtKey, mergeBlocks(after));
-        }
-      }
-
-      // 如果该段从 0 开始，且昨天结尾有一段与之衔接，也一并删除
-      if (block && block.start === 0 && typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
-        const prvKey = neighborKey(-1);
-        const prvBlocks = (getDayBlocks && prvKey) ? (getDayBlocks(prvKey) || []) : [];
-        const idxLast = prvBlocks.findIndex((b) => (len - 1) >= b.start && (len - 1) <= b.end);
-        if (idxLast >= 0) {
-          const afterPrev = prvBlocks.filter((_, k) => k !== idxLast);
-          setDayBlocks(prvKey, mergeBlocks(afterPrev));
-        }
-      }
-      return;
-    }
-
-    // 否则按当前“单次时长”新增区间并合并
-    const start = i;
-    const endWanted = i + slotsPerSession - 1; // 可能越过当天
-    const last = len - 1;
-
-    if (endWanted <= last) {
-      const end = Math.max(0, Math.min(last, endWanted));
-      const next = mergeBlocks([...(selectedBlocks || []), { start, end }]);
-      applyBlocks(next);
-    } else {
-      // 当天部分
-      const todayEnd = last;
-      const nextToday = mergeBlocks([...(selectedBlocks || []), { start, end: todayEnd }]);
-      applyBlocks(nextToday);
-
-      // 溢出到明天的部分：从 0 开始若干格
-      if (typeof getDayBlocks === 'function' && typeof setDayBlocks === 'function') {
-        const overflowCount = endWanted - last; // 超出的格数
-        const nxtKey = neighborKey(+1);
-        if (nxtKey) {
-          const nxtBlocks = getDayBlocks(nxtKey) || [];
-          const nextNxt = mergeBlocks([...(nxtBlocks || []), { start: 0, end: Math.max(0, overflowCount - 1) }]);
-          setDayBlocks(nxtKey, nextNxt);
-        }
-      }
-    }
-  }, [applyBlocks, getDayBlocks, setDayBlocks, mergeBlocks, neighborKey, selectedBlocks, slotsPerSession, timeSlots]);
-
-  const selectedIndexSet = useMemo(() => {
-    const set = new Set();
-    for (const b of selectedBlocks) {
-      for (let i = b.start; i <= b.end; i++) set.add(i);
-    }
-    return set;
-  }, [selectedBlocks]);
-
-  return (
-    <div className="schedule-times-panel">
-      <div className="times-panel-header">
-        <div className="day-title">可约时长</div>
-        <div className="duration-input">
-          <button
-            type="button"
-            className="stepper-btn"
-            aria-label="minus 0.25 hour"
-            disabled={(value ?? 0) <= min}
-            onMouseDown={startPress(-step)}
-            onTouchStart={startPress(-step)}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <span aria-hidden>−</span>
-          </button>
-
-          <span className="duration-value" id="sessionDurationValue">{value}</span>
-
-          <button
-            type="button"
-            className="stepper-btn"
-            aria-label="plus 0.25 hour"
-            disabled={(value ?? 0) >= max}
-            onMouseDown={startPress(+step)}
-            onTouchStart={startPress(+step)}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <span aria-hidden>+</span>
-          </button>
-
-          <span className="unit">小时</span>
-          <input
-            id="sessionDuration"
-            type="number"
-            min={min}
-            max={max}
-            step={step}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onBlur={(e) => setValue(e.target.value)}
-            aria-label="可约时长（小时）"
-            style={{ display: 'none' }}
-          />
-        </div>
-      </div>
-
-      <div className="times-list" role="list" ref={listRef}>
-        {timeSlots.map((t, idx) => {
-          const isSelected = selectedIndexSet.has(idx);
-          return (
-            <button
-              key={`${t.h}-${t.m}-${idx}`}
-              type="button"
-              className={`time-slot ${isSelected ? 'selected' : ''}`}
-              data-index={idx}
-              data-time-slot={t.label}
-              onClick={() => handleClickSlot(idx)}
-              aria-pressed={isSelected}   // ✅ 合法（按钮/role=button 可用）
-            >
-              <span className="dot" aria-hidden />
-              <span className="time-text">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-});
-
+import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
+import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
+import DirectionStep from './steps/DirectionStep';
+import DetailsStep from './steps/DetailsStep';
+import { ScheduleStepContent, ScheduleStepSidebar } from './steps/ScheduleStep';
+import UploadStep from './steps/UploadStep';
 
 // 懒加载 dotlottie React 播放器
 
@@ -915,126 +604,6 @@ function StudentCourseRequestPage() {
     return orderTimeZoneOptionsAroundSelected(base, formData.availability, referenceDate);
   }, [formData.availability]);
 
-  // Custom Select: Time zone dropdown that centers current option
-  const TimeZoneSelect = ({ id, value, onChange, options }) => {
-    const [open, setOpen] = useState(false);
-    const buttonRef = useRef(null);
-    const listRef = useRef(null);
-
-    useEffect(() => {
-      if (!open) return;
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const idx = options.findIndex((o) => o.value === value);
-      if (idx === -1) return;
-      const itemEl = listEl.querySelector(`[data-index="${idx}"]`);
-      if (!itemEl) return;
-      // Scroll so that selected item is approximately centered
-      const listHeight = listEl.clientHeight;
-      const itemTop = itemEl.offsetTop;
-      const itemHeight = itemEl.offsetHeight;
-      const targetScroll = itemTop - Math.max(0, (listHeight - itemHeight) / 2);
-      try {
-        listEl.scrollTo({ top: targetScroll, behavior: 'auto' });
-      } catch (_) {
-        listEl.scrollTop = targetScroll;
-      }
-    }, [open, options, value]);
-
-    useEffect(() => {
-      const onDocClick = (e) => {
-        if (!open) return;
-        const btn = buttonRef.current;
-        const list = listRef.current;
-        if (btn && btn.contains(e.target)) return;
-        if (list && list.contains(e.target)) return;
-        setOpen(false);
-      };
-      document.addEventListener('mousedown', onDocClick);
-      return () => document.removeEventListener('mousedown', onDocClick);
-    }, [open]);
-
-    const selectedLabel = useMemo(() => {
-      const found = options.find((o) => o.value === value);
-      return found ? found.label : '';
-    }, [options, value]);
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setOpen(false);
-        return;
-      }
-      if (!open && (e.key === 'Enter' || e.key === ' ')) {
-        e.preventDefault();
-        setOpen(true);
-        return;
-      }
-      if (!open) return;
-      const currentIndex = Math.max(0, options.findIndex((o) => o.value === value));
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(options.length - 1, currentIndex + 1);
-        onChange({ target: { value: options[next].value } });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = Math.max(0, currentIndex - 1);
-        onChange({ target: { value: options[prev].value } });
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        setOpen(false);
-      }
-    };
-
-    return (
-      <div className="mx-select" data-open={open ? 'true' : 'false'}>
-        <button
-          id={id}
-          ref={buttonRef}
-          type="button"
-          className="mx-select__button"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          onKeyDown={handleKeyDown}
-        >
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
-          <span className="mx-select__caret" aria-hidden>
-            ▾
-          </span>
-        </button>
-        {open && (
-          <div className="mx-select__popover">
-            <ul
-              ref={listRef}
-              role="listbox"
-              aria-labelledby={id}
-              className="mx-select__list"
-            >
-              {options.map((opt, index) => {
-                const selected = opt.value === value;
-                return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={selected}
-                    data-index={index}
-                    className={`mx-select__option ${selected ? 'selected' : ''}`}
-                    onClick={() => {
-                      onChange({ target: { value: opt.value } });
-                      setOpen(false);
-                    }}
-                  >
-                    {opt.label}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  };
-  
   const isDirectionStep = currentStep.id === 'direction';  const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
   const isUploadStep = currentStep.id === 'upload';
@@ -1346,254 +915,61 @@ function StudentCourseRequestPage() {
   const renderStepContent = () => {
     switch (currentStep.id) {
       case 'direction':
-        if (!isDirectionSelection) {
-          return null;
-        }
-        if (isCourseTypeSelection) {
-          return (
-            <div className="direction-select">
-              <div className="direction-grid two-col-grid" role="list">
-                {COURSE_TYPE_OPTIONS.map((option, index) => {
-                  const selectedList = Array.isArray(formData.courseTypes) ? formData.courseTypes : [];
-                  const isActive = selectedList.includes(option.id);
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      role="listitem"
-                      className={`direction-card ${isActive ? 'active' : ''}`}
-                      style={{ '--card-index': index }}
-                      onClick={() => {
-                        setFormData((previous) => {
-                          const list = Array.isArray(previous.courseTypes) ? previous.courseTypes : [];
-                          const exists = list.includes(option.id);
-                          const nextList = exists ? list.filter(id => id !== option.id) : [...list, option.id];
-                          return {
-                            ...previous,
-                            courseTypes: nextList,
-                            // 同步一个代表值以便兼容旧字段
-                            courseType: nextList[0] || '',
-                          };
-                        });
-                      }}
-                    >
-                      <span className="direction-card__icon" aria-hidden="true">
-                        {(() => { const TypeIcon = COURSE_TYPE_ICON_MAP[option.id] || FaEllipsisH; return <TypeIcon />; })()}
-                      </span>
-                      <span className="direction-card__title">{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
         return (
-          <div className="direction-select">
-            <div className="direction-grid" role="list">
-              {DIRECTION_OPTIONS.map((option, index) => {
-                const isActive = formData.courseDirection === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="listitem"
-                    className={`direction-card ${isActive ? 'active' : ''}`}
-                    style={{ '--card-index': index }}
-                    onClick={() => {
-                      setFormData((previous) => ({
-                        ...previous,
-                        courseDirection: option.id,
-                        learningGoal: option.label,
-                      }));
-                    }}
-                  >
-                    <span className="direction-card__icon" aria-hidden="true">
-                      {(() => { const Icon = DIRECTION_ICON_MAP[option.id] || FaEllipsisH; return <Icon />; })()}
-                    </span>
-                    <span className="direction-card__title">{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <DirectionStep
+            isDirectionSelection={isDirectionSelection}
+            isCourseTypeSelection={isCourseTypeSelection}
+            formData={formData}
+            setFormData={setFormData}
+          />
         );
       case 'details':
         return (
-          <div className="step-field-stack">
-            <div className="step-field-group">
-              <label className="field-label" htmlFor="totalCourseHours">预计课程总时长</label>
-              <div className="hours-input">
-                <input
-                  id="totalCourseHours"
-                  type="number"
-                  min={1}
-                  step={1}
-                  inputMode="numeric"
-                  placeholder="例如：10"
-                  value={formData.totalCourseHours}
-                  onChange={handleChange('totalCourseHours')}
-                />
-                <span className="unit">小时</span>
-              </div>
-            </div>
-
-            <div className="step-field-group">
-              <label className="field-label" htmlFor="courseFocus">想重点提升的内容</label>
-              <textarea
-                id="courseFocus"
-                placeholder={'例如： Biomedical Engineering这门课的Quiz1和Quiz2需要讲解。\n\n也可以在这里添加你的其它个人需求,例如：希望老师对着PPT讲的细致一些'}
-                value={formData.courseFocus}
-                onChange={handleChange('courseFocus')}
-                rows={5}
-              />
-            </div>
-
-            <div className="step-field-group">
-              <label className="field-label" htmlFor="milestone">希望达成的目标或里程碑</label>
-              <textarea
-                id="milestone"
-                type="text"
-                placeholder="例如：6周后期末考试稳分达到A"
-                value={formData.milestone}
-                onChange={handleChange('milestone')}
-              />
-            </div>
-          </div>
+          <DetailsStep
+            formData={formData}
+            onChange={handleChange}
+          />
         );
       case 'schedule': {
         return (
-          <div className="step-field-stack">
-            <label className="field-label" htmlFor="availability">选择首课时区</label>
-            <TimeZoneSelect
-              id="availability"
-              value={formData.availability}
-              onChange={handleChange('availability')}
-              options={orderedTimeZoneOptions}
-            />
-            <div className="calendar-card" aria-label="可授课时间日历">
-              <div className="calendar-header">
-                <div className="month-label">{monthLabel}</div>
-                <div className="calendar-nav">
-                  <button                                           // 上一月按钮
-                    type="button"                                   // 按钮类型
-                    className="nav-btn"                             // 样式类
-                    aria-label="Prev month"                         // 无障碍说明
-                    disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} // 禁用到本月前
-                    onClick={handlePrevMonth}                       // 使用封装好的上一月函数
-                  >&lsaquo;</button>
-
-                  <button                                           // 下一月按钮
-                    type="button"                                   // 按钮类型
-                    className="nav-btn"                             // 样式类
-                    aria-label="Next month"                         // 无障碍说明
-                    onClick={handleNextMonth}                       // 使用封装好的下一月函数
-                  >&rsaquo;</button>
-
-                </div>
-              </div>
-              <div className="calendar-grid">
-                {zhDays.map((d) => (
-                  <div key={d} className="day-name">{d}</div>
-                ))}
-                {buildCalendarGrid.map(({ date, outside }) => {
-                  if (outside) {
-                    return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
-                  }
-                  const isToday = isSameDay(date, tzToday);
-                  const selected = isSameDay(date, selectedDate);
-                  const isPast = (() => {
-                    const d = new Date(date);
-                    d.setHours(0, 0, 0, 0);
-                    return d.getTime() < todayStart.getTime();
-                  })();
-                  const cls = [
-                    'date-cell',
-                    isToday ? 'today' : '',
-                    selected ? 'selected' : '',
-                    isPast ? 'past' : '',
-                  ].filter(Boolean).join(' ');
-                  return (
-                    <button
-                      key={date.toISOString()}
-                      type="button"
-                      className={cls}
-                      onClick={() => {
-                        setSelectedDate(date);
-                        if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
-                          setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
-                        }
-                      }}
-                    >
-                      <span className="date-number">{date.getDate()}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          <ScheduleStepContent
+            availability={formData.availability}
+            onAvailabilityChange={handleChange("availability")}
+            orderedTimeZoneOptions={orderedTimeZoneOptions}
+            monthLabel={monthLabel}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+            zhDays={zhDays}
+            calendarGrid={buildCalendarGrid}
+            tzToday={tzToday}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            viewMonth={viewMonth}
+            todayStart={todayStart}
+            isSameDay={isSameDay}
+            setViewMonth={setViewMonth}
+          />
         );
       }
       case 'upload':
         return (
-          <div className="step-field-stack upload-stack">
-            
-            <div
-              className={`upload-area ${isDraggingFiles ? 'dragover' : ''}`}
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              role="button"
-              tabIndex={0}
-            >
-              <div className="upload-icon" aria-hidden="true"><FaImages /></div>
-              <div className="upload-title">拖放</div>
-              <div className="upload-subtext">或上传课件</div>
-              <button type="button" className="primary-button upload-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
-                上传
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip"
-                style={{ display: 'none' }}
-                onChange={handleFileInputChange}
-              />
-            </div>
-
-            {(formData.attachments && formData.attachments.length > 0) && (
-              <div className="file-list">
-                {formData.attachments.map((f, idx) => (
-                  <div key={idx} className="file-item">
-                    <div className="meta">
-                      <span className="name">{f.name}</span>
-                      <span className="size">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="icon-button remove"
-                      aria-label="移除文件"
-                      title="移除文件"
-                      onClick={() => handleRemoveAttachment(idx)}
-                    >
-                      <RiDeleteBin6Line />
-                    </button>
-                  </div>
-                ))}
-                <div className="file-actions">
-                  <button type="button" className="ghost-button" onClick={handleClearAttachments}>清空所有</button>
-                </div>
-              </div>
-            )}
-          </div>
+          <UploadStep
+            isDraggingFiles={isDraggingFiles}
+            fileInputRef={fileInputRef}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onFileInputChange={handleFileInputChange}
+            attachments={formData.attachments}
+            onRemoveAttachment={handleRemoveAttachment}
+            onClearAttachments={handleClearAttachments}
+          />
         );
       default:
         return null;
     }
   };
-
   if (isCompleted) {
     const completionClassName = ['completion-content', transitionClassName].filter(Boolean).join(' ');
     return (
@@ -1716,122 +1092,43 @@ function StudentCourseRequestPage() {
                 </div>
               ) : isScheduleStep ? (
                 <div className="schedule-right-panel">
-                  <div className="schedule-sidebar">
-                    <div className="calendar-card slim" aria-label="可授课时间日历">
-                      <div className="calendar-header">
-                        <div className="month-label">{monthLabel}</div>
-                        <div className="calendar-nav">
-                          <button type="button" className="nav-btn" aria-label="Prev month" disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={handlePrevMonth}>&lsaquo;</button>
-                          <button type="button" className="nav-btn" aria-label="Next month" onClick={handleNextMonth}>&rsaquo;</button>
-                        </div>
-                      </div>
-                      <div key={monthSlideKey}                           // 每次切月都改变 key，强制重挂载以触发动画
-                        className={`calendar-grid ${                  // 绑定基础类与方向动画类
-                          monthSlideDir === 'left'                    // 如果方向是 'left'（点“下一月”）
-                            ? 'slide-in-left'                         // 新月份从右向中滑入
-                            : monthSlideDir === 'right'               // 如果方向是 'right'（点“上一月”）
-                            ? 'slide-in-right'                        // 新月份从左向中滑入
-                            : ''                                      // 没有方向时，不加动画类
-                        }`}
-                      >
-                        {zhDays.map((d) => (
-                          <div key={d} className="day-name">{d}</div>
-                        ))}
-                        {buildCalendarGrid.map(({ date, outside }) => {
-                          if (outside) {
-                            return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
-                          }
-                          const isToday = isSameDay(date, tzToday);
-                          const key = ymdKey(date);
-                          const selected = isSameDay(date, selectedDate);
-                          const hasSelection = !!(daySelections[ymdKey(date)] && daySelections[ymdKey(date)].length);
-                          const isPast = (() => {
-                            const d = new Date(date);
-                            d.setHours(0, 0, 0, 0);
-                            return d.getTime() < todayStart.getTime();
-                          })();
-                          const inMultiSelected = (selectedRangeKeys || []).includes(key);
-                          // Avoid preview style overriding selected/multi-selected cells
-                          const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
-                            ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
-                            : false;
-                          const cls = [
-                            'date-cell',
-                            isToday ? 'today' : '',
-                            selected ? 'selected' : '',
-                            isPast ? 'past' : '',
-                            inMultiSelected ? 'multi-selected' : '',
-                            inPreview ? 'range-preview' : '',
-                          ].filter(Boolean).join(' ');
-                          return (
-                            <button
-                              key={date.toISOString()}
-                              type="button"
-                              className={cls}
-                              onMouseDown={() => {
-                                if (isPast) return;
-                                const k = ymdKey(date);
-                                setIsDraggingRange(true);
-                                setDragStartKey(k);
-                                setDragEndKey(k);
-                                setDragPreviewKeys(new Set([k]));
-                                didDragRef.current = false;
-                              }}
-                              onMouseEnter={() => {
-                                if (!isDraggingRange) return;
-                                if (isPast) return;
-                                const k = ymdKey(date);
-                                setDragEndKey(k);
-                                const keys = enumerateKeysInclusive(dragStartKey || k, k);
-                                setDragPreviewKeys(new Set(keys));
-                                if (dragStartKey && dragStartKey !== k) didDragRef.current = true;
-                              }}
-                              onMouseUp={() => {
-                                if (isDraggingRange) endDragSelection();
-                              }}
-                              onClick={() => {
-                                if (didDragRef.current) { didDragRef.current = false; return; }
-                                setSelectedDate(date);
-                                const k = ymdKey(date);
-                                setSelectedRangeKeys([k]);
-                                if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
-                                  setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
-                                }
-                              }}
-                            >
-                              <span className="date-number">{date.getDate()}</span>
-                              {hasSelection && <span className="date-marker" aria-hidden />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {(() => {
-                      const key = ymdKey(selectedDate);
-                      const blocks = daySelections[key] || [];
-                      const handleBlocksChange = (next) => {
-                        const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [key];
-                        setDaySelections((prev) => {
-                          const patch = { ...prev };
-                          for (const k of targets) patch[k] = next;
-                          return patch;
-                        });
-                      };
-                      return (
-                        <ScheduleTimesPanel
-                          value={formData.sessionDurationHours}
-                          onChange={(next) => setFormData((prev) => ({ ...prev, sessionDurationHours: next }))}
-                          listRef={timesListRef}
-                          blocks={blocks}
-                          onBlocksChange={handleBlocksChange}
-                          dayKey={key}
-                          getDayBlocks={getBlocksForDay}
-                          setDayBlocks={setBlocksForDay}
-                          applyKeys={(selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : undefined}
-                        />
-                      );
-                    })()}
-                  </div>
+                  <ScheduleStepSidebar
+                    monthLabel={monthLabel}
+                    monthSlideKey={monthSlideKey}
+                    monthSlideDir={monthSlideDir}
+                    zhDays={zhDays}
+                    calendarGrid={buildCalendarGrid}
+                    tzToday={tzToday}
+                    selectedDate={selectedDate}
+                    selectedRangeKeys={selectedRangeKeys}
+                    setSelectedRangeKeys={setSelectedRangeKeys}
+                    todayStart={todayStart}
+                    isSameDay={isSameDay}
+                    viewMonth={viewMonth}
+                    onPrevMonth={handlePrevMonth}
+                    onNextMonth={handleNextMonth}
+                    setSelectedDate={setSelectedDate}
+                    setViewMonth={setViewMonth}
+                    daySelections={daySelections}
+                    setDaySelections={setDaySelections}
+                    dragPreviewKeys={dragPreviewKeys}
+                    setDragPreviewKeys={setDragPreviewKeys}
+                    enumerateKeysInclusive={enumerateKeysInclusive}
+                    dragStartKey={dragStartKey}
+                    setDragStartKey={setDragStartKey}
+                    dragEndKey={dragEndKey}
+                    setDragEndKey={setDragEndKey}
+                    isDraggingRange={isDraggingRange}
+                    setIsDraggingRange={setIsDraggingRange}
+                    endDragSelection={endDragSelection}
+                    didDragRef={didDragRef}
+                    ymdKey={ymdKey}
+                    timesListRef={timesListRef}
+                    sessionDurationHours={formData.sessionDurationHours}
+                    setFormData={setFormData}
+                    getDayBlocks={getBlocksForDay}
+                    setDayBlocks={setBlocksForDay}
+                  />
                 </div>
               ) : (
                 <div className="step-illustration" aria-label="插图预留区域">
