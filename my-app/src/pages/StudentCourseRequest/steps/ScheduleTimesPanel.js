@@ -15,6 +15,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   dayKey,                // 可选，'YYYY-MM-DD' 当前日 key
   getDayBlocks,          // 可选，(key)=>blocks，用于跨天读
   setDayBlocks,          // 可选，(key,next)=>void，用于跨天写
+  disableBeforeIndex = -1, // 可选，<= 该索引的格子禁用（用于“今天”已过时段）
 }) {
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -292,17 +293,19 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
 
       <div className="times-list" role="list" ref={listRef}>
         {timeSlots.map((t, idx) => {
-          const isSelected = selectedIndexSet.has(idx);
-          return (
-            <button
-              key={`${t.h}-${t.m}-${idx}`}
-              type="button"
-              className={`time-slot ${isSelected ? 'selected' : ''}`}
-              data-index={idx}
-              data-time-slot={t.label}
-              onClick={() => handleClickSlot(idx)}
-              aria-pressed={isSelected}   // ✅ 合法（按钮/role=button 可用）
-            >
+      const isSelected = selectedIndexSet.has(idx);
+      const isDisabled = disableBeforeIndex >= 0 && idx <= disableBeforeIndex;
+      return (
+        <button
+          key={`${t.h}-${t.m}-${idx}`}
+          type="button"
+          className={`time-slot ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+          data-index={idx}
+          data-time-slot={t.label}
+          onClick={isDisabled ? undefined : () => handleClickSlot(idx)}
+          disabled={isDisabled}
+          aria-pressed={isSelected && !isDisabled}   // ✅ 合法（按钮/role=button 可用）
+        >
               <span className="dot" aria-hidden />
               <span className="time-text">{t.label}</span>
             </button>

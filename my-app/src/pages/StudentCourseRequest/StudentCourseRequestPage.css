@@ -824,16 +824,20 @@
 .time-slot.selected .dot { background: #111827; }
 
 /* Disabled time slots (past times for today) */
-.time-slot.disabled {
+.time-slot.disabled,
+.time-slot:disabled {
   pointer-events: none;
   cursor: default;
   border-color: #e5e7eb;
   border-width: 1px;
   background: #fff;
 }
-.time-slot.disabled .time-text { color: #9ca3af; }
-.time-slot.disabled .dot { background: #9ca3af; }
-.time-slot.disabled:hover { border-color: #e5e7eb; box-shadow: none; }
+.time-slot.disabled .time-text,
+.time-slot:disabled .time-text { color: #9ca3af; }
+.time-slot.disabled .dot,
+.time-slot:disabled .dot { background: #9ca3af; }
+.time-slot.disabled:hover,
+.time-slot:disabled:hover { border-color: #e5e7eb; box-shadow: none; }
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {

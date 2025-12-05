@@ -16,6 +16,7 @@ import {
   buildTimeZoneOptions,
   convertRangeKeysBetweenTimeZones,
   convertSelectionsBetweenTimeZones,
+  getZonedParts,
   extractCityName,
   keyToDate,
   orderTimeZoneOptionsAroundSelected,
@@ -43,6 +44,13 @@ const DotLottiePlayer = lazy(async () => {                                     /
   return { default: Cmp };                                                     // 映射为 lazy 需要的 default
 });
 
+const toNoonDate = (dateLike) => {
+  if (!dateLike) return dateLike;
+  const d = new Date(dateLike);
+  d.setHours(12, 0, 0, 0);
+  return d;
+};
+
 
 
 function StudentCourseRequestPage() {
@@ -62,11 +70,14 @@ function StudentCourseRequestPage() {
   const mockStudent = useMemo(() => generateMockStudentProfile(), []);
 
   // ----- Schedule step local states -----
-  const [selectedDate, setSelectedDate] = useState(() => buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE));
+  const [selectedDate, setSelectedDate] = useState(() => toNoonDate(buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE)));
   const [viewMonth, setViewMonth] = useState(() => {
     const initial = buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE);
     return new Date(initial.getFullYear(), initial.getMonth(), 1);
   });
+  const setSelectedDateNoon = useCallback((date) => {
+    setSelectedDate(date ? toNoonDate(date) : date);
+  }, []);
   const timesListRef = useRef(null);
   const defaultTimesScrollDoneRef = useRef(false);
   // 每天对应的已选时间段集合（按索引区间存储）
@@ -99,7 +110,16 @@ function StudentCourseRequestPage() {
 
 
   // Start-of-today reference for past/future checks
-  const tzToday = useMemo(() => buildDateFromTimeZoneNow(selectedTimeZone), [selectedTimeZone]);
+  const tzToday = useMemo(() => toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone)), [selectedTimeZone]);
+  const zonedNow = useMemo(() => getZonedParts(selectedTimeZone), [selectedTimeZone]);
+  const zonedNowMinutes = useMemo(() => {
+    const h = Number.isFinite(zonedNow.hour) ? zonedNow.hour : 0;
+    const m = Number.isFinite(zonedNow.minute) ? zonedNow.minute : 0;
+    const s = Number.isFinite(zonedNow.second) ? zonedNow.second : 0;
+    // If秒针已走起，向上取整到下一分钟，避免“当前格子”仍可点
+    const total = h * 60 + m + (s > 0 ? 1 : 0);
+    return Math.max(0, Math.min(1439, total)); // clamp to [0, 1439]
+  }, [zonedNow]);
   const todayStart = useMemo(() => {
     const t = new Date(tzToday.getFullYear(), tzToday.getMonth(), tzToday.getDate());
     t.setHours(0, 0, 0, 0);
@@ -136,10 +156,10 @@ function StudentCourseRequestPage() {
     const keys = enumerateKeysInclusive(dragStartKey, dragEndKey);
     setSelectedRangeKeys(keys);
     const endDate = keyToDateStrict(dragEndKey);
-    if (endDate) setSelectedDate(endDate);
+    if (endDate) setSelectedDateNoon(endDate);
     setIsDraggingRange(false);
     setDragPreviewKeys(new Set());
-  }, [dragEndKey, dragStartKey, enumerateKeysInclusive, isDraggingRange, keyToDateStrict]);
+  }, [dragEndKey, dragStartKey, enumerateKeysInclusive, isDraggingRange, keyToDateStrict, setSelectedDateNoon]);
 
   useEffect(() => {
     const onUp = () => {
@@ -158,15 +178,23 @@ function StudentCourseRequestPage() {
     const nextTz = selectedTimeZone || DEFAULT_TIME_ZONE;
     if (prevTz === nextTz) return;
 
+    const nextTzToday = toNoonDate(buildDateFromTimeZoneNow(nextTz));
+    const nextTodayStart = new Date(nextTzToday.getFullYear(), nextTzToday.getMonth(), nextTzToday.getDate());
+    nextTodayStart.setHours(0, 0, 0, 0);
+
     setDaySelections((prev) => convertSelectionsBetweenTimeZones(prev, prevTz, nextTz));
     setSelectedRangeKeys((prev) => convertRangeKeysBetweenTimeZones(prev, prevTz, nextTz));
 
     const prevSelectedKey = selectedDate ? buildKey(selectedDate) : null;
     const shiftedSelectedKey = prevSelectedKey ? shiftDayKeyForTimezone(prevSelectedKey, prevTz, nextTz) : null;
-    const nextSelectedDate = shiftedSelectedKey ? (keyToDate(shiftedSelectedKey) || buildDateFromTimeZoneNow(nextTz)) : buildDateFromTimeZoneNow(nextTz);
+    let nextSelectedDate = shiftedSelectedKey ? (toNoonDate(keyToDate(shiftedSelectedKey)) || nextTzToday) : nextTzToday;
+    // 如果切换时区后，之前选的日期已经落在该时区的“今天”之前，则自动跳到新时区的今天，避免整天被当作过去而全灰
+    if (nextSelectedDate && nextSelectedDate.getTime() < nextTodayStart.getTime()) {
+      nextSelectedDate = nextTzToday;
+    }
     const nextViewMonth = new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1);
 
-    setSelectedDate(nextSelectedDate);
+    setSelectedDateNoon(nextSelectedDate);
     setViewMonth(nextViewMonth);
     setDragStartKey(null);
     setDragEndKey(null);
@@ -174,7 +202,7 @@ function StudentCourseRequestPage() {
     setIsDraggingRange(false);
 
     previousTimeZoneRef.current = nextTz;
-  }, [buildKey, selectedTimeZone, selectedDate]);
+  }, [buildKey, selectedTimeZone, selectedDate, setSelectedDateNoon]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -571,7 +599,7 @@ function StudentCourseRequestPage() {
             calendarGrid={buildCalendarGrid}
             tzToday={tzToday}
             selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
+            setSelectedDate={setSelectedDateNoon}
             viewMonth={viewMonth}
             todayStart={todayStart}
             isSameDay={isSameDay}
@@ -735,7 +763,7 @@ function StudentCourseRequestPage() {
                     viewMonth={viewMonth}
                     onPrevMonth={handlePrevMonth}
                     onNextMonth={handleNextMonth}
-                    setSelectedDate={setSelectedDate}
+                    setSelectedDate={setSelectedDateNoon}
                     setViewMonth={setViewMonth}
                     daySelections={daySelections}
                     setDaySelections={setDaySelections}
@@ -756,6 +784,8 @@ function StudentCourseRequestPage() {
                     setFormData={setFormData}
                     getDayBlocks={getBlocksForDay}
                     setDayBlocks={setBlocksForDay}
+                    selectedTimeZone={selectedTimeZone}
+                    zonedNowMinutes={zonedNowMinutes}
                   />
                 </div>
               ) : (

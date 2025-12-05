@@ -1,4 +1,10 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
+import {
+  DEFAULT_TIME_ZONE,
+  getZonedParts,
+  keyFromParts,
+  shiftDayKeyForTimezone,
+} from './timezoneUtils';
 import ScheduleTimesPanel from './ScheduleTimesPanel';
 import TimeZoneSelect from './TimeZoneSelect';
 
@@ -128,7 +134,67 @@ function ScheduleStepSidebar({
   setFormData,
   getDayBlocks,
   setDayBlocks,
+  selectedTimeZone,
+  zonedNowMinutes,
 }) {
+  const zonedTodayKey = useMemo(() => {
+    const parts = getZonedParts(selectedTimeZone);
+    if (!parts?.year || !parts?.month || !parts?.day) return '';
+    return keyFromParts(parts.year, parts.month, parts.day);
+  }, [selectedTimeZone]);
+
+  const effectiveSelectedDate = selectedDate || tzToday;
+  const selectedDateKeyLocal = effectiveSelectedDate ? ymdKey(effectiveSelectedDate) : '';
+  const selectedDateKeyInTz = useMemo(() => {
+    if (!selectedDateKeyLocal) return '';
+    if (!selectedDate) return shiftDayKeyForTimezone(selectedDateKeyLocal, DEFAULT_TIME_ZONE, selectedTimeZone);
+    const parts = getZonedParts(selectedTimeZone, selectedDate);
+    if (!parts?.year || !parts?.month || !parts?.day) {
+      return shiftDayKeyForTimezone(selectedDateKeyLocal, DEFAULT_TIME_ZONE, selectedTimeZone);
+    }
+    return keyFromParts(parts.year, parts.month, parts.day);
+  }, [selectedDate, selectedDateKeyLocal, selectedTimeZone]);
+
+  const blocks = (selectedDateKeyLocal && daySelections[selectedDateKeyLocal]) || [];
+  const SLOT_MINUTES = 15;
+  const isTodaySelected = !!selectedDateKeyInTz && selectedDateKeyInTz === zonedTodayKey;
+  const isPastDay = useMemo(() => {
+    if (!selectedDateKeyInTz || !zonedTodayKey) return false;
+    return selectedDateKeyInTz < zonedTodayKey;
+  }, [selectedDateKeyInTz, zonedTodayKey]);
+  const disabledBeforeIndex = (() => {
+    if (isPastDay) return 95; // 全禁用
+    if (!isTodaySelected) return -1;
+    const mins = Number.isFinite(zonedNowMinutes) ? zonedNowMinutes : 0;
+    return Math.floor(mins / SLOT_MINUTES);
+  })();
+
+  useEffect(() => {
+    const idxToLabel = (idx) => {
+      const h = Math.floor(idx / 4);
+      const m = (idx % 4) * 15;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+    const minutesToLabel = (mins) => {
+      const clamped = Math.max(0, Math.min(1439, mins || 0));
+      const h = Math.floor(clamped / 60);
+      const m = clamped % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+    const lastDisabledLabel = disabledBeforeIndex >= 0 ? idxToLabel(disabledBeforeIndex) : null;
+    const firstEnabledLabel = disabledBeforeIndex >= 0 && disabledBeforeIndex < 95 ? idxToLabel(disabledBeforeIndex + 1) : null;
+    console.info('[Schedule][debug] 时区禁用界线', {
+      selectedTimeZone,
+      selectedDateKey: selectedDateKeyLocal,
+      selectedDateKeyInTz,
+      isTodaySelected,
+      zonedNow: minutesToLabel(zonedNowMinutes),
+      disabledThroughIndex: disabledBeforeIndex,
+      disabledThroughLabel: lastDisabledLabel,
+      firstEnabledLabel,
+    });
+  }, [disabledBeforeIndex, isTodaySelected, selectedDateKeyLocal, selectedDateKeyInTz, selectedTimeZone, zonedNowMinutes]);
+
   return (
     <div className="schedule-sidebar">
       <div className="calendar-card slim" aria-label="可授课时间日历">
@@ -222,8 +288,7 @@ function ScheduleStepSidebar({
         </div>
       </div>
       {(() => {
-        const key = ymdKey(selectedDate);
-        const blocks = daySelections[key] || [];
+        const key = selectedDateKeyLocal;
         const handleBlocksChange = (next) => {
           const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [key];
           setDaySelections((prev) => {
@@ -242,6 +307,7 @@ function ScheduleStepSidebar({
             dayKey={key}
             getDayBlocks={getDayBlocks}
             setDayBlocks={setDayBlocks}
+            disableBeforeIndex={disabledBeforeIndex}
           />
         );
       })()}
