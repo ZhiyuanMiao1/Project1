@@ -16,6 +16,9 @@ root.render(
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
+// Legacy DOM-based schedule time-slot disabler disabled.
+// The schedule page now handles timezone-aware disabling in React.
+/*
 // --- Global helper: disable past time slots for 'today' ---
 // This observes the schedule UI and toggles disabled state + class on time-slot buttons.
 (function setupTimeSlotDisabler(){
@@ -67,3 +70,4 @@ reportWebVitals();
     setInterval(refresh, 30000);
   });
 })();
+*/

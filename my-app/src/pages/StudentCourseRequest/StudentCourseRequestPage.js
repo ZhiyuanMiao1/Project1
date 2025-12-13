@@ -17,6 +17,7 @@ import {
   convertRangeKeysBetweenTimeZones,
   convertSelectionsBetweenTimeZones,
   getZonedParts,
+  keyFromParts,
   extractCityName,
   keyToDate,
   orderTimeZoneOptionsAroundSelected,
@@ -50,6 +51,8 @@ const toNoonDate = (dateLike) => {
   d.setHours(12, 0, 0, 0);
   return d;
 };
+
+const QUARTER_HOUR_MS = 15 * 60 * 1000;
 
 
 
@@ -110,8 +113,47 @@ function StudentCourseRequestPage() {
 
 
   // Start-of-today reference for past/future checks
-  const tzToday = useMemo(() => toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone)), [selectedTimeZone]);
-  const zonedNow = useMemo(() => getZonedParts(selectedTimeZone), [selectedTimeZone]);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    let timeoutId = null;
+    let intervalId = null;
+
+    const scheduleQuarterHourTick = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setSeconds(0, 0);
+      const nextQuarterMinute = Math.floor(next.getMinutes() / 15) * 15 + 15;
+      next.setMinutes(nextQuarterMinute);
+      const msUntilNextQuarter = Math.max(0, next.getTime() - now.getTime());
+
+      timeoutId = setTimeout(() => {
+        setNowTick(Date.now());
+        intervalId = setInterval(() => setNowTick(Date.now()), QUARTER_HOUR_MS);
+      }, msUntilNextQuarter);
+    };
+
+    scheduleQuarterHourTick();
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    setNowTick(Date.now());
+  }, [selectedTimeZone]);
+
+  const zonedNow = useMemo(() => getZonedParts(selectedTimeZone, new Date(nowTick)), [selectedTimeZone, nowTick]);
+  const tzToday = useMemo(() => {
+    if (!zonedNow?.year || !zonedNow?.month || !zonedNow?.day) {
+      return toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone));
+    }
+    return toNoonDate(new Date(zonedNow.year, zonedNow.month - 1, zonedNow.day));
+  }, [selectedTimeZone, zonedNow?.day, zonedNow?.month, zonedNow?.year]);
+  const zonedTodayKey = useMemo(() => {
+    if (!zonedNow?.year || !zonedNow?.month || !zonedNow?.day) return '';
+    return keyFromParts(zonedNow.year, zonedNow.month, zonedNow.day);
+  }, [zonedNow?.day, zonedNow?.month, zonedNow?.year]);
   const zonedNowMinutes = useMemo(() => {
     const h = Number.isFinite(zonedNow.hour) ? zonedNow.hour : 0;
     const m = Number.isFinite(zonedNow.minute) ? zonedNow.minute : 0;
@@ -119,7 +161,7 @@ function StudentCourseRequestPage() {
     // If秒针已走起，向上取整到下一分钟，避免“当前格子”仍可点
     const total = h * 60 + m + (s > 0 ? 1 : 0);
     return Math.max(0, Math.min(1439, total)); // clamp to [0, 1439]
-  }, [zonedNow]);
+  }, [zonedNow?.hour, zonedNow?.minute, zonedNow?.second]);
   const todayStart = useMemo(() => {
     const t = new Date(tzToday.getFullYear(), tzToday.getMonth(), tzToday.getDate());
     t.setHours(0, 0, 0, 0);
@@ -785,6 +827,7 @@ function StudentCourseRequestPage() {
                     getDayBlocks={getBlocksForDay}
                     setDayBlocks={setBlocksForDay}
                     selectedTimeZone={selectedTimeZone}
+                    zonedTodayKey={zonedTodayKey}
                     zonedNowMinutes={zonedNowMinutes}
                   />
                 </div>
@@ -874,5 +917,3 @@ function StudentCourseRequestPage() {
 }
 
 export default StudentCourseRequestPage;
-
-

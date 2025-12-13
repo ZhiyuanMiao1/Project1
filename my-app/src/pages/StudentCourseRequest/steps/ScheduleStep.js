@@ -135,14 +135,9 @@ function ScheduleStepSidebar({
   getDayBlocks,
   setDayBlocks,
   selectedTimeZone,
+  zonedTodayKey,
   zonedNowMinutes,
 }) {
-  const zonedTodayKey = useMemo(() => {
-    const parts = getZonedParts(selectedTimeZone);
-    if (!parts?.year || !parts?.month || !parts?.day) return '';
-    return keyFromParts(parts.year, parts.month, parts.day);
-  }, [selectedTimeZone]);
-
   const effectiveSelectedDate = selectedDate || tzToday;
   const selectedDateKeyLocal = effectiveSelectedDate ? ymdKey(effectiveSelectedDate) : '';
   const selectedDateKeyInTz = useMemo(() => {
