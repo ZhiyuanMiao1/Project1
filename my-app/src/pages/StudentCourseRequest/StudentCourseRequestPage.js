@@ -221,23 +221,44 @@ function StudentCourseRequestPage() {
     if (prevTz === nextTz) return;
 
     const nextTzToday = toNoonDate(buildDateFromTimeZoneNow(nextTz));
+    const nextTodayKey = nextTzToday ? buildKey(nextTzToday) : '';
     const nextTodayStart = new Date(nextTzToday.getFullYear(), nextTzToday.getMonth(), nextTzToday.getDate());
     nextTodayStart.setHours(0, 0, 0, 0);
 
     setDaySelections((prev) => convertSelectionsBetweenTimeZones(prev, prevTz, nextTz));
-    setSelectedRangeKeys((prev) => convertRangeKeysBetweenTimeZones(prev, prevTz, nextTz));
 
     const prevSelectedKey = selectedDate ? buildKey(selectedDate) : null;
     const shiftedSelectedKey = prevSelectedKey ? shiftDayKeyForTimezone(prevSelectedKey, prevTz, nextTz) : null;
-    let nextSelectedDate = shiftedSelectedKey ? (toNoonDate(keyToDate(shiftedSelectedKey)) || nextTzToday) : nextTzToday;
+    let nextSelectedKey = shiftedSelectedKey || nextTodayKey;
+    let nextSelectedDate = nextSelectedKey ? (toNoonDate(keyToDate(nextSelectedKey)) || nextTzToday) : nextTzToday;
     // 如果切换时区后，之前选的日期已经落在该时区的“今天”之前，则自动跳到新时区的今天，避免整天被当作过去而全灰
     if (nextSelectedDate && nextSelectedDate.getTime() < nextTodayStart.getTime()) {
       nextSelectedDate = nextTzToday;
+      nextSelectedKey = nextTodayKey;
     }
     const nextViewMonth = new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1);
 
     setSelectedDateNoon(nextSelectedDate);
     setViewMonth(nextViewMonth);
+    setSelectedRangeKeys((prev) => {
+      const converted = convertRangeKeysBetweenTimeZones(prev, prevTz, nextTz);
+      const nonPastKeys = (converted || []).filter((k) => k && (!nextTodayKey || k >= nextTodayKey));
+
+      // 单日选中时：保持 rangeKeys 与 selectedDate 同步，避免出现“昨天/今天同时黑”的视觉问题
+      const isSingleSelection = !Array.isArray(prev) || prev.length <= 1;
+      if (isSingleSelection) {
+        return nextSelectedKey ? [nextSelectedKey] : [];
+      }
+
+      // 多日选中：剔除已过期的日期；若全部过期则回到选中日（一般是今天）
+      if (!nonPastKeys.length) {
+        return nextSelectedKey ? [nextSelectedKey] : [];
+      }
+      if (nextSelectedKey && !nonPastKeys.includes(nextSelectedKey)) {
+        return [nextSelectedKey, ...nonPastKeys];
+      }
+      return nonPastKeys;
+    });
     setDragStartKey(null);
     setDragEndKey(null);
     setDragPreviewKeys(new Set());
