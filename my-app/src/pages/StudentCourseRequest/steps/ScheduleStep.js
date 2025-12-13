@@ -1,10 +1,4 @@
 import React, { useEffect, useMemo } from 'react';
-import {
-  DEFAULT_TIME_ZONE,
-  getZonedParts,
-  keyFromParts,
-  shiftDayKeyForTimezone,
-} from './timezoneUtils';
 import ScheduleTimesPanel from './ScheduleTimesPanel';
 import TimeZoneSelect from './TimeZoneSelect';
 
@@ -140,15 +134,10 @@ function ScheduleStepSidebar({
 }) {
   const effectiveSelectedDate = selectedDate || tzToday;
   const selectedDateKeyLocal = effectiveSelectedDate ? ymdKey(effectiveSelectedDate) : '';
-  const selectedDateKeyInTz = useMemo(() => {
-    if (!selectedDateKeyLocal) return '';
-    if (!selectedDate) return shiftDayKeyForTimezone(selectedDateKeyLocal, DEFAULT_TIME_ZONE, selectedTimeZone);
-    const parts = getZonedParts(selectedTimeZone, selectedDate);
-    if (!parts?.year || !parts?.month || !parts?.day) {
-      return shiftDayKeyForTimezone(selectedDateKeyLocal, DEFAULT_TIME_ZONE, selectedTimeZone);
-    }
-    return keyFromParts(parts.year, parts.month, parts.day);
-  }, [selectedDate, selectedDateKeyLocal, selectedTimeZone]);
+  // `selectedDate` is stored as a local Date (noon) for stable calendar rendering.
+  // Treat the displayed YYYY-MM-DD as canonical; do not re-derive the day by
+  // interpreting the Date as an absolute instant in another timezone.
+  const selectedDateKeyInTz = selectedDateKeyLocal;
 
   const blocks = (selectedDateKeyLocal && daySelections[selectedDateKeyLocal]) || [];
   const SLOT_MINUTES = 15;
