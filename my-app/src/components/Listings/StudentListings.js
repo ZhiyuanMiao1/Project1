@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import StudentListingCard from '../ListingCard/StudentListingCard';
 import './Listings.css';
 import tutor1Image from '../../assets/images/tutor1.jpg';
@@ -7,15 +7,55 @@ import tutor3Image from '../../assets/images/tutor3.jpg';
 import tutor4Image from '../../assets/images/tutor4.jpg';
 import tutor5Image from '../../assets/images/tutor5.jpg';
 import tutor6Image from '../../assets/images/tutor6.jpg';
+import { fetchFavoriteItems } from '../../api/favorites';
 
 function StudentListings() {
   const [loading, setLoading] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+  });
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set());
 
   // 模拟加载动画，避免页面切换过于生硬
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (typeof event?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(!!event.detail.isLoggedIn);
+      } else {
+        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch { setIsLoggedIn(false); }
+      }
+    };
+    window.addEventListener('auth:changed', handler);
+    return () => window.removeEventListener('auth:changed', handler);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setFavoriteIds(new Set());
+      return () => { alive = false; };
+    }
+
+    fetchFavoriteItems({ role: 'student', itemType: 'tutor', idsOnly: true })
+      .then((res) => {
+        if (!alive) return;
+        const ids = Array.isArray(res?.data?.ids) ? res.data.ids : [];
+        setFavoriteIds(new Set(ids.map(String)));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setFavoriteIds(new Set());
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  const favoriteIdSet = useMemo(() => favoriteIds, [favoriteIds]);
   const listingData = [
     {
       id: 1,
@@ -166,11 +206,27 @@ function StudentListings() {
                 <div className="sk sk-line short" />
               </div>
             ))
-          : listingData.map((item) => <StudentListingCard key={item.id} data={item} />)}
+          : listingData.map((item) => (
+              <StudentListingCard
+                key={item.id}
+                data={item}
+                favoriteRole="student"
+                favoriteItemType="tutor"
+                favoriteItemId={item.id}
+                initialFavorited={favoriteIdSet.has(String(item.id))}
+                onFavoriteChange={(itemId, favorited) => {
+                  setFavoriteIds((prev) => {
+                    const next = new Set(prev);
+                    if (favorited) next.add(String(itemId));
+                    else next.delete(String(itemId));
+                    return next;
+                  });
+                }}
+              />
+            ))}
       </div>
     </div>
   );
 }
 
 export default StudentListings;
-

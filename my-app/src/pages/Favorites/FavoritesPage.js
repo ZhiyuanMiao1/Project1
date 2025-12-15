@@ -178,10 +178,11 @@ function FavoritesPage() {
     };
 
     const mapped = userCollections.map((item, idx) => ({
+      isDefault: !!item.isDefault,
       id: item.id,
       title: item.name,
       cover: buildCover(item.id || idx),
-      metaText: formatCreatedAt(item.createdAt),
+      metaText: item.isDefault ? '系统默认' : formatCreatedAt(item.createdAt),
       isRecent: false,
     }));
 
@@ -308,6 +309,7 @@ function FavoritesPage() {
         <section className="favorites-grid">
           {normalizedCollections.map((item) => {
             const isRecent = item.isRecent;
+            const isDefault = !!item.isDefault;
             const cardClass = `favorites-card ${isRecent ? 'favorites-card--highlight' : 'favorites-card--removable'}`;
             return (
               <article
@@ -341,7 +343,7 @@ function FavoritesPage() {
                 }}
               >
                 <div className="favorites-cover">
-                  {!isRecent && (
+                  {!isRecent && !isDefault && (
                     <button
                       type="button"
                       className="favorites-remove"

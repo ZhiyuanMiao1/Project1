@@ -5,6 +5,7 @@ const express_validator_1 = require("express-validator");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const router = (0, express_1.Router)();
+const DEFAULT_COLLECTION_NAME = '默认收藏夹';
 const normalizeRole = (value, fallback) => {
     return value === 'mentor' || value === 'student' ? value : fallback;
 };
@@ -79,6 +80,12 @@ async function resolveTargetUser(req, res, requestedRole) {
         return null;
     }
 }
+async function ensureDefaultCollection(userId, role) {
+    const result = await (0, db_1.query)(`INSERT INTO favorite_collections (user_id, role, name)
+     VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)`, [userId, role, DEFAULT_COLLECTION_NAME]);
+    return result.insertId;
+}
 // 获取收藏夹列表（按身份隔离）
 router.get('/collections', auth_1.requireAuth, [(0, express_validator_1.query)('role').optional().isIn(['student', 'mentor'])], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
@@ -90,15 +97,17 @@ router.get('/collections', auth_1.requireAuth, [(0, express_validator_1.query)('
     if (!target)
         return;
     try {
+        await ensureDefaultCollection(target.userId, target.role);
         const rows = await (0, db_1.query)(`SELECT id, name, role, created_at
          FROM favorite_collections
          WHERE user_id = ? AND role = ?
-         ORDER BY created_at DESC, id DESC`, [target.userId, target.role]);
+         ORDER BY (name = ?) DESC, created_at DESC, id DESC`, [target.userId, target.role, DEFAULT_COLLECTION_NAME]);
         const collections = rows.map((row) => ({
             id: row.id,
             name: row.name,
             role: row.role,
             createdAt: row.created_at,
+            isDefault: row.name === DEFAULT_COLLECTION_NAME,
         }));
         return res.json({ collections });
     }
@@ -117,11 +126,15 @@ router.post('/collections', auth_1.requireAuth, [
         return res.status(400).json({ errors: errors.array() });
     }
     const { name } = req.body;
+    if (name?.trim() === DEFAULT_COLLECTION_NAME) {
+        return res.status(400).json({ error: '该名称为系统默认收藏夹名称，请使用其他名称' });
+    }
     const requestedRole = normalizeRole(req.body.role, req.user.role);
     const target = await resolveTargetUser(req, res, requestedRole);
     if (!target)
         return;
     try {
+        await ensureDefaultCollection(target.userId, target.role);
         const result = await (0, db_1.query)('INSERT INTO favorite_collections (user_id, role, name) VALUES (?, ?, ?)', [target.userId, target.role, name.trim()]);
         const rows = await (0, db_1.query)('SELECT id, name, role, created_at FROM favorite_collections WHERE id = ? LIMIT 1', [result.insertId]);
         const created = rows[0] || null;
@@ -133,12 +146,14 @@ router.post('/collections', auth_1.requireAuth, [
                     name: created.name,
                     role: created.role,
                     createdAt: created.created_at,
+                    isDefault: created.name === DEFAULT_COLLECTION_NAME,
                 }
                 : {
                     id: result.insertId,
                     name,
                     role: requestedRole,
                     createdAt: new Date().toISOString(),
+                    isDefault: false,
                 },
         });
     }
@@ -158,10 +173,13 @@ router.delete('/collections/:id', auth_1.requireAuth, [(0, express_validator_1.p
     }
     const id = Number(req.params.id);
     try {
-        const rows = await (0, db_1.query)('SELECT id, user_id, role FROM favorite_collections WHERE id = ? LIMIT 1', [id]);
+        const rows = await (0, db_1.query)('SELECT id, user_id, role, name FROM favorite_collections WHERE id = ? LIMIT 1', [id]);
         const found = rows[0];
         if (!found) {
             return res.status(404).json({ error: '未找到该收藏夹' });
+        }
+        if (found.name === DEFAULT_COLLECTION_NAME) {
+            return res.status(403).json({ error: '默认收藏夹不可删除' });
         }
         const target = await resolveTargetUser(req, res, normalizeRole(found.role, req.user.role));
         if (!target)
@@ -174,6 +192,157 @@ router.delete('/collections/:id', auth_1.requireAuth, [(0, express_validator_1.p
     }
     catch (e) {
         console.error('Delete favorite collection error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+// 收藏/取消收藏（默认收藏到「默认收藏夹」）
+router.post('/toggle', auth_1.requireAuth, [
+    (0, express_validator_1.body)('itemType').isString().trim().isLength({ min: 1, max: 50 }).withMessage('itemType无效'),
+    (0, express_validator_1.body)('itemId').isString().trim().isLength({ min: 1, max: 100 }).withMessage('itemId无效'),
+    (0, express_validator_1.body)('role').optional().isIn(['student', 'mentor']).withMessage('角色无效'),
+    (0, express_validator_1.body)('payload').optional(),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const { itemType, itemId, payload } = req.body;
+    const requestedRole = normalizeRole(req.body.role, req.user.role);
+    const target = await resolveTargetUser(req, res, requestedRole);
+    if (!target)
+        return;
+    try {
+        const defaultCollectionId = await ensureDefaultCollection(target.userId, target.role);
+        const existedRows = await (0, db_1.query)(`SELECT id
+         FROM favorite_items
+         WHERE user_id = ? AND role = ? AND item_type = ? AND item_id = ?
+         LIMIT 1`, [target.userId, target.role, itemType, itemId]);
+        if (existedRows.length) {
+            const existedId = existedRows[0].id;
+            await (0, db_1.query)('DELETE FROM favorite_items WHERE id = ? AND user_id = ?', [existedId, target.userId]);
+            return res.json({ favorited: false, removedId: existedId });
+        }
+        const payloadJson = typeof payload === 'undefined' ? null : JSON.stringify(payload);
+        const insert = await (0, db_1.query)(`INSERT INTO favorite_items (user_id, role, collection_id, item_type, item_id, payload_json)
+         VALUES (?, ?, ?, ?, ?, ?)`, [target.userId, target.role, defaultCollectionId, itemType, itemId, payloadJson]);
+        return res.status(201).json({
+            favorited: true,
+            item: {
+                id: insert.insertId,
+                collectionId: defaultCollectionId,
+                itemType,
+                itemId,
+            },
+        });
+    }
+    catch (e) {
+        console.error('Toggle favorite item error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+// 获取收藏条目（可按收藏夹过滤）
+router.get('/items', auth_1.requireAuth, [
+    (0, express_validator_1.query)('role').optional().isIn(['student', 'mentor']),
+    (0, express_validator_1.query)('collectionId').optional().isInt({ gt: 0 }).withMessage('collectionId无效'),
+    (0, express_validator_1.query)('itemType').optional().isString().trim().isLength({ min: 1, max: 50 }).withMessage('itemType无效'),
+    (0, express_validator_1.query)('idsOnly').optional().isIn(['1', '0', 'true', 'false']),
+], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const requestedRole = normalizeRole(req.query.role, req.user.role);
+    const target = await resolveTargetUser(req, res, requestedRole);
+    if (!target)
+        return;
+    const collectionId = req.query.collectionId ? Number(req.query.collectionId) : null;
+    const itemType = req.query.itemType ? String(req.query.itemType) : null;
+    const idsOnly = (() => {
+        const raw = req.query.idsOnly;
+        if (raw === '1' || raw === 'true')
+            return true;
+        return false;
+    })();
+    try {
+        await ensureDefaultCollection(target.userId, target.role);
+        if (collectionId) {
+            const collectionRows = await (0, db_1.query)('SELECT id FROM favorite_collections WHERE id = ? AND user_id = ? AND role = ? LIMIT 1', [collectionId, target.userId, target.role]);
+            if (!collectionRows.length) {
+                return res.status(404).json({ error: '未找到该收藏夹' });
+            }
+        }
+        const params = [target.userId, target.role];
+        const where = ['fi.user_id = ?', 'fi.role = ?'];
+        if (collectionId) {
+            where.push('fi.collection_id = ?');
+            params.push(collectionId);
+        }
+        if (itemType) {
+            where.push('fi.item_type = ?');
+            params.push(itemType);
+        }
+        const rows = await (0, db_1.query)(`SELECT fi.id, fi.collection_id, fi.item_type, fi.item_id, fi.payload_json, fi.created_at
+         FROM favorite_items fi
+         INNER JOIN favorite_collections fc ON fc.id = fi.collection_id
+         WHERE ${where.join(' AND ')} AND fc.user_id = ? AND fc.role = ?
+         ORDER BY fi.created_at DESC, fi.id DESC`, [...params, target.userId, target.role]);
+        if (idsOnly) {
+            return res.json({ ids: rows.map((r) => String(r.item_id)) });
+        }
+        const items = rows.map((row) => {
+            let payload = null;
+            const raw = row.payload_json;
+            if (raw) {
+                try {
+                    payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                }
+                catch {
+                    payload = null;
+                }
+            }
+            return {
+                id: row.id,
+                collectionId: row.collection_id,
+                itemType: row.item_type,
+                itemId: String(row.item_id),
+                payload,
+                createdAt: row.created_at,
+            };
+        });
+        return res.json({ items });
+    }
+    catch (e) {
+        console.error('List favorite items error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+// 删除单个收藏条目
+router.delete('/items/:id', auth_1.requireAuth, [(0, express_validator_1.param)('id').isInt({ gt: 0 }).withMessage('收藏条目ID无效')], async (req, res) => {
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const id = Number(req.params.id);
+    try {
+        const rows = await (0, db_1.query)(`SELECT fi.id, fi.user_id, fi.role
+         FROM favorite_items fi
+         WHERE fi.id = ?
+         LIMIT 1`, [id]);
+        const found = rows[0];
+        if (!found) {
+            return res.status(404).json({ error: '未找到该收藏条目' });
+        }
+        const target = await resolveTargetUser(req, res, normalizeRole(found.role, req.user.role));
+        if (!target)
+            return;
+        if (found.user_id !== target.userId || found.role !== target.role) {
+            return res.status(404).json({ error: '未找到该收藏条目' });
+        }
+        await (0, db_1.query)('DELETE FROM favorite_items WHERE id = ? AND user_id = ?', [id, target.userId]);
+        return res.json({ message: '已移除收藏', id });
+    }
+    catch (e) {
+        console.error('Delete favorite item error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

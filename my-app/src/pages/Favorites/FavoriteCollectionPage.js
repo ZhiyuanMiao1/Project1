@@ -6,177 +6,8 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
-import tutor1 from '../../assets/images/tutor1.jpg';
-import tutor2 from '../../assets/images/tutor2.jpg';
-import tutor3 from '../../assets/images/tutor3.jpg';
-import tutor4 from '../../assets/images/tutor4.jpg';
-import tutor5 from '../../assets/images/tutor5.jpg';
-import tutor6 from '../../assets/images/tutor6.jpg';
+import { deleteFavoriteItem, fetchFavoriteItems } from '../../api/favorites';
 import '../RecentVisits/RecentVisitsPage.css';
-
-const MENTOR_FAVORITES = [
-  {
-    id: 'fav-mentor-01',
-    name: 'S1',
-    degree: '硕士',
-    school: '斯坦福大学',
-    discipline: '设计 / 创意',
-    timezone: 'UTC+8 (上海)',
-    courseType: '选课指导',
-    expectedDuration: '2小时',
-  },
-  {
-    id: 'fav-mentor-02',
-    name: 'S2',
-    degree: '硕士',
-    school: '麻省理工学院',
-    discipline: '数据结构与算法',
-    timezone: 'UTC-7 (加州)',
-    courseType: '课前预习',
-    expectedDuration: '1.5小时',
-  },
-  {
-    id: 'fav-mentor-03',
-    name: 'S3',
-    degree: '硕士',
-    school: '哥伦比亚大学',
-    discipline: '其它课程方向',
-    timezone: 'UTC+8 (上海)',
-    courseType: '作业项目',
-    expectedDuration: '2小时',
-  },
-  {
-    id: 'fav-mentor-04',
-    name: 'S4',
-    degree: 'PhD',
-    school: '哈佛大学',
-    discipline: '数据分析',
-    timezone: 'UTC+8 (上海)',
-    courseType: '课前预习',
-    expectedDuration: '2小时',
-  },
-  {
-    id: 'fav-mentor-05',
-    name: 'S5',
-    degree: '硕士',
-    school: '加州大学伯克利分校',
-    discipline: '设计 / 创意',
-    timezone: 'UTC+8 (上海)',
-    courseType: '作业项目',
-    expectedDuration: '2小时',
-  },
-  {
-    id: 'fav-mentor-06',
-    name: 'S6',
-    degree: '硕士',
-    school: '芝加哥大学',
-    discipline: '求职辅导',
-    timezone: 'UTC+8 (上海)',
-    courseType: '求职辅导',
-    expectedDuration: '1.5小时',
-  },
-];
-
-const STUDENT_FAVORITES = [
-  {
-    id: 'fav-student-01',
-    name: '张三',
-    gender: '男',
-    degree: 'PhD',
-    school: '哈佛大学',
-    rating: 4.9,
-    reviewCount: 120,
-    courses: ['Python编程', '机器学习', '深度学习'],
-    timezone: 'UTC+8 (北京)',
-    languages: '中文, 英语',
-    imageUrl: tutor1,
-  },
-  {
-    id: 'fav-student-02',
-    name: '李四',
-    gender: '女',
-    degree: '硕士',
-    school: '斯坦福大学',
-    rating: 4.8,
-    reviewCount: 95,
-    courses: ['深度学习', '自然语言处理'],
-    timezone: 'UTC-7 (加州)',
-    languages: '英语, 西班牙语',
-    imageUrl: tutor2,
-  },
-  {
-    id: 'fav-student-03',
-    name: '王五',
-    gender: '男',
-    degree: 'PhD',
-    school: '麻省理工学院',
-    rating: 4.7,
-    reviewCount: 80,
-    courses: ['数据分析', '统计建模', '数据可视化'],
-    timezone: 'UTC+1 (伦敦)',
-    languages: '英语, 德语',
-    imageUrl: tutor3,
-  },
-  {
-    id: 'fav-student-04',
-    name: '赵六',
-    gender: '男',
-    degree: '本科',
-    school: '清华大学',
-    rating: 5.0,
-    reviewCount: 150,
-    courses: ['算法设计', '高等数学'],
-    timezone: 'UTC+8 (北京)',
-    languages: '中文, 英语',
-    imageUrl: tutor4,
-  },
-  {
-    id: 'fav-student-05',
-    name: 'Emily Smith',
-    gender: '女',
-    degree: 'PhD',
-    school: '剑桥大学',
-    rating: 4.85,
-    reviewCount: 60,
-    courses: ['微积分', '高等代数', '线性代数'],
-    timezone: 'UTC+0 (伦敦)',
-    languages: '英语, 法语',
-    imageUrl: tutor5,
-  },
-  {
-    id: 'fav-student-06',
-    name: 'Michael Johnson',
-    gender: '男',
-    degree: '硕士',
-    school: '加州理工学院',
-    rating: 4.75,
-    reviewCount: 45,
-    courses: ['数据挖掘'],
-    timezone: 'UTC-8 (加州)',
-    languages: '英语',
-    imageUrl: tutor6,
-  },
-];
-
-const normalizeMentorCard = (visit, idx) => {
-  const numericId = (() => {
-    if (typeof visit.studentId !== 'undefined') return visit.studentId;
-    const match = String(visit.id || '').match(/\d+/);
-    return match ? match[0] : idx + 1;
-  })();
-  const studentName = visit.name || `S${numericId}`;
-  return {
-    id: visit.id || `mentor-${numericId}`,
-    name: studentName,
-    degree: visit.degree || '硕士',
-    school: visit.school || '测试大学',
-    courses: visit.discipline ? [visit.discipline] : [],
-    timezone: visit.timezone || 'UTC+8 (上海)',
-    courseType: visit.courseType || '',
-    expectedDuration: visit.expectedDuration || '',
-    requirements: visit.requirements || '',
-  };
-};
 
 function FavoriteCollectionPage() {
   const { collectionId } = useParams();
@@ -193,6 +24,10 @@ function FavoriteCollectionPage() {
       return false;
     }
   });
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [removingId, setRemovingId] = useState(null);
 
   useEffect(() => {
     const handler = (event) => {
@@ -236,19 +71,76 @@ function FavoriteCollectionPage() {
     }
   }, [location.search, location.state]);
 
+  const numericCollectionId = useMemo(() => {
+    const n = Number(collectionId);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return n;
+  }, [collectionId]);
+
   const collectionTitle = location.state?.title
     || location.state?.name
     || location.state?.collectionName
     || (collectionId === 'recent' ? '最近浏览' : '收藏夹');
 
-  const mentorCards = useMemo(
-    () => MENTOR_FAVORITES.map((item, idx) => normalizeMentorCard(item, idx)),
-    [],
-  );
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setItems([]);
+      setErrorMessage('请登录后查看收藏');
+      return () => { alive = false; };
+    }
+    if (!numericCollectionId) {
+      setItems([]);
+      setErrorMessage('收藏夹ID无效');
+      return () => { alive = false; };
+    }
 
-  const studentCards = useMemo(() => STUDENT_FAVORITES, []);
+    setLoading(true);
+    setErrorMessage('');
+    fetchFavoriteItems({ role: preferredRole, collectionId: numericCollectionId })
+      .then((res) => {
+        if (!alive) return;
+        const list = Array.isArray(res?.data?.items) ? res.data.items : [];
+        setItems(list);
+      })
+      .catch((e) => {
+        if (!alive) return;
+        const status = e?.response?.status;
+        const msg = e?.response?.data?.error;
+        if (status === 401) {
+          setErrorMessage('请登录后查看收藏');
+        } else if (status === 403) {
+          setErrorMessage(msg || '当前身份暂无权限访问该收藏夹');
+        } else if (status === 404) {
+          setErrorMessage(msg || '未找到该收藏夹');
+        } else {
+          setErrorMessage(msg || '加载失败，请稍后再试');
+        }
+      })
+      .finally(() => {
+        if (!alive) return;
+        setLoading(false);
+      });
 
-  const cardsToShow = preferredRole === 'mentor' ? mentorCards : studentCards;
+    return () => { alive = false; };
+  }, [isLoggedIn, preferredRole, numericCollectionId]);
+
+  const removeItem = async (entryId) => {
+    if (!isLoggedIn) {
+      openAuthModal();
+      return;
+    }
+    setRemovingId(entryId);
+    try {
+      await deleteFavoriteItem(entryId);
+      setItems((prev) => prev.filter((it) => it.id !== entryId));
+    } catch (e) {
+      const msg = e?.response?.data?.error || '移除失败，请稍后再试';
+      alert(msg);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -318,12 +210,42 @@ function FavoriteCollectionPage() {
           </button>
         </section>
 
+        {errorMessage && (
+          <div
+            style={{
+              margin: '0 0 12px',
+              padding: '10px 12px',
+              borderRadius: 12,
+              border: '1px solid #fecaca',
+              background: '#fef2f2',
+              color: '#991b1b',
+              fontSize: 14,
+            }}
+          >
+            {errorMessage}
+          </div>
+        )}
+        {loading && (
+          <p style={{ margin: '0 0 12px', color: '#64748b' }}>
+            加载中...
+          </p>
+        )}
+
         <section className="recent-sections favorite-detail-sections">
           <div className="recent-grid" role="list">
-            {cardsToShow.map((card, idx) => (
+            {!loading && !errorMessage && items.length === 0 && (
+              <p style={{ margin: 0, color: '#64748b' }}>
+                暂无收藏
+              </p>
+            )}
+
+            {items.map((item) => {
+              const card = (item && typeof item.payload === 'object' && item.payload) ? item.payload : { id: item?.itemId };
+              const entryId = item?.id;
+              return (
               <div
                 className={`recent-card-shell ${editMode ? 'is-editing' : ''}`}
-                key={card.id || idx}
+                key={entryId || card?.id}
                 role="listitem"
               >
                 {editMode && (
@@ -331,18 +253,46 @@ function FavoriteCollectionPage() {
                     type="button"
                     className="recent-edit-remove"
                     aria-label="移除此记录"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!entryId) return;
+                      removeItem(entryId);
+                    }}
+                    disabled={removingId === entryId}
                   >
                     <span className="recent-edit-remove-icon" aria-hidden="true" />
                   </button>
                 )}
                 {preferredRole === 'mentor' ? (
-                  <MentorListingCard data={card} />
+                  <MentorListingCard
+                    data={card}
+                    favoriteRole={preferredRole}
+                    favoriteItemType={item?.itemType}
+                    favoriteItemId={item?.itemId}
+                    initialFavorited
+                    onFavoriteChange={(_itemId, favorited) => {
+                      if (favorited) return;
+                      if (!entryId) return;
+                      setItems((prev) => prev.filter((it) => it.id !== entryId));
+                    }}
+                  />
                 ) : (
-                  <StudentListingCard data={card} />
+                  <StudentListingCard
+                    data={card}
+                    favoriteRole={preferredRole}
+                    favoriteItemType={item?.itemType}
+                    favoriteItemId={item?.itemId}
+                    initialFavorited
+                    onFavoriteChange={(_itemId, favorited) => {
+                      if (favorited) return;
+                      if (!entryId) return;
+                      setItems((prev) => prev.filter((it) => it.id !== entryId));
+                    }}
+                  />
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </div>

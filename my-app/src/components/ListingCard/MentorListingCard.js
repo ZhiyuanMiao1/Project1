@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
+import { toggleFavoriteItem } from '../../api/favorites';
 
 // 时区城市映射，与时区选择下拉一致
 const TZ_CITY_MAP = {
@@ -40,11 +41,66 @@ const formatTimezoneWithCity = (tz) => {
   return city ? `${base} (${city})` : base;
 };
 
-function MentorListingCard({ data }) {
-  const [isFavorited, setIsFavorited] = useState(false);
+function MentorListingCard({
+  data,
+  favoriteRole,
+  favoriteItemType,
+  favoriteItemId,
+  initialFavorited = false,
+  onFavoriteChange,
+}) {
+  const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
-  const toggleFavorite = () => setIsFavorited((v) => !v);
+  useEffect(() => {
+    setIsFavorited(!!initialFavorited);
+  }, [initialFavorited]);
+
+  const toggleFavorite = async (event) => {
+    event?.stopPropagation?.();
+    if (!favoriteRole || !favoriteItemType) {
+      setIsFavorited((v) => !v);
+      return;
+    }
+
+    const itemId = typeof favoriteItemId !== 'undefined'
+      ? String(favoriteItemId)
+      : (typeof data?.id !== 'undefined' ? String(data.id) : '');
+
+    if (!itemId) {
+      setIsFavorited((v) => !v);
+      return;
+    }
+
+    let token = null;
+    try { token = localStorage.getItem('authToken'); } catch {}
+    if (!token) {
+      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/mentor' } })); } catch {}
+      return;
+    }
+
+    try {
+      const res = await toggleFavoriteItem({
+        role: favoriteRole,
+        itemType: favoriteItemType,
+        itemId,
+        payload: data,
+      });
+      const next = !!res?.data?.favorited;
+      setIsFavorited(next);
+      if (typeof onFavoriteChange === 'function') {
+        onFavoriteChange(itemId, next, res?.data);
+      }
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status === 401) {
+        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/mentor' } })); } catch {}
+        return;
+      }
+      const msg = e?.response?.data?.error || '操作失败，请稍后再试';
+      alert(msg);
+    }
+  };
 
   const name = (data?.name && String(data.name).trim()) || `S${data?.id ?? ''}`;
   const degree = data?.degree || '';

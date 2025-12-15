@@ -2,7 +2,7 @@ import React from 'react';
 import MentorListingCard from '../ListingCard/MentorListingCard';
 import './Listings.css';
 
-function MentorListings({ data }) {
+function MentorListings({ data, favoriteIds, onFavoriteChange }) {
   const showSkeleton = data === null;
   const list = Array.isArray(data) ? data : [];
 
@@ -23,7 +23,17 @@ function MentorListings({ data }) {
                 <div className="sk sk-line short" />
               </div>
             ))
-          : list.map((item) => <MentorListingCard key={item.id} data={item} />)}
+          : list.map((item) => (
+              <MentorListingCard
+                key={item.id}
+                data={item}
+                favoriteRole="mentor"
+                favoriteItemType="student_request"
+                favoriteItemId={item.id}
+                initialFavorited={!!favoriteIds?.has?.(String(item.id))}
+                onFavoriteChange={onFavoriteChange}
+              />
+            ))}
       </div>
     </div>
   );

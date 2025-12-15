@@ -4,11 +4,13 @@ import MentorNavbar from '../Navbar/MentorNavbar';
 import CategoryFilters from '../CategoryFilters/CategoryFilters';
 import MentorListings from '../Listings/MentorListings';
 import api from '../../api/client';
+import { fetchFavoriteItems } from '../../api/favorites';
 import './MentorPage.css';
 
 function MentorPage() {
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [cards, setCards] = useState([]);
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -65,13 +67,45 @@ function MentorPage() {
     return () => { alive = false; };
   }, [currentPath, navigate]);
 
+  useEffect(() => {
+    let alive = true;
+    if (status !== 'ok') {
+      setFavoriteIds(new Set());
+      return () => { alive = false; };
+    }
+
+    fetchFavoriteItems({ role: 'mentor', itemType: 'student_request', idsOnly: true })
+      .then((res) => {
+        if (!alive) return;
+        const ids = Array.isArray(res?.data?.ids) ? res.data.ids : [];
+        setFavoriteIds(new Set(ids.map(String)));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setFavoriteIds(new Set());
+      });
+
+    return () => { alive = false; };
+  }, [status]);
+
   return (
     <div className="app">
       <MentorNavbar />
       <CategoryFilters />
 
       {status === 'ok' && (
-        <MentorListings data={cards} />
+        <MentorListings
+          data={cards}
+          favoriteIds={favoriteIds}
+          onFavoriteChange={(itemId, favorited) => {
+            setFavoriteIds((prev) => {
+              const next = new Set(prev);
+              if (favorited) next.add(String(itemId));
+              else next.delete(String(itemId));
+              return next;
+            });
+          }}
+        />
       )}
 
       {status === 'forbidden' && (

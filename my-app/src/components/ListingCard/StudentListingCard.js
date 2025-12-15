@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
+import { toggleFavoriteItem } from '../../api/favorites';
 
 // 统一时区城市显示（与时区下拉一致）
 const TZ_CITY_MAP = {
@@ -39,12 +40,65 @@ const formatTimezoneWithCity = (tz) => {
   return city ? `${base} (${city})` : base;
 };
 
-function StudentListingCard({ data }) {
-  const [isFavorited, setIsFavorited] = useState(false);
+function StudentListingCard({
+  data,
+  favoriteRole,
+  favoriteItemType,
+  favoriteItemId,
+  initialFavorited = false,
+  onFavoriteChange,
+}) {
+  const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
-  const toggleFavorite = () => {
-    setIsFavorited(!isFavorited);
+  useEffect(() => {
+    setIsFavorited(!!initialFavorited);
+  }, [initialFavorited]);
+
+  const toggleFavorite = async (event) => {
+    event?.stopPropagation?.();
+    if (!favoriteRole || !favoriteItemType) {
+      setIsFavorited((v) => !v);
+      return;
+    }
+
+    const itemId = typeof favoriteItemId !== 'undefined' ? String(favoriteItemId) : (typeof data?.id !== 'undefined' ? String(data.id) : '');
+    if (!itemId) {
+      setIsFavorited((v) => !v);
+      return;
+    }
+
+    let token = null;
+    try {
+      token = localStorage.getItem('authToken');
+    } catch {}
+
+    if (!token) {
+      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/student' } })); } catch {}
+      return;
+    }
+
+    try {
+      const res = await toggleFavoriteItem({
+        role: favoriteRole,
+        itemType: favoriteItemType,
+        itemId,
+        payload: data,
+      });
+      const next = !!res?.data?.favorited;
+      setIsFavorited(next);
+      if (typeof onFavoriteChange === 'function') {
+        onFavoriteChange(itemId, next, res?.data);
+      }
+    } catch (e) {
+      const status = e?.response?.status;
+      if (status === 401) {
+        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/student' } })); } catch {}
+        return;
+      }
+      const msg = e?.response?.data?.error || '操作失败，请稍后再试';
+      alert(msg);
+    }
   };
 
   const degreeClass = (() => {
@@ -56,6 +110,11 @@ function StudentListingCard({ data }) {
   })();
 
   const timezoneLabel = formatTimezoneWithCity(data.timezone);
+  const courses = Array.isArray(data?.courses) ? data.courses : [];
+  const languagesRaw = typeof data?.languages === 'string' ? data.languages : '';
+  const languageTokens = languagesRaw
+    ? languagesRaw.split(',').map((lang) => lang.trim()).filter(Boolean)
+    : [];
 
   return (
     <div ref={revealRef} className={`listing-card reveal ${visible ? 'is-visible' : ''}`}>
@@ -110,14 +169,14 @@ function StudentListingCard({ data }) {
       <div className="listing-timezone-languages">
         <span className="timezone">🌍 {timezoneLabel}</span>
         <div className="listing-languages">
-          {data.languages.split(',').map((lang, index) => (
+          {languageTokens.map((lang, index) => (
             <span key={index} className={`language-tag ${lang.trim()}-tag`}>
               {lang.trim()}
             </span>
           ))}
         </div>
       </div>
-      <p className="listing-courses">{data.courses.join(' | ')}</p>
+      <p className="listing-courses">{courses.join(' | ')}</p>
     </div>
   );
 }
