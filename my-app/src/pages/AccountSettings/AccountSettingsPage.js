@@ -16,37 +16,31 @@ const SETTINGS_SECTIONS = [
   {
     id: 'profile',
     label: '个人信息',
-    description: '管理头像、姓名与联系方式',
     icon: FiUser,
   },
   {
     id: 'security',
     label: '登录与安全',
-    description: '密码、设备与登录记录',
     icon: FiLock,
   },
   {
     id: 'privacy',
     label: '隐私',
-    description: '信息可见性与数据偏好',
     icon: FiShield,
   },
   {
     id: 'notifications',
     label: '通知',
-    description: '站内信、邮件与推送',
     icon: FiBell,
   },
   {
     id: 'payments',
     label: '付款与账单',
-    description: '支付方式与发票信息',
     icon: FiCreditCard,
   },
   {
     id: 'language',
     label: '语言与偏好',
-    description: '语言、时区与显示设置',
     icon: FiGlobe,
   },
 ];
@@ -129,7 +123,6 @@ function AccountSettingsPage({ mode = 'student' }) {
                     </span>
                     <span className="settings-nav-text">
                       <span className="settings-nav-label">{section.label}</span>
-                      <span className="settings-nav-desc">{section.description}</span>
                     </span>
                   </button>
                 );
@@ -142,9 +135,6 @@ function AccountSettingsPage({ mode = 'student' }) {
           <div className="settings-detail-pane">
             <div className="settings-detail-head">
               <div className="settings-detail-title">{activeSection?.label || '账号设置'}</div>
-              {activeSection?.description && (
-                <div className="settings-detail-sub">{activeSection.description}</div>
-              )}
             </div>
 
             <div className="settings-card" role="region" aria-label={`${activeSection?.label || '设置'}内容`}>
@@ -329,4 +319,3 @@ function AccountSettingsPage({ mode = 'student' }) {
 }
 
 export default AccountSettingsPage;
-
