@@ -213,16 +213,29 @@
   text-align: left;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 10px 44px 10px 12px;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 44px 0 12px;
   font-size: 14px;
   background: #ffffff;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .favorite-select__button:focus {
   outline: none;
   border-color: #111827;
   box-shadow: none;
+}
+
+.favorite-select__label {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .favorite-select__caret {
@@ -285,7 +298,7 @@
   background: transparent;
   outline: 2px solid #111827;
   outline-offset: -2px;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .favorite-modal-error {
