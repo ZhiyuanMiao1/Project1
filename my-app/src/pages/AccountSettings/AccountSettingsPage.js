@@ -137,12 +137,16 @@ function AccountSettingsPage({ mode = 'student' }) {
               <div className="settings-detail-title">{activeSection?.label || '账号设置'}</div>
             </div>
 
-            <div className="settings-card" role="region" aria-label={`${activeSection?.label || '设置'}内容`}>
+            <div
+              className={`settings-card ${activeSectionId === 'profile' ? 'settings-card--profile' : ''}`}
+              role="region"
+              aria-label={`${activeSection?.label || '设置'}内容`}
+            >
               {activeSectionId === 'profile' && (
                 <>
                   <div className="settings-row">
                     <div className="settings-row-main">
-                      <div className="settings-row-title">昵称</div>
+                      <div className="settings-row-title">称呼</div>
                       <div className="settings-row-value">Alex</div>
                     </div>
                     <button type="button" className="settings-action">编辑</button>
