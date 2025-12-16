@@ -131,18 +131,19 @@
 }
 
 .settings-detail-title {
-  font-size: 18px;
-  font-weight: 800;
+  padding-left: 18px;
+  font-size: 24px;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 
 .settings-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: none;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
 }
 
 .settings-row {
