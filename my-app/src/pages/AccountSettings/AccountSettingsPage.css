@@ -88,9 +88,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  line-height: 0;
   color: #0f172a;
   background: transparent;
   border: none;
+}
+
+.settings-nav-icon svg {
+  display: block;
 }
 
 .settings-nav-text {
@@ -100,8 +105,9 @@
 }
 
 .settings-nav-label {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 500;
+  line-height: 1;
   letter-spacing: -0.01em;
   color: #0f172a;
 }
