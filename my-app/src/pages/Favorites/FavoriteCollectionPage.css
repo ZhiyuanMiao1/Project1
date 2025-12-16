@@ -77,7 +77,7 @@
   left: 96px;
   right: 0;
   bottom: 0;
-  padding: 12px 16px;
+  padding: 12px 0;
   background: rgba(255, 255, 255, 0.92);
   border-top: 1px solid #e5e7eb;
   backdrop-filter: blur(10px);
@@ -85,6 +85,9 @@
 }
 
 .favorite-bulk-bar-inner {
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
