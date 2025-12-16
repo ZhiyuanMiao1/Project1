@@ -153,6 +153,7 @@ function MessagesPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [errorMessage, setErrorMessage] = useState('');
   const [scheduleDecision, setScheduleDecision] = useState(null);
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
 
@@ -167,6 +168,14 @@ function MessagesPage({ mode = 'student' }) {
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setErrorMessage('');
+      return;
+    }
+    setErrorMessage('请登录后查看消息');
+  }, [isLoggedIn]);
 
   const threads = useMemo(
     () => (isMentorView ? MENTOR_THREADS : STUDENT_THREADS),
@@ -285,6 +294,9 @@ function MessagesPage({ mode = 'student' }) {
           <h1>消息</h1>
         </section>
 
+        {errorMessage && <div className="messages-alert">{errorMessage}</div>}
+
+        {isLoggedIn && (
         <section className="messages-shell" aria-label="消息列表与详情">
           <div className="messages-list-pane">
             <div className="messages-list-title">
@@ -539,6 +551,7 @@ function MessagesPage({ mode = 'student' }) {
             )}
           </div>
         </section>
+        )}
       </div>
 
       {showStudentAuth && (

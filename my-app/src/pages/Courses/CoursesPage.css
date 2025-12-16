@@ -45,6 +45,16 @@
   letter-spacing: -0.03em;
 }
 
+.courses-alert {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecdd3;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
 .courses-timeline {
   display: flex;
   flex-direction: column;

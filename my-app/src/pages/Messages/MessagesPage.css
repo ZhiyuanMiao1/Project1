@@ -48,6 +48,16 @@
   line-height: 1.6;
 }
 
+.messages-alert {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecdd3;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
 .messages-shell {
   display: grid;
   grid-template-columns: 340px 1px 1fr;

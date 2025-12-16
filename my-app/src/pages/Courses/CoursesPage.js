@@ -54,6 +54,7 @@ function CoursesPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     const handler = (e) => {
@@ -66,6 +67,15 @@ function CoursesPage() {
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setErrorMessage('');
+      return;
+    }
+    setActiveCourse(null);
+    setErrorMessage('请登录后查看课程');
+  }, [isLoggedIn]);
 
   const timelineData = useMemo(() => {
     const sorted = [...MOCK_COURSES].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -153,69 +163,73 @@ function CoursesPage() {
           <h1>课程</h1>
         </section>
 
-        <section className="courses-timeline">
-          {timelineData.map((yearBlock) => (
-            <div className="courses-year-block" key={yearBlock.year}>
-              <div className="year-side">
-                <div className="year-label">{yearBlock.year}</div>
-                <div className="year-line" />
-              </div>
-              <div className="year-content">
-                {yearBlock.months.map((monthBlock, idx) => (
-                  <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
-                    <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
-                      <span className="month-label">{monthBlock.month}月</span>
-                    </div>
-                    <div className="month-cards" role="list">
-                      {monthBlock.courses.map((course) => {
-                        const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
-                        const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-                        const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
-                        const isPast = isCoursePast(course.date);
-                        return (
-                          <article
-                            className="course-card"
-                            key={course.id}
-                            role="listitem"
-                            tabIndex={0}
-                            onClick={() => handleCourseOpen(course)}
-                            onKeyDown={(event) => handleCardKeyDown(event, course)}
-                            aria-label={`${normalizedTitle} ${course.type}`}
-                          >
-                            <div className="course-head">
-                              <div className="course-title-wrap">
-                                <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
-                                  {isPast ? '\u2713' : ''}
-                                </span>
-                                <span className="course-title-icon">
-                                  <TitleIcon size={20} />
-                                </span>
-                                <span className="course-title">{normalizedTitle}</span>
+        {errorMessage && <div className="courses-alert">{errorMessage}</div>}
+
+        {isLoggedIn && (
+          <section className="courses-timeline">
+            {timelineData.map((yearBlock) => (
+              <div className="courses-year-block" key={yearBlock.year}>
+                <div className="year-side">
+                  <div className="year-label">{yearBlock.year}</div>
+                  <div className="year-line" />
+                </div>
+                <div className="year-content">
+                  {yearBlock.months.map((monthBlock, idx) => (
+                    <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
+                      <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
+                        <span className="month-label">{monthBlock.month}月</span>
+                      </div>
+                      <div className="month-cards" role="list">
+                        {monthBlock.courses.map((course) => {
+                          const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
+                          const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+                          const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
+                          const isPast = isCoursePast(course.date);
+                          return (
+                            <article
+                              className="course-card"
+                              key={course.id}
+                              role="listitem"
+                              tabIndex={0}
+                              onClick={() => handleCourseOpen(course)}
+                              onKeyDown={(event) => handleCardKeyDown(event, course)}
+                              aria-label={`${normalizedTitle} ${course.type}`}
+                            >
+                              <div className="course-head">
+                                <div className="course-title-wrap">
+                                  <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
+                                    {isPast ? '\u2713' : ''}
+                                  </span>
+                                  <span className="course-title-icon">
+                                    <TitleIcon size={20} />
+                                  </span>
+                                  <span className="course-title">{normalizedTitle}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="course-type-row">
-                              <span className="course-pill">
-                                <span className="course-pill-icon">
-                                  <TypeIcon size={14} />
+                              <div className="course-type-row">
+                                <span className="course-pill">
+                                  <span className="course-pill-icon">
+                                    <TypeIcon size={14} />
+                                  </span>
+                                  <span>{course.type}</span>
                                 </span>
-                                <span>{course.type}</span>
-                              </span>
-                            </div>
-                            <div className="course-meta">
-                              <span className="meta-item">{course.dateText}</span>
-                              <span className="meta-sep">·</span>
-                              <span className="meta-item">{course.duration}</span>
-                            </div>
-                          </article>
-                        );
-                      })}
+                              </div>
+                              <div className="course-meta">
+                                <span className="meta-item">{course.dateText}</span>
+                                <span className="meta-sep">·</span>
+                                <span className="meta-item">{course.duration}</span>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </section>
+            ))}
+          </section>
+        )}
       </div>
 
       {showStudentAuth && (
