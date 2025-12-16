@@ -2,6 +2,14 @@
   padding-bottom: 132px;
 }
 
+.favorite-card-shell {
+  height: 100%;
+}
+
+.favorite-card-shell > .listing-card {
+  height: 100%;
+}
+
 .favorite-card-shell.is-selected::after {
   content: '';
   position: absolute;
