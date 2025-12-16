@@ -184,20 +184,29 @@
 
 .settings-action {
   border: none;
-  background: #0f172a;
-  color: #ffffff;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
+  background: transparent;
+  color: #0f172a;
+  padding: 0;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+  transition: color 0.12s ease, text-decoration-color 0.12s ease;
+  box-shadow: none;
 }
 
 .settings-action:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+  color: #111827;
+  text-decoration-color: #111827;
+}
+
+.settings-action:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.35);
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 
 .settings-switch {
