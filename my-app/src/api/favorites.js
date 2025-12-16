@@ -29,6 +29,10 @@ export const toggleFavoriteItem = ({ role, itemType, itemId, payload } = {}) => 
   return client.post('/api/favorites/toggle', { role, itemType, itemId, payload });
 };
 
+export const moveFavoriteItems = ({ role, itemIds, targetCollectionId } = {}) => {
+  return client.put('/api/favorites/items/move', { role, itemIds, targetCollectionId });
+};
+
 const favoritesApi = {
   fetchFavoriteCollections,
   createFavoriteCollection,
@@ -36,6 +40,7 @@ const favoritesApi = {
   fetchFavoriteItems,
   deleteFavoriteItem,
   toggleFavoriteItem,
+  moveFavoriteItems,
 };
 
 export default favoritesApi;

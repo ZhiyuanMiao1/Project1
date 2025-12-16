@@ -6,8 +6,14 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
-import { deleteFavoriteItem, fetchFavoriteItems } from '../../api/favorites';
+import {
+  deleteFavoriteItem,
+  fetchFavoriteCollections,
+  fetchFavoriteItems,
+  moveFavoriteItems,
+} from '../../api/favorites';
 import '../RecentVisits/RecentVisitsPage.css';
+import './FavoriteCollectionPage.css';
 
 function FavoriteCollectionPage() {
   const { collectionId } = useParams();
@@ -16,7 +22,8 @@ function FavoriteCollectionPage() {
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedEntryIds, setSelectedEntryIds] = useState(() => new Set());
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
       return !!localStorage.getItem('authToken');
@@ -27,7 +34,12 @@ function FavoriteCollectionPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [removingId, setRemovingId] = useState(null);
+  const [bulkWorking, setBulkWorking] = useState(false);
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [moveTargetId, setMoveTargetId] = useState('');
+  const [collections, setCollections] = useState([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [collectionsError, setCollectionsError] = useState('');
 
   useEffect(() => {
     const handler = (event) => {
@@ -125,23 +137,6 @@ function FavoriteCollectionPage() {
     return () => { alive = false; };
   }, [isLoggedIn, preferredRole, numericCollectionId]);
 
-  const removeItem = async (entryId) => {
-    if (!isLoggedIn) {
-      openAuthModal();
-      return;
-    }
-    setRemovingId(entryId);
-    try {
-      await deleteFavoriteItem(entryId);
-      setItems((prev) => prev.filter((it) => it.id !== entryId));
-    } catch (e) {
-      const msg = e?.response?.data?.error || '移除失败，请稍后再试';
-      alert(msg);
-    } finally {
-      setRemovingId(null);
-    }
-  };
-
   const handleBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
@@ -158,8 +153,158 @@ function FavoriteCollectionPage() {
     }
   };
 
+  const selectedCount = selectedEntryIds.size;
+  const moveTargets = useMemo(
+    () => (collections || []).filter((c) => Number(c?.id) !== Number(numericCollectionId)),
+    [collections, numericCollectionId],
+  );
+  const hasMoveTargets = moveTargets.length > 0;
+
+  useEffect(() => {
+    if (!multiSelectMode) return;
+    const aliveIds = new Set(items.map((it) => it?.id).filter((v) => typeof v === 'number' || typeof v === 'string').map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0));
+    setSelectedEntryIds((prev) => {
+      if (!prev?.size) return prev;
+      let changed = false;
+      const next = new Set();
+      for (const id of prev) {
+        if (aliveIds.has(Number(id))) next.add(Number(id));
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [items, multiSelectMode]);
+
+  const exitMultiSelect = () => {
+    setMultiSelectMode(false);
+    setSelectedEntryIds(new Set());
+    setMoveModalOpen(false);
+    setMoveTargetId('');
+    setCollectionsError('');
+  };
+
+  const toggleMultiSelect = () => {
+    if (multiSelectMode) {
+      exitMultiSelect();
+    } else {
+      setMultiSelectMode(true);
+    }
+  };
+
+  const toggleSelected = (entryId) => {
+    const id = Number(entryId);
+    if (!Number.isFinite(id) || id <= 0) return;
+    setSelectedEntryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const ensureCollectionsLoaded = async () => {
+    if (!isLoggedIn) {
+      openAuthModal();
+      return false;
+    }
+    if (collectionsLoading) return false;
+    setCollectionsLoading(true);
+    setCollectionsError('');
+    try {
+      const res = await fetchFavoriteCollections(preferredRole);
+      const list = Array.isArray(res?.data?.collections) ? res.data.collections : [];
+      setCollections(list);
+      return true;
+    } catch (e) {
+      const msg = e?.response?.data?.error || '加载收藏夹失败，请稍后再试';
+      setCollectionsError(msg);
+      setCollections([]);
+      return false;
+    } finally {
+      setCollectionsLoading(false);
+    }
+  };
+
+  const openMoveModal = async () => {
+    if (!multiSelectMode || selectedCount === 0) return;
+    setMoveTargetId('');
+    setMoveModalOpen(true);
+    await ensureCollectionsLoaded();
+  };
+
+  const bulkUnfavorite = async () => {
+    if (!multiSelectMode || selectedCount === 0) return;
+    if (!isLoggedIn) {
+      openAuthModal();
+      return;
+    }
+    if (bulkWorking) return;
+
+    const ids = Array.from(selectedEntryIds).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    if (!ids.length) return;
+
+    setBulkWorking(true);
+    const results = await Promise.allSettled(ids.map((id) => deleteFavoriteItem(id)));
+    const succeeded = [];
+    let failed = 0;
+    results.forEach((r, idx) => {
+      if (r.status === 'fulfilled') succeeded.push(ids[idx]);
+      else failed += 1;
+    });
+
+    if (succeeded.length) {
+      const succeededSet = new Set(succeeded);
+      setItems((prev) => prev.filter((it) => !succeededSet.has(Number(it?.id))));
+      setSelectedEntryIds((prev) => {
+        const next = new Set(prev);
+        succeeded.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+
+    setBulkWorking(false);
+    if (failed) alert(`有 ${failed} 项取消收藏失败，请稍后重试`);
+  };
+
+  const confirmMove = async () => {
+    if (!moveModalOpen) return;
+    if (!isLoggedIn) {
+      openAuthModal();
+      return;
+    }
+    const targetIdNum = Number(moveTargetId);
+    if (!Number.isFinite(targetIdNum) || targetIdNum <= 0) {
+      setCollectionsError('请选择目标收藏夹');
+      return;
+    }
+    if (numericCollectionId && targetIdNum === numericCollectionId) {
+      setMoveModalOpen(false);
+      setMoveTargetId('');
+      return;
+    }
+    if (bulkWorking) return;
+
+    const ids = Array.from(selectedEntryIds).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    if (!ids.length) return;
+
+    setBulkWorking(true);
+    try {
+      await moveFavoriteItems({ role: preferredRole, itemIds: ids, targetCollectionId: targetIdNum });
+      const movedSet = new Set(ids);
+      setItems((prev) => prev.filter((it) => !movedSet.has(Number(it?.id))));
+      setSelectedEntryIds(new Set());
+      setMoveModalOpen(false);
+      setMoveTargetId('');
+    } catch (e) {
+      const msg = e?.response?.data?.error || '移动失败，请稍后再试';
+      setCollectionsError(msg);
+    } finally {
+      setBulkWorking(false);
+    }
+  };
+
   return (
-    <div className="recent-page favorite-detail-page">
+    <div className={`recent-page favorite-detail-page ${multiSelectMode ? 'is-multi-select' : ''}`}>
       <div className="container">
         <header className="recent-header">
           <BrandMark
@@ -204,9 +349,9 @@ function FavoriteCollectionPage() {
           <button
             type="button"
             className="recent-edit-link recent-hero-edit"
-            onClick={() => setEditMode((v) => !v)}
+            onClick={toggleMultiSelect}
           >
-            {editMode ? '完成' : '编辑'}
+            {multiSelectMode ? '取消' : '多选'}
           </button>
         </section>
 
@@ -242,25 +387,26 @@ function FavoriteCollectionPage() {
             {items.map((item) => {
               const card = (item && typeof item.payload === 'object' && item.payload) ? item.payload : { id: item?.itemId };
               const entryId = item?.id;
+              const selected = multiSelectMode && selectedEntryIds.has(Number(entryId));
               return (
               <div
-                className={`recent-card-shell ${editMode ? 'is-editing' : ''}`}
+                className={`recent-card-shell favorite-card-shell ${multiSelectMode ? 'is-multi' : ''} ${selected ? 'is-selected' : ''}`}
                 key={entryId || card?.id}
                 role="listitem"
               >
-                {editMode && (
+                {multiSelectMode && (
                   <button
                     type="button"
-                    className="recent-edit-remove"
-                    aria-label="移除此记录"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!entryId) return;
-                      removeItem(entryId);
-                    }}
-                    disabled={removingId === entryId}
+                    className="favorite-multi-overlay"
+                    aria-label={selected ? '取消选中' : '选中'}
+                    aria-pressed={selected}
+                    onClick={() => toggleSelected(entryId)}
                   >
-                    <span className="recent-edit-remove-icon" aria-hidden="true" />
+                    <span className={`favorite-multi-check ${selected ? 'is-selected' : ''}`} aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="16" height="16" focusable="false" aria-hidden="true">
+                        <path d="M20 6L9 17l-5-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
                   </button>
                 )}
                 {preferredRole === 'mentor' ? (
@@ -296,6 +442,130 @@ function FavoriteCollectionPage() {
           </div>
         </section>
       </div>
+
+      {multiSelectMode && (
+        <div className="favorite-bulk-bar" role="region" aria-label="批量操作">
+          <div className="favorite-bulk-bar-inner">
+            <div className="favorite-bulk-count">
+              已选 {selectedCount} 项
+            </div>
+            <div className="favorite-bulk-actions">
+              <button
+                type="button"
+                className="favorite-bulk-btn ghost"
+                onClick={bulkUnfavorite}
+                disabled={selectedCount === 0 || bulkWorking}
+              >
+                {bulkWorking ? '处理中...' : '取消收藏'}
+              </button>
+              <button
+                type="button"
+                className="favorite-bulk-btn primary"
+                onClick={openMoveModal}
+                disabled={selectedCount === 0 || bulkWorking}
+              >
+                移动到...
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {moveModalOpen && (
+        <div
+          className="favorite-modal-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (bulkWorking) return;
+            setMoveModalOpen(false);
+            setMoveTargetId('');
+            setCollectionsError('');
+          }}
+        >
+          <div
+            className="favorite-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="favorite-modal-close"
+              aria-label="关闭"
+              onClick={() => {
+                if (bulkWorking) return;
+                setMoveModalOpen(false);
+                setMoveTargetId('');
+                setCollectionsError('');
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <div className="favorite-modal-body">
+              <h3 id="move-title">移动到收藏夹</h3>
+              {collectionsLoading ? (
+                <p className="favorite-modal-hint">加载中...</p>
+              ) : (
+                <>
+                  {!hasMoveTargets ? (
+                    <p className="favorite-modal-hint">
+                      暂无其它收藏夹，请先返回收藏页新建。
+                    </p>
+                  ) : (
+                    <select
+                      className="favorite-modal-select"
+                      value={moveTargetId}
+                      onChange={(e) => {
+                        setMoveTargetId(e.target.value);
+                        setCollectionsError('');
+                      }}
+                    >
+                      <option value="">请选择</option>
+                      {moveTargets.map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {collectionsError && (
+                    <p className="favorite-modal-error">{collectionsError}</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="favorite-modal-footer">
+              <button
+                type="button"
+                className="favorite-bulk-btn ghost"
+                onClick={() => {
+                  if (bulkWorking) return;
+                  setMoveModalOpen(false);
+                  setMoveTargetId('');
+                  setCollectionsError('');
+                }}
+                disabled={bulkWorking}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="favorite-bulk-btn primary"
+                onClick={confirmMove}
+                disabled={bulkWorking || collectionsLoading || !hasMoveTargets}
+              >
+                {bulkWorking ? '移动中...' : '移动'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showStudentAuth && (
         <StudentAuthModal

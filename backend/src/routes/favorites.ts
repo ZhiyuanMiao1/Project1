@@ -420,6 +420,63 @@ router.get(
   }
 );
 
+// 批量移动收藏条目到其他收藏夹
+router.put(
+  '/items/move',
+  requireAuth,
+  [
+    body('itemIds').isArray({ min: 1 }).withMessage('itemIds需为非空数组'),
+    body('itemIds.*').isInt({ gt: 0 }).withMessage('itemId无效'),
+    body('targetCollectionId').isInt({ gt: 0 }).withMessage('targetCollectionId无效'),
+    body('role').optional().isIn(['student', 'mentor']).withMessage('角色无效'),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const requestedRole = normalizeRole((req.body as any).role, req.user!.role as Role);
+    const target = await resolveTargetUser(req, res, requestedRole);
+    if (!target) return;
+
+    const bodyData = req.body as { itemIds: any[]; targetCollectionId: number; role?: Role };
+    const itemIds = Array.from(new Set((bodyData.itemIds || []).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)));
+    const targetCollectionId = Number(bodyData.targetCollectionId);
+
+    if (!itemIds.length) {
+      return res.status(400).json({ error: 'itemIds不能为空' });
+    }
+
+    try {
+      await ensureDefaultCollection(target.userId, target.role);
+
+      const collectionRows = await dbQuery<any[]>(
+        'SELECT id FROM favorite_collections WHERE id = ? AND user_id = ? AND role = ? LIMIT 1',
+        [targetCollectionId, target.userId, target.role]
+      );
+      if (!collectionRows.length) {
+        return res.status(404).json({ error: '未找到目标收藏夹' });
+      }
+
+      const placeholders = itemIds.map(() => '?').join(',');
+      const params = [targetCollectionId, target.userId, target.role, ...itemIds];
+      const result = await dbQuery<any>(
+        `UPDATE favorite_items
+         SET collection_id = ?
+         WHERE user_id = ? AND role = ? AND id IN (${placeholders})`,
+        params
+      );
+
+      const movedCount = typeof result?.affectedRows === 'number' ? result.affectedRows : 0;
+      return res.json({ message: '已移动', movedCount });
+    } catch (e) {
+      console.error('Move favorite items error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
+
 // 删除单个收藏条目
 router.delete(
   '/items/:id',
