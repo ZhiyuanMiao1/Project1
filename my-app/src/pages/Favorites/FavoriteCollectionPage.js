@@ -351,7 +351,7 @@ function FavoriteCollectionPage() {
             className="recent-edit-link recent-hero-edit"
             onClick={toggleMultiSelect}
           >
-            {multiSelectMode ? '取消' : '多选'}
+            {multiSelectMode ? '完成' : '多选'}
           </button>
         </section>
 
