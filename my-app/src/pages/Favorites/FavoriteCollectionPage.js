@@ -39,7 +39,11 @@ function FavoriteCollectionPage() {
   const [moveTargetId, setMoveTargetId] = useState('');
   const [collections, setCollections] = useState([]);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [collectionsLoaded, setCollectionsLoaded] = useState(false);
   const [collectionsError, setCollectionsError] = useState('');
+  const [moveSelectOpen, setMoveSelectOpen] = useState(false);
+  const moveSelectButtonRef = useRef(null);
+  const moveSelectListRef = useRef(null);
 
   useEffect(() => {
     const handler = (event) => {
@@ -56,6 +60,24 @@ function FavoriteCollectionPage() {
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
+
+  useEffect(() => {
+    if (moveModalOpen) return;
+    setMoveSelectOpen(false);
+  }, [moveModalOpen]);
+
+  useEffect(() => {
+    if (!moveSelectOpen) return;
+    const onDoc = (event) => {
+      const btn = moveSelectButtonRef.current;
+      const list = moveSelectListRef.current;
+      if (btn && btn.contains(event.target)) return;
+      if (list && list.contains(event.target)) return;
+      setMoveSelectOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc, true);
+    return () => document.removeEventListener('mousedown', onDoc, true);
+  }, [moveSelectOpen]);
 
   const preferredRole = useMemo(() => {
     const searchRole = (() => {
@@ -159,6 +181,11 @@ function FavoriteCollectionPage() {
     [collections, numericCollectionId],
   );
   const hasMoveTargets = moveTargets.length > 0;
+  const moveTargetLabel = useMemo(() => {
+    const id = Number(moveTargetId);
+    if (!Number.isFinite(id) || id <= 0) return '';
+    return moveTargets.find((c) => Number(c?.id) === id)?.name || '';
+  }, [moveTargets, moveTargetId]);
 
   useEffect(() => {
     if (!multiSelectMode) return;
@@ -179,6 +206,7 @@ function FavoriteCollectionPage() {
     setMultiSelectMode(false);
     setSelectedEntryIds(new Set());
     setMoveModalOpen(false);
+    setMoveSelectOpen(false);
     setMoveTargetId('');
     setCollectionsError('');
   };
@@ -214,11 +242,13 @@ function FavoriteCollectionPage() {
       const res = await fetchFavoriteCollections(preferredRole);
       const list = Array.isArray(res?.data?.collections) ? res.data.collections : [];
       setCollections(list);
+      setCollectionsLoaded(true);
       return true;
     } catch (e) {
       const msg = e?.response?.data?.error || '加载收藏夹失败，请稍后再试';
       setCollectionsError(msg);
       setCollections([]);
+      setCollectionsLoaded(true);
       return false;
     } finally {
       setCollectionsLoading(false);
@@ -227,6 +257,8 @@ function FavoriteCollectionPage() {
 
   const openMoveModal = async () => {
     if (!multiSelectMode || selectedCount === 0) return;
+    setMoveSelectOpen(false);
+    setCollectionsLoaded(false);
     setMoveTargetId('');
     setMoveModalOpen(true);
     await ensureCollectionsLoaded();
@@ -300,6 +332,38 @@ function FavoriteCollectionPage() {
       setCollectionsError(msg);
     } finally {
       setBulkWorking(false);
+    }
+  };
+
+  const handleMoveSelectKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      setMoveSelectOpen(false);
+      return;
+    }
+    if (!moveSelectOpen && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      if (!bulkWorking) setMoveSelectOpen(true);
+      return;
+    }
+    if (!moveSelectOpen) return;
+
+    const ids = ['', ...moveTargets.map((c) => String(c.id))];
+    const cur = ids.indexOf(String(moveTargetId));
+    const curIdx = cur >= 0 ? cur : 0;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      const next = ids[Math.min(ids.length - 1, curIdx + 1)];
+      setMoveTargetId(next);
+      setCollectionsError('');
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      const next = ids[Math.max(0, curIdx - 1)];
+      setMoveTargetId(next);
+      setCollectionsError('');
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      setMoveSelectOpen(false);
     }
   };
 
@@ -478,6 +542,7 @@ function FavoriteCollectionPage() {
           onClick={() => {
             if (bulkWorking) return;
             setMoveModalOpen(false);
+            setMoveSelectOpen(false);
             setMoveTargetId('');
             setCollectionsError('');
           }}
@@ -496,6 +561,7 @@ function FavoriteCollectionPage() {
               onClick={() => {
                 if (bulkWorking) return;
                 setMoveModalOpen(false);
+                setMoveSelectOpen(false);
                 setMoveTargetId('');
                 setCollectionsError('');
               }}
@@ -508,7 +574,7 @@ function FavoriteCollectionPage() {
 
             <div className="favorite-modal-body">
               <h3 id="move-title">移动到收藏夹</h3>
-              {collectionsLoading ? (
+              {(collectionsLoading || !collectionsLoaded) ? (
                 <p className="favorite-modal-hint">加载中...</p>
               ) : (
                 <>
@@ -517,21 +583,63 @@ function FavoriteCollectionPage() {
                       暂无其它收藏夹，请先返回收藏页新建。
                     </p>
                   ) : (
-                    <select
-                      className="favorite-modal-select"
-                      value={moveTargetId}
-                      onChange={(e) => {
-                        setMoveTargetId(e.target.value);
-                        setCollectionsError('');
-                      }}
-                    >
-                      <option value="">请选择</option>
-                      {moveTargets.map((c) => (
-                        <option key={c.id} value={String(c.id)}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="favorite-select" data-open={moveSelectOpen ? 'true' : 'false'}>
+                      <button
+                        type="button"
+                        className="favorite-select__button"
+                        aria-haspopup="listbox"
+                        aria-expanded={moveSelectOpen}
+                        ref={moveSelectButtonRef}
+                        onClick={() => {
+                          if (bulkWorking) return;
+                          setMoveSelectOpen((v) => !v);
+                        }}
+                        onKeyDown={handleMoveSelectKeyDown}
+                      >
+                        <span className="favorite-select__label">{moveTargetLabel || '请选择'}</span>
+                        <span className="favorite-select__caret" aria-hidden="true">
+                          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                      </button>
+                      {moveSelectOpen && (
+                        <div className="favorite-select__popover">
+                          <ul ref={moveSelectListRef} role="listbox" className="favorite-select__list" aria-label="选择收藏夹">
+                            <li
+                              role="option"
+                              aria-selected={!moveTargetId}
+                              className={`favorite-select__option ${!moveTargetId ? 'selected' : ''}`}
+                              onClick={() => {
+                                setMoveTargetId('');
+                                setCollectionsError('');
+                                setMoveSelectOpen(false);
+                              }}
+                            >
+                              请选择
+                            </li>
+                            {moveTargets.map((c) => {
+                              const selected = String(c.id) === String(moveTargetId);
+                              return (
+                                <li
+                                  key={c.id}
+                                  role="option"
+                                  aria-selected={selected}
+                                  className={`favorite-select__option ${selected ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    setMoveTargetId(String(c.id));
+                                    setCollectionsError('');
+                                    setMoveSelectOpen(false);
+                                  }}
+                                >
+                                  {c.name}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {collectionsError && (
                     <p className="favorite-modal-error">{collectionsError}</p>
@@ -547,6 +655,7 @@ function FavoriteCollectionPage() {
                 onClick={() => {
                   if (bulkWorking) return;
                   setMoveModalOpen(false);
+                  setMoveSelectOpen(false);
                   setMoveTargetId('');
                   setCollectionsError('');
                 }}
@@ -558,7 +667,7 @@ function FavoriteCollectionPage() {
                 type="button"
                 className="favorite-bulk-btn primary"
                 onClick={confirmMove}
-                disabled={bulkWorking || collectionsLoading || !hasMoveTargets}
+                disabled={bulkWorking || collectionsLoading || !collectionsLoaded || !hasMoveTargets}
               >
                 {bulkWorking ? '移动中...' : '移动'}
               </button>
