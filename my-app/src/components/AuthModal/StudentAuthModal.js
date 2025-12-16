@@ -42,7 +42,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef, leftAlignRef]);
+  }, [anchorRef, leftAlignRef, align, alignOffset]);
 
   // 若需要，直接打开登录子弹窗
   useEffect(() => {
@@ -68,6 +68,10 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
       case 'messages':
         onClose && onClose();
         navigate('/student/messages', { state: { from: 'student' } });
+        return;
+      case 'settings':
+        onClose && onClose();
+        navigate('/student/settings', { state: { from: 'student' } });
         return;
       case 'publish':
         if (!isLoggedIn) {

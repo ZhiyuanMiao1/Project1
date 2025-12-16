@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
 import MentorPage from './components/MentorPage/MentorPage';
 import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourseRequestPage';
@@ -10,6 +11,7 @@ import CoursesPage from './pages/Courses/CoursesPage';
 import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
 import MessagesPage from './pages/Messages/MessagesPage';
 import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
+import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
 
 function App() {
   return (
@@ -32,6 +34,7 @@ function App() {
         {/* 课程时间轴页面 */}
         <Route path="/student/courses" element={<CoursesPage />} />
         <Route path="/student/messages" element={<MessagesPage mode="student" />} />
+        <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
 
         {/* 导师个人名片编辑页面 */}
         <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
@@ -39,6 +42,7 @@ function App() {
         {/* 导师课程时间轴页 */}
         <Route path="/mentor/courses" element={<MentorCoursesPage />} />
         <Route path="/mentor/messages" element={<MessagesPage mode="mentor" />} />
+        <Route path="/mentor/settings" element={<AccountSettingsPage mode="mentor" />} />
 
         {/* 导师页面 */}
         <Route path="/mentor" element={<MentorPage />} />

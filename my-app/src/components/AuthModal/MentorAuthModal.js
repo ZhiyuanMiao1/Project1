@@ -118,6 +118,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         navigate('/mentor/messages', { state: { from: 'mentor' } });
         return;
       case 'settings':
+        onClose && onClose();
+        navigate('/mentor/settings', { state: { from: 'mentor' } });
+        return;
       case 'help':
         console.log(`User selected: ${action}`);
         onClose && onClose();
