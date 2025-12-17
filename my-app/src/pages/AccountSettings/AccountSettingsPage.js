@@ -336,7 +336,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       <div className="settings-row-value">{emailValue}</div>
                     </div>
                   </div>
-                  <div className="settings-row">
+                  <div className={`settings-row ${editingDegree ? 'settings-row--overlay' : ''}`}>
                     <div className="settings-row-main">
                       <div className="settings-row-title">学历</div>
                       <div className={`settings-row-value ${canEditMentorProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
@@ -370,7 +370,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       </button>
                     )}
                   </div>
-                  <div className="settings-row">
+                  <div className={`settings-row ${editingSchool ? 'settings-row--overlay' : ''}`}>
                     <div className="settings-row-main">
                       <div className="settings-row-title">学校</div>
                       <div className={`settings-row-value ${canEditMentorProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>

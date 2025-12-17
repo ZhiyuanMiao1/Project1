@@ -159,6 +159,12 @@
   border-bottom: none;
 }
 
+.settings-row--overlay {
+  position: relative;
+  z-index: 10;
+  border-bottom-color: transparent;
+}
+
 .settings-row-main {
   display: flex;
   flex-direction: column;
@@ -266,7 +272,21 @@
   z-index: 2000;
 }
 
+.settings-page .mx-select[data-open="true"] .mx-select__button {
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 0;
+}
+
+.settings-page .mx-select[data-open="true"] .mx-select__popover {
+  top: 0;
+}
+
 .settings-page .mx-select__list {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  list-style: none;
   max-height: 220px;
   overflow: auto;
   background: #ffffff;
