@@ -274,10 +274,10 @@ function AccountSettingsPage({ mode = 'student' }) {
         </header>
 
         <section className="settings-hero">
-          <h1>账号设置</h1>
+          <h1>设置与数据</h1>
         </section>
 
-        <section className="settings-shell" aria-label="账号设置">
+        <section className="settings-shell" aria-label="设置与数据">
           <div className="settings-nav-pane">
             <nav className="settings-nav" aria-label="设置选项">
               {SETTINGS_SECTIONS.map((section) => {
@@ -307,7 +307,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
           <div className="settings-detail-pane">
             <div className="settings-detail-head">
-              <div className="settings-detail-title">{activeSection?.label || '账号设置'}</div>
+              <div className="settings-detail-title">{activeSection?.label || '设置与数据'}</div>
             </div>
 
             <div

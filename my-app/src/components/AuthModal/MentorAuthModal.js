@@ -212,7 +212,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                 onClick={() => handleAuthAction('settings')}
               >
                 <FiSettings className="auth-icon" />
-                账号设置
+                设置与数据
               </button>
               <button
                 className="auth-modal-option-button"
