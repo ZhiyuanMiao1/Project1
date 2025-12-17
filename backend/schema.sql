@@ -5,6 +5,8 @@ SET NAMES utf8mb4;
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(100) NULL,
+  -- 称呼：用户在前端展示的自定义名称（可为空）
+  `salutation` VARCHAR(100) NULL,
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `role` ENUM('mentor','student') NOT NULL,
@@ -122,3 +124,7 @@ CREATE TABLE IF NOT EXISTS `favorite_items` (
 --   ALTER TABLE `users` ADD COLUMN `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
 -- 宿主 MySQL 版本若支持，可使用 IF NOT EXISTS 变体：
 --   ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
+
+-- ========== 称呼字段迁移（如为已有库升级） ==========
+-- 若已存在 `users` 表但没有 `salutation` 字段，请执行：
+--   ALTER TABLE `users` ADD COLUMN `salutation` VARCHAR(100) NULL AFTER `username`;

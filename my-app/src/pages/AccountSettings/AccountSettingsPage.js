@@ -10,6 +10,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import { fetchAccountMe } from '../../api/account';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -54,6 +55,18 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [accountProfile, setAccountProfile] = useState(() => {
+    try {
+      const raw = localStorage.getItem('authUser');
+      const user = raw ? JSON.parse(raw) : {};
+      return {
+        email: typeof user?.email === 'string' ? user.email : '',
+        salutation: typeof user?.salutation === 'string' ? user.salutation : '',
+      };
+    } catch {
+      return { email: '', salutation: '' };
+    }
+  });
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
 
@@ -69,10 +82,42 @@ function AccountSettingsPage({ mode = 'student' }) {
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setAccountProfile({ email: '', salutation: '' });
+      return;
+    }
+
+    let alive = true;
+    fetchAccountMe()
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data || {};
+        const next = {
+          email: typeof data.email === 'string' ? data.email : '',
+          salutation: typeof data.salutation === 'string' ? data.salutation : '',
+        };
+        setAccountProfile(next);
+
+        try {
+          const raw = localStorage.getItem('authUser');
+          const prev = raw ? JSON.parse(raw) : {};
+          localStorage.setItem('authUser', JSON.stringify({ ...prev, ...next }));
+        } catch {}
+      })
+      .catch(() => {});
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
   const activeSection = useMemo(
     () => SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) || SETTINGS_SECTIONS[0],
     [activeSectionId],
   );
+
+  const hasSalutation = !!accountProfile.salutation && accountProfile.salutation.trim().length > 0;
+  const salutationValue = hasSalutation ? accountProfile.salutation : '未提供';
+  const emailValue = accountProfile.email || '未提供';
 
   return (
     <div className="settings-page">
@@ -147,21 +192,14 @@ function AccountSettingsPage({ mode = 'student' }) {
                   <div className="settings-row">
                     <div className="settings-row-main">
                       <div className="settings-row-title">称呼</div>
-                      <div className="settings-row-value">Alex</div>
+                      <div className="settings-row-value">{salutationValue}</div>
                     </div>
-                    <button type="button" className="settings-action">编辑</button>
+                    <button type="button" className="settings-action">{hasSalutation ? '编辑' : '添加'}</button>
                   </div>
                   <div className="settings-row">
                     <div className="settings-row-main">
                       <div className="settings-row-title">邮箱</div>
-                      <div className="settings-row-value">alex@example.com</div>
-                    </div>
-                    <button type="button" className="settings-action">编辑</button>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">手机号</div>
-                      <div className="settings-row-value">+86 138 **** 0000</div>
+                      <div className="settings-row-value">{emailValue}</div>
                     </div>
                     <button type="button" className="settings-action">编辑</button>
                   </div>

@@ -9,6 +9,7 @@ const router = Router();
 interface UserRow {
   id: number;
   username: string | null;
+  salutation?: string | null;
   email: string;
   password_hash: string;
   role: 'mentor' | 'student';
@@ -36,7 +37,7 @@ router.post(
       let user: UserRow | undefined;
       // 统一按邮箱取出所有候选账号
       const rows = await query<UserRow[]>(
-        'SELECT id, username, email, password_hash, role, public_id FROM users WHERE email = ?',
+        'SELECT id, username, salutation, email, password_hash, role, public_id FROM users WHERE email = ?',
         [email]
       );
       if (rows.length === 0) {
@@ -74,7 +75,14 @@ router.post(
       return res.json({
         message: '登录成功',
         token,
-        user: { id: user.id, username: user.username, email: user.email, role: user.role, public_id: user.public_id || null },
+        user: {
+          id: user.id,
+          username: user.username,
+          salutation: user.salutation ?? null,
+          email: user.email,
+          role: user.role,
+          public_id: user.public_id || null,
+        },
       });
     } catch (err) {
       console.error('Login Error:', err);
