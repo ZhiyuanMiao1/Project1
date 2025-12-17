@@ -3,7 +3,6 @@ import {
   FiBell,
   FiCreditCard,
   FiGlobe,
-  FiLock,
   FiShield,
   FiUser,
 } from 'react-icons/fi';
@@ -22,12 +21,7 @@ const SETTINGS_SECTIONS = [
   },
   {
     id: 'security',
-    label: '登录与安全',
-    icon: FiLock,
-  },
-  {
-    id: 'privacy',
-    label: '隐私',
+    label: '安全与隐私',
     icon: FiShield,
   },
   {
@@ -431,11 +425,6 @@ function AccountSettingsPage({ mode = 'student' }) {
                     </div>
                     <button type="button" className="settings-action">管理</button>
                   </div>
-                </>
-              )}
-
-              {activeSectionId === 'privacy' && (
-                <>
                   <div className="settings-row">
                     <div className="settings-row-main">
                       <div className="settings-row-title">公开个人资料</div>
