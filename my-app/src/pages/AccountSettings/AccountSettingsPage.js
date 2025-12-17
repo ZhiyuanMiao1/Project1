@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FiAward,
   FiBell,
+  FiBookOpen,
   FiCreditCard,
   FiGlobe,
   FiShield,
@@ -18,6 +20,16 @@ const SETTINGS_SECTIONS = [
     id: 'profile',
     label: '个人信息',
     icon: FiUser,
+  },
+  {
+    id: 'studentData',
+    label: '学生数据',
+    icon: FiBookOpen,
+  },
+  {
+    id: 'mentorData',
+    label: '导师数据',
+    icon: FiAward,
   },
   {
     id: 'security',
@@ -400,6 +412,22 @@ function AccountSettingsPage({ mode = 'student' }) {
                     )}
                   </div>
                 </>
+              )}
+
+              {activeSectionId === 'studentData' && (
+                <div className="settings-data-section" aria-label="学生数据">
+                  <section className="settings-data-card">
+                    <div className="settings-data-placeholder">暂无字段（待补充）</div>
+                  </section>
+                </div>
+              )}
+
+              {activeSectionId === 'mentorData' && (
+                <div className="settings-data-section" aria-label="导师数据">
+                  <section className="settings-data-card">
+                    <div className="settings-data-placeholder">暂无字段（待补充）</div>
+                  </section>
+                </div>
               )}
 
               {activeSectionId === 'security' && (

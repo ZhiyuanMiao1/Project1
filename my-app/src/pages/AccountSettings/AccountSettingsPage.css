@@ -209,6 +209,26 @@
   color: #9ca3af;
 }
 
+.settings-data-section {
+  padding: 18px;
+}
+
+.settings-data-card {
+  background: #f4f6f9;
+  border: 1px solid #eef2f7;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-data-placeholder {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
 /* ---- Custom Select (borrowed from MentorProfileEditor, scoped) ---- */
 .settings-page .mx-select {
   position: relative;
