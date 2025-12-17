@@ -163,6 +163,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
   min-width: 0;
 }
 
@@ -184,6 +185,8 @@
 
 .settings-row-value--interactive {
   overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .settings-inline-input {
@@ -203,23 +206,26 @@
 /* ---- Custom Select (borrowed from MentorProfileEditor, scoped) ---- */
 .settings-page .mx-select {
   position: relative;
-  width: min(260px, 100%);
+  width: min(320px, 100%);
+  min-width: 220px;
+  display: inline-block;
 }
 
 .settings-page .mx-select__button {
   width: 100%;
   text-align: left;
-  border: none;
-  border-radius: 0;
-  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 10px 12px;
   font: inherit;
-  background: transparent;
+  background: #ffffff;
   cursor: pointer;
-  color: inherit;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
 .settings-page .mx-select__button:focus {
@@ -228,10 +234,17 @@
   border-radius: 8px;
 }
 
+.settings-page .mx-select__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-page .mx-select__caret {
-  color: #6b7280;
-  width: 18px;
-  height: 18px;
+  color: #0f172a;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -261,6 +274,7 @@
   border-radius: 14px;
   padding: 8px 0;
   box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+  color: #0f172a;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -269,7 +283,7 @@
 
 .settings-page .mx-select__option {
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
   cursor: pointer;
 }
