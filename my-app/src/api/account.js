@@ -1,11 +1,11 @@
 import client from './client';
 
-export const fetchAccountIds = () => {
+export const fetchAccountProfile = () => {
   return client.get('/api/account/ids');
 };
 
 const accountApi = {
-  fetchAccountIds,
+  fetchAccountProfile,
 };
 
 export default accountApi;

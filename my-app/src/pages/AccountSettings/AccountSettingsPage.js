@@ -10,7 +10,8 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import { fetchAccountIds } from '../../api/account';
+import { fetchAccountProfile } from '../../api/account';
+import api from '../../api/client';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -55,21 +56,29 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
-  const [accountIds, setAccountIds] = useState(() => {
+  const [accountProfile, setAccountProfile] = useState(() => {
     try {
       const raw = localStorage.getItem('authUser');
       const user = raw ? JSON.parse(raw) : {};
       const role = user?.role;
       const publicId = user?.public_id;
       return {
+        email: typeof user?.email === 'string' ? user.email : '',
         studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
         mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
+        degree: '',
+        school: '',
       };
     } catch {
-      return { studentId: '', mentorId: '' };
+      return { email: '', studentId: '', mentorId: '', degree: '', school: '' };
     }
   });
   const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
+  const [degreeDraft, setDegreeDraft] = useState('');
+  const [schoolDraft, setSchoolDraft] = useState('');
+  const [editingDegree, setEditingDegree] = useState(false);
+  const [editingSchool, setEditingSchool] = useState(false);
+  const [savingMentorProfile, setSavingMentorProfile] = useState(false);
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
 
@@ -88,22 +97,27 @@ function AccountSettingsPage({ mode = 'student' }) {
   useEffect(() => {
     if (!isLoggedIn) {
       setIdsStatus('idle');
-      setAccountIds({ studentId: '', mentorId: '' });
+      setAccountProfile({ email: '', studentId: '', mentorId: '', degree: '', school: '' });
       return;
     }
 
     let alive = true;
     setIdsStatus('loading');
-    fetchAccountIds()
+    fetchAccountProfile()
       .then((res) => {
         if (!alive) return;
         const data = res?.data || {};
         const next = {
+          email: typeof data.email === 'string' ? data.email : '',
           studentId: typeof data.studentId === 'string' ? data.studentId : '',
           mentorId: typeof data.mentorId === 'string' ? data.mentorId : '',
+          degree: typeof data.degree === 'string' ? data.degree : '',
+          school: typeof data.school === 'string' ? data.school : '',
         };
-        setAccountIds(next);
+        setAccountProfile(next);
         setIdsStatus('loaded');
+        setDegreeDraft(typeof data.degree === 'string' ? data.degree : '');
+        setSchoolDraft(typeof data.school === 'string' ? data.school : '');
       })
       .catch(() => {
         if (!alive) return;
@@ -118,8 +132,121 @@ function AccountSettingsPage({ mode = 'student' }) {
     [activeSectionId],
   );
 
-  const studentIdValue = accountIds.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
-  const mentorIdValue = accountIds.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
+  const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
+  const emailValue = accountProfile.email || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const mentorOpened = !!accountProfile.mentorId;
+  const degreeValue = !mentorOpened ? '暂未开通' : (accountProfile.degree || '未提供');
+  const schoolValue = !mentorOpened ? '暂未开通' : (accountProfile.school || '未提供');
+  const canEditMentorProfile = isMentorView && mentorOpened;
+
+  const DEGREE_OPTIONS = useMemo(() => ([
+    { value: '本科', label: '本科' },
+    { value: '硕士', label: '硕士' },
+    { value: 'PhD', label: 'PhD' },
+  ]), []);
+
+  const DegreeSelect = ({ id, value, onChange }) => {
+    const [open, setOpen] = useState(false);
+    const buttonRef = useRef(null);
+    const listRef = useRef(null);
+
+    useEffect(() => {
+      if (!open) return;
+      const listEl = listRef.current;
+      if (!listEl) return;
+      const idx = Math.max(0, DEGREE_OPTIONS.findIndex((o) => o.value === value));
+      const itemEl = listEl.querySelector(`[data-index="${idx}"]`);
+      if (!itemEl) return;
+      const listH = listEl.clientHeight;
+      const top = itemEl.offsetTop;
+      const h = itemEl.offsetHeight;
+      const target = top - Math.max(0, (listH - h) / 2);
+      try { listEl.scrollTo({ top: target, behavior: 'auto' }); } catch { listEl.scrollTop = target; }
+    }, [open, value]);
+
+    useEffect(() => {
+      const onDoc = (e) => {
+        if (!open) return;
+        const btn = buttonRef.current;
+        const list = listRef.current;
+        if (btn && btn.contains(e.target)) return;
+        if (list && list.contains(e.target)) return;
+        setOpen(false);
+      };
+      document.addEventListener('mousedown', onDoc);
+      return () => document.removeEventListener('mousedown', onDoc);
+    }, [open]);
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') { setOpen(false); return; }
+      if (!open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); return; }
+      if (!open) return;
+      const i = Math.max(0, DEGREE_OPTIONS.findIndex((o) => o.value === value));
+      if (e.key === 'ArrowDown') { e.preventDefault(); onChange(DEGREE_OPTIONS[Math.min(DEGREE_OPTIONS.length - 1, i + 1)].value); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); onChange(DEGREE_OPTIONS[Math.max(0, i - 1)].value); }
+      else if (e.key === 'Enter') { e.preventDefault(); setOpen(false); }
+    };
+
+    const selectedLabel = useMemo(() => DEGREE_OPTIONS.find(o => o.value === value)?.label || '', [value]);
+
+    return (
+      <div className="mx-select" data-open={open ? 'true' : 'false'}>
+        <button
+          id={id}
+          ref={buttonRef}
+          type="button"
+          className="mx-select__button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          onKeyDown={handleKeyDown}
+        >
+          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+          <span className="mx-select__caret" aria-hidden>
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </button>
+        {open && (
+          <div className="mx-select__popover">
+            <ul ref={listRef} role="listbox" aria-labelledby={id} className="mx-select__list">
+              {DEGREE_OPTIONS.map((opt, index) => {
+                const selected = opt.value === value;
+                return (
+                  <li
+                    key={opt.value}
+                    role="option"
+                    aria-selected={selected}
+                    data-index={index}
+                    className={`mx-select__option ${selected ? 'selected' : ''}`}
+                    onClick={() => { onChange(opt.value); setOpen(false); }}
+                  >
+                    {opt.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const saveMentorProfilePatch = async (patch) => {
+    if (savingMentorProfile) return;
+    setSavingMentorProfile(true);
+    try {
+      await api.put('/api/mentor/profile', patch);
+      setAccountProfile((prev) => ({ ...prev, ...patch }));
+    } catch (e) {
+      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      alert(msg);
+    } finally {
+      setSavingMentorProfile(false);
+    }
+  };
 
   return (
     <div className="settings-page">
@@ -202,6 +329,82 @@ function AccountSettingsPage({ mode = 'student' }) {
                       <div className="settings-row-title">MentorID</div>
                       <div className="settings-row-value">{mentorIdValue}</div>
                     </div>
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-row-main">
+                      <div className="settings-row-title">邮箱</div>
+                      <div className="settings-row-value">{emailValue}</div>
+                    </div>
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-row-main">
+                      <div className="settings-row-title">学历</div>
+                      <div className={`settings-row-value ${canEditMentorProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
+                        {canEditMentorProfile && editingDegree ? (
+                          <DegreeSelect
+                            id="mx-degree-inline"
+                            value={degreeDraft || ''}
+                            onChange={(v) => setDegreeDraft(v)}
+                          />
+                        ) : (
+                          degreeValue
+                        )}
+                      </div>
+                    </div>
+                    {canEditMentorProfile && (
+                      <button
+                        type="button"
+                        className="settings-action"
+                        disabled={savingMentorProfile}
+                        onClick={() => {
+                          if (!editingDegree) {
+                            setEditingDegree(true);
+                            setDegreeDraft(accountProfile.degree || '');
+                            return;
+                          }
+                          saveMentorProfilePatch({ degree: degreeDraft || '' });
+                          setEditingDegree(false);
+                        }}
+                      >
+                        {editingDegree ? '保存' : '编辑'}
+                      </button>
+                    )}
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-row-main">
+                      <div className="settings-row-title">学校</div>
+                      <div className={`settings-row-value ${canEditMentorProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>
+                        {canEditMentorProfile && editingSchool ? (
+                          <input
+                            type="text"
+                            className="settings-inline-input"
+                            value={schoolDraft}
+                            placeholder="可选填"
+                            onChange={(e) => setSchoolDraft(e.target.value)}
+                          />
+                        ) : (
+                          schoolValue
+                        )}
+                      </div>
+                    </div>
+                    {canEditMentorProfile && (
+                      <button
+                        type="button"
+                        className="settings-action"
+                        disabled={savingMentorProfile}
+                        onClick={() => {
+                          if (!editingSchool) {
+                            setEditingSchool(true);
+                            setSchoolDraft(accountProfile.school || '');
+                            return;
+                          }
+                          saveMentorProfilePatch({ school: schoolDraft || '' });
+                          setEditingSchool(false);
+                        }}
+                      >
+                        {editingSchool ? '保存' : '编辑'}
+                      </button>
+                    )}
                   </div>
                 </>
               )}

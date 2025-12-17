@@ -133,33 +133,50 @@ router.put(
       if (!approved) return res.status(403).json({ error: '导师审核中，暂不可保存' });
 
       const {
-        displayName = '',
-        gender = '',
-        degree = '',
-        school = '',
-        timezone = '',
-        courses = [],
-        avatarUrl = null,
+        displayName,
+        gender,
+        degree,
+        school,
+        timezone,
+        courses,
+        avatarUrl,
       } = req.body as {
         displayName?: string; gender?: string; degree?: string; school?: string; timezone?: string; courses?: string[]; avatarUrl?: string | null;
       };
 
-      const coursesJson = JSON.stringify((courses || []).filter(Boolean));
+      // Merge update: unspecified fields keep existing values.
+      const existingRows = await query<any[]>(
+        'SELECT display_name, gender, degree, school, timezone, courses_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1',
+        [req.user!.id]
+      );
+      const existing = existingRows?.[0] || {};
+      let existingCourses: string[] = [];
+      try { existingCourses = existing.courses_json ? JSON.parse(existing.courses_json) : []; } catch { existingCourses = []; }
+
+      const nextDisplayName = (Object.prototype.hasOwnProperty.call(req.body, 'displayName') ? displayName : (existing.display_name || '')) as string;
+      const nextGender = (Object.prototype.hasOwnProperty.call(req.body, 'gender') ? gender : (existing.gender || '')) as string;
+      const nextDegree = (Object.prototype.hasOwnProperty.call(req.body, 'degree') ? degree : (existing.degree || '')) as string;
+      const nextSchool = (Object.prototype.hasOwnProperty.call(req.body, 'school') ? school : (existing.school || '')) as string;
+      const nextTimezone = (Object.prototype.hasOwnProperty.call(req.body, 'timezone') ? timezone : (existing.timezone || '')) as string;
+      const nextCourses = Object.prototype.hasOwnProperty.call(req.body, 'courses') ? (courses || []) : (Array.isArray(existingCourses) ? existingCourses : []);
+      const nextAvatarUrl = Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl') ? (avatarUrl ?? null) : (existing.avatar_url ?? null);
+
+      const coursesJson = JSON.stringify((nextCourses || []).filter(Boolean));
 
       // Upsert by user_id
       await query(
         `INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
-           display_name = VALUES(display_name),
-           gender = VALUES(gender),
-           degree = VALUES(degree),
-           school = VALUES(school),
-           timezone = VALUES(timezone),
-           courses_json = VALUES(courses_json),
-           avatar_url = VALUES(avatar_url),
-           updated_at = CURRENT_TIMESTAMP`,
-        [req.user!.id, displayName, gender || null, degree || null, school || null, timezone || null, coursesJson, avatarUrl]
+            display_name = VALUES(display_name),
+            gender = VALUES(gender),
+            degree = VALUES(degree),
+            school = VALUES(school),
+            timezone = VALUES(timezone),
+            courses_json = VALUES(courses_json),
+            avatar_url = VALUES(avatar_url),
+            updated_at = CURRENT_TIMESTAMP`,
+        [req.user!.id, nextDisplayName, nextGender || null, nextDegree || null, nextSchool || null, nextTimezone || null, coursesJson, nextAvatarUrl]
       );
 
       return res.json({ message: '保存成功' });

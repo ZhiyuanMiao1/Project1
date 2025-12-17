@@ -142,7 +142,7 @@
   background: #ffffff;
   border: none;
   border-radius: 18px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: none;
 }
 
@@ -180,6 +180,108 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.settings-row-value--interactive {
+  overflow: visible;
+}
+
+.settings-inline-input {
+  width: min(420px, 100%);
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.settings-inline-input::placeholder {
+  color: #9ca3af;
+}
+
+/* ---- Custom Select (borrowed from MentorProfileEditor, scoped) ---- */
+.settings-page .mx-select {
+  position: relative;
+  width: min(260px, 100%);
+}
+
+.settings-page .mx-select__button {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-page .mx-select__button:focus {
+  outline: 2px solid rgba(17, 24, 39, 0.25);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.settings-page .mx-select__caret {
+  color: #6b7280;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.settings-page .mx-select__caret svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.settings-page .mx-select__popover {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 2000;
+}
+
+.settings-page .mx-select__list {
+  max-height: 220px;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px 0;
+  box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.settings-page .mx-select__list::-webkit-scrollbar { width: 0; height: 0; }
+
+.settings-page .mx-select__option {
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.settings-page .mx-select__option:hover { background: #f3f4f6; }
+
+.settings-page .mx-select__option.selected {
+  background: transparent;
+  color: inherit;
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 8px;
 }
 
 .settings-action {
