@@ -10,7 +10,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import { fetchAccountMe } from '../../api/account';
+import { fetchAccountIds } from '../../api/account';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -55,18 +55,21 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
-  const [accountProfile, setAccountProfile] = useState(() => {
+  const [accountIds, setAccountIds] = useState(() => {
     try {
       const raw = localStorage.getItem('authUser');
       const user = raw ? JSON.parse(raw) : {};
+      const role = user?.role;
+      const publicId = user?.public_id;
       return {
-        email: typeof user?.email === 'string' ? user.email : '',
-        salutation: typeof user?.salutation === 'string' ? user.salutation : '',
+        studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
+        mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
       };
     } catch {
-      return { email: '', salutation: '' };
+      return { studentId: '', mentorId: '' };
     }
   });
+  const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
 
@@ -84,28 +87,28 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   useEffect(() => {
     if (!isLoggedIn) {
-      setAccountProfile({ email: '', salutation: '' });
+      setIdsStatus('idle');
+      setAccountIds({ studentId: '', mentorId: '' });
       return;
     }
 
     let alive = true;
-    fetchAccountMe()
+    setIdsStatus('loading');
+    fetchAccountIds()
       .then((res) => {
         if (!alive) return;
         const data = res?.data || {};
         const next = {
-          email: typeof data.email === 'string' ? data.email : '',
-          salutation: typeof data.salutation === 'string' ? data.salutation : '',
+          studentId: typeof data.studentId === 'string' ? data.studentId : '',
+          mentorId: typeof data.mentorId === 'string' ? data.mentorId : '',
         };
-        setAccountProfile(next);
-
-        try {
-          const raw = localStorage.getItem('authUser');
-          const prev = raw ? JSON.parse(raw) : {};
-          localStorage.setItem('authUser', JSON.stringify({ ...prev, ...next }));
-        } catch {}
+        setAccountIds(next);
+        setIdsStatus('loaded');
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!alive) return;
+        setIdsStatus('error');
+      });
 
     return () => { alive = false; };
   }, [isLoggedIn]);
@@ -115,9 +118,8 @@ function AccountSettingsPage({ mode = 'student' }) {
     [activeSectionId],
   );
 
-  const hasSalutation = !!accountProfile.salutation && accountProfile.salutation.trim().length > 0;
-  const salutationValue = hasSalutation ? accountProfile.salutation : '未提供';
-  const emailValue = accountProfile.email || '未提供';
+  const studentIdValue = accountIds.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const mentorIdValue = accountIds.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
 
   return (
     <div className="settings-page">
@@ -191,17 +193,15 @@ function AccountSettingsPage({ mode = 'student' }) {
                 <>
                   <div className="settings-row">
                     <div className="settings-row-main">
-                      <div className="settings-row-title">称呼</div>
-                      <div className="settings-row-value">{salutationValue}</div>
+                      <div className="settings-row-title">StudentID</div>
+                      <div className="settings-row-value">{studentIdValue}</div>
                     </div>
-                    <button type="button" className="settings-action">{hasSalutation ? '编辑' : '添加'}</button>
                   </div>
                   <div className="settings-row">
                     <div className="settings-row-main">
-                      <div className="settings-row-title">邮箱</div>
-                      <div className="settings-row-value">{emailValue}</div>
+                      <div className="settings-row-title">MentorID</div>
+                      <div className="settings-row-value">{mentorIdValue}</div>
                     </div>
-                    <button type="button" className="settings-action">编辑</button>
                   </div>
                 </>
               )}

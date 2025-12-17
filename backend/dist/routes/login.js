@@ -24,7 +24,7 @@ router.post('/', [
     try {
         let user;
         // 统一按邮箱取出所有候选账号
-        const rows = await (0, db_1.query)('SELECT id, username, salutation, email, password_hash, role, public_id FROM users WHERE email = ?', [email]);
+        const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role, public_id FROM users WHERE email = ?', [email]);
         if (rows.length === 0) {
             return res.status(401).json({ error: '邮箱或密码错误' });
         }
@@ -60,14 +60,7 @@ router.post('/', [
         return res.json({
             message: '登录成功',
             token,
-            user: {
-                id: user.id,
-                username: user.username,
-                salutation: user.salutation ?? null,
-                email: user.email,
-                role: user.role,
-                public_id: user.public_id || null,
-            },
+            user: { id: user.id, username: user.username, email: user.email, role: user.role, public_id: user.public_id || null },
         });
     }
     catch (err) {

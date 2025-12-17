@@ -1,17 +1,11 @@
 import client from './client';
 
-export const fetchAccountMe = () => {
-  return client.get('/api/account/me');
-};
-
-export const updateAccountMe = ({ salutation } = {}) => {
-  return client.patch('/api/account/me', { salutation });
+export const fetchAccountIds = () => {
+  return client.get('/api/account/ids');
 };
 
 const accountApi = {
-  fetchAccountMe,
-  updateAccountMe,
+  fetchAccountIds,
 };
 
 export default accountApi;
-
