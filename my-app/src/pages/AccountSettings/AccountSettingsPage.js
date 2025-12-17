@@ -78,7 +78,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [schoolDraft, setSchoolDraft] = useState('');
   const [editingDegree, setEditingDegree] = useState(false);
   const [editingSchool, setEditingSchool] = useState(false);
-  const [savingMentorProfile, setSavingMentorProfile] = useState(false);
+  const [savingAccountProfile, setSavingAccountProfile] = useState(false);
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
 
@@ -135,10 +135,9 @@ function AccountSettingsPage({ mode = 'student' }) {
   const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
   const emailValue = accountProfile.email || (idsStatus === 'loading' ? '加载中...' : '未提供');
-  const mentorOpened = !!accountProfile.mentorId;
-  const degreeValue = !mentorOpened ? '暂未开通' : (accountProfile.degree || '未提供');
-  const schoolValue = !mentorOpened ? '暂未开通' : (accountProfile.school || '未提供');
-  const canEditMentorProfile = isMentorView && mentorOpened;
+  const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
 
   const DEGREE_OPTIONS = useMemo(() => ([
     { value: '本科', label: '本科' },
@@ -234,17 +233,17 @@ function AccountSettingsPage({ mode = 'student' }) {
     );
   };
 
-  const saveMentorProfilePatch = async (patch) => {
-    if (savingMentorProfile) return;
-    setSavingMentorProfile(true);
+  const saveAccountProfilePatch = async (patch) => {
+    if (savingAccountProfile) return;
+    setSavingAccountProfile(true);
     try {
-      await api.put('/api/mentor/profile', patch);
+      await api.put('/api/account/profile', patch);
       setAccountProfile((prev) => ({ ...prev, ...patch }));
     } catch (e) {
       const msg = e?.response?.data?.error || '保存失败，请稍后再试';
       alert(msg);
     } finally {
-      setSavingMentorProfile(false);
+      setSavingAccountProfile(false);
     }
   };
 
@@ -339,8 +338,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                   <div className={`settings-row ${editingDegree ? 'settings-row--overlay' : ''}`}>
                     <div className="settings-row-main">
                       <div className="settings-row-title">学历</div>
-                      <div className={`settings-row-value ${canEditMentorProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
-                        {canEditMentorProfile && editingDegree ? (
+                      <div className={`settings-row-value ${canEditEducationProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
+                        {canEditEducationProfile && editingDegree ? (
                           <DegreeSelect
                             id="mx-degree-inline"
                             value={degreeDraft || ''}
@@ -351,18 +350,18 @@ function AccountSettingsPage({ mode = 'student' }) {
                         )}
                       </div>
                     </div>
-                    {canEditMentorProfile && (
+                    {canEditEducationProfile && (
                       <button
                         type="button"
                         className="settings-action"
-                        disabled={savingMentorProfile}
+                        disabled={savingAccountProfile}
                         onClick={() => {
                           if (!editingDegree) {
                             setEditingDegree(true);
                             setDegreeDraft(accountProfile.degree || '');
                             return;
                           }
-                          saveMentorProfilePatch({ degree: degreeDraft || '' });
+                          saveAccountProfilePatch({ degree: degreeDraft || '' });
                           setEditingDegree(false);
                         }}
                       >
@@ -373,8 +372,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                   <div className={`settings-row ${editingSchool ? 'settings-row--overlay' : ''}`}>
                     <div className="settings-row-main">
                       <div className="settings-row-title">学校</div>
-                      <div className={`settings-row-value ${canEditMentorProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>
-                        {canEditMentorProfile && editingSchool ? (
+                      <div className={`settings-row-value ${canEditEducationProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>
+                        {canEditEducationProfile && editingSchool ? (
                           <input
                             type="text"
                             className="settings-inline-input"
@@ -387,18 +386,18 @@ function AccountSettingsPage({ mode = 'student' }) {
                         )}
                       </div>
                     </div>
-                    {canEditMentorProfile && (
+                    {canEditEducationProfile && (
                       <button
                         type="button"
                         className="settings-action"
-                        disabled={savingMentorProfile}
+                        disabled={savingAccountProfile}
                         onClick={() => {
                           if (!editingSchool) {
                             setEditingSchool(true);
                             setSchoolDraft(accountProfile.school || '');
                             return;
                           }
-                          saveMentorProfilePatch({ school: schoolDraft || '' });
+                          saveAccountProfilePatch({ school: schoolDraft || '' });
                           setEditingSchool(false);
                         }}
                       >
