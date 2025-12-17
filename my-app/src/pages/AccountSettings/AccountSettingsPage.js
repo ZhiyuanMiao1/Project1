@@ -441,30 +441,6 @@ function AccountSettingsPage({ mode = 'student' }) {
                   </div>
                   <div className="settings-row">
                     <div className="settings-row-main">
-                      <div className="settings-row-title">两步验证</div>
-                      <div className="settings-row-value">未开启</div>
-                    </div>
-                    <button type="button" className="settings-action">开启</button>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">登录设备</div>
-                      <div className="settings-row-value">3 台设备已登录</div>
-                    </div>
-                    <button type="button" className="settings-action">管理</button>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">公开个人资料</div>
-                      <div className="settings-row-value">让导师更快了解你</div>
-                    </div>
-                    <label className="settings-switch">
-                      <input type="checkbox" defaultChecked />
-                      <span className="settings-switch-track" aria-hidden="true" />
-                    </label>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
                       <div className="settings-row-title">数据个性化</div>
                       <div className="settings-row-value">用于优化推荐内容</div>
                     </div>
