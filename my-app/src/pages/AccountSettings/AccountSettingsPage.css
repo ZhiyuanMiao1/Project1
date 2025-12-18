@@ -247,7 +247,7 @@
 
 .settings-toast {
   position: fixed;
-  top: 24px;
+  top: 72px;
   right: 24px;
   z-index: 4000;
   pointer-events: none;
@@ -304,7 +304,7 @@
   .settings-toast {
     left: 16px;
     right: 16px;
-    top: 16px;
+    top: 72px;
   }
 }
 
