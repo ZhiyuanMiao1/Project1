@@ -77,9 +77,11 @@ function AccountSettingsPage({ mode = 'student' }) {
         mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
         degree: '',
         school: '',
+        studentCreatedAt: null,
+        mentorCreatedAt: null,
       };
     } catch {
-      return { email: '', studentId: '', mentorId: '', degree: '', school: '' };
+      return { email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null };
     }
   });
   const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
@@ -119,7 +121,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   useEffect(() => {
     if (!isLoggedIn) {
       setIdsStatus('idle');
-      setAccountProfile({ email: '', studentId: '', mentorId: '', degree: '', school: '' });
+      setAccountProfile({ email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null });
       setEditingPassword(false);
       setNewPasswordDraft('');
       setConfirmPasswordDraft('');
@@ -145,6 +147,8 @@ function AccountSettingsPage({ mode = 'student' }) {
           mentorId: typeof data.mentorId === 'string' ? data.mentorId : '',
           degree: typeof data.degree === 'string' ? data.degree : '',
           school: typeof data.school === 'string' ? data.school : '',
+          studentCreatedAt: typeof data.studentCreatedAt === 'string' ? data.studentCreatedAt : null,
+          mentorCreatedAt: typeof data.mentorCreatedAt === 'string' ? data.mentorCreatedAt : null,
         };
         setAccountProfile(next);
         setIdsStatus('loaded');
@@ -170,6 +174,17 @@ function AccountSettingsPage({ mode = 'student' }) {
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
+
+  const joinedMentorXDays = useMemo(() => {
+    const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;
+    if (!rawCreatedAt) return null;
+    const createdAt = new Date(rawCreatedAt).getTime();
+    if (!Number.isFinite(createdAt)) return null;
+    const diffMs = Math.max(0, Date.now() - createdAt);
+    return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  }, [accountProfile.studentCreatedAt, accountProfile.mentorCreatedAt]);
+
+  const joinedMentorXDaysDisplay = idsStatus === 'loading' ? '...' : (joinedMentorXDays ?? '--');
   const studentAvatarInitial = (() => {
     const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
     return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
@@ -591,7 +606,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       <div className="settings-student-metric">
                         <div className="settings-student-metric-label">加入MentorX</div>
                         <div className="settings-student-metric-value">
-                          2<span className="settings-student-metric-unit">年</span>
+                          {joinedMentorXDaysDisplay}<span className="settings-student-metric-unit">天</span>
                         </div>
                       </div>
                     </div>

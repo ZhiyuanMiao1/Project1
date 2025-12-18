@@ -14,6 +14,7 @@ type PublicIdRow = {
   role: Role;
   public_id: string;
   id: number;
+  created_at?: Date | string | null;
 };
 
 type MentorProfileRow = {
@@ -37,7 +38,7 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     if (!email) return res.status(401).json({ error: '登录状态异常，请重新登录' });
 
     const rows = await dbQuery<PublicIdRow[]>(
-      "SELECT id, role, public_id FROM users WHERE email = ? AND role IN ('student','mentor')",
+      "SELECT id, role, public_id, created_at FROM users WHERE email = ? AND role IN ('student','mentor')",
       [email]
     );
 
@@ -45,14 +46,18 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     let mentorId: string | null = null;
     let studentUserId: number | null = null;
     let mentorUserId: number | null = null;
+    let studentCreatedAt: Date | string | null = null;
+    let mentorCreatedAt: Date | string | null = null;
     for (const row of rows) {
       if (row.role === 'student') {
         studentId = row.public_id;
         studentUserId = row.id;
+        studentCreatedAt = row.created_at ?? null;
       }
       if (row.role === 'mentor') {
         mentorId = row.public_id;
         mentorUserId = row.id;
+        mentorCreatedAt = row.created_at ?? null;
       }
     }
 
@@ -91,7 +96,7 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({ email, studentId, mentorId, degree, school });
+    return res.json({ email, studentId, mentorId, degree, school, studentCreatedAt, mentorCreatedAt });
   } catch (e) {
     console.error('Account ids error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });

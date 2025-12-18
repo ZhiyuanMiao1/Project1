@@ -17,19 +17,23 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
         const email = currentRows[0]?.email;
         if (!email)
             return res.status(401).json({ error: '登录状态异常，请重新登录' });
-        const rows = await (0, db_1.query)("SELECT id, role, public_id FROM users WHERE email = ? AND role IN ('student','mentor')", [email]);
+        const rows = await (0, db_1.query)("SELECT id, role, public_id, created_at FROM users WHERE email = ? AND role IN ('student','mentor')", [email]);
         let studentId = null;
         let mentorId = null;
         let studentUserId = null;
         let mentorUserId = null;
+        let studentCreatedAt = null;
+        let mentorCreatedAt = null;
         for (const row of rows) {
             if (row.role === 'student') {
                 studentId = row.public_id;
                 studentUserId = row.id;
+                studentCreatedAt = row.created_at ?? null;
             }
             if (row.role === 'mentor') {
                 mentorId = row.public_id;
                 mentorUserId = row.id;
+                mentorCreatedAt = row.created_at ?? null;
             }
         }
         let degree = null;
@@ -61,7 +65,7 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
                 school = picked.school;
             }
         }
-        return res.json({ email, studentId, mentorId, degree, school });
+        return res.json({ email, studentId, mentorId, degree, school, studentCreatedAt, mentorCreatedAt });
     }
     catch (e) {
         console.error('Account ids error:', e);
