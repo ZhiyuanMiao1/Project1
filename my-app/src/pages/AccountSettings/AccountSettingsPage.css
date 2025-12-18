@@ -308,6 +308,149 @@
   }
 }
 
+.settings-student-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #eef2f7;
+  border-radius: 28px;
+  padding: 26px 28px;
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 28px;
+  align-items: center;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+.settings-student-card-left {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+
+.settings-student-avatar-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  flex: 0 0 140px;
+}
+
+.settings-student-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+.settings-student-avatar-badge {
+  position: absolute;
+  right: -6px;
+  bottom: 10px;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #f43f5e;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #ffffff;
+  box-shadow: 0 14px 30px rgba(244, 63, 94, 0.34);
+}
+
+.settings-student-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-student-name {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-student-subtitle {
+  font-size: 15px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-student-metrics {
+  border-left: 1px solid #eef2f7;
+  padding-left: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.settings-student-metric {
+  padding: 14px 0;
+}
+
+.settings-student-metric + .settings-student-metric {
+  border-top: 1px solid #eef2f7;
+}
+
+.settings-student-metric-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.settings-student-metric-value {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.settings-student-metric-unit {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+@media (max-width: 900px) {
+  .settings-student-card {
+    grid-template-columns: 1fr;
+    padding: 22px 20px;
+    gap: 18px;
+  }
+
+  .settings-student-avatar-wrap {
+    width: 120px;
+    height: 120px;
+    flex-basis: 120px;
+  }
+
+  .settings-student-name {
+    font-size: 34px;
+  }
+
+  .settings-student-metrics {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid #eef2f7;
+    padding-top: 14px;
+  }
+}
+
 .settings-data-section {
   padding: 18px;
 }

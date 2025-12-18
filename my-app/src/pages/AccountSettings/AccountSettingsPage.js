@@ -13,6 +13,7 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
+import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -507,8 +508,40 @@ function AccountSettingsPage({ mode = 'student' }) {
 
               {activeSectionId === 'studentData' && (
                 <div className="settings-data-section" aria-label="学生数据">
-                  <section className="settings-data-card">
-                    <div className="settings-data-placeholder">暂无字段（待补充）</div>
+                  <section className="settings-student-card" aria-label="学生数据概览">
+                    <div className="settings-student-card-left">
+                      <div className="settings-student-avatar-wrap" aria-hidden="true">
+                        <img className="settings-student-avatar" src={defaultAvatar} alt="" />
+                        <span className="settings-student-avatar-badge">
+                          <FiShield size={18} />
+                        </span>
+                      </div>
+                      <div className="settings-student-main">
+                        <div className="settings-student-name">{studentIdValue}</div>
+                        <div className="settings-student-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 学生'}</div>
+                      </div>
+                    </div>
+
+                    <div className="settings-student-metrics" aria-label="学生数据指标">
+                      <div className="settings-student-metric">
+                        <div className="settings-student-metric-label">上课</div>
+                        <div className="settings-student-metric-value">
+                          3<span className="settings-student-metric-unit">次</span>
+                        </div>
+                      </div>
+                      <div className="settings-student-metric">
+                        <div className="settings-student-metric-label">评价</div>
+                        <div className="settings-student-metric-value">
+                          2<span className="settings-student-metric-unit">条</span>
+                        </div>
+                      </div>
+                      <div className="settings-student-metric">
+                        <div className="settings-student-metric-label">加入MentorX</div>
+                        <div className="settings-student-metric-value">
+                          2<span className="settings-student-metric-unit">年</span>
+                        </div>
+                      </div>
+                    </div>
                   </section>
                 </div>
               )}
