@@ -139,6 +139,7 @@ const buildShortUTCWithCity = (timeZone) => {
 
 function MentorProfileEditorPage() {
   const navigate = useNavigate();
+  const saveHintTimerRef = useRef(null);
 
   // 基本资料（默认值使右侧预览完整）
   const [name, setName] = useState('');
@@ -160,6 +161,21 @@ function MentorProfileEditorPage() {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const avatarInputRef = useRef(null);
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
+  const [saveHint, setSaveHint] = useState(null); // { id: number }
+
+  useEffect(() => () => {
+    if (saveHintTimerRef.current) {
+      clearTimeout(saveHintTimerRef.current);
+      saveHintTimerRef.current = null;
+    }
+  }, []);
+
+  const showSavedHint = () => {
+    const id = Date.now();
+    setSaveHint({ id });
+    if (saveHintTimerRef.current) clearTimeout(saveHintTimerRef.current);
+    saveHintTimerRef.current = setTimeout(() => setSaveHint(null), 1800);
+  };
 
   const onPickAvatar = () => {
     if (avatarInputRef.current) avatarInputRef.current.click();
@@ -193,6 +209,7 @@ function MentorProfileEditorPage() {
       await api.put('/api/mentor/profile', payload);
       // 重建右侧预览卡片，使其重新执行 reveal 动画
       setPreviewReplayKey((k) => k + 1);
+      showSavedHint();
     } catch (e) {
       const msg = e?.response?.data?.error || '保存失败，请稍后再试';
       alert(msg);
@@ -513,9 +530,16 @@ function MentorProfileEditorPage() {
         <div className="container">
           <BrandMark className="nav-logo-text" to="/mentor" />
           <div className="step-header-actions">
-            <button type="button" className="ghost-button" onClick={() => navigate('/mentor')}>
-              保存并退出
-            </button>
+            <div className="mx-editor-exit-wrap">
+              <button type="button" className="ghost-button" onClick={() => navigate('/mentor')}>
+                保存并退出
+              </button>
+              {saveHint && (
+                <div key={saveHint.id} className="mx-editor-save-hint" role="status" aria-live="polite">
+                  已保存
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
