@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
+const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
@@ -123,6 +127,38 @@ router.put('/profile', auth_1.requireAuth, [
     }
     catch (e) {
         console.error('Account profile save error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.put('/password', auth_1.requireAuth, [
+    (0, express_validator_1.body)('newPassword').isString().isLength({ min: 6 }).withMessage('密码至少6位'),
+    (0, express_validator_1.body)('confirmPassword')
+        .isString()
+        .custom((value, { req }) => value === req.body.newPassword)
+        .withMessage('两次输入的密码不一致'),
+], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const { newPassword } = req.body;
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        const passwordHash = await bcryptjs_1.default.hash(newPassword, 10);
+        const result = await (0, db_1.query)("UPDATE users SET password_hash = ? WHERE email = ? AND role IN ('student','mentor')", [passwordHash, email]);
+        const affected = typeof result?.affectedRows === 'number' ? result.affectedRows : 0;
+        if (affected === 0) {
+            return res.status(404).json({ error: '未找到账号信息' });
+        }
+        return res.json({ message: '密码已更新' });
+    }
+    catch (e) {
+        console.error('Account password update error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

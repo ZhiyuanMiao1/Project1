@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { requireAuth } from '../middleware/auth';
 import { query as dbQuery } from '../db';
 import { body, validationResult } from 'express-validator';
@@ -178,6 +179,53 @@ router.put(
       return res.json({ message: '保存成功' });
     } catch (e) {
       console.error('Account profile save error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
+
+router.put(
+  '/password',
+  requireAuth,
+  [
+    body('newPassword').isString().isLength({ min: 6 }).withMessage('密码至少6位'),
+    body('confirmPassword')
+      .isString()
+      .custom((value, { req }) => value === req.body.newPassword)
+      .withMessage('两次输入的密码不一致'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: '未授权' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { newPassword } = req.body as { newPassword: string; confirmPassword: string };
+
+    try {
+      const currentRows = await dbQuery<CurrentUserRow[]>(
+        'SELECT email FROM users WHERE id = ? LIMIT 1',
+        [req.user.id]
+      );
+      const email = currentRows[0]?.email;
+      if (!email) return res.status(401).json({ error: '登录状态异常，请重新登录' });
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const result = await dbQuery<any>(
+        "UPDATE users SET password_hash = ? WHERE email = ? AND role IN ('student','mentor')",
+        [passwordHash, email]
+      );
+
+      const affected = typeof result?.affectedRows === 'number' ? result.affectedRows : 0;
+      if (affected === 0) {
+        return res.status(404).json({ error: '未找到账号信息' });
+      }
+
+      return res.json({ message: '密码已更新' });
+    } catch (e) {
+      console.error('Account password update error:', e);
       return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
   }
