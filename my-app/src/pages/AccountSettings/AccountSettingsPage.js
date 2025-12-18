@@ -59,12 +59,14 @@ function AccountSettingsPage({ mode = 'student' }) {
   const menuAnchorRef = useRef(null);
   const toastTimerRef = useRef(null);
   const studentAvatarInputRef = useRef(null);
+  const mentorAvatarInputRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
   const [studentAvatarUrl, setStudentAvatarUrl] = useState(null);
+  const [mentorAvatarUrl, setMentorAvatarUrl] = useState(null);
   const [accountProfile, setAccountProfile] = useState(() => {
     try {
       const raw = localStorage.getItem('authUser');
@@ -185,13 +187,32 @@ function AccountSettingsPage({ mode = 'student' }) {
   }, [accountProfile.studentCreatedAt, accountProfile.mentorCreatedAt]);
 
   const joinedMentorXDaysDisplay = idsStatus === 'loading' ? '...' : (joinedMentorXDays ?? '--');
+
+  const mentorJoinedMentorXDays = useMemo(() => {
+    const rawCreatedAt = accountProfile.mentorCreatedAt;
+    if (!rawCreatedAt) return null;
+    const createdAt = new Date(rawCreatedAt).getTime();
+    if (!Number.isFinite(createdAt)) return null;
+    const diffMs = Math.max(0, Date.now() - createdAt);
+    return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  }, [accountProfile.mentorCreatedAt]);
+
+  const mentorJoinedMentorXDaysDisplay = idsStatus === 'loading' ? '...' : (mentorJoinedMentorXDays ?? '--');
   const studentAvatarInitial = (() => {
     const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
     return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
   })();
+  const mentorAvatarInitial = (() => {
+    const raw = typeof accountProfile.mentorId === 'string' ? accountProfile.mentorId.trim() : '';
+    return (raw ? raw.slice(0, 1) : 'M').toUpperCase();
+  })();
 
   const onPickStudentAvatar = () => {
     if (studentAvatarInputRef.current) studentAvatarInputRef.current.click();
+  };
+
+  const onPickMentorAvatar = () => {
+    if (mentorAvatarInputRef.current) mentorAvatarInputRef.current.click();
   };
 
   const onStudentAvatarChange = (e) => {
@@ -213,9 +234,32 @@ function AccountSettingsPage({ mode = 'student' }) {
     try { e.target.value = ''; } catch {}
   };
 
+  const onMentorAvatarChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('请选择图片文件');
+      try { e.target.value = ''; } catch {}
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    setMentorAvatarUrl((prev) => {
+      try { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); } catch {}
+      return nextUrl;
+    });
+
+    try { e.target.value = ''; } catch {}
+  };
+
   useEffect(() => () => {
     try { if (studentAvatarUrl && studentAvatarUrl.startsWith('blob:')) URL.revokeObjectURL(studentAvatarUrl); } catch {}
   }, [studentAvatarUrl]);
+
+  useEffect(() => () => {
+    try { if (mentorAvatarUrl && mentorAvatarUrl.startsWith('blob:')) URL.revokeObjectURL(mentorAvatarUrl); } catch {}
+  }, [mentorAvatarUrl]);
 
   const DEGREE_OPTIONS = useMemo(() => ([
     { value: '本科', label: '本科' },
@@ -616,8 +660,61 @@ function AccountSettingsPage({ mode = 'student' }) {
 
               {activeSectionId === 'mentorData' && (
                 <div className="settings-data-section" aria-label="导师数据">
-                  <section className="settings-data-card">
-                    <div className="settings-data-placeholder">暂无字段（待补充）</div>
+                  <section className="settings-mentor-card" aria-label="导师数据概览">
+                    <div className="settings-mentor-card-left">
+                      <div className="settings-mentor-avatar-wrap">
+                        <button
+                          type="button"
+                          className={`settings-mentor-avatar-btn ${mentorAvatarUrl ? 'has-avatar' : ''}`}
+                          aria-label="更换头像"
+                          onClick={onPickMentorAvatar}
+                        >
+                          {mentorAvatarUrl ? (
+                            <img className="settings-mentor-avatar-img" src={mentorAvatarUrl} alt="" />
+                          ) : (
+                            <span className="settings-mentor-avatar-initial" aria-hidden="true">{mentorAvatarInitial}</span>
+                          )}
+                        </button>
+                        <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <circle cx="12" cy="12" r="12" fill="currentColor" />
+                          <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
+                        </svg>
+                        <input
+                          ref={mentorAvatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="settings-mentor-avatar-input"
+                          onChange={onMentorAvatarChange}
+                        />
+                      </div>
+                      <div className="settings-mentor-main">
+                        <div className="settings-mentor-name">{mentorIdValue}</div>
+                        <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 导师'}</div>
+                      </div>
+                    </div>
+
+                    <div className="settings-mentor-metrics" aria-label="导师数据指标">
+                      <div className="settings-mentor-metric">
+                        <div className="settings-mentor-metric-label">上课</div>
+                        <div className="settings-mentor-metric-value">
+                          3<span className="settings-mentor-metric-unit">次</span>
+                        </div>
+                      </div>
+                      <div className="settings-mentor-metric">
+                        <div className="settings-mentor-metric-label">被评价</div>
+                        <div className="settings-mentor-metric-value">
+                          2<span className="settings-mentor-metric-unit">条</span>
+                        </div>
+                      </div>
+                      <div className="settings-mentor-metric">
+                        <div className="settings-mentor-metric-label">加入MentorX</div>
+                        <div className="settings-mentor-metric-value">
+                          {mentorJoinedMentorXDaysDisplay}<span className="settings-mentor-metric-unit">天</span>
+                        </div>
+                      </div>
+                    </div>
                   </section>
                 </div>
               )}

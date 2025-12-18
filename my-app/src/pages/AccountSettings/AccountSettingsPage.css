@@ -308,7 +308,8 @@
   }
 }
 
-.settings-student-card {
+.settings-student-card,
+.settings-mentor-card {
   width: 100%;
   max-width: 400px;
   margin: 0;
@@ -323,7 +324,8 @@
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
 }
 
-.settings-student-card-left {
+.settings-student-card-left,
+.settings-mentor-card-left {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -333,13 +335,15 @@
   text-align: center;
 }
 
-.settings-student-avatar-wrap {
+.settings-student-avatar-wrap,
+.settings-mentor-avatar-wrap {
   position: relative;
   width: 140px;
   height: 140px;
 }
 
-.settings-student-avatar-btn {
+.settings-student-avatar-btn,
+.settings-mentor-avatar-btn {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -355,33 +359,39 @@
   overflow: hidden;
 }
 
-.settings-student-avatar-btn:hover {
+.settings-student-avatar-btn:hover,
+.settings-mentor-avatar-btn:hover {
   filter: brightness(0.98);
 }
 
-.settings-student-avatar-btn:focus-visible {
+.settings-student-avatar-btn:focus-visible,
+.settings-mentor-avatar-btn:focus-visible {
   outline: 2px solid #111827;
   outline-offset: 4px;
 }
 
-.settings-student-avatar-img {
+.settings-student-avatar-img,
+.settings-mentor-avatar-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.settings-student-avatar-initial {
+.settings-student-avatar-initial,
+.settings-mentor-avatar-initial {
   font-size: 56px;
   font-weight: 700;
   line-height: 1;
 }
 
-.settings-student-avatar-input {
+.settings-student-avatar-input,
+.settings-mentor-avatar-input {
   display: none;
 }
 
-.settings-student-avatar-camera {
+.settings-student-avatar-camera,
+.settings-mentor-avatar-camera {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -393,7 +403,8 @@
   filter: drop-shadow(0 12px 18px rgba(15, 23, 42, 0.18));
 }
 
-.settings-student-main {
+.settings-student-main,
+.settings-mentor-main {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -402,7 +413,8 @@
   align-items: center;
 }
 
-.settings-student-name {
+.settings-student-name,
+.settings-mentor-name {
   font-size: 40px;
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -413,7 +425,8 @@
   text-overflow: ellipsis;
 }
 
-.settings-student-subtitle {
+.settings-student-subtitle,
+.settings-mentor-subtitle {
   font-size: 15px;
   color: #6b7280;
   white-space: nowrap;
@@ -421,7 +434,8 @@
   text-overflow: ellipsis;
 }
 
-.settings-student-metrics {
+.settings-student-metrics,
+.settings-mentor-metrics {
   border-left: 1px solid #eef2f7;
   padding-left: 20px;
   display: flex;
@@ -429,22 +443,26 @@
   justify-content: center;
 }
 
-.settings-student-metric {
+.settings-student-metric,
+.settings-mentor-metric {
   padding: 14px 0;
 }
 
-.settings-student-metric + .settings-student-metric {
+.settings-student-metric + .settings-student-metric,
+.settings-mentor-metric + .settings-mentor-metric {
   border-top: 1px solid #eef2f7;
 }
 
-.settings-student-metric-label {
+.settings-student-metric-label,
+.settings-mentor-metric-label {
   font-size: 15px;
   font-weight: 500;
   color: #0f172a;
   letter-spacing: -0.01em;
 }
 
-.settings-student-metric-value {
+.settings-student-metric-value,
+.settings-mentor-metric-value {
   margin-top: 6px;
   display: inline-flex;
   align-items: baseline;
@@ -455,38 +473,45 @@
   color: #0f172a;
 }
 
-.settings-student-metric-unit {
+.settings-student-metric-unit,
+.settings-mentor-metric-unit {
   font-size: 14px;
   font-weight: 400;
   color: #0f172a;
 }
 
 @media (max-width: 900px) {
-  .settings-student-card {
+  .settings-student-card,
+  .settings-mentor-card {
     grid-template-columns: 1fr;
     padding: 22px 20px;
     gap: 18px;
   }
 
-  .settings-student-avatar-wrap {
+  .settings-student-avatar-wrap,
+  .settings-mentor-avatar-wrap {
     width: 120px;
     height: 120px;
     flex-basis: 120px;
   }
 
-  .settings-student-avatar-camera {
+  .settings-student-avatar-camera,
+  .settings-mentor-avatar-camera {
     transform: translate(-50%, -50%) rotate(48deg) translateX(60px) rotate(-48deg);
   }
 
-  .settings-student-avatar-initial {
+  .settings-student-avatar-initial,
+  .settings-mentor-avatar-initial {
     font-size: 48px;
   }
 
-  .settings-student-name {
+  .settings-student-name,
+  .settings-mentor-name {
     font-size: 34px;
   }
 
-  .settings-student-metrics {
+  .settings-student-metrics,
+  .settings-mentor-metrics {
     border-left: none;
     padding-left: 0;
     border-top: 1px solid #eef2f7;
