@@ -512,9 +512,12 @@ function AccountSettingsPage({ mode = 'student' }) {
                     <div className="settings-student-card-left">
                       <div className="settings-student-avatar-wrap" aria-hidden="true">
                         <img className="settings-student-avatar" src={defaultAvatar} alt="" />
-                        <span className="settings-student-avatar-badge">
-                          <FiShield size={18} />
-                        </span>
+                        <svg className="settings-student-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                          <circle cx="12" cy="12" r="12" fill="currentColor" />
+                          <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
+                        </svg>
                       </div>
                       <div className="settings-student-main">
                         <div className="settings-student-name">{studentIdValue}</div>
