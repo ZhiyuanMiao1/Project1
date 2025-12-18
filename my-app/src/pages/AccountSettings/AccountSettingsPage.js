@@ -5,6 +5,7 @@ import {
   FiBookOpen,
   FiCreditCard,
   FiGlobe,
+  FiMessageSquare,
   FiShield,
   FiUser,
 } from 'react-icons/fi';
@@ -651,6 +652,18 @@ function AccountSettingsPage({ mode = 'student' }) {
                       </div>
                     </div>
                   </section>
+
+                  <div className="settings-student-reviews">
+                    <div className="settings-student-reviews-divider" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="settings-student-reviews-button"
+                      onClick={() => showToast('功能开发中', 'success')}
+                    >
+                      <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} />
+                      <span>我撰写的评价</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
