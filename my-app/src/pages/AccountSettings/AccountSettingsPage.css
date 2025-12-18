@@ -339,13 +339,46 @@
   height: 140px;
 }
 
-.settings-student-avatar {
+.settings-student-avatar-btn {
   width: 100%;
   height: 100%;
   border-radius: 50%;
+  border: 0;
+  padding: 0;
+  background: #0f172a;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.settings-student-avatar-btn:hover {
+  filter: brightness(0.98);
+}
+
+.settings-student-avatar-btn:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 4px;
+}
+
+.settings-student-avatar-img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   display: block;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+.settings-student-avatar-initial {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.settings-student-avatar-input {
+  display: none;
 }
 
 .settings-student-avatar-camera {
@@ -443,6 +476,10 @@
 
   .settings-student-avatar-camera {
     transform: translate(-50%, -50%) rotate(48deg) translateX(60px) rotate(-48deg);
+  }
+
+  .settings-student-avatar-initial {
+    font-size: 48px;
   }
 
   .settings-student-name {

@@ -13,7 +13,6 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
-import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -59,11 +58,13 @@ function AccountSettingsPage({ mode = 'student' }) {
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
   const toastTimerRef = useRef(null);
+  const studentAvatarInputRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [studentAvatarUrl, setStudentAvatarUrl] = useState(null);
   const [accountProfile, setAccountProfile] = useState(() => {
     try {
       const raw = localStorage.getItem('authUser');
@@ -169,6 +170,37 @@ function AccountSettingsPage({ mode = 'student' }) {
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
+  const studentAvatarInitial = (() => {
+    const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
+    return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
+  })();
+
+  const onPickStudentAvatar = () => {
+    if (studentAvatarInputRef.current) studentAvatarInputRef.current.click();
+  };
+
+  const onStudentAvatarChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('请选择图片文件');
+      try { e.target.value = ''; } catch {}
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(file);
+    setStudentAvatarUrl((prev) => {
+      try { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); } catch {}
+      return nextUrl;
+    });
+
+    try { e.target.value = ''; } catch {}
+  };
+
+  useEffect(() => () => {
+    try { if (studentAvatarUrl && studentAvatarUrl.startsWith('blob:')) URL.revokeObjectURL(studentAvatarUrl); } catch {}
+  }, [studentAvatarUrl]);
 
   const DEGREE_OPTIONS = useMemo(() => ([
     { value: '本科', label: '本科' },
@@ -510,14 +542,32 @@ function AccountSettingsPage({ mode = 'student' }) {
                 <div className="settings-data-section" aria-label="学生数据">
                   <section className="settings-student-card" aria-label="学生数据概览">
                     <div className="settings-student-card-left">
-                      <div className="settings-student-avatar-wrap" aria-hidden="true">
-                        <img className="settings-student-avatar" src={defaultAvatar} alt="" />
+                      <div className="settings-student-avatar-wrap">
+                        <button
+                          type="button"
+                          className={`settings-student-avatar-btn ${studentAvatarUrl ? 'has-avatar' : ''}`}
+                          aria-label="更换头像"
+                          onClick={onPickStudentAvatar}
+                        >
+                          {studentAvatarUrl ? (
+                            <img className="settings-student-avatar-img" src={studentAvatarUrl} alt="" />
+                          ) : (
+                            <span className="settings-student-avatar-initial" aria-hidden="true">{studentAvatarInitial}</span>
+                          )}
+                        </button>
                         <svg className="settings-student-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                           <circle cx="12" cy="12" r="12" fill="currentColor" />
                           <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                           <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
                         </svg>
+                        <input
+                          ref={studentAvatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="settings-student-avatar-input"
+                          onChange={onStudentAvatarChange}
+                        />
                       </div>
                       <div className="settings-student-main">
                         <div className="settings-student-name">{studentIdValue}</div>
