@@ -234,8 +234,8 @@
 }
 
 .settings-password-input:focus {
-  outline: 2px solid rgba(17, 24, 39, 0.25);
-  outline-offset: 2px;
+  outline: none;
+  border-color: #0f172a;
 }
 
 .settings-inline-error {
