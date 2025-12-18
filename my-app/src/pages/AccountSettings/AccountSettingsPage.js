@@ -13,6 +13,7 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
+import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -202,11 +203,6 @@ function AccountSettingsPage({ mode = 'student' }) {
     const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
     return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
   })();
-  const mentorAvatarInitial = (() => {
-    const raw = typeof accountProfile.mentorId === 'string' ? accountProfile.mentorId.trim() : '';
-    return (raw ? raw.slice(0, 1) : 'M').toUpperCase();
-  })();
-
   const onPickStudentAvatar = () => {
     if (studentAvatarInputRef.current) studentAvatarInputRef.current.click();
   };
@@ -672,7 +668,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                           {mentorAvatarUrl ? (
                             <img className="settings-mentor-avatar-img" src={mentorAvatarUrl} alt="" />
                           ) : (
-                            <span className="settings-mentor-avatar-initial" aria-hidden="true">{mentorAvatarInitial}</span>
+                            <img className="settings-mentor-avatar-img" src={defaultAvatar} alt="" />
                           )}
                         </button>
                         <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
