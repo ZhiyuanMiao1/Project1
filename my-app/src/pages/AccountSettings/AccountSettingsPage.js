@@ -57,6 +57,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -90,6 +91,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [confirmPasswordDraft, setConfirmPasswordDraft] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
 
@@ -105,6 +107,13 @@ function AccountSettingsPage({ mode = 'student' }) {
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
+  useEffect(() => () => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoggedIn) {
       setIdsStatus('idle');
@@ -114,6 +123,11 @@ function AccountSettingsPage({ mode = 'student' }) {
       setConfirmPasswordDraft('');
       setSavingPassword(false);
       setPasswordError('');
+      setToast(null);
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
       return;
     }
 
@@ -263,6 +277,13 @@ function AccountSettingsPage({ mode = 'student' }) {
     }
   };
 
+  const showToast = (message, kind = 'success') => {
+    const id = Date.now();
+    setToast({ id, kind, message });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2600);
+  };
+
   const startPasswordEdit = () => {
     if (!isLoggedIn) {
       setPasswordError('请先登录');
@@ -304,7 +325,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     try {
       await api.put('/api/account/password', { newPassword, confirmPassword });
       cancelPasswordEdit();
-      alert('密码修改成功');
+      showToast('密码修改成功', 'success');
     } catch (e) {
       const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '修改失败，请稍后再试';
       setPasswordError(msg);
@@ -315,6 +336,16 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   return (
     <div className="settings-page">
+      {toast && (
+        <div
+          key={toast.id}
+          className={`settings-toast ${toast.kind === 'success' ? 'settings-toast--success' : 'settings-toast--error'}`}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.message}
+        </div>
+      )}
       <div className="container">
         <header className="settings-header">
           <BrandMark className="nav-logo-text" to={homeHref} />
