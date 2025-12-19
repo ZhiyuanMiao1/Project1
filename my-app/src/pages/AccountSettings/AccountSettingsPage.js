@@ -99,6 +99,8 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [confirmPasswordDraft, setConfirmPasswordDraft] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false);
+  const [savingEmailNotifications, setSavingEmailNotifications] = useState(false);
   const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
@@ -131,6 +133,8 @@ function AccountSettingsPage({ mode = 'student' }) {
       setConfirmPasswordDraft('');
       setSavingPassword(false);
       setPasswordError('');
+      setEmailNotificationsEnabled(false);
+      setSavingEmailNotifications(false);
       setToast(null);
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -158,6 +162,9 @@ function AccountSettingsPage({ mode = 'student' }) {
         setIdsStatus('loaded');
         setDegreeDraft(typeof data.degree === 'string' ? data.degree : '');
         setSchoolDraft(typeof data.school === 'string' ? data.school : '');
+        setEmailNotificationsEnabled(
+          typeof data.emailNotificationsEnabled === 'boolean' ? data.emailNotificationsEnabled : false
+        );
       })
       .catch(() => {
         if (!alive) return;
@@ -178,6 +185,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
+  const emailNotificationsDisabled = !isLoggedIn || idsStatus === 'loading' || savingEmailNotifications;
 
   const joinedMentorXDays = useMemo(() => {
     const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;
@@ -371,6 +379,27 @@ function AccountSettingsPage({ mode = 'student' }) {
     setToast({ id, kind, message });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2600);
+  };
+
+  const toggleEmailNotifications = async () => {
+    if (savingEmailNotifications) return;
+    if (!isLoggedIn) {
+      showToast('请先登录', 'error');
+      return;
+    }
+
+    const nextValue = !emailNotificationsEnabled;
+    setEmailNotificationsEnabled(nextValue);
+    setSavingEmailNotifications(true);
+    try {
+      await api.put('/api/account/notifications', { emailNotificationsEnabled: nextValue });
+    } catch (e) {
+      setEmailNotificationsEnabled(!nextValue);
+      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      showToast(msg, 'error');
+    } finally {
+      setSavingEmailNotifications(false);
+    }
   };
 
   const startPasswordEdit = () => {
@@ -793,31 +822,16 @@ function AccountSettingsPage({ mode = 'student' }) {
                 <>
                   <div className="settings-row">
                     <div className="settings-row-main">
-                      <div className="settings-row-title">站内消息</div>
-                      <div className="settings-row-value">预约、提醒与系统通知</div>
-                    </div>
-                    <label className="settings-switch">
-                      <input type="checkbox" defaultChecked />
-                      <span className="settings-switch-track" aria-hidden="true" />
-                    </label>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
                       <div className="settings-row-title">邮件通知</div>
                       <div className="settings-row-value">重要更新与课程提醒</div>
                     </div>
                     <label className="settings-switch">
-                      <input type="checkbox" />
-                      <span className="settings-switch-track" aria-hidden="true" />
-                    </label>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">推送通知</div>
-                      <div className="settings-row-value">移动端推送提醒</div>
-                    </div>
-                    <label className="settings-switch">
-                      <input type="checkbox" defaultChecked />
+                      <input
+                        type="checkbox"
+                        checked={emailNotificationsEnabled}
+                        onChange={toggleEmailNotifications}
+                        disabled={emailNotificationsDisabled}
+                      />
                       <span className="settings-switch-track" aria-hidden="true" />
                     </label>
                   </div>

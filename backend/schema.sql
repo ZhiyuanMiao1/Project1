@@ -19,8 +19,14 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `uniq_users_public_id` (`public_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
-
+-- Account-level settings shared across roles
+CREATE TABLE IF NOT EXISTS `account_settings` (
+  `email` VARCHAR(255) NOT NULL,
+  `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 -- 2) Role counters table used to allocate next serial per role

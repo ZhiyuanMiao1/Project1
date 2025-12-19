@@ -24,6 +24,10 @@ type MentorProfileRow = {
   updated_at?: Date | string | null;
 };
 
+type AccountSettingsRow = {
+  email_notifications: number | null;
+};
+
 const router = Router();
 
 router.get('/ids', requireAuth, async (req: Request, res: Response) => {
@@ -36,6 +40,21 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     );
     const email = currentRows[0]?.email;
     if (!email) return res.status(401).json({ error: '登录状态异常，请重新登录' });
+
+    const settingsRows = await dbQuery<AccountSettingsRow[]>(
+      'SELECT email_notifications FROM account_settings WHERE email = ? LIMIT 1',
+      [email]
+    );
+    let emailNotificationsEnabled = false;
+    if (settingsRows.length === 0) {
+      await dbQuery(
+        'INSERT IGNORE INTO account_settings (email, email_notifications) VALUES (?, ?)',
+        [email, 1]
+      );
+      emailNotificationsEnabled = true;
+    } else {
+      emailNotificationsEnabled = !!settingsRows[0]?.email_notifications;
+    }
 
     const rows = await dbQuery<PublicIdRow[]>(
       "SELECT id, role, public_id, created_at FROM users WHERE email = ? AND role IN ('student','mentor')",
@@ -96,7 +115,16 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({ email, studentId, mentorId, degree, school, studentCreatedAt, mentorCreatedAt });
+    return res.json({
+      email,
+      studentId,
+      mentorId,
+      degree,
+      school,
+      studentCreatedAt,
+      mentorCreatedAt,
+      emailNotificationsEnabled,
+    });
   } catch (e) {
     console.error('Account ids error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
@@ -184,6 +212,47 @@ router.put(
       return res.json({ message: '保存成功' });
     } catch (e) {
       console.error('Account profile save error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
+
+router.put(
+  '/notifications',
+  requireAuth,
+  [
+    body('emailNotificationsEnabled').isBoolean().withMessage('邮件通知设置无效'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: '未授权' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { emailNotificationsEnabled } = req.body as { emailNotificationsEnabled: boolean };
+
+    try {
+      const currentRows = await dbQuery<CurrentUserRow[]>(
+        'SELECT email FROM users WHERE id = ? LIMIT 1',
+        [req.user.id]
+      );
+      const email = currentRows[0]?.email;
+      if (!email) return res.status(401).json({ error: '登录状态异常，请重新登录' });
+
+      await dbQuery(
+        `INSERT INTO account_settings (email, email_notifications)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE
+           email_notifications = VALUES(email_notifications),
+           updated_at = CURRENT_TIMESTAMP`,
+        [email, emailNotificationsEnabled ? 1 : 0]
+      );
+
+      return res.json({ message: '保存成功', emailNotificationsEnabled });
+    } catch (e) {
+      console.error('Account notifications update error:', e);
       return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
   }
