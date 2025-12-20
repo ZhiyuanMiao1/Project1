@@ -3,6 +3,7 @@ import {
   FiAward,
   FiBell,
   FiBookOpen,
+  FiChevronDown,
   FiCreditCard,
   FiGlobe,
   FiMessageSquare,
@@ -55,6 +56,71 @@ const SETTINGS_SECTIONS = [
   },
 ];
 
+const MOCK_PAYMENT_ORDERS = [
+  { id: 'pay-2025-12-18-01', item: '导师咨询（60分钟）', amount: 199, status: '已支付', time: '2025/12/18 20:10' },
+  { id: 'pay-2025-12-10-02', item: '课程：数据结构与算法', amount: 299, status: '已支付', time: '2025/12/10 14:32' },
+  { id: 'pay-2025-11-26-03', item: '课程：期末复习', amount: 149, status: '已退款', time: '2025/11/26 09:05' },
+];
+
+const MOCK_RECEIPT_ORDERS = [
+  { id: 'rec-2025-12-16-01', item: '学生辅导（90分钟）', amount: 360, status: '已到账', time: '2025/12/16 21:40' },
+  { id: 'rec-2025-12-03-02', item: '学生辅导（60分钟）', amount: 240, status: '待结算', time: '2025/12/03 18:20' },
+];
+
+const cnyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  maximumFractionDigits: 2,
+});
+
+const formatCny = (value) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+  return cnyFormatter.format(value);
+};
+
+const getOrderStatusTone = (status) => {
+  if (status === '已支付' || status === '已到账' || status === '已完成') return 'success';
+  if (status === '待支付' || status === '待结算' || status === '处理中') return 'pending';
+  if (status === '已退款' || status === '已取消' || status === '已关闭') return 'muted';
+  return 'default';
+};
+
+function OrdersTable({ orders = [] }) {
+  return (
+    <div className="settings-orders-table-wrapper">
+      <table className="settings-orders-table">
+        <thead>
+          <tr>
+            <th scope="col">订单号</th>
+            <th scope="col">内容</th>
+            <th scope="col">金额</th>
+            <th scope="col">状态</th>
+            <th scope="col">时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => {
+            const tone = getOrderStatusTone(order.status);
+            return (
+              <tr key={order.id}>
+                <td className="settings-orders-id">{order.id}</td>
+                <td className="settings-orders-item">{order.item}</td>
+                <td className="settings-orders-amount">{formatCny(order.amount)}</td>
+                <td>
+                  <span className={`settings-order-status settings-order-status--${tone}`}>
+                    {order.status}
+                  </span>
+                </td>
+                <td className="settings-orders-time">{order.time}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -104,6 +170,8 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
+  const [paymentsExpanded, setPaymentsExpanded] = useState(false);
+  const [receiptsExpanded, setReceiptsExpanded] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -840,19 +908,66 @@ function AccountSettingsPage({ mode = 'student' }) {
 
               {activeSectionId === 'payments' && (
                 <>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">默认支付方式</div>
-                      <div className="settings-row-value">未设置</div>
+                  <div className="settings-accordion-item">
+                    <button
+                      type="button"
+                      className="settings-accordion-trigger"
+                      aria-expanded={paymentsExpanded}
+                      aria-controls="settings-payments-history"
+                      onClick={() => setPaymentsExpanded((prev) => !prev)}
+                    >
+                      <div className="settings-row-main">
+                        <div className="settings-row-title">付款</div>
+                        <div className="settings-row-value">
+                          {MOCK_PAYMENT_ORDERS.length ? `历史订单（${MOCK_PAYMENT_ORDERS.length}）` : '暂无历史订单'}
+                        </div>
+                      </div>
+                      <span className="settings-accordion-icon" aria-hidden="true">
+                        <FiChevronDown size={18} />
+                      </span>
+                    </button>
+                    <div
+                      id="settings-payments-history"
+                      className="settings-accordion-panel"
+                      hidden={!paymentsExpanded}
+                    >
+                      {MOCK_PAYMENT_ORDERS.length ? (
+                        <OrdersTable orders={MOCK_PAYMENT_ORDERS} />
+                      ) : (
+                        <div className="settings-orders-empty">暂无历史付款订单</div>
+                      )}
                     </div>
-                    <button type="button" className="settings-action">添加</button>
                   </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">账单信息</div>
-                      <div className="settings-row-value">发票抬头、地址等</div>
+
+                  <div className="settings-accordion-item">
+                    <button
+                      type="button"
+                      className="settings-accordion-trigger"
+                      aria-expanded={receiptsExpanded}
+                      aria-controls="settings-receipts-history"
+                      onClick={() => setReceiptsExpanded((prev) => !prev)}
+                    >
+                      <div className="settings-row-main">
+                        <div className="settings-row-title">收款</div>
+                        <div className="settings-row-value">
+                          {MOCK_RECEIPT_ORDERS.length ? `历史订单（${MOCK_RECEIPT_ORDERS.length}）` : '暂无历史订单'}
+                        </div>
+                      </div>
+                      <span className="settings-accordion-icon" aria-hidden="true">
+                        <FiChevronDown size={18} />
+                      </span>
+                    </button>
+                    <div
+                      id="settings-receipts-history"
+                      className="settings-accordion-panel"
+                      hidden={!receiptsExpanded}
+                    >
+                      {MOCK_RECEIPT_ORDERS.length ? (
+                        <OrdersTable orders={MOCK_RECEIPT_ORDERS} />
+                      ) : (
+                        <div className="settings-orders-empty">暂无历史收款订单</div>
+                      )}
                     </div>
-                    <button type="button" className="settings-action">查看</button>
                   </div>
                 </>
               )}
