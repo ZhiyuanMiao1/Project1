@@ -106,7 +106,7 @@
   width: 64px; height: 64px; border-radius: 999px; background: #0f172a; color: #fff;
   display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
 }
-.student-preview-card .name { font-size: 20px; font-weight: 800; color: #111827; }
+.student-preview-card .name { font-size: 20px; font-weight: 600; color: #111827; }
 .student-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
 .student-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
 .student-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }

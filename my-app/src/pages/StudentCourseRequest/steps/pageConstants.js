@@ -51,7 +51,7 @@ const MOCK_LEVELS = ['本科', '硕士', '博士'];
 export const generateMockStudentProfile = () => {
   const id = Math.floor(10 + Math.random() * 90);
   return {
-    name: `Student${id}`,
+    name: `S${id}`,
     level: pickOne(MOCK_LEVELS),
     school: pickOne(MOCK_SCHOOLS),
   };
