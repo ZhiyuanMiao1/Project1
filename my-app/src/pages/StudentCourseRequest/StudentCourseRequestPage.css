@@ -107,8 +107,8 @@
   display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
 }
 .student-preview-card .name { font-size: 20px; font-weight: 600; color: #111827; }
-.student-preview-card .chips { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
-.student-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; }
+.student-preview-card .chips { margin-top: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.student-preview-card .chip { font-size: 12px; padding: 2px 8px; border-radius: 8px; display: inline-flex; align-items: center; line-height: 1; }
 .student-preview-card .chip.green { background: #e7f7ec; color: #137a3a; }
 .student-preview-card .chip.gray { background: #eef2f7; color: #475569; }
 .student-preview-card .card-list { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
