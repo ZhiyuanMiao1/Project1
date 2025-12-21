@@ -56,10 +56,10 @@ const SETTINGS_SECTIONS = [
   },
 ];
 
-const MOCK_PAYMENT_ORDERS = [
-  { id: 'topup-2025-12-18-01', type: '充值', detail: '支付宝', amount: 200, status: '成功', time: '2025/12/18 20:10' },
-  { id: 'topup-2025-12-10-02', type: '充值', detail: '微信支付', amount: 300, status: '成功', time: '2025/12/10 14:32' },
-  { id: 'topup-2025-11-26-03', type: '充值', detail: '银行卡', amount: 150, status: '已退款', time: '2025/11/26 09:05' },
+const MOCK_RECHARGE_RECORDS = [
+  { id: 'topup-2025-12-18-01', timeZone: 'UTC+08:00', time: '2025/12/18 20:10', amount: 200, courseHours: 2 },
+  { id: 'topup-2025-12-10-02', timeZone: 'UTC+08:00', time: '2025/12/10 14:32', amount: 300, courseHours: 3 },
+  { id: 'topup-2025-11-26-03', timeZone: 'UTC+08:00', time: '2025/11/26 09:05', amount: 150, courseHours: 1.5 },
 ];
 
 const MOCK_RECEIPT_ORDERS = [
@@ -78,6 +78,12 @@ const formatCny = (value) => {
   return cnyFormatter.format(value);
 };
 
+const formatCourseHours = (value) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
+  const normalized = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+  return normalized;
+};
+
 const getOrderStatusTone = (status) => {
   if (status === '已支付' || status === '已到账' || status === '已完成') return 'success';
   if (status === '成功') return 'success';
@@ -87,6 +93,33 @@ const getOrderStatusTone = (status) => {
   if (status === '已退款' || status === '已取消' || status === '已关闭') return 'muted';
   return 'default';
 };
+
+function RechargeTable({ records = [] }) {
+  return (
+    <div className="settings-orders-table-wrapper">
+      <table className="settings-orders-table">
+        <thead>
+          <tr>
+            <th scope="col">时区</th>
+            <th scope="col">时间</th>
+            <th scope="col">金额</th>
+            <th scope="col">获得课时</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((record) => (
+            <tr key={record.id}>
+              <td className="settings-recharge-timezone">{record.timeZone}</td>
+              <td className="settings-orders-time">{record.time}</td>
+              <td className="settings-orders-amount">{formatCny(record.amount)}</td>
+              <td className="settings-recharge-hours">{formatCourseHours(record.courseHours)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function OrdersTable({ orders = [] }) {
   return (
@@ -922,7 +955,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       <div className="settings-row-main">
                       <div className="settings-row-title">付款</div>
                       <div className="settings-row-value">
-                          {MOCK_PAYMENT_ORDERS.length ? `充值记录（${MOCK_PAYMENT_ORDERS.length}）` : '暂无记录'}
+                          {MOCK_RECHARGE_RECORDS.length ? `充值记录（${MOCK_RECHARGE_RECORDS.length}）` : '暂无记录'}
                         </div>
                       </div>
                       <span className="settings-accordion-icon" aria-hidden="true">
@@ -934,8 +967,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                       className="settings-accordion-panel"
                       hidden={!paymentsExpanded}
                     >
-                      {MOCK_PAYMENT_ORDERS.length ? (
-                        <OrdersTable orders={MOCK_PAYMENT_ORDERS} />
+                      {MOCK_RECHARGE_RECORDS.length ? (
+                        <RechargeTable records={MOCK_RECHARGE_RECORDS} />
                       ) : (
                         <div className="settings-orders-empty">暂无充值记录</div>
                       )}

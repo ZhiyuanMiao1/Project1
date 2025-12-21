@@ -281,6 +281,18 @@
   font-size: 13px;
 }
 
+.settings-recharge-timezone {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.settings-recharge-hours {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #111827;
+}
+
 .settings-order-status {
   display: inline-flex;
   align-items: center;
