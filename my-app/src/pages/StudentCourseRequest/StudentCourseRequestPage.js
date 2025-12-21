@@ -4,6 +4,7 @@ import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
 import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
+import { fetchAccountProfile } from '../../api/account';
 import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
 import UploadStep from './steps/UploadStep';
@@ -58,6 +59,25 @@ const QUARTER_HOUR_MS = 15 * 60 * 1000;
 
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+  });
+  const [accountProfileStatus, setAccountProfileStatus] = useState('idle'); // idle | loading | loaded | error
+  const [accountProfile, setAccountProfile] = useState(() => {
+    try {
+      const raw = localStorage.getItem('authUser');
+      const user = raw ? JSON.parse(raw) : {};
+      const role = user?.role;
+      const publicId = user?.public_id;
+      return {
+        studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
+        degree: '',
+        school: '',
+      };
+    } catch {
+      return { studentId: '', degree: '', school: '' };
+    }
+  });
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -71,6 +91,46 @@ function StudentCourseRequestPage() {
 
   // Stable mock profile for preview (when student info is missing)
   const mockStudent = useMemo(() => generateMockStudentProfile(), []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (typeof e?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(!!e.detail.isLoggedIn);
+      } else {
+        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+      }
+    };
+    window.addEventListener('auth:changed', handler);
+    return () => window.removeEventListener('auth:changed', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setAccountProfileStatus('idle');
+      setAccountProfile({ studentId: '', degree: '', school: '' });
+      return;
+    }
+
+    let alive = true;
+    setAccountProfileStatus('loading');
+    fetchAccountProfile()
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data || {};
+        setAccountProfile({
+          studentId: typeof data.studentId === 'string' ? data.studentId : '',
+          degree: typeof data.degree === 'string' ? data.degree : '',
+          school: typeof data.school === 'string' ? data.school : '',
+        });
+        setAccountProfileStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setAccountProfileStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
 
   // ----- Schedule step local states -----
   const [selectedDate, setSelectedDate] = useState(() => toNoonDate(buildDateFromTimeZoneNow(DEFAULT_TIME_ZONE)));
@@ -504,9 +564,18 @@ function StudentCourseRequestPage() {
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
   // ---- Data for contact-step preview card ----
-  const previewName = formData.contactName?.trim() || mockStudent.name;
-  const previewLevel = mockStudent.level;
-  const previewSchool = mockStudent.school;
+  const profileIsLoading = isLoggedIn && accountProfileStatus === 'loading';
+  const profileLoadFailed = isLoggedIn && accountProfileStatus === 'error';
+  const previewStudentId = isLoggedIn
+    ? (accountProfile.studentId || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未设置StudentID')))
+    : mockStudent.name;
+  const previewDegree = isLoggedIn
+    ? (accountProfile.degree || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未填写学历')))
+    : mockStudent.level;
+  const previewSchool = isLoggedIn
+    ? (accountProfile.school || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未填写学校')))
+    : mockStudent.school;
+  const previewAvatarInitial = (accountProfile.studentId || mockStudent.name || 'S').slice(0, 1).toUpperCase();
   const previewDirectionLabel = useMemo(() => {
     const found = DIRECTION_OPTIONS.find((o) => o.id === formData.courseDirection);
     return found?.label || formData.learningGoal || '未选择方向';
@@ -751,11 +820,11 @@ function StudentCourseRequestPage() {
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
-                    <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                    <div className="avatar" aria-hidden="true">{previewAvatarInitial}</div>
                     <div className="header-texts">
-                      <div className="name">{previewName}</div>
+                      <div className="name">{previewStudentId}</div>
                       <div className="chips">
-                        <span className="chip green">{previewLevel}</span>
+                        <span className="chip green">{previewDegree}</span>
                         <span className="chip gray">{previewSchool}</span>
                       </div>
                     </div>
@@ -875,11 +944,11 @@ function StudentCourseRequestPage() {
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
-                    <div className="avatar" aria-hidden="true">{previewName.slice(0,1).toUpperCase()}</div>
+                    <div className="avatar" aria-hidden="true">{previewAvatarInitial}</div>
                     <div className="header-texts">
-                      <div className="name">{previewName}</div>
+                      <div className="name">{previewStudentId}</div>
                       <div className="chips">
-                        <span className="chip green">{previewLevel}</span>
+                        <span className="chip green">{previewDegree}</span>
                         <span className="chip gray">{previewSchool}</span>
                       </div>
                     </div>
