@@ -57,14 +57,14 @@ const SETTINGS_SECTIONS = [
 ];
 
 const MOCK_PAYMENT_ORDERS = [
-  { id: 'pay-2025-12-18-01', item: '导师咨询（60分钟）', amount: 199, status: '已支付', time: '2025/12/18 20:10' },
-  { id: 'pay-2025-12-10-02', item: '课程：数据结构与算法', amount: 299, status: '已支付', time: '2025/12/10 14:32' },
-  { id: 'pay-2025-11-26-03', item: '课程：期末复习', amount: 149, status: '已退款', time: '2025/11/26 09:05' },
+  { id: 'topup-2025-12-18-01', type: '充值', detail: '支付宝', amount: 200, status: '成功', time: '2025/12/18 20:10' },
+  { id: 'topup-2025-12-10-02', type: '充值', detail: '微信支付', amount: 300, status: '成功', time: '2025/12/10 14:32' },
+  { id: 'topup-2025-11-26-03', type: '充值', detail: '银行卡', amount: 150, status: '已退款', time: '2025/11/26 09:05' },
 ];
 
 const MOCK_RECEIPT_ORDERS = [
-  { id: 'rec-2025-12-16-01', item: '学生辅导（90分钟）', amount: 360, status: '已到账', time: '2025/12/16 21:40' },
-  { id: 'rec-2025-12-03-02', item: '学生辅导（60分钟）', amount: 240, status: '待结算', time: '2025/12/03 18:20' },
+  { id: 'income-2025-12-16-01', type: '结算', detail: '辅导收入', amount: 360, status: '已到账', time: '2025/12/16 21:40' },
+  { id: 'income-2025-12-03-02', type: '结算', detail: '辅导收入', amount: 240, status: '待结算', time: '2025/12/03 18:20' },
 ];
 
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
@@ -80,7 +80,10 @@ const formatCny = (value) => {
 
 const getOrderStatusTone = (status) => {
   if (status === '已支付' || status === '已到账' || status === '已完成') return 'success';
+  if (status === '成功') return 'success';
   if (status === '待支付' || status === '待结算' || status === '处理中') return 'pending';
+  if (status === '待入账') return 'pending';
+  if (status === '失败') return 'muted';
   if (status === '已退款' || status === '已取消' || status === '已关闭') return 'muted';
   return 'default';
 };
@@ -91,8 +94,8 @@ function OrdersTable({ orders = [] }) {
       <table className="settings-orders-table">
         <thead>
           <tr>
-            <th scope="col">订单号</th>
-            <th scope="col">内容</th>
+            <th scope="col">类型</th>
+            <th scope="col">说明</th>
             <th scope="col">金额</th>
             <th scope="col">状态</th>
             <th scope="col">时间</th>
@@ -103,8 +106,8 @@ function OrdersTable({ orders = [] }) {
             const tone = getOrderStatusTone(order.status);
             return (
               <tr key={order.id}>
-                <td className="settings-orders-id">{order.id}</td>
-                <td className="settings-orders-item">{order.item}</td>
+                <td className="settings-orders-type">{order.type}</td>
+                <td className="settings-orders-detail">{order.detail}</td>
                 <td className="settings-orders-amount">{formatCny(order.amount)}</td>
                 <td>
                   <span className={`settings-order-status settings-order-status--${tone}`}>
@@ -917,9 +920,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                       onClick={() => setPaymentsExpanded((prev) => !prev)}
                     >
                       <div className="settings-row-main">
-                        <div className="settings-row-title">付款</div>
-                        <div className="settings-row-value">
-                          {MOCK_PAYMENT_ORDERS.length ? `历史订单（${MOCK_PAYMENT_ORDERS.length}）` : '暂无历史订单'}
+                      <div className="settings-row-title">付款</div>
+                      <div className="settings-row-value">
+                          {MOCK_PAYMENT_ORDERS.length ? `充值记录（${MOCK_PAYMENT_ORDERS.length}）` : '暂无记录'}
                         </div>
                       </div>
                       <span className="settings-accordion-icon" aria-hidden="true">
@@ -934,7 +937,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       {MOCK_PAYMENT_ORDERS.length ? (
                         <OrdersTable orders={MOCK_PAYMENT_ORDERS} />
                       ) : (
-                        <div className="settings-orders-empty">暂无历史付款订单</div>
+                        <div className="settings-orders-empty">暂无充值记录</div>
                       )}
                     </div>
                   </div>
@@ -948,9 +951,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                       onClick={() => setReceiptsExpanded((prev) => !prev)}
                     >
                       <div className="settings-row-main">
-                        <div className="settings-row-title">收款</div>
-                        <div className="settings-row-value">
-                          {MOCK_RECEIPT_ORDERS.length ? `历史订单（${MOCK_RECEIPT_ORDERS.length}）` : '暂无历史订单'}
+                      <div className="settings-row-title">收款</div>
+                      <div className="settings-row-value">
+                          {MOCK_RECEIPT_ORDERS.length ? `入账记录（${MOCK_RECEIPT_ORDERS.length}）` : '暂无记录'}
                         </div>
                       </div>
                       <span className="settings-accordion-icon" aria-hidden="true">
@@ -965,7 +968,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       {MOCK_RECEIPT_ORDERS.length ? (
                         <OrdersTable orders={MOCK_RECEIPT_ORDERS} />
                       ) : (
-                        <div className="settings-orders-empty">暂无历史收款订单</div>
+                        <div className="settings-orders-empty">暂无入账记录</div>
                       )}
                     </div>
                   </div>

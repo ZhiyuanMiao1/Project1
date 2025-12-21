@@ -232,7 +232,7 @@
 
 .settings-orders-table {
   width: 100%;
-  min-width: 560px;
+  min-width: 520px;
   border-collapse: collapse;
   font-size: 14px;
   line-height: 1.5;
@@ -260,15 +260,14 @@
   border-bottom: none;
 }
 
-.settings-orders-id {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
-  color: #111827;
+.settings-orders-type {
   white-space: nowrap;
+  font-weight: 600;
+  color: #111827;
 }
 
-.settings-orders-item {
-  min-width: 180px;
+.settings-orders-detail {
+  min-width: 160px;
 }
 
 .settings-orders-amount {
@@ -984,6 +983,6 @@
   }
 
   .settings-orders-table {
-    min-width: 520px;
+    min-width: 480px;
   }
 }
