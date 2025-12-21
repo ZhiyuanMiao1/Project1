@@ -232,7 +232,7 @@
 
 .settings-orders-table {
   width: 100%;
-  min-width: 520px;
+  min-width: 480px;
   border-collapse: collapse;
   font-size: 14px;
   line-height: 1.5;
@@ -260,16 +260,6 @@
   border-bottom: none;
 }
 
-.settings-orders-type {
-  white-space: nowrap;
-  font-weight: 600;
-  color: #111827;
-}
-
-.settings-orders-detail {
-  min-width: 160px;
-}
-
 .settings-orders-amount {
   white-space: nowrap;
   font-weight: 600;
@@ -291,41 +281,6 @@
   white-space: nowrap;
   font-weight: 600;
   color: #111827;
-}
-
-.settings-order-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 2px 10px;
-  border: 1px solid transparent;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.settings-order-status--success {
-  color: #16a34a;
-  background: rgba(22, 163, 74, 0.10);
-  border-color: rgba(22, 163, 74, 0.25);
-}
-
-.settings-order-status--pending {
-  color: #d97706;
-  background: rgba(217, 119, 6, 0.10);
-  border-color: rgba(217, 119, 6, 0.25);
-}
-
-.settings-order-status--muted,
-.settings-order-status--default {
-  color: #6b7280;
-  background: rgba(107, 114, 128, 0.10);
-  border-color: rgba(107, 114, 128, 0.25);
-}
-
-.settings-order-status--default {
-  font-weight: 500;
 }
 
 .settings-row--overlay {
@@ -995,6 +950,6 @@
   }
 
   .settings-orders-table {
-    min-width: 480px;
+    min-width: 420px;
   }
 }

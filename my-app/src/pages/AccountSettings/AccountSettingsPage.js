@@ -62,9 +62,9 @@ const MOCK_RECHARGE_RECORDS = [
   { id: 'topup-2025-11-26-03', timeZone: 'UTC+08:00', time: '2025/11/26 09:05', amount: 150, courseHours: 1.5 },
 ];
 
-const MOCK_RECEIPT_ORDERS = [
-  { id: 'income-2025-12-16-01', type: '结算', detail: '辅导收入', amount: 360, status: '已到账', time: '2025/12/16 21:40' },
-  { id: 'income-2025-12-03-02', type: '结算', detail: '辅导收入', amount: 240, status: '待结算', time: '2025/12/03 18:20' },
+const MOCK_INCOME_RECORDS = [
+  { id: 'income-2025-12-16-01', timeZone: 'UTC+08:00', time: '2025/12/16 21:40', amount: 360, teachingHours: 1.5 },
+  { id: 'income-2025-12-03-02', timeZone: 'UTC+08:00', time: '2025/12/03 18:20', amount: 240, teachingHours: 1 },
 ];
 
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
@@ -82,16 +82,6 @@ const formatCourseHours = (value) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
   const normalized = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
   return normalized;
-};
-
-const getOrderStatusTone = (status) => {
-  if (status === '已支付' || status === '已到账' || status === '已完成') return 'success';
-  if (status === '成功') return 'success';
-  if (status === '待支付' || status === '待结算' || status === '处理中') return 'pending';
-  if (status === '待入账') return 'pending';
-  if (status === '失败') return 'muted';
-  if (status === '已退款' || status === '已取消' || status === '已关闭') return 'muted';
-  return 'default';
 };
 
 function RechargeTable({ records = [] }) {
@@ -121,36 +111,27 @@ function RechargeTable({ records = [] }) {
   );
 }
 
-function OrdersTable({ orders = [] }) {
+function IncomeTable({ records = [] }) {
   return (
     <div className="settings-orders-table-wrapper">
       <table className="settings-orders-table">
         <thead>
           <tr>
-            <th scope="col">类型</th>
-            <th scope="col">说明</th>
-            <th scope="col">金额</th>
-            <th scope="col">状态</th>
+            <th scope="col">时区</th>
             <th scope="col">时间</th>
+            <th scope="col">金额</th>
+            <th scope="col">授课时长</th>
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => {
-            const tone = getOrderStatusTone(order.status);
-            return (
-              <tr key={order.id}>
-                <td className="settings-orders-type">{order.type}</td>
-                <td className="settings-orders-detail">{order.detail}</td>
-                <td className="settings-orders-amount">{formatCny(order.amount)}</td>
-                <td>
-                  <span className={`settings-order-status settings-order-status--${tone}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td className="settings-orders-time">{order.time}</td>
-              </tr>
-            );
-          })}
+          {records.map((record) => (
+            <tr key={record.id}>
+              <td className="settings-recharge-timezone">{record.timeZone}</td>
+              <td className="settings-orders-time">{record.time}</td>
+              <td className="settings-orders-amount">{formatCny(record.amount)}</td>
+              <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
@@ -986,7 +967,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                       <div className="settings-row-main">
                       <div className="settings-row-title">收款</div>
                       <div className="settings-row-value">
-                          {MOCK_RECEIPT_ORDERS.length ? `入账记录（${MOCK_RECEIPT_ORDERS.length}）` : '暂无记录'}
+                          {MOCK_INCOME_RECORDS.length ? `入账记录（${MOCK_INCOME_RECORDS.length}）` : '暂无记录'}
                         </div>
                       </div>
                       <span className="settings-accordion-icon" aria-hidden="true">
@@ -998,8 +979,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                       className="settings-accordion-panel"
                       hidden={!receiptsExpanded}
                     >
-                      {MOCK_RECEIPT_ORDERS.length ? (
-                        <OrdersTable orders={MOCK_RECEIPT_ORDERS} />
+                      {MOCK_INCOME_RECORDS.length ? (
+                        <IncomeTable records={MOCK_INCOME_RECORDS} />
                       ) : (
                         <div className="settings-orders-empty">暂无入账记录</div>
                       )}
