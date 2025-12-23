@@ -804,12 +804,12 @@
 .settings-written-review-stars {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .settings-written-review-star {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
