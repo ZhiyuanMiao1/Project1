@@ -92,8 +92,8 @@ const MOCK_INCOME_RECORDS = [
 ];
 
 const MOCK_WRITTEN_REVIEWS = [
-  { id: 'review-2025-12-12-01', target: '导师 Alex', rating: 5, content: '讲解清晰，反馈及时。', time: '2025/12/12 20:10' },
-  { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
+  { id: 'review-2025-12-12-01', target: '导师 Alex', rating: 3.6, content: '讲解清晰，反馈及时。', time: '2025/12/12 20:10' },
+  { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4.4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
 ];
 
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
