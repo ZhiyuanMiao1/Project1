@@ -81,7 +81,7 @@
 
 .listing-rating {
   font-size: 14px;
-  color: #f39c12;
+  color: var(--mx-rating-yellow);
   margin: 8px 0;
   text-align: left; /* 左对齐 */
   display: flex;
@@ -91,7 +91,7 @@
 .rating-star {
   width: 16px;
   height: 16px;
-  fill: #f4b000;
+  fill: var(--mx-rating-yellow);
   stroke: none;
   flex-shrink: 0;
 }

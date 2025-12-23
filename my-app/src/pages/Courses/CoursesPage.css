@@ -350,7 +350,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: #f59e0b;
+  color: var(--mx-rating-yellow);
 }
 
 .course-detail-stars {
@@ -374,7 +374,7 @@
   position: absolute;
   inset: 0;
   display: block;
-  color: #f59e0b;
+  color: var(--mx-rating-yellow);
 }
 
 .course-detail-star svg {
@@ -386,7 +386,7 @@
 }
 
 .course-detail-rating-value {
-  color: #f59e0b;
+  color: var(--mx-rating-yellow);
   font-weight: 700;
   font-size: 16px;
 }

@@ -815,20 +815,20 @@
 
 .settings-written-review-star-base {
   fill: transparent;
-  stroke: #f59e0b;
+  stroke: var(--mx-rating-yellow);
   stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
 }
 
 .settings-written-review-star-fill {
-  fill: #f59e0b;
-  stroke: #f59e0b;
+  fill: var(--mx-rating-yellow);
+  stroke: var(--mx-rating-yellow);
   stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
 }
 
 .settings-written-review-star-divider {
-  stroke: #f59e0b;
+  stroke: var(--mx-rating-yellow);
   stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
 }
@@ -836,7 +836,7 @@
 .settings-written-review-rating-value {
   font-size: 15px;
   font-weight: 700;
-  color: #f59e0b;
+  color: var(--mx-rating-yellow);
 }
 
 @media (max-width: 900px) {
