@@ -190,14 +190,7 @@ function IncomeTable({ records = [] }) {
                   <td className="settings-recharge-timezone">{record.timeZone}</td>
                   <td className="settings-orders-time">{record.time}</td>
                   <td className="settings-orders-amount">{formatCny(record.amount)}</td>
-                  <td className="settings-recharge-hours">
-                    <div className="settings-income-duration-wrap">
-                      <span>{formatCourseHours(record.teachingHours)}</span>
-                      <span className="settings-income-row-chevron" aria-hidden="true">
-                        <FiChevronDown size={16} />
-                      </span>
-                    </div>
-                  </td>
+                  <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
                 </tr>
                 <tr
                   id={detailsId}
@@ -206,17 +199,16 @@ function IncomeTable({ records = [] }) {
                 >
                   <td colSpan={4}>
                     <div className="settings-income-detail">
-                      <div className="settings-income-detail-item">
-                        <span className="settings-income-detail-label">学生ID</span>
+                      <div className="settings-income-detail-item settings-income-detail-item--student">
                         <span className="settings-income-detail-value">{record.studentId || '--'}</span>
                       </div>
-                      <div className="settings-income-detail-item">
+                      <div className="settings-income-detail-item settings-income-detail-item--course">
                         <span className="settings-income-detail-icon" aria-hidden="true">
                           {DirectionIcon ? <DirectionIcon size={16} /> : null}
                         </span>
                         <span className="settings-income-detail-value">{courseName}</span>
                       </div>
-                      <div className="settings-income-detail-item">
+                      <div className="settings-income-detail-item settings-income-detail-item--type">
                         <span className="settings-income-detail-icon" aria-hidden="true">
                           {CourseTypeIcon ? <CourseTypeIcon size={16} /> : null}
                         </span>

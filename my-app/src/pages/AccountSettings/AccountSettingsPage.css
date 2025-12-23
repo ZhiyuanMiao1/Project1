@@ -300,40 +300,18 @@
   border-bottom-color: transparent;
 }
 
-.settings-income-duration-wrap {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.settings-income-row-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-  transition: transform 0.14s ease, color 0.14s ease;
-}
-
-.settings-income-row.is-expanded .settings-income-row-chevron {
-  transform: rotate(180deg);
-  color: #0f172a;
-}
-
 .settings-income-detail-row td {
   padding-top: 0;
 }
 
 .settings-income-detail {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: 18px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #eef2f7;
-  border-radius: 12px;
+  column-gap: 18px;
+  row-gap: 12px;
+  padding: 10px 0 4px;
+  background: transparent;
 }
 
 .settings-income-detail-item {
@@ -343,12 +321,9 @@
   min-width: 0;
 }
 
-.settings-income-detail-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-  letter-spacing: 0.02em;
-}
+.settings-income-detail-item--student { grid-column: 2; }
+.settings-income-detail-item--course { grid-column: 3; }
+.settings-income-detail-item--type { grid-column: 4; }
 
 .settings-income-detail-icon {
   display: inline-flex;
@@ -360,6 +335,10 @@
 .settings-income-detail-value {
   font-size: 14px;
   color: #111827;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-row--overlay {
