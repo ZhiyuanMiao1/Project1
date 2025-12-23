@@ -796,18 +796,47 @@
 .settings-written-review-rating {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #0f172a;
+  gap: 10px;
   white-space: nowrap;
   align-self: start;
 }
 
-.settings-written-review-rating-star {
-  color: #f59e0b;
-  font-size: 16px;
-  line-height: 1;
+.settings-written-review-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.settings-written-review-star {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.settings-written-review-star-base {
+  fill: transparent;
+  stroke: #d1d5db;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.settings-written-review-star-fill {
+  fill: #f59e0b;
+  stroke: #f59e0b;
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.settings-written-review-star-divider {
+  stroke: rgba(15, 23, 42, 0.38);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.settings-written-review-rating-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 @media (max-width: 900px) {
