@@ -659,38 +659,30 @@
   margin: 0 0 30px;
 }
 
-.settings-student-reviews-button {
-  border: 1px solid transparent;
-  background: transparent;
-  color: #0f172a;
+.settings-student-reviews-title {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 22px;
-  border-radius: 18px;
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  cursor: pointer;
-  box-shadow: none;
-  transition: background-color 0.14s ease, border-color 0.14s ease;
+  gap: 10px;
 }
 
-.settings-student-reviews-button svg {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
+.settings-student-reviews-title svg {
+  flex: 0 0 18px;
 }
 
-.settings-student-reviews-button:hover {
-  background: #f0f0f0;
-  border-color: #e5e7eb;
-  box-shadow: none;
+.settings-review-target {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #111827;
 }
 
-.settings-student-reviews-button:focus-visible {
-  outline: 2px solid rgba(17, 24, 39, 0.3);
-  outline-offset: 4px;
+.settings-review-rating {
+  white-space: nowrap;
+  font-weight: 700;
+  color: #111827;
+}
+
+.settings-review-content {
+  min-width: 220px;
 }
 
 @media (max-width: 900px) {
@@ -700,18 +692,6 @@
 
   .settings-student-reviews-divider {
     margin-bottom: 22px;
-  }
-
-  .settings-student-reviews-button {
-    font-size: 16px;
-    padding: 12px 16px;
-    border-radius: 16px;
-  }
-
-  .settings-student-reviews-button svg {
-    width: 20px;
-    height: 20px;
-    flex: 0 0 20px;
   }
 }
 

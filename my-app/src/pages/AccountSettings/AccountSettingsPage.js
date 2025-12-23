@@ -67,6 +67,11 @@ const MOCK_INCOME_RECORDS = [
   { id: 'income-2025-12-03-02', timeZone: 'UTC+08:00', time: '2025/12/03 18:20', amount: 240, teachingHours: 1 },
 ];
 
+const MOCK_WRITTEN_REVIEWS = [
+  { id: 'review-2025-12-12-01', target: '导师 Alex', rating: 5, content: '讲解清晰，反馈及时。', time: '2025/12/12 20:10' },
+  { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
+];
+
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
   style: 'currency',
   currency: 'CNY',
@@ -138,6 +143,33 @@ function IncomeTable({ records = [] }) {
   );
 }
 
+function WrittenReviewsTable({ reviews = [] }) {
+  return (
+    <div className="settings-orders-table-wrapper">
+      <table className="settings-orders-table">
+        <thead>
+          <tr>
+            <th scope="col">导师</th>
+            <th scope="col">评分</th>
+            <th scope="col">评价</th>
+            <th scope="col">时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reviews.map((review) => (
+            <tr key={review.id}>
+              <td className="settings-review-target">{review.target}</td>
+              <td className="settings-review-rating">{review.rating}</td>
+              <td className="settings-review-content">{review.content}</td>
+              <td className="settings-orders-time">{review.time}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -189,6 +221,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
   const [paymentsExpanded, setPaymentsExpanded] = useState(false);
   const [receiptsExpanded, setReceiptsExpanded] = useState(false);
+  const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -769,14 +802,39 @@ function AccountSettingsPage({ mode = 'student' }) {
 
                   <div className="settings-student-reviews">
                     <div className="settings-student-reviews-divider" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="settings-student-reviews-button"
-                      onClick={() => showToast('功能开发中', 'success')}
-                    >
-                      <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} />
-                      <span>我撰写的评价</span>
-                    </button>
+                    <div className="settings-accordion-item">
+                      <button
+                        type="button"
+                        className="settings-accordion-trigger"
+                        aria-expanded={writtenReviewsExpanded}
+                        aria-controls="settings-written-reviews"
+                        onClick={() => setWrittenReviewsExpanded((prev) => !prev)}
+                      >
+                        <div className="settings-row-main">
+                          <div className="settings-row-title settings-student-reviews-title">
+                            <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
+                            <span>我撰写的评价</span>
+                          </div>
+                          <div className="settings-row-value">
+                            {MOCK_WRITTEN_REVIEWS.length ? `共${MOCK_WRITTEN_REVIEWS.length}条` : '暂无评价'}
+                          </div>
+                        </div>
+                        <span className="settings-accordion-icon" aria-hidden="true">
+                          <FiChevronDown size={18} />
+                        </span>
+                      </button>
+                      <div
+                        id="settings-written-reviews"
+                        className="settings-accordion-panel"
+                        hidden={!writtenReviewsExpanded}
+                      >
+                        {MOCK_WRITTEN_REVIEWS.length ? (
+                          <WrittenReviewsTable reviews={MOCK_WRITTEN_REVIEWS} />
+                        ) : (
+                          <div className="settings-orders-empty">暂无评价</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
