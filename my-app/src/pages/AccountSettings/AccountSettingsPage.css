@@ -815,7 +815,7 @@
 
 .settings-written-review-star-base {
   fill: transparent;
-  stroke: #d1d5db;
+  stroke: #f59e0b;
   stroke-width: 1.6;
   vector-effect: non-scaling-stroke;
 }
@@ -828,7 +828,7 @@
 }
 
 .settings-written-review-star-divider {
-  stroke: rgba(15, 23, 42, 0.38);
+  stroke: #f59e0b;
   stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
 }
