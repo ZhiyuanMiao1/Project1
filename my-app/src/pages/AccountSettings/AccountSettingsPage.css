@@ -305,25 +305,28 @@
 }
 
 .settings-income-detail {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-items: center;
-  column-gap: 18px;
-  row-gap: 12px;
+  position: relative;
+  min-height: 28px;
   padding: 10px 0 4px;
   background: transparent;
 }
 
 .settings-income-detail-item {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 25%;
+  transform: translate(-50%, -50%);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-width: 0;
 }
 
-.settings-income-detail-item--student { grid-column: 2; }
-.settings-income-detail-item--course { grid-column: 3; }
-.settings-income-detail-item--type { grid-column: 4; }
+.settings-income-detail-item--student { left: 18%; }
+.settings-income-detail-item--course { left: 48%; }
+.settings-income-detail-item--type { left: 75%; }
 
 .settings-income-detail-icon {
   display: inline-flex;
