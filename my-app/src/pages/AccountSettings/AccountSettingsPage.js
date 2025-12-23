@@ -16,6 +16,12 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
 import defaultAvatar from '../../assets/images/default-avatar.jpg';
+import {
+  COURSE_TYPE_ICON_MAP,
+  COURSE_TYPE_ID_TO_LABEL,
+  DIRECTION_ICON_MAP,
+  DIRECTION_ID_TO_LABEL,
+} from '../../constants/courseMappings';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -63,8 +69,26 @@ const MOCK_RECHARGE_RECORDS = [
 ];
 
 const MOCK_INCOME_RECORDS = [
-  { id: 'income-2025-12-16-01', timeZone: 'UTC+08:00', time: '2025/12/16 21:40', amount: 360, teachingHours: 1.5 },
-  { id: 'income-2025-12-03-02', timeZone: 'UTC+08:00', time: '2025/12/03 18:20', amount: 240, teachingHours: 1 },
+  {
+    id: 'income-2025-12-16-01',
+    timeZone: 'UTC+08:00',
+    time: '2025/12/16 21:40',
+    amount: 360,
+    teachingHours: 1.5,
+    studentId: 's44',
+    courseDirectionId: 'statistics',
+    courseTypeId: 'final-review',
+  },
+  {
+    id: 'income-2025-12-03-02',
+    timeZone: 'UTC+08:00',
+    time: '2025/12/03 18:20',
+    amount: 240,
+    teachingHours: 1,
+    studentId: 's12',
+    courseDirectionId: 'algo',
+    courseTypeId: 'pre-study',
+  },
 ];
 
 const MOCK_WRITTEN_REVIEWS = [
@@ -117,6 +141,19 @@ function RechargeTable({ records = [] }) {
 }
 
 function IncomeTable({ records = [] }) {
+  const [expandedRecordIds, setExpandedRecordIds] = useState(() => ({}));
+
+  const toggleExpanded = (id) => {
+    setExpandedRecordIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleRowKeyDown = (e, id) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleExpanded(id);
+    }
+  };
+
   return (
     <div className="settings-orders-table-wrapper">
       <table className="settings-orders-table">
@@ -129,14 +166,68 @@ function IncomeTable({ records = [] }) {
           </tr>
         </thead>
         <tbody>
-          {records.map((record) => (
-            <tr key={record.id}>
-              <td className="settings-recharge-timezone">{record.timeZone}</td>
-              <td className="settings-orders-time">{record.time}</td>
-              <td className="settings-orders-amount">{formatCny(record.amount)}</td>
-              <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
-            </tr>
-          ))}
+          {records.map((record) => {
+            const expanded = !!expandedRecordIds[record.id];
+            const directionId = record.courseDirectionId || 'others';
+            const courseTypeId = record.courseTypeId || 'others';
+            const courseName = DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || '其它课程方向';
+            const courseTypeName = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || '其它类型';
+            const DirectionIcon = DIRECTION_ICON_MAP[directionId] || DIRECTION_ICON_MAP.others;
+            const CourseTypeIcon = COURSE_TYPE_ICON_MAP[courseTypeId] || COURSE_TYPE_ICON_MAP.others;
+            const detailsId = `settings-income-detail-${record.id}`;
+
+            return (
+              <React.Fragment key={record.id}>
+                <tr
+                  className={`settings-income-row ${expanded ? 'is-expanded' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expanded}
+                  aria-controls={detailsId}
+                  onClick={() => toggleExpanded(record.id)}
+                  onKeyDown={(e) => handleRowKeyDown(e, record.id)}
+                >
+                  <td className="settings-recharge-timezone">{record.timeZone}</td>
+                  <td className="settings-orders-time">{record.time}</td>
+                  <td className="settings-orders-amount">{formatCny(record.amount)}</td>
+                  <td className="settings-recharge-hours">
+                    <div className="settings-income-duration-wrap">
+                      <span>{formatCourseHours(record.teachingHours)}</span>
+                      <span className="settings-income-row-chevron" aria-hidden="true">
+                        <FiChevronDown size={16} />
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+                <tr
+                  id={detailsId}
+                  className="settings-income-detail-row"
+                  hidden={!expanded}
+                >
+                  <td colSpan={4}>
+                    <div className="settings-income-detail">
+                      <div className="settings-income-detail-item">
+                        <span className="settings-income-detail-label">学生ID</span>
+                        <span className="settings-income-detail-value">{record.studentId || '--'}</span>
+                      </div>
+                      <div className="settings-income-detail-item">
+                        <span className="settings-income-detail-icon" aria-hidden="true">
+                          {DirectionIcon ? <DirectionIcon size={16} /> : null}
+                        </span>
+                        <span className="settings-income-detail-value">{courseName}</span>
+                      </div>
+                      <div className="settings-income-detail-item">
+                        <span className="settings-income-detail-icon" aria-hidden="true">
+                          {CourseTypeIcon ? <CourseTypeIcon size={16} /> : null}
+                        </span>
+                        <span className="settings-income-detail-value">{courseTypeName}</span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </React.Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
