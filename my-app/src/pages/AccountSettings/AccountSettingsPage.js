@@ -96,6 +96,11 @@ const MOCK_WRITTEN_REVIEWS = [
   { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4.4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
 ];
 
+const MOCK_ABOUT_ME_REVIEWS = [
+  { id: 'aboutme-2025-12-05-01', target: 's12', rating: 4.4, content: '讲解很清晰，学习效率提升很多。', time: '2025/12/05 18:20' },
+  { id: 'aboutme-2025-11-09-02', target: 's44', rating: 3.6, content: '很有耐心，建议也很到位。', time: '2025/11/09 10:15' },
+];
+
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
   style: 'currency',
   currency: 'CNY',
@@ -244,14 +249,14 @@ function IncomeTable({ records = [] }) {
   );
 }
 
-function WrittenReviewsTable({ reviews = [] }) {
+function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFallback = '导师' }) {
   const STAR_PATH =
     'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
 
   return (
-    <ul className="settings-written-reviews-list" aria-label="我撰写的评价列表">
+    <ul className="settings-written-reviews-list" aria-label={ariaLabel}>
       {reviews.map((review) => {
-        const displayName = getReviewDisplayName(review.target) || '导师';
+        const displayName = getReviewDisplayName(review.target) || nameFallback;
         const monthLabel = formatReviewMonth(review.time);
         const ratingLabel = typeof review.rating === 'number' ? String(review.rating) : String(review.rating || '--');
         const numericRating = Number(review.rating);
@@ -370,6 +375,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [paymentsExpanded, setPaymentsExpanded] = useState(false);
   const [receiptsExpanded, setReceiptsExpanded] = useState(false);
   const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
+  const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -977,7 +983,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                         hidden={!writtenReviewsExpanded}
                       >
                         {MOCK_WRITTEN_REVIEWS.length ? (
-                          <WrittenReviewsTable reviews={MOCK_WRITTEN_REVIEWS} />
+                          <WrittenReviewsTable reviews={MOCK_WRITTEN_REVIEWS} ariaLabel="我撰写的评价列表" nameFallback="导师" />
                         ) : (
                           <div className="settings-orders-empty">暂无评价</div>
                         )}
@@ -1045,6 +1051,43 @@ function AccountSettingsPage({ mode = 'student' }) {
                       </div>
                     </div>
                   </section>
+
+                  <div className="settings-student-reviews">
+                    <div className="settings-student-reviews-divider" aria-hidden="true" />
+                    <div className="settings-accordion-item">
+                      <button
+                        type="button"
+                        className="settings-accordion-trigger"
+                        aria-expanded={aboutMeReviewsExpanded}
+                        aria-controls="settings-about-me-reviews"
+                        onClick={() => setAboutMeReviewsExpanded((prev) => !prev)}
+                      >
+                        <div className="settings-row-main">
+                          <div className="settings-row-title settings-student-reviews-title">
+                            <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
+                            <span>关于我的评价</span>
+                          </div>
+                          {!MOCK_ABOUT_ME_REVIEWS.length ? (
+                            <div className="settings-row-value">暂无评价</div>
+                          ) : null}
+                        </div>
+                        <span className="settings-accordion-icon" aria-hidden="true">
+                          <FiChevronDown size={18} />
+                        </span>
+                      </button>
+                      <div
+                        id="settings-about-me-reviews"
+                        className="settings-accordion-panel"
+                        hidden={!aboutMeReviewsExpanded}
+                      >
+                        {MOCK_ABOUT_ME_REVIEWS.length ? (
+                          <WrittenReviewsTable reviews={MOCK_ABOUT_ME_REVIEWS} ariaLabel="关于我的评价列表" nameFallback="StudentID" />
+                        ) : (
+                          <div className="settings-orders-empty">暂无评价</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
