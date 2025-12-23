@@ -113,6 +113,24 @@ const formatCourseHours = (value) => {
   return normalized;
 };
 
+const formatReviewMonth = (value) => {
+  if (typeof value !== 'string' || !value) return '';
+  const match = value.match(/(\d{4})[/-](\d{1,2})/);
+  if (!match) return value;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return value;
+  return `${year}年${month}月`;
+};
+
+const getReviewDisplayName = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const withoutPrefix = trimmed.replace(/^导师\s*/, '').trim();
+  return withoutPrefix || trimmed;
+};
+
 function RechargeTable({ records = [] }) {
   return (
     <div className="settings-orders-table-wrapper">
@@ -228,28 +246,32 @@ function IncomeTable({ records = [] }) {
 
 function WrittenReviewsTable({ reviews = [] }) {
   return (
-    <div className="settings-orders-table-wrapper">
-      <table className="settings-orders-table">
-        <thead>
-          <tr>
-            <th scope="col">导师</th>
-            <th scope="col">评分</th>
-            <th scope="col">评价</th>
-            <th scope="col">时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reviews.map((review) => (
-            <tr key={review.id}>
-              <td className="settings-review-target">{review.target}</td>
-              <td className="settings-review-rating">{review.rating}</td>
-              <td className="settings-review-content">{review.content}</td>
-              <td className="settings-orders-time">{review.time}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ul className="settings-written-reviews-list" aria-label="我撰写的评价列表">
+      {reviews.map((review) => {
+        const displayName = getReviewDisplayName(review.target) || '导师';
+        const monthLabel = formatReviewMonth(review.time);
+        const ratingLabel = typeof review.rating === 'number' ? String(review.rating) : String(review.rating || '--');
+
+        return (
+          <li key={review.id} className="settings-written-review-item">
+            <img className="settings-written-review-avatar" src={defaultAvatar} alt="" />
+            <div className="settings-written-review-body">
+              <div className="settings-written-review-meta">
+                <span className="settings-written-review-name">{displayName}</span>
+                {monthLabel ? <span className="settings-written-review-date">{monthLabel}</span> : null}
+              </div>
+              <div className="settings-written-review-text">{review.content}</div>
+            </div>
+            <div className="settings-written-review-rating" aria-label={`评分 ${ratingLabel}`}>
+              <span className="settings-written-review-rating-star" aria-hidden="true">
+                ★
+              </span>
+              <span className="settings-written-review-rating-value">{ratingLabel}</span>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -898,9 +920,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                             <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
                             <span>我撰写的评价</span>
                           </div>
-                          <div className="settings-row-value">
-                            {MOCK_WRITTEN_REVIEWS.length ? `共${MOCK_WRITTEN_REVIEWS.length}条` : '暂无评价'}
-                          </div>
+                          {!MOCK_WRITTEN_REVIEWS.length ? (
+                            <div className="settings-row-value">暂无评价</div>
+                          ) : null}
                         </div>
                         <span className="settings-accordion-icon" aria-hidden="true">
                           <FiChevronDown size={18} />
