@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
+import { buildShortUTC, getDefaultTimeZone } from '../StudentCourseRequest/steps/timezoneUtils';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -46,14 +47,6 @@ const isSameDay = (a, b) => (
   && a.getDate() === b.getDate()
 );
 
-const getDefaultTimeZone = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai';
-  } catch {
-    return 'Asia/Shanghai';
-  }
-};
-
 function AvailabilityEditor({
   value,
   disabled = false,
@@ -69,20 +62,27 @@ function AvailabilityEditor({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [nowTick, setNowTick] = useState(() => Date.now());
+  const [selectedRangeKeys, setSelectedRangeKeys] = useState(() => [ymdKey(toNoonDate(new Date()))]);
+  const [dragStartKey, setDragStartKey] = useState(null);
+  const [dragEndKey, setDragEndKey] = useState(null);
+  const [isDraggingRange, setIsDraggingRange] = useState(false);
+  const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
+  const didDragRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
+  const currentTimeZone = useMemo(() => getDefaultTimeZone(), []);
+
   const safeValue = useMemo(() => {
     const daySelections = value && typeof value.daySelections === 'object' && value.daySelections && !Array.isArray(value.daySelections)
       ? value.daySelections
       : {};
     const sessionDurationHours = typeof value?.sessionDurationHours === 'number' ? value.sessionDurationHours : 2;
-    const timeZone = typeof value?.timeZone === 'string' && value.timeZone.trim() ? value.timeZone.trim() : getDefaultTimeZone();
-    return { timeZone, sessionDurationHours, daySelections };
-  }, [value]);
+    return { timeZone: currentTimeZone, sessionDurationHours, daySelections };
+  }, [currentTimeZone, value]);
 
   const todayStart = useMemo(() => {
     const d = new Date(nowTick);
@@ -103,6 +103,66 @@ function AvailabilityEditor({
   const selectedKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
 
   const selectedBlocks = safeValue.daySelections[selectedKey] || [];
+
+  const keyToDateStrict = useCallback((key) => {
+    if (!key) return null;
+    const parts = key.split('-');
+    if (parts.length !== 3) return null;
+    const [yRaw, mRaw, dRaw] = parts;
+    const y = Number.parseInt(yRaw, 10);
+    const m = Number.parseInt(mRaw, 10);
+    const d = Number.parseInt(dRaw, 10);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, []);
+
+  const enumerateKeysInclusive = useCallback((aKey, bKey) => {
+    const a = keyToDateStrict(aKey);
+    const b = keyToDateStrict(bKey);
+    if (!a || !b) return [];
+    const start = a.getTime() <= b.getTime() ? a : b;
+    const end = a.getTime() <= b.getTime() ? b : a;
+    const res = [];
+    const cur = new Date(start);
+    cur.setHours(0, 0, 0, 0);
+    const endTs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+    while (cur.getTime() <= endTs) {
+      const t = new Date(cur);
+      const isPast = (() => {
+        const dd = new Date(t);
+        dd.setHours(0, 0, 0, 0);
+        return dd.getTime() < todayStart.getTime();
+      })();
+      if (!isPast) res.push(ymdKey(t));
+      cur.setDate(cur.getDate() + 1);
+    }
+    return res;
+  }, [keyToDateStrict, todayStart]);
+
+  const endDragSelection = useCallback(() => {
+    if (!isDraggingRange || !dragStartKey || !dragEndKey) {
+      setIsDraggingRange(false);
+      setDragPreviewKeys(new Set());
+      return;
+    }
+    const keys = enumerateKeysInclusive(dragStartKey, dragEndKey);
+    setSelectedRangeKeys(keys);
+    const endDate = keyToDateStrict(dragEndKey);
+    if (endDate) setSelectedDate(toNoonDate(endDate));
+    setIsDraggingRange(false);
+    setDragPreviewKeys(new Set());
+  }, [dragEndKey, dragStartKey, enumerateKeysInclusive, isDraggingRange, keyToDateStrict]);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (isDraggingRange) {
+        endDragSelection();
+        didDragRef.current = true;
+      }
+    };
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, [endDragSelection, isDraggingRange]);
 
   const disabledBeforeIndex = useMemo(() => {
     if (selectedKey < todayKey) return 95;
@@ -136,8 +196,14 @@ function AvailabilityEditor({
   const getDayBlocks = useCallback((key) => safeValue.daySelections[key] || [], [safeValue.daySelections]);
 
   const handleBlocksChange = useCallback((nextBlocks) => {
-    setDayBlocks(selectedKey, nextBlocks);
-  }, [selectedKey, setDayBlocks]);
+    const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [selectedKey];
+    const nextDaySelections = { ...(safeValue.daySelections || {}) };
+    for (const k of targets) {
+      if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[k] = nextBlocks;
+      else delete nextDaySelections[k];
+    }
+    onChange({ ...safeValue, daySelections: nextDaySelections });
+  }, [onChange, safeValue, selectedKey, selectedRangeKeys]);
 
   if (loading) {
     return <div className="settings-availability-hint">加载中...</div>;
@@ -150,7 +216,7 @@ function AvailabilityEditor({
   return (
     <div className="settings-availability">
       <div className="settings-availability-meta">
-        <span>时区：{safeValue.timeZone}</span>
+        <span>时区：{buildShortUTC(currentTimeZone)} {currentTimeZone}</span>
       </div>
 
       <div className="schedule-sidebar" aria-label="空余时间选择">
@@ -187,21 +253,46 @@ function AvailabilityEditor({
                 d.setHours(0, 0, 0, 0);
                 return d.getTime() < todayStart.getTime();
               })();
+              const inMultiSelected = (selectedRangeKeys || []).includes(key);
+              const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
+                ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
+                : false;
               const cls = [
                 'date-cell',
                 isToday ? 'today' : '',
                 selected ? 'selected' : '',
                 isPast ? 'past' : '',
+                inMultiSelected ? 'multi-selected' : '',
+                inPreview ? 'range-preview' : '',
               ].filter(Boolean).join(' ');
               return (
                 <button
                   key={date.toISOString()}
                   type="button"
                   className={cls}
-                  disabled={isPast}
-                  onClick={() => {
+                  onMouseDown={() => {
                     if (isPast) return;
+                    setIsDraggingRange(true);
+                    setDragStartKey(key);
+                    setDragEndKey(key);
+                    setDragPreviewKeys(new Set([key]));
+                    didDragRef.current = false;
+                  }}
+                  onMouseEnter={() => {
+                    if (!isDraggingRange) return;
+                    if (isPast) return;
+                    setDragEndKey(key);
+                    const keys = enumerateKeysInclusive(dragStartKey || key, key);
+                    setDragPreviewKeys(new Set(keys));
+                    if (dragStartKey && dragStartKey !== key) didDragRef.current = true;
+                  }}
+                  onMouseUp={() => {
+                    if (isDraggingRange) endDragSelection();
+                  }}
+                  onClick={() => {
+                    if (didDragRef.current) { didDragRef.current = false; return; }
                     setSelectedDate(toNoonDate(date));
+                    setSelectedRangeKeys([key]);
                     if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
                       setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
                     }
@@ -243,4 +334,3 @@ function AvailabilityEditor({
 }
 
 export default AvailabilityEditor;
-
