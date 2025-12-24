@@ -3,6 +3,7 @@ import { FiCalendar, FiChevronLeft, FiChevronRight, FiClock, FiVideo, FiX } from
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import api from '../../api/client';
 import './MessagesPage.css';
 
 const STUDENT_THREADS = [
@@ -169,6 +170,30 @@ const toMiddayDate = (value = new Date()) => {
   return base;
 };
 
+const toYmdKey = (dateLike) => {
+  if (!dateLike) return '';
+  const d = toMiddayDate(dateLike);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const availabilityBlocksToSlots = (blocks) => {
+  if (!Array.isArray(blocks)) return [];
+  return blocks
+    .map((block) => {
+      const startIndex = Number(block?.start);
+      const endIndex = Number(block?.end);
+      if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return null;
+      const start = Math.max(0, Math.min(95, Math.floor(startIndex)));
+      const end = Math.max(0, Math.min(95, Math.floor(endIndex)));
+      const startMinutes = Math.min(start, end) * 15;
+      const endMinutes = (Math.max(start, end) + 1) * 15;
+      if (endMinutes <= startMinutes) return null;
+      return { startMinutes, endMinutes };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+};
+
 const intersectSlots = (a = [], b = []) => {
   const result = [];
   let i = 0;
@@ -235,6 +260,8 @@ function MessagesPage({ mode = 'student' }) {
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
+  const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
+  const [myAvailability, setMyAvailability] = useState(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -255,6 +282,31 @@ function MessagesPage({ mode = 'student' }) {
     }
     setErrorMessage('请登录后查看消息');
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    setMyAvailabilityStatus('idle');
+    setMyAvailability(null);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn || !rescheduleOpen) return () => { alive = false; };
+
+    setMyAvailabilityStatus('loading');
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        setMyAvailability(res?.data?.availability || null);
+        setMyAvailabilityStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMyAvailabilityStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn, rescheduleOpen]);
 
   const threads = useMemo(
     () => (isMentorView ? MENTOR_THREADS : STUDENT_THREADS),
@@ -391,15 +443,26 @@ function MessagesPage({ mode = 'student' }) {
     };
   }, [counterpartDisplayName]);
 
+  const myAvailabilitySlots = useMemo(() => {
+    if (myAvailability && typeof myAvailability === 'object') {
+      const key = toYmdKey(rescheduleDate);
+      const blocks = myAvailability.daySelections?.[key];
+      return availabilityBlocksToSlots(blocks);
+    }
+    if (myAvailabilityStatus === 'idle' || myAvailabilityStatus === 'loading') return null;
+    return [];
+  }, [myAvailability, myAvailabilityStatus, rescheduleDate]);
+
   const availability = useMemo(() => {
-    const studentSlots = buildMockAvailability(rescheduleDate, 'student');
-    const mentorSlots = buildMockAvailability(rescheduleDate, 'mentor');
+    const mySlots = Array.isArray(myAvailabilitySlots) ? myAvailabilitySlots : [];
+    const studentSlots = isMentorView ? buildMockAvailability(rescheduleDate, 'student') : mySlots;
+    const mentorSlots = isMentorView ? mySlots : buildMockAvailability(rescheduleDate, 'mentor');
     return {
       studentSlots,
       mentorSlots,
       commonSlots: intersectSlots(studentSlots, mentorSlots),
     };
-  }, [rescheduleDate]);
+  }, [isMentorView, myAvailabilitySlots, rescheduleDate]);
 
   const shiftRescheduleDate = (deltaDays) => {
     setRescheduleDate((prev) => {
