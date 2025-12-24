@@ -397,7 +397,6 @@ function MessagesPage({ mode = 'student' }) {
   const meetingId = (typeof activeSchedule?.meetingId === 'string' && activeSchedule.meetingId.trim())
     ? activeSchedule.meetingId
     : DEFAULT_MEETING_ID;
-  const scheduleAvatarInitial = isOutgoingSchedule ? '我' : detailAvatarInitial;
   const scheduleHoverTime = useMemo(() => {
     if (!activeThread) return '';
     const lastMessage = Array.isArray(activeThread.messages) && activeThread.messages.length > 0
@@ -701,7 +700,9 @@ function MessagesPage({ mode = 'student' }) {
 
                 <div className="message-detail-body">
                   <div className={`schedule-row ${isOutgoingSchedule ? 'is-outgoing' : ''}`}>
-                    <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{scheduleAvatarInitial}</div>
+                    {!isOutgoingSchedule && (
+                      <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                    )}
                     <div className="schedule-card">
                       <div className="schedule-card-top">
                         <div className="schedule-card-top-row">
@@ -709,9 +710,6 @@ function MessagesPage({ mode = 'student' }) {
                             <FiCalendar size={18} />
                           </div>
                           <div className="schedule-card-title-text">日程</div>
-                          {isOutgoingSchedule && (
-                            <span className="schedule-card-badge">已发送</span>
-                          )}
                         </div>
                         <div className="schedule-card-title">{scheduleTitle}</div>
                       </div>
