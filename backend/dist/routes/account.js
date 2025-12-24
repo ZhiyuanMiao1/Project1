@@ -85,6 +85,123 @@ const ensureHomeCourseOrderColumn = async () => {
         return false;
     }
 };
+let availabilityColumnEnsured = false;
+const isMissingAvailabilityColumnError = (e) => {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('availability_json');
+};
+const ensureAvailabilityColumn = async () => {
+    if (availabilityColumnEnsured)
+        return true;
+    try {
+        await (0, db_1.query)('ALTER TABLE account_settings ADD COLUMN availability_json TEXT NULL');
+        availabilityColumnEnsured = true;
+        return true;
+    }
+    catch (e) {
+        const code = String(e?.code || '');
+        const message = String(e?.message || '');
+        if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+            availabilityColumnEnsured = true;
+            return true;
+        }
+        return false;
+    }
+};
+const roundToQuarter = (raw, min = 0.25, max = 10, fallback = 2) => {
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
+    if (!Number.isFinite(n))
+        return fallback;
+    const clamped = Math.max(min, Math.min(max, n));
+    return Number((Math.round(clamped / 0.25) * 0.25).toFixed(2));
+};
+const mergeBlocksList = (blocks) => {
+    if (!Array.isArray(blocks) || blocks.length === 0)
+        return [];
+    const sorted = blocks
+        .map((b) => ({ start: Math.min(b.start, b.end), end: Math.max(b.start, b.end) }))
+        .sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+    for (let i = 1; i < sorted.length; i += 1) {
+        const prev = merged[merged.length - 1];
+        const cur = sorted[i];
+        if (cur.start <= prev.end + 1) {
+            prev.end = Math.max(prev.end, cur.end);
+        }
+        else {
+            merged.push({ ...cur });
+        }
+    }
+    return merged;
+};
+const isValidDayKey = (key) => {
+    if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key))
+        return false;
+    const [yRaw, mRaw, dRaw] = key.split('-');
+    const y = Number.parseInt(yRaw, 10);
+    const m = Number.parseInt(mRaw, 10);
+    const d = Number.parseInt(dRaw, 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d))
+        return false;
+    if (m < 1 || m > 12)
+        return false;
+    if (d < 1 || d > 31)
+        return false;
+    const dt = new Date(y, m - 1, d);
+    if (!Number.isFinite(dt.getTime()))
+        return false;
+    const normalized = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    return normalized === key;
+};
+const sanitizeDaySelections = (raw) => {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+        return out;
+    const entries = Object.entries(raw);
+    for (const [key, value] of entries) {
+        if (!isValidDayKey(key))
+            continue;
+        if (!Array.isArray(value))
+            continue;
+        const blocks = [];
+        for (const item of value) {
+            const start = Number(item?.start);
+            const end = Number(item?.end);
+            if (!Number.isFinite(start) || !Number.isFinite(end))
+                continue;
+            const s = Math.max(0, Math.min(95, Math.floor(start)));
+            const e = Math.max(0, Math.min(95, Math.floor(end)));
+            blocks.push({ start: Math.min(s, e), end: Math.max(s, e) });
+            if (blocks.length >= 64)
+                break;
+        }
+        const merged = mergeBlocksList(blocks);
+        if (merged.length)
+            out[key] = merged;
+        if (Object.keys(out).length >= 730)
+            break;
+    }
+    return out;
+};
+const sanitizeAvailabilityPayload = (raw) => {
+    const timeZoneRaw = typeof raw?.timeZone === 'string' ? raw.timeZone.trim() : '';
+    const timeZone = timeZoneRaw && timeZoneRaw.length <= 64 ? timeZoneRaw : 'Asia/Shanghai';
+    const sessionDurationHours = roundToQuarter(raw?.sessionDurationHours);
+    const daySelections = sanitizeDaySelections(raw?.daySelections);
+    return { timeZone, sessionDurationHours, daySelections };
+};
+const parseAvailability = (value) => {
+    if (typeof value !== 'string' || !value.trim())
+        return null;
+    try {
+        const parsed = JSON.parse(value);
+        return sanitizeAvailabilityPayload(parsed);
+    }
+    catch {
+        return null;
+    }
+};
 router.get('/ids', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -342,6 +459,80 @@ router.put('/home-course-order', auth_1.requireAuth, [(0, express_validator_1.bo
     }
     catch (e) {
         console.error('Account home course order save error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/availability', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        await (0, db_1.query)('INSERT IGNORE INTO account_settings (email, email_notifications) VALUES (?, ?)', [email, 1]);
+        let rows = [];
+        try {
+            rows = await (0, db_1.query)('SELECT availability_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+        }
+        catch (e) {
+            if (!isMissingAvailabilityColumnError(e))
+                throw e;
+            const ensured = await ensureAvailabilityColumn();
+            if (!ensured)
+                return res.json({ availability: null });
+            rows = await (0, db_1.query)('SELECT availability_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+        }
+        const availability = parseAvailability(rows[0]?.availability_json);
+        return res.json({ availability });
+    }
+    catch (e) {
+        console.error('Account availability fetch error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.put('/availability', auth_1.requireAuth, [
+    (0, express_validator_1.body)('timeZone').isString().trim().isLength({ min: 1, max: 64 }).withMessage('时区无效'),
+    (0, express_validator_1.body)('sessionDurationHours').isFloat({ min: 0.25, max: 10 }).withMessage('可约时长无效'),
+    (0, express_validator_1.body)('daySelections')
+        .custom((value) => value && typeof value === 'object' && !Array.isArray(value))
+        .withMessage('时间段数据无效'),
+], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const payload = sanitizeAvailabilityPayload(req.body);
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        const write = async () => {
+            await (0, db_1.query)(`INSERT INTO account_settings (email, availability_json)
+           VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE
+             availability_json = VALUES(availability_json),
+             updated_at = CURRENT_TIMESTAMP`, [email, JSON.stringify(payload)]);
+        };
+        try {
+            await write();
+        }
+        catch (e) {
+            if (!isMissingAvailabilityColumnError(e))
+                throw e;
+            const ensured = await ensureAvailabilityColumn();
+            if (!ensured) {
+                return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 中的 account_settings 迁移' });
+            }
+            await write();
+        }
+        return res.json({ message: '保存成功', availability: payload });
+    }
+    catch (e) {
+        console.error('Account availability save error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

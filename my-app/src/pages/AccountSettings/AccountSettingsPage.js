@@ -15,6 +15,7 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
+import AvailabilityEditor from './AvailabilityEditor';
 import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import {
   COURSE_TYPE_ICON_MAP,
@@ -494,6 +495,14 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [receiptsExpanded, setReceiptsExpanded] = useState(false);
   const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
   const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
+  const [availabilityExpanded, setAvailabilityExpanded] = useState(false);
+  const [availabilityStatus, setAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
+  const [availability, setAvailability] = useState(() => {
+    let timeZone = 'Asia/Shanghai';
+    try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone; } catch {}
+    return { timeZone, sessionDurationHours: 2, daySelections: {} };
+  });
+  const [savingAvailability, setSavingAvailability] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -528,6 +537,14 @@ function AccountSettingsPage({ mode = 'student' }) {
       setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
       setSavingHomeCourseOrder(false);
       setHomeCourseOrderExpanded(false);
+      setAvailabilityExpanded(false);
+      setAvailabilityStatus('idle');
+      setAvailability(() => {
+        let timeZone = 'Asia/Shanghai';
+        try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone; } catch {}
+        return { timeZone, sessionDurationHours: 2, daySelections: {} };
+      });
+      setSavingAvailability(false);
       setToast(null);
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -574,6 +591,35 @@ function AccountSettingsPage({ mode = 'student' }) {
     return () => { alive = false; };
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let alive = true;
+    setAvailabilityStatus('loading');
+
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data?.availability;
+        if (data && typeof data === 'object') {
+          let fallbackTimeZone = 'Asia/Shanghai';
+          try { fallbackTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || fallbackTimeZone; } catch {}
+          const timeZone = typeof data.timeZone === 'string' && data.timeZone.trim() ? data.timeZone.trim() : fallbackTimeZone;
+          const sessionDurationHours = typeof data.sessionDurationHours === 'number' ? data.sessionDurationHours : 2;
+          const daySelections = data.daySelections && typeof data.daySelections === 'object' && !Array.isArray(data.daySelections)
+            ? data.daySelections
+            : {};
+          setAvailability({ timeZone, sessionDurationHours, daySelections });
+        }
+        setAvailabilityStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setAvailabilityStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
   const activeSection = useMemo(
     () => SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) || SETTINGS_SECTIONS[0],
     [activeSectionId],
@@ -586,6 +632,20 @@ function AccountSettingsPage({ mode = 'student' }) {
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
   const emailNotificationsDisabled = !isLoggedIn || idsStatus === 'loading' || savingEmailNotifications;
+  const availabilityDaysCount = useMemo(() => {
+    const selections = availability?.daySelections;
+    if (!selections || typeof selections !== 'object') return 0;
+    return Object.keys(selections).filter((key) => Array.isArray(selections[key]) && selections[key].length > 0).length;
+  }, [availability?.daySelections]);
+  const availabilitySummary = useMemo(() => {
+    if (!isLoggedIn) return '请先登录';
+    if (availabilityStatus === 'loading') return '加载中...';
+    if (availabilityStatus === 'error') return '加载失败';
+    if (!availabilityDaysCount) return '未设置';
+    const hours = availability?.sessionDurationHours;
+    const hoursLabel = typeof hours === 'number' && Number.isFinite(hours) ? ` · 单次${hours}小时` : '';
+    return `已设置 ${availabilityDaysCount} 天${hoursLabel}`;
+  }, [availability?.sessionDurationHours, availabilityDaysCount, availabilityStatus, isLoggedIn]);
 
   const joinedMentorXDays = useMemo(() => {
     const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;
@@ -779,6 +839,40 @@ function AccountSettingsPage({ mode = 'student' }) {
     setToast({ id, kind, message });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2600);
+  };
+
+  const persistAvailability = async (nextAvailability, { successMessage = '空余时间已保存' } = {}) => {
+    if (savingAvailability) return false;
+    if (!isLoggedIn) {
+      showToast('请先登录', 'error');
+      return false;
+    }
+
+    const prev = availability;
+    setAvailability(nextAvailability);
+    setSavingAvailability(true);
+    try {
+      const res = await api.put('/api/account/availability', nextAvailability);
+      const serverAvailability = res?.data?.availability || nextAvailability;
+      const timeZone = typeof serverAvailability?.timeZone === 'string' ? serverAvailability.timeZone : (nextAvailability?.timeZone || prev.timeZone);
+      const sessionDurationHours = typeof serverAvailability?.sessionDurationHours === 'number'
+        ? serverAvailability.sessionDurationHours
+        : (typeof nextAvailability?.sessionDurationHours === 'number' ? nextAvailability.sessionDurationHours : prev.sessionDurationHours);
+      const daySelections = serverAvailability?.daySelections && typeof serverAvailability.daySelections === 'object' && !Array.isArray(serverAvailability.daySelections)
+        ? serverAvailability.daySelections
+        : (nextAvailability?.daySelections || prev.daySelections || {});
+      setAvailability({ timeZone, sessionDurationHours, daySelections });
+      setAvailabilityStatus('loaded');
+      showToast(successMessage, 'success');
+      return true;
+    } catch (e) {
+      setAvailability(prev);
+      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '保存失败，请稍后再试';
+      showToast(msg, 'error');
+      return false;
+    } finally {
+      setSavingAvailability(false);
+    }
   };
 
   const persistHomeCourseOrder = async (nextOrderIds, { successMessage = '首页课程顺序已保存' } = {}) => {
@@ -1063,6 +1157,37 @@ function AccountSettingsPage({ mode = 'student' }) {
                         {editingSchool ? '保存' : '编辑'}
                       </button>
                     )}
+                  </div>
+                  <div className="settings-accordion-item">
+                    <button
+                      type="button"
+                      className="settings-accordion-trigger"
+                      aria-expanded={availabilityExpanded}
+                      aria-controls="settings-availability"
+                      onClick={() => setAvailabilityExpanded((prev) => !prev)}
+                    >
+                      <div className="settings-row-main">
+                        <div className="settings-row-title">空余时间</div>
+                        <div className="settings-row-value">{availabilitySummary}</div>
+                      </div>
+                      <span className="settings-accordion-icon" aria-hidden="true">
+                        <FiChevronDown size={18} />
+                      </span>
+                    </button>
+                    <div
+                      id="settings-availability"
+                      className="settings-accordion-panel"
+                      hidden={!availabilityExpanded}
+                    >
+                      <AvailabilityEditor
+                        value={availability}
+                        disabled={!isLoggedIn}
+                        loading={availabilityStatus === 'loading'}
+                        saving={savingAvailability}
+                        onChange={setAvailability}
+                        onSave={(next) => persistAvailability(next)}
+                      />
+                    </div>
                   </div>
                 </>
               )}
