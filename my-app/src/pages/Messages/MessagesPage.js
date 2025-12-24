@@ -163,6 +163,12 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
+const toMiddayDate = (value = new Date()) => {
+  const base = value instanceof Date ? new Date(value) : new Date(value);
+  base.setHours(12, 0, 0, 0);
+  return base;
+};
+
 const intersectSlots = (a = [], b = []) => {
   const result = [];
   let i = 0;
@@ -228,7 +234,7 @@ function MessagesPage({ mode = 'student' }) {
   const [scheduleDecision, setScheduleDecision] = useState(null);
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [rescheduleDate, setRescheduleDate] = useState(() => new Date());
+  const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
 
   useEffect(() => {
     const handler = (e) => {
@@ -304,7 +310,7 @@ function MessagesPage({ mode = 'student' }) {
     setScheduleDecision(null);
     setDecisionMenuOpen(false);
     setRescheduleOpen(false);
-    setRescheduleDate(new Date());
+    setRescheduleDate(toMiddayDate());
   }, [activeThread?.id]);
 
   const decisionPopoverActions = useMemo(() => {
@@ -395,11 +401,23 @@ function MessagesPage({ mode = 'student' }) {
     };
   }, [rescheduleDate]);
 
+  const shiftRescheduleDate = (deltaDays) => {
+    setRescheduleDate((prev) => {
+      const today = toMiddayDate();
+      const next = toMiddayDate(prev);
+      next.setDate(next.getDate() + deltaDays);
+      return next < today ? today : next;
+    });
+  };
+
   const columns = useMemo(() => {
     const mySlots = isMentorView ? availability.mentorSlots : availability.studentSlots;
     const counterpartSlots = isMentorView ? availability.studentSlots : availability.mentorSlots;
     return { mySlots, counterpartSlots };
   }, [availability.mentorSlots, availability.studentSlots, isMentorView]);
+
+  const rescheduleMinDate = toMiddayDate();
+  const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
 
   useEffect(() => {
     if (!rescheduleOpen) {
@@ -752,13 +770,8 @@ function MessagesPage({ mode = 'student' }) {
                   type="button"
                   className="reschedule-header-btn icon"
                   aria-label="前一天"
-                  onClick={() => {
-                    setRescheduleDate((prev) => {
-                      const next = new Date(prev);
-                      next.setDate(prev.getDate() - 1);
-                      return next;
-                    });
-                  }}
+                  disabled={isReschedulePrevDisabled}
+                  onClick={() => shiftRescheduleDate(-1)}
                 >
                   <FiChevronLeft size={18} aria-hidden="true" />
                 </button>
@@ -766,13 +779,7 @@ function MessagesPage({ mode = 'student' }) {
                   type="button"
                   className="reschedule-header-btn icon"
                   aria-label="后一天"
-                  onClick={() => {
-                    setRescheduleDate((prev) => {
-                      const next = new Date(prev);
-                      next.setDate(prev.getDate() + 1);
-                      return next;
-                    });
-                  }}
+                  onClick={() => shiftRescheduleDate(1)}
                 >
                   <FiChevronRight size={18} aria-hidden="true" />
                 </button>

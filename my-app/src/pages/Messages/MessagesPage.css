@@ -1045,9 +1045,15 @@
   box-shadow: none;
 }
 
-.reschedule-header-btn.icon.close {
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: #ffffff;
+.reschedule-header-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.reschedule-header-btn:disabled:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
 .reschedule-timeline {
@@ -1136,12 +1142,9 @@
   overflow: hidden;
 }
 
-.reschedule-column.left {
-  border-radius: 14px 0 0 14px;
-}
-
+.reschedule-column.left,
 .reschedule-column.right {
-  border-radius: 0 14px 14px 0;
+  border-radius: 0;
 }
 
 .reschedule-slot {
