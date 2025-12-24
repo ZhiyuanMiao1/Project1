@@ -51,6 +51,25 @@ const STUDENT_THREADS = [
       { id: 's-03-2', author: '我', from: 'me', time: '10:20', text: '收到，谢谢老师，我先过一遍，如果有问题再跟您同步。' },
     ],
   },
+  {
+    id: 's-04',
+    subject: '论文选题讨论 - 日程邀请',
+    counterpart: '赵老师',
+    counterpartMeta: '导师 · 研究方法',
+    time: '周三 18:05',
+    unread: false,
+    tags: ['日程已发送'],
+    summary: '我：已发送日程邀请 12月28日 周日 20:00-21:00 (GMT+8)，等待老师确认。',
+    schedule: {
+      direction: 'outgoing',
+      window: '12月28日 周日 20:00-21:00 (GMT+8)',
+      meetingId: '会议号：884 112 309',
+    },
+    messages: [
+      { id: 's-04-1', author: '我', from: 'me', time: '18:05', text: '老师我把讨论时间发您了：12月28日 20:00-21:00（GMT+8），您看是否方便？' },
+      { id: 's-04-2', author: '赵老师', from: 'them', time: '18:08', text: '收到，我晚点确认一下行程，确认后回复你。' },
+    ],
+  },
 ];
 
 const MENTOR_THREADS = [
@@ -98,6 +117,26 @@ const MENTOR_THREADS = [
     messages: [
       { id: 'm-03-1', author: '王同学', from: 'them', time: '14:30', text: '这周会把作业整理好后发您，辛苦查看。' },
       { id: 'm-03-2', author: '我', from: 'me', time: '14:44', text: '好的，收到。我看完会在周末前给你反馈。' },
+    ],
+  },
+  {
+    id: 'm-04',
+    subject: '期末复习安排 - 日程邀请',
+    counterpart: 'Evan 同学',
+    counterpartId: 'S33',
+    counterpartMeta: '学生 · 新预约',
+    time: '今天 11:05',
+    unread: false,
+    tags: ['日程已发送'],
+    summary: '我：已向 Evan 发送 12月24日 21:00-22:30 (GMT+8) 的日程邀请，等待确认。',
+    schedule: {
+      direction: 'outgoing',
+      window: '12月24日 周三 21:00-22:30 (GMT+8)',
+      meetingId: '会议号：603 221 448',
+    },
+    messages: [
+      { id: 'm-04-1', author: '我', from: 'me', time: '11:05', text: '我这边先发一个可约时间：12月24日 21:00-22:30（GMT+8），你确认下是否OK。' },
+      { id: 'm-04-2', author: 'Evan 同学', from: 'them', time: '11:12', text: '收到！我确认一下当天安排，稍后回复老师。' },
     ],
   },
 ];
@@ -169,6 +208,9 @@ const toMiddayDate = (value = new Date()) => {
   base.setHours(12, 0, 0, 0);
   return base;
 };
+
+const DEFAULT_SCHEDULE_WINDOW = '11月11日 周二 14:00-15:00 (GMT+8)';
+const DEFAULT_MEETING_ID = '会议号：123 456 789';
 
 const toYmdKey = (dateLike) => {
   if (!dateLike) return '';
@@ -347,8 +389,15 @@ function MessagesPage({ mode = 'student' }) {
     return name.trim().charAt(0) || '·';
   }, [activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
-  const scheduleWindow = '11月11日 周二 14:00-15:00 (GMT+8)';
-  const meetingId = '会议号：123 456 789';
+  const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
+  const isOutgoingSchedule = activeSchedule?.direction === 'outgoing';
+  const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
+    ? activeSchedule.window
+    : DEFAULT_SCHEDULE_WINDOW;
+  const meetingId = (typeof activeSchedule?.meetingId === 'string' && activeSchedule.meetingId.trim())
+    ? activeSchedule.meetingId
+    : DEFAULT_MEETING_ID;
+  const scheduleAvatarInitial = isOutgoingSchedule ? '我' : detailAvatarInitial;
   const scheduleHoverTime = useMemo(() => {
     if (!activeThread) return '';
     const lastMessage = Array.isArray(activeThread.messages) && activeThread.messages.length > 0
@@ -651,8 +700,8 @@ function MessagesPage({ mode = 'student' }) {
                 </div>
 
                 <div className="message-detail-body">
-                  <div className="schedule-row">
-                    <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                  <div className={`schedule-row ${isOutgoingSchedule ? 'is-outgoing' : ''}`}>
+                    <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{scheduleAvatarInitial}</div>
                     <div className="schedule-card">
                       <div className="schedule-card-top">
                         <div className="schedule-card-top-row">
@@ -660,6 +709,9 @@ function MessagesPage({ mode = 'student' }) {
                             <FiCalendar size={18} />
                           </div>
                           <div className="schedule-card-title-text">日程</div>
+                          {isOutgoingSchedule && (
+                            <span className="schedule-card-badge">已发送</span>
+                          )}
                         </div>
                         <div className="schedule-card-title">{scheduleTitle}</div>
                       </div>
@@ -676,6 +728,9 @@ function MessagesPage({ mode = 'student' }) {
 
                       <div className="schedule-meeting-id">{meetingId}</div>
 
+                      {isOutgoingSchedule ? (
+                        <div className="schedule-outgoing-note">你已发送日程邀请，等待对方确认</div>
+                      ) : (
                       <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
                         {scheduleDecision ? (
                           <div
@@ -774,6 +829,7 @@ function MessagesPage({ mode = 'student' }) {
                           </>
                         )}
                       </div>
+                      )}
                       {scheduleHoverTime && (
                         <div className="schedule-hover-time" aria-hidden="true">
                           {scheduleHoverTime}
