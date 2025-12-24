@@ -217,6 +217,8 @@ function MessagesPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
+  const rescheduleScrollRef = useRef(null);
+  const rescheduleInitialScrollSet = useRef(false);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -357,8 +359,8 @@ function MessagesPage({ mode = 'student' }) {
   }, [rescheduleOpen]);
 
   const timelineConfig = useMemo(() => ({
-    startHour: 11,
-    endHour: 22,
+    startHour: 0,
+    endHour: 24,
     rowHeight: 56,
     timeColumnWidth: 74,
     bodyPaddingTop: 8,
@@ -398,6 +400,22 @@ function MessagesPage({ mode = 'student' }) {
       commonSlots: intersectSlots(studentSlots, mentorSlots),
     };
   }, [rescheduleDate]);
+
+  useEffect(() => {
+    if (!rescheduleOpen) {
+      rescheduleInitialScrollSet.current = false;
+      return;
+    }
+    if (rescheduleInitialScrollSet.current) return;
+
+    const scrollEl = rescheduleScrollRef.current;
+    if (!scrollEl) return;
+
+    rescheduleInitialScrollSet.current = true;
+    const targetMinutes = 11 * 60;
+    const top = (targetMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60);
+    scrollEl.scrollTop = Math.max(0, top);
+  }, [rescheduleOpen, timelineConfig.rowHeight, timelineConfig.startHour]);
 
   return (
     <div className="messages-page">
@@ -780,7 +798,7 @@ function MessagesPage({ mode = 'student' }) {
                 <div className="reschedule-person">{participantLabels.mentor}</div>
               </div>
 
-              <div className="reschedule-timeline-scroll">
+              <div className="reschedule-timeline-scroll" ref={rescheduleScrollRef}>
                 <div
                   className="reschedule-timeline-body"
                   style={{
