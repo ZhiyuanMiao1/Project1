@@ -642,10 +642,8 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (availabilityStatus === 'loading') return '加载中...';
     if (availabilityStatus === 'error') return '加载失败';
     if (!availabilityDaysCount) return '未设置';
-    const hours = availability?.sessionDurationHours;
-    const hoursLabel = typeof hours === 'number' && Number.isFinite(hours) ? ` · 单次${hours}小时` : '';
-    return `已设置 ${availabilityDaysCount} 天${hoursLabel}`;
-  }, [availability?.sessionDurationHours, availabilityDaysCount, availabilityStatus, isLoggedIn]);
+    return `已设置 ${availabilityDaysCount} 天`;
+  }, [availabilityDaysCount, availabilityStatus, isLoggedIn]);
 
   const joinedMentorXDays = useMemo(() => {
     const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;

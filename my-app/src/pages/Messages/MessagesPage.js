@@ -918,22 +918,6 @@ function MessagesPage({ mode = 'student' }) {
                     ))}
                   </div>
 
-                  {availability.commonSlots.length > 0 && (
-                    <div className="reschedule-common-layer" aria-label="共同空闲时间">
-                      {availability.commonSlots.slice(0, 2).map((slot, index) => (
-                        <div
-                          key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
-                          className="reschedule-slot common"
-                          style={{
-                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
-                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
-                          }}
-                        >
-                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)} ({timelineConfig.timezoneLabel})
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
