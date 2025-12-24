@@ -57,7 +57,7 @@ const MENTOR_THREADS = [
     id: 'm-01',
     subject: '算法刷题套餐 - 课后跟进',
     counterpart: 'Alex 同学',
-    counterpartId: 'StudentID-10021',
+    counterpartId: 'S12',
     counterpartMeta: '学生 · 已上 3 节',
     time: '今天 08:40',
     unread: true,
@@ -72,7 +72,7 @@ const MENTOR_THREADS = [
     id: 'm-02',
     subject: '毕业设计指导预约',
     counterpart: 'Joyce',
-    counterpartId: 'StudentID-10486',
+    counterpartId: 'S21',
     counterpartMeta: '学生 · 新预约',
     time: '昨天 19:10',
     unread: false,
@@ -88,7 +88,7 @@ const MENTOR_THREADS = [
     id: 'm-03',
     subject: '课程回访',
     counterpart: '王同学',
-    counterpartId: 'StudentID-10902',
+    counterpartId: 'S07',
     counterpartMeta: '学生 · 已结课',
     time: '周二 14:30',
     unread: false,
@@ -363,7 +363,7 @@ function MessagesPage({ mode = 'student' }) {
     endHour: 24,
     rowHeight: 56,
     timeColumnWidth: 74,
-    bodyPaddingTop: 8,
+    bodyPaddingTop: 0,
     timezoneLabel: 'GMT+08',
   }), []);
 
@@ -374,22 +374,16 @@ function MessagesPage({ mode = 'student' }) {
 
   const counterpartDisplayName = useMemo(() => {
     if (!activeThread) return '';
-    if (isMentorView) return activeThread.counterpartId || 'StudentID';
+    if (isMentorView) return activeThread.counterpartId || 'S--';
     return activeThread.counterpart || '';
   }, [activeThread, isMentorView]);
 
   const participantLabels = useMemo(() => {
-    if (isMentorView) {
-      return {
-        student: counterpartDisplayName,
-        mentor: '我',
-      };
-    }
     return {
-      student: '我',
-      mentor: counterpartDisplayName,
+      left: '我',
+      right: counterpartDisplayName,
     };
-  }, [counterpartDisplayName, isMentorView]);
+  }, [counterpartDisplayName]);
 
   const availability = useMemo(() => {
     const studentSlots = buildMockAvailability(rescheduleDate, 'student');
@@ -400,6 +394,12 @@ function MessagesPage({ mode = 'student' }) {
       commonSlots: intersectSlots(studentSlots, mentorSlots),
     };
   }, [rescheduleDate]);
+
+  const columns = useMemo(() => {
+    const mySlots = isMentorView ? availability.mentorSlots : availability.studentSlots;
+    const counterpartSlots = isMentorView ? availability.studentSlots : availability.mentorSlots;
+    return { mySlots, counterpartSlots };
+  }, [availability.mentorSlots, availability.studentSlots, isMentorView]);
 
   useEffect(() => {
     if (!rescheduleOpen) {
@@ -794,8 +794,8 @@ function MessagesPage({ mode = 'student' }) {
                 style={{ '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px` }}
               >
                 <div className="reschedule-tz">{timelineConfig.timezoneLabel}</div>
-                <div className="reschedule-person">{participantLabels.student}</div>
-                <div className="reschedule-person">{participantLabels.mentor}</div>
+                <div className="reschedule-person">{participantLabels.left}</div>
+                <div className="reschedule-person">{participantLabels.right}</div>
               </div>
 
               <div className="reschedule-timeline-scroll" ref={rescheduleScrollRef}>
@@ -811,13 +811,15 @@ function MessagesPage({ mode = 'student' }) {
                   <div className="reschedule-time-col" aria-hidden="true">
                     {displayHours.map((hour) => (
                       <div key={hour} className="reschedule-time-label">
-                        {String(hour).padStart(2, '0')}:00
+                        {hour === 0 ? null : (
+                          <span className="reschedule-time-text">{`${String(hour).padStart(2, '0')}:00`}</span>
+                        )}
                       </div>
                     ))}
                   </div>
 
-                  <div className="reschedule-column" aria-label="学生空闲时间">
-                    {availability.studentSlots.map((slot, index) => (
+                  <div className="reschedule-column left" aria-label="我的空闲时间">
+                    {columns.mySlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                         className="reschedule-slot availability"
@@ -831,8 +833,8 @@ function MessagesPage({ mode = 'student' }) {
                     ))}
                   </div>
 
-                  <div className="reschedule-column" aria-label="导师空闲时间">
-                    {availability.mentorSlots.map((slot, index) => (
+                  <div className="reschedule-column right" aria-label="对方空闲时间">
+                    {columns.counterpartSlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                         className="reschedule-slot availability"

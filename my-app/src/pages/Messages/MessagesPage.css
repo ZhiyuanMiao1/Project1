@@ -1054,7 +1054,7 @@
   padding: 12px 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   min-height: 0;
   flex: 1 1 auto;
 }
@@ -1063,7 +1063,7 @@
   display: grid;
   grid-template-columns: var(--rs-time-col-width) 1fr 1fr;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 0;
   padding: 10px 0 10px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.9);
 }
@@ -1093,27 +1093,32 @@
   position: relative;
   display: grid;
   grid-template-columns: var(--rs-time-col-width) 1fr 1fr;
-  column-gap: 12px;
-  padding-top: var(--rs-body-padding-top, 8px);
+  column-gap: 0;
+  padding-top: var(--rs-body-padding-top, 0px);
   min-height: calc(var(--rs-timeline-height) + 18px);
 }
 
 .reschedule-time-col {
   position: relative;
   height: var(--rs-timeline-height);
-  padding-top: 2px;
+  padding-top: 0;
 }
 
 .reschedule-time-label {
   height: var(--rs-row-height);
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding-right: 10px;
+  position: relative;
   font-size: 13px;
   color: #6b7280;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.reschedule-time-text {
+  position: absolute;
+  top: 0;
+  right: 10px;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .reschedule-column {
@@ -1122,17 +1127,21 @@
   border-left: 1px solid rgba(226, 232, 240, 0.9);
   background-image: repeating-linear-gradient(
     to bottom,
-    rgba(226, 232, 240, 0.9) 0,
-    rgba(226, 232, 240, 0.9) 1px,
-    transparent 1px,
-    transparent var(--rs-row-height)
+    transparent 0,
+    transparent calc(var(--rs-row-height) - 1px),
+    rgba(226, 232, 240, 0.9) calc(var(--rs-row-height) - 1px),
+    rgba(226, 232, 240, 0.9) var(--rs-row-height)
   );
-  border-radius: 14px;
+  border-radius: 0;
   overflow: hidden;
 }
 
-.reschedule-column + .reschedule-column {
-  border-left: 1px solid rgba(226, 232, 240, 0.9);
+.reschedule-column.left {
+  border-radius: 14px 0 0 14px;
+}
+
+.reschedule-column.right {
+  border-radius: 0 14px 14px 0;
 }
 
 .reschedule-slot {
@@ -1159,9 +1168,9 @@
 
 .reschedule-common-layer {
   position: absolute;
-  left: calc(var(--rs-time-col-width) + 12px);
+  left: var(--rs-time-col-width);
   right: 0;
-  top: var(--rs-body-padding-top, 8px);
+  top: var(--rs-body-padding-top, 0px);
   height: var(--rs-timeline-height);
   pointer-events: none;
 }
