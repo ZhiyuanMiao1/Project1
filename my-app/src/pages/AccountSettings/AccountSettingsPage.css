@@ -209,6 +209,111 @@
   padding: 0 18px 18px;
 }
 
+.settings-course-order {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-course-order.is-disabled {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.settings-course-order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-course-order-hint {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #6b7280;
+}
+
+.settings-course-order-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.settings-course-order-item {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.14s ease, transform 0.14s ease, background-color 0.14s ease;
+  color: inherit;
+}
+
+.settings-course-order-item:hover {
+  border-color: rgba(15, 23, 42, 0.28);
+  background: #f8fafc;
+}
+
+.settings-course-order-item:active {
+  cursor: grabbing;
+}
+
+.settings-course-order-item:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.35);
+  outline-offset: 3px;
+}
+
+.settings-course-order-item.is-dragging {
+  opacity: 0.65;
+  transform: scale(0.98);
+}
+
+.settings-course-order-item.is-drop-target {
+  border-color: rgba(17, 24, 39, 0.7);
+  background: #f1f5f9;
+}
+
+.settings-course-order-item-icon {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0f172a;
+}
+
+.settings-course-order-item-label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-course-order-item-handle {
+  font-size: 14px;
+  color: #9ca3af;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
 .settings-orders-empty {
   padding: 10px 0 2px;
   font-size: 14px;

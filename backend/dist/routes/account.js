@@ -9,6 +9,82 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const router = (0, express_1.Router)();
+const parseOrderIds = (value) => {
+    if (typeof value !== 'string' || !value.trim())
+        return null;
+    try {
+        const parsed = JSON.parse(value);
+        if (!Array.isArray(parsed))
+            return null;
+        const seen = new Set();
+        const out = [];
+        for (const item of parsed) {
+            if (typeof item !== 'string')
+                continue;
+            const id = item.trim();
+            if (!id)
+                continue;
+            if (id.length > 80)
+                continue;
+            if (seen.has(id))
+                continue;
+            seen.add(id);
+            out.push(id);
+            if (out.length >= 200)
+                break;
+        }
+        return out;
+    }
+    catch {
+        return null;
+    }
+};
+const sanitizeOrderIds = (value) => {
+    if (!Array.isArray(value))
+        return [];
+    const seen = new Set();
+    const out = [];
+    for (const item of value) {
+        if (typeof item !== 'string')
+            continue;
+        const id = item.trim();
+        if (!id)
+            continue;
+        if (id.length > 80)
+            continue;
+        if (seen.has(id))
+            continue;
+        seen.add(id);
+        out.push(id);
+        if (out.length >= 200)
+            break;
+    }
+    return out;
+};
+let homeCourseOrderColumnEnsured = false;
+const isMissingHomeCourseOrderColumnError = (e) => {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('home_course_order_json');
+};
+const ensureHomeCourseOrderColumn = async () => {
+    if (homeCourseOrderColumnEnsured)
+        return true;
+    try {
+        await (0, db_1.query)('ALTER TABLE account_settings ADD COLUMN home_course_order_json TEXT NULL');
+        homeCourseOrderColumnEnsured = true;
+        return true;
+    }
+    catch (e) {
+        const code = String(e?.code || '');
+        const message = String(e?.message || '');
+        if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+            homeCourseOrderColumnEnsured = true;
+            return true;
+        }
+        return false;
+    }
+};
 router.get('/ids', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -17,6 +93,31 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
         const email = currentRows[0]?.email;
         if (!email)
             return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        let settingsRows = [];
+        try {
+            settingsRows = await (0, db_1.query)('SELECT email_notifications, home_course_order_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+        }
+        catch (e) {
+            if (!isMissingHomeCourseOrderColumnError(e))
+                throw e;
+            const ensured = await ensureHomeCourseOrderColumn();
+            if (ensured) {
+                settingsRows = await (0, db_1.query)('SELECT email_notifications, home_course_order_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+            }
+            else {
+                settingsRows = await (0, db_1.query)('SELECT email_notifications FROM account_settings WHERE email = ? LIMIT 1', [email]);
+            }
+        }
+        let emailNotificationsEnabled = false;
+        let homeCourseOrderIds = null;
+        if (settingsRows.length === 0) {
+            await (0, db_1.query)('INSERT IGNORE INTO account_settings (email, email_notifications) VALUES (?, ?)', [email, 1]);
+            emailNotificationsEnabled = true;
+        }
+        else {
+            emailNotificationsEnabled = !!settingsRows[0]?.email_notifications;
+            homeCourseOrderIds = parseOrderIds(settingsRows[0]?.home_course_order_json);
+        }
         const rows = await (0, db_1.query)("SELECT id, role, public_id, created_at FROM users WHERE email = ? AND role IN ('student','mentor')", [email]);
         let studentId = null;
         let mentorId = null;
@@ -65,7 +166,17 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
                 school = picked.school;
             }
         }
-        return res.json({ email, studentId, mentorId, degree, school, studentCreatedAt, mentorCreatedAt });
+        return res.json({
+            email,
+            studentId,
+            mentorId,
+            degree,
+            school,
+            studentCreatedAt,
+            mentorCreatedAt,
+            emailNotificationsEnabled,
+            homeCourseOrderIds,
+        });
     }
     catch (e) {
         console.error('Account ids error:', e);
@@ -131,6 +242,106 @@ router.put('/profile', auth_1.requireAuth, [
     }
     catch (e) {
         console.error('Account profile save error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.put('/notifications', auth_1.requireAuth, [
+    (0, express_validator_1.body)('emailNotificationsEnabled').isBoolean().withMessage('邮件通知设置无效'),
+], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const { emailNotificationsEnabled } = req.body;
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        await (0, db_1.query)(`INSERT INTO account_settings (email, email_notifications)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE
+           email_notifications = VALUES(email_notifications),
+           updated_at = CURRENT_TIMESTAMP`, [email, emailNotificationsEnabled ? 1 : 0]);
+        return res.json({ message: '保存成功', emailNotificationsEnabled });
+    }
+    catch (e) {
+        console.error('Account notifications update error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/home-course-order', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        await (0, db_1.query)('INSERT IGNORE INTO account_settings (email, email_notifications) VALUES (?, ?)', [email, 1]);
+        let rows = [];
+        try {
+            rows = await (0, db_1.query)('SELECT home_course_order_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+        }
+        catch (e) {
+            if (!isMissingHomeCourseOrderColumnError(e))
+                throw e;
+            const ensured = await ensureHomeCourseOrderColumn();
+            if (ensured) {
+                rows = await (0, db_1.query)('SELECT home_course_order_json FROM account_settings WHERE email = ? LIMIT 1', [email]);
+            }
+            else {
+                return res.json({ orderIds: null });
+            }
+        }
+        const orderIds = parseOrderIds(rows[0]?.home_course_order_json);
+        return res.json({ orderIds });
+    }
+    catch (e) {
+        console.error('Account home course order fetch error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.put('/home-course-order', auth_1.requireAuth, [(0, express_validator_1.body)('orderIds').isArray().withMessage('顺序数据无效')], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+    const { orderIds } = req.body;
+    const sanitized = sanitizeOrderIds(orderIds);
+    try {
+        const currentRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const email = currentRows[0]?.email;
+        if (!email)
+            return res.status(401).json({ error: '登录状态异常，请重新登录' });
+        try {
+            await (0, db_1.query)(`INSERT INTO account_settings (email, home_course_order_json)
+           VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE
+             home_course_order_json = VALUES(home_course_order_json),
+             updated_at = CURRENT_TIMESTAMP`, [email, JSON.stringify(sanitized)]);
+        }
+        catch (e) {
+            if (!isMissingHomeCourseOrderColumnError(e))
+                throw e;
+            const ensured = await ensureHomeCourseOrderColumn();
+            if (!ensured) {
+                return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 中的 account_settings 迁移' });
+            }
+            await (0, db_1.query)(`INSERT INTO account_settings (email, home_course_order_json)
+           VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE
+             home_course_order_json = VALUES(home_course_order_json),
+             updated_at = CURRENT_TIMESTAMP`, [email, JSON.stringify(sanitized)]);
+        }
+        return res.json({ message: '保存成功', orderIds: sanitized });
+    }
+    catch (e) {
+        console.error('Account home course order save error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

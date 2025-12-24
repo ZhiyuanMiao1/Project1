@@ -13,15 +13,20 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import { fetchAccountProfile } from '../../api/account';
+import { fetchAccountProfile, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
 import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
   DIRECTION_ICON_MAP,
+  DIRECTION_OPTIONS,
   DIRECTION_ID_TO_LABEL,
 } from '../../constants/courseMappings';
+import {
+  broadcastHomeCourseOrderChanged,
+  normalizeHomeCourseOrderIds,
+} from '../../utils/homeCourseOrder';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -135,6 +140,116 @@ const getReviewDisplayName = (value) => {
   const withoutPrefix = trimmed.replace(/^导师\s*/, '').trim();
   return withoutPrefix || trimmed;
 };
+
+const DEFAULT_HOME_COURSE_ORDER_IDS = DIRECTION_OPTIONS.map((opt) => opt.id);
+
+function HomeCourseOrderEditor({ orderIds = [], disabled = false, onChangeOrder, onResetOrder }) {
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+
+  const optionById = useMemo(() => new Map(DIRECTION_OPTIONS.map((opt) => [opt.id, opt])), []);
+  const orderedOptions = useMemo(
+    () => orderIds.map((id) => optionById.get(id)).filter(Boolean),
+    [orderIds, optionById],
+  );
+
+  const moveItem = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return null;
+    const fromIndex = orderIds.indexOf(fromId);
+    const toIndex = orderIds.indexOf(toId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return null;
+    const next = [...orderIds];
+    const [removed] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, removed);
+    return next;
+  };
+
+  const handleDragStart = (e, id) => {
+    if (disabled) return;
+    setDraggingId(id);
+    setDragOverId(null);
+    try {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', id);
+    } catch {}
+  };
+
+  const handleDragOver = (e, id) => {
+    if (disabled) return;
+    e.preventDefault();
+    if (dragOverId !== id) setDragOverId(id);
+    try {
+      e.dataTransfer.dropEffect = 'move';
+    } catch {}
+  };
+
+  const handleDrop = (e, id) => {
+    if (disabled) return;
+    e.preventDefault();
+    let fromId = draggingId;
+    if (!fromId) {
+      try {
+        fromId = e.dataTransfer.getData('text/plain');
+      } catch {}
+    }
+    const next = moveItem(fromId, id);
+    setDraggingId(null);
+    setDragOverId(null);
+    if (!next) return;
+    if (typeof onChangeOrder === 'function') onChangeOrder(next);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  return (
+    <div className={`settings-course-order ${disabled ? 'is-disabled' : ''}`}>
+      <div className="settings-course-order-head">
+        <div className="settings-course-order-hint">拖动课程卡片调整首页课程顺序（自动保存）</div>
+        <button
+          type="button"
+          className="settings-action"
+          onClick={onResetOrder}
+          disabled={disabled}
+        >
+          恢复默认
+        </button>
+      </div>
+
+      <ul className="settings-course-order-grid" aria-label="首页课程排序">
+        {orderedOptions.map((opt) => {
+          const Icon = DIRECTION_ICON_MAP[opt.id];
+          const isDragging = draggingId === opt.id;
+          const isDropTarget = dragOverId === opt.id && draggingId && draggingId !== opt.id;
+          return (
+            <li key={opt.id} className="settings-course-order-cell">
+              <button
+                type="button"
+                className={`settings-course-order-item ${isDragging ? 'is-dragging' : ''} ${isDropTarget ? 'is-drop-target' : ''}`}
+                draggable={!disabled}
+                onDragStart={(e) => handleDragStart(e, opt.id)}
+                onDragOver={(e) => handleDragOver(e, opt.id)}
+                onDrop={(e) => handleDrop(e, opt.id)}
+                onDragEnd={handleDragEnd}
+                aria-label={`拖动排序：${opt.label}`}
+              >
+                <span className="settings-course-order-item-icon" aria-hidden="true">
+                  {Icon ? <Icon size={16} /> : null}
+                </span>
+                <span className="settings-course-order-item-label">{opt.label}</span>
+                <span className="settings-course-order-item-handle" aria-hidden="true">
+                  ⋮⋮
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 function RechargeTable({ records = [] }) {
   return (
@@ -356,6 +471,9 @@ function AccountSettingsPage({ mode = 'student' }) {
       return { email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null };
     }
   });
+  const [homeCourseOrderExpanded, setHomeCourseOrderExpanded] = useState(false);
+  const [homeCourseOrderIds, setHomeCourseOrderIds] = useState(() => [...DEFAULT_HOME_COURSE_ORDER_IDS]);
+  const [savingHomeCourseOrder, setSavingHomeCourseOrder] = useState(false);
   const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
   const [degreeDraft, setDegreeDraft] = useState('');
   const [schoolDraft, setSchoolDraft] = useState('');
@@ -407,6 +525,9 @@ function AccountSettingsPage({ mode = 'student' }) {
       setPasswordError('');
       setEmailNotificationsEnabled(false);
       setSavingEmailNotifications(false);
+      setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
+      setSavingHomeCourseOrder(false);
+      setHomeCourseOrderExpanded(false);
       setToast(null);
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -431,6 +552,12 @@ function AccountSettingsPage({ mode = 'student' }) {
           mentorCreatedAt: typeof data.mentorCreatedAt === 'string' ? data.mentorCreatedAt : null,
         };
         setAccountProfile(next);
+        setHomeCourseOrderIds(
+          normalizeHomeCourseOrderIds(
+            Array.isArray(data.homeCourseOrderIds) ? data.homeCourseOrderIds : null,
+            DEFAULT_HOME_COURSE_ORDER_IDS
+          )
+        );
         setIdsStatus('loaded');
         setDegreeDraft(typeof data.degree === 'string' ? data.degree : '');
         setSchoolDraft(typeof data.school === 'string' ? data.school : '');
@@ -440,6 +567,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       })
       .catch(() => {
         if (!alive) return;
+        setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
         setIdsStatus('error');
       });
 
@@ -652,6 +780,50 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2600);
   };
+
+  const persistHomeCourseOrder = async (nextOrderIds, { successMessage = '首页课程顺序已保存' } = {}) => {
+    if (savingHomeCourseOrder) return false;
+    if (!isLoggedIn) {
+      showToast('请先登录', 'error');
+      return false;
+    }
+
+    const normalized = normalizeHomeCourseOrderIds(nextOrderIds, DEFAULT_HOME_COURSE_ORDER_IDS);
+    const prev = homeCourseOrderIds;
+    setHomeCourseOrderIds(normalized);
+    setSavingHomeCourseOrder(true);
+
+    try {
+      const res = await saveHomeCourseOrder(normalized);
+      const serverOrderIds = Array.isArray(res?.data?.orderIds) ? res.data.orderIds : normalized;
+      const finalOrder = normalizeHomeCourseOrderIds(serverOrderIds, DEFAULT_HOME_COURSE_ORDER_IDS);
+      setHomeCourseOrderIds(finalOrder);
+      broadcastHomeCourseOrderChanged({ email: accountProfile.email, orderIds: finalOrder });
+      showToast(successMessage, 'success');
+      return true;
+    } catch (e) {
+      setHomeCourseOrderIds(prev);
+      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '保存失败，请稍后再试';
+      showToast(msg, 'error');
+      return false;
+    } finally {
+      setSavingHomeCourseOrder(false);
+    }
+  };
+
+  const resetHomeCourseOrder = () => {
+    persistHomeCourseOrder([...DEFAULT_HOME_COURSE_ORDER_IDS], { successMessage: '已恢复默认顺序' });
+  };
+
+  const isHomeCourseOrderCustomized = useMemo(() => {
+    if (!Array.isArray(homeCourseOrderIds) || homeCourseOrderIds.length !== DEFAULT_HOME_COURSE_ORDER_IDS.length) return false;
+    for (let i = 0; i < DEFAULT_HOME_COURSE_ORDER_IDS.length; i += 1) {
+      if (homeCourseOrderIds[i] !== DEFAULT_HOME_COURSE_ORDER_IDS[i]) return true;
+    }
+    return false;
+  }, [homeCourseOrderIds]);
+
+  const homeCourseOrderDisabled = !isLoggedIn || idsStatus === 'loading' || savingHomeCourseOrder;
 
   const toggleEmailNotifications = async () => {
     if (savingEmailNotifications) return;
@@ -1247,12 +1419,35 @@ function AccountSettingsPage({ mode = 'student' }) {
                     </div>
                     <button type="button" className="settings-action">更改</button>
                   </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">时区</div>
-                      <div className="settings-row-value">UTC+08:00</div>
+
+                  <div className="settings-accordion-item">
+                    <button
+                      type="button"
+                      className="settings-accordion-trigger"
+                      aria-expanded={homeCourseOrderExpanded}
+                      aria-controls="settings-home-course-order"
+                      onClick={() => setHomeCourseOrderExpanded((prev) => !prev)}
+                    >
+                        <div className="settings-row-main">
+                          <div className="settings-row-title">首页课程排序</div>
+                        <div className="settings-row-value">{isHomeCourseOrderCustomized ? '自定义' : '默认顺序'}</div>
+                      </div>
+                      <span className="settings-accordion-icon" aria-hidden="true">
+                        <FiChevronDown size={18} />
+                      </span>
+                    </button>
+                    <div
+                      id="settings-home-course-order"
+                      className="settings-accordion-panel"
+                      hidden={!homeCourseOrderExpanded}
+                    >
+                      <HomeCourseOrderEditor
+                        orderIds={homeCourseOrderIds}
+                        disabled={homeCourseOrderDisabled}
+                        onChangeOrder={(nextOrderIds) => persistHomeCourseOrder(nextOrderIds)}
+                        onResetOrder={resetHomeCourseOrder}
+                      />
                     </div>
-                    <button type="button" className="settings-action">更改</button>
                   </div>
                 </>
               )}
