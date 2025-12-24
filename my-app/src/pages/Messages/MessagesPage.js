@@ -57,6 +57,7 @@ const MENTOR_THREADS = [
     id: 'm-01',
     subject: '算法刷题套餐 - 课后跟进',
     counterpart: 'Alex 同学',
+    counterpartId: 'StudentID-10021',
     counterpartMeta: '学生 · 已上 3 节',
     time: '今天 08:40',
     unread: true,
@@ -71,6 +72,7 @@ const MENTOR_THREADS = [
     id: 'm-02',
     subject: '毕业设计指导预约',
     counterpart: 'Joyce',
+    counterpartId: 'StudentID-10486',
     counterpartMeta: '学生 · 新预约',
     time: '昨天 19:10',
     unread: false,
@@ -86,6 +88,7 @@ const MENTOR_THREADS = [
     id: 'm-03',
     subject: '课程回访',
     counterpart: '王同学',
+    counterpartId: 'StudentID-10902',
     counterpartMeta: '学生 · 已结课',
     time: '周二 14:30',
     unread: false,
@@ -145,14 +148,6 @@ const formatHoverTime = (rawValue) => {
 };
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-
-const isSameDay = (a, b) => (
-  a instanceof Date
-  && b instanceof Date
-  && a.getFullYear() === b.getFullYear()
-  && a.getMonth() === b.getMonth()
-  && a.getDate() === b.getDate()
-);
 
 const formatFullDate = (date) => {
   if (!(date instanceof Date)) return '';
@@ -375,19 +370,24 @@ function MessagesPage({ mode = 'student' }) {
     [timelineConfig.endHour, timelineConfig.startHour],
   );
 
+  const counterpartDisplayName = useMemo(() => {
+    if (!activeThread) return '';
+    if (isMentorView) return activeThread.counterpartId || 'StudentID';
+    return activeThread.counterpart || '';
+  }, [activeThread, isMentorView]);
+
   const participantLabels = useMemo(() => {
-    const counterpart = activeThread?.counterpart || '';
     if (isMentorView) {
       return {
-        student: counterpart ? `学生 · ${counterpart}` : '学生',
-        mentor: '导师 · 我',
+        student: counterpartDisplayName,
+        mentor: '我',
       };
     }
     return {
-      student: '学生 · 我',
-      mentor: counterpart ? `导师 · ${counterpart}` : '导师',
+      student: '我',
+      mentor: counterpartDisplayName,
     };
-  }, [activeThread?.counterpart, isMentorView]);
+  }, [counterpartDisplayName, isMentorView]);
 
   const availability = useMemo(() => {
     const studentSlots = buildMockAvailability(rescheduleDate, 'student');
@@ -398,17 +398,6 @@ function MessagesPage({ mode = 'student' }) {
       commonSlots: intersectSlots(studentSlots, mentorSlots),
     };
   }, [rescheduleDate]);
-
-  const nowIndicator = useMemo(() => {
-    const now = new Date();
-    if (!isSameDay(now, rescheduleDate)) return null;
-    const minutes = now.getHours() * 60 + now.getMinutes();
-    const startMinutes = timelineConfig.startHour * 60;
-    const endMinutes = timelineConfig.endHour * 60;
-    if (minutes < startMinutes || minutes > endMinutes) return null;
-    const top = (minutes - startMinutes) * (timelineConfig.rowHeight / 60);
-    return { minutes, top };
-  }, [rescheduleDate, timelineConfig.endHour, timelineConfig.rowHeight, timelineConfig.startHour]);
 
   return (
     <div className="messages-page">
@@ -743,13 +732,6 @@ function MessagesPage({ mode = 'student' }) {
               <div className="reschedule-header-left">
                 <button
                   type="button"
-                  className="reschedule-header-btn ghost"
-                  onClick={() => setRescheduleDate(new Date())}
-                >
-                  今天
-                </button>
-                <button
-                  type="button"
                   className="reschedule-header-btn icon"
                   aria-label="前一天"
                   onClick={() => {
@@ -860,18 +842,6 @@ function MessagesPage({ mode = 'student' }) {
                           {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)} ({timelineConfig.timezoneLabel})
                         </div>
                       ))}
-                    </div>
-                  )}
-
-                  {nowIndicator && (
-                    <div
-                      className="reschedule-now"
-                      style={{ top: `${nowIndicator.top + timelineConfig.bodyPaddingTop}px` }}
-                      aria-hidden="true"
-                    >
-                      <div className="reschedule-now-label">{minutesToTimeLabel(nowIndicator.minutes)}</div>
-                      <div className="reschedule-now-dot" />
-                      <div className="reschedule-now-line" />
                     </div>
                   )}
                 </div>
