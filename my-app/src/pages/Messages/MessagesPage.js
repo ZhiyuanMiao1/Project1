@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiClock, FiVideo, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
@@ -144,6 +144,80 @@ const formatHoverTime = (rawValue) => {
   return text;
 };
 
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const isSameDay = (a, b) => (
+  a instanceof Date
+  && b instanceof Date
+  && a.getFullYear() === b.getFullYear()
+  && a.getMonth() === b.getMonth()
+  && a.getDate() === b.getDate()
+);
+
+const formatFullDate = (date) => {
+  if (!(date instanceof Date)) return '';
+  const label = weekdayLabels[date.getDay()] || '';
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
+};
+
+const minutesToTimeLabel = (minutes) => {
+  if (typeof minutes !== 'number' || Number.isNaN(minutes)) return '';
+  const normalized = Math.max(0, minutes);
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const intersectSlots = (a = [], b = []) => {
+  const result = [];
+  let i = 0;
+  let j = 0;
+  const sortedA = [...a].sort((x, y) => x.startMinutes - y.startMinutes);
+  const sortedB = [...b].sort((x, y) => x.startMinutes - y.startMinutes);
+
+  while (i < sortedA.length && j < sortedB.length) {
+    const slotA = sortedA[i];
+    const slotB = sortedB[j];
+    const start = Math.max(slotA.startMinutes, slotB.startMinutes);
+    const end = Math.min(slotA.endMinutes, slotB.endMinutes);
+    if (end > start) result.push({ startMinutes: start, endMinutes: end });
+
+    if (slotA.endMinutes < slotB.endMinutes) i += 1;
+    else j += 1;
+  }
+
+  return result;
+};
+
+const buildMockAvailability = (date, role) => {
+  const day = date?.getDay?.() ?? 1;
+  const isWeekend = day === 0 || day === 6;
+
+  if (role === 'student') {
+    return isWeekend
+      ? [
+        { startMinutes: 13 * 60, endMinutes: 16 * 60 },
+        { startMinutes: 19 * 60, endMinutes: 21 * 60 },
+      ]
+      : [
+        { startMinutes: 12 * 60, endMinutes: 13 * 60 + 30 },
+        { startMinutes: 14 * 60, endMinutes: 15 * 60 + 30 },
+        { startMinutes: 20 * 60, endMinutes: 21 * 60 + 30 },
+      ];
+  }
+
+  return isWeekend
+    ? [
+      { startMinutes: 15 * 60, endMinutes: 17 * 60 + 30 },
+      { startMinutes: 20 * 60, endMinutes: 21 * 60 },
+    ]
+    : [
+      { startMinutes: 11 * 60 + 30, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 14 * 60 + 30, endMinutes: 17 * 60 },
+      { startMinutes: 19 * 60, endMinutes: 20 * 60 + 30 },
+    ];
+};
+
 function MessagesPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -156,6 +230,8 @@ function MessagesPage({ mode = 'student' }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [scheduleDecision, setScheduleDecision] = useState(null);
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(() => new Date());
 
   useEffect(() => {
     const handler = (e) => {
@@ -230,6 +306,8 @@ function MessagesPage({ mode = 'student' }) {
   useEffect(() => {
     setScheduleDecision(null);
     setDecisionMenuOpen(false);
+    setRescheduleOpen(false);
+    setRescheduleDate(new Date());
   }, [activeThread?.id]);
 
   const decisionPopoverActions = useMemo(() => {
@@ -262,7 +340,75 @@ function MessagesPage({ mode = 'student' }) {
     if (!value) return;
     setScheduleDecision(value);
     setDecisionMenuOpen(false);
+    if (value === 'rescheduling') setRescheduleOpen(true);
+    else setRescheduleOpen(false);
   };
+
+  useEffect(() => {
+    if (!rescheduleOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setRescheduleOpen(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [rescheduleOpen]);
+
+  const timelineConfig = useMemo(() => ({
+    startHour: 11,
+    endHour: 22,
+    rowHeight: 56,
+    timeColumnWidth: 74,
+    bodyPaddingTop: 8,
+    timezoneLabel: 'GMT+08',
+  }), []);
+
+  const displayHours = useMemo(
+    () => Array.from({ length: timelineConfig.endHour - timelineConfig.startHour }, (_, index) => timelineConfig.startHour + index),
+    [timelineConfig.endHour, timelineConfig.startHour],
+  );
+
+  const participantLabels = useMemo(() => {
+    const counterpart = activeThread?.counterpart || '';
+    if (isMentorView) {
+      return {
+        student: counterpart ? `学生 · ${counterpart}` : '学生',
+        mentor: '导师 · 我',
+      };
+    }
+    return {
+      student: '学生 · 我',
+      mentor: counterpart ? `导师 · ${counterpart}` : '导师',
+    };
+  }, [activeThread?.counterpart, isMentorView]);
+
+  const availability = useMemo(() => {
+    const studentSlots = buildMockAvailability(rescheduleDate, 'student');
+    const mentorSlots = buildMockAvailability(rescheduleDate, 'mentor');
+    return {
+      studentSlots,
+      mentorSlots,
+      commonSlots: intersectSlots(studentSlots, mentorSlots),
+    };
+  }, [rescheduleDate]);
+
+  const nowIndicator = useMemo(() => {
+    const now = new Date();
+    if (!isSameDay(now, rescheduleDate)) return null;
+    const minutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = timelineConfig.startHour * 60;
+    const endMinutes = timelineConfig.endHour * 60;
+    if (minutes < startMinutes || minutes > endMinutes) return null;
+    const top = (minutes - startMinutes) * (timelineConfig.rowHeight / 60);
+    return { minutes, top };
+  }, [rescheduleDate, timelineConfig.endHour, timelineConfig.rowHeight, timelineConfig.startHour]);
 
   return (
     <div className="messages-page">
@@ -458,6 +604,9 @@ function MessagesPage({ mode = 'student' }) {
                                     ? 'reject-btn'
                                     : 'reschedule-btn'
                               }`}
+                              onClick={() => {
+                                if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
+                              }}
                             >
                               <span
                                 className={`schedule-btn-icon ${
@@ -575,6 +724,161 @@ function MessagesPage({ mode = 'student' }) {
           align="right"
           alignOffset={23}
         />
+      )}
+
+      {rescheduleOpen && (
+        <div
+          className="reschedule-overlay"
+          role="presentation"
+          onClick={() => setRescheduleOpen(false)}
+        >
+          <aside
+            className="reschedule-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="修改时间"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="reschedule-header">
+              <div className="reschedule-header-left">
+                <button
+                  type="button"
+                  className="reschedule-header-btn ghost"
+                  onClick={() => setRescheduleDate(new Date())}
+                >
+                  今天
+                </button>
+                <button
+                  type="button"
+                  className="reschedule-header-btn icon"
+                  aria-label="前一天"
+                  onClick={() => {
+                    setRescheduleDate((prev) => {
+                      const next = new Date(prev);
+                      next.setDate(prev.getDate() - 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <FiChevronLeft size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="reschedule-header-btn icon"
+                  aria-label="后一天"
+                  onClick={() => {
+                    setRescheduleDate((prev) => {
+                      const next = new Date(prev);
+                      next.setDate(prev.getDate() + 1);
+                      return next;
+                    });
+                  }}
+                >
+                  <FiChevronRight size={18} aria-hidden="true" />
+                </button>
+                <div className="reschedule-date-title">{formatFullDate(rescheduleDate)}</div>
+              </div>
+              <button
+                type="button"
+                className="reschedule-header-btn icon close"
+                aria-label="关闭"
+                onClick={() => setRescheduleOpen(false)}
+              >
+                <FiX size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="reschedule-timeline">
+              <div
+                className="reschedule-timeline-head"
+                style={{ '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px` }}
+              >
+                <div className="reschedule-tz">{timelineConfig.timezoneLabel}</div>
+                <div className="reschedule-person">{participantLabels.student}</div>
+                <div className="reschedule-person">{participantLabels.mentor}</div>
+              </div>
+
+              <div className="reschedule-timeline-scroll">
+                <div
+                  className="reschedule-timeline-body"
+                  style={{
+                    '--rs-row-height': `${timelineConfig.rowHeight}px`,
+                    '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px`,
+                    '--rs-body-padding-top': `${timelineConfig.bodyPaddingTop}px`,
+                    '--rs-timeline-height': `${timelineConfig.rowHeight * (timelineConfig.endHour - timelineConfig.startHour)}px`,
+                  }}
+                >
+                  <div className="reschedule-time-col" aria-hidden="true">
+                    {displayHours.map((hour) => (
+                      <div key={hour} className="reschedule-time-label">
+                        {String(hour).padStart(2, '0')}:00
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="reschedule-column" aria-label="学生空闲时间">
+                    {availability.studentSlots.map((slot, index) => (
+                      <div
+                        key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                        className="reschedule-slot availability"
+                        style={{
+                          top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                          height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                        }}
+                      >
+                        {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="reschedule-column" aria-label="导师空闲时间">
+                    {availability.mentorSlots.map((slot, index) => (
+                      <div
+                        key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                        className="reschedule-slot availability"
+                        style={{
+                          top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                          height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                        }}
+                      >
+                        {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                      </div>
+                    ))}
+                  </div>
+
+                  {availability.commonSlots.length > 0 && (
+                    <div className="reschedule-common-layer" aria-label="共同空闲时间">
+                      {availability.commonSlots.slice(0, 2).map((slot, index) => (
+                        <div
+                          key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                          className="reschedule-slot common"
+                          style={{
+                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)} ({timelineConfig.timezoneLabel})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {nowIndicator && (
+                    <div
+                      className="reschedule-now"
+                      style={{ top: `${nowIndicator.top + timelineConfig.bodyPaddingTop}px` }}
+                      aria-hidden="true"
+                    >
+                      <div className="reschedule-now-label">{minutesToTimeLabel(nowIndicator.minutes)}</div>
+                      <div className="reschedule-now-dot" />
+                      <div className="reschedule-now-line" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
       )}
     </div>
   );
