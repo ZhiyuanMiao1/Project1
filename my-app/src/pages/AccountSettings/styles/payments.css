@@ -1,0 +1,135 @@
+.settings-orders-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: #ffffff;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.settings-orders-table-wrapper::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.settings-orders-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.settings-orders-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eef2f7;
+  letter-spacing: 0.02em;
+  background: #ffffff;
+}
+
+.settings-orders-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: top;
+}
+
+.settings-orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.settings-orders-amount {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.settings-orders-time {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.settings-recharge-timezone {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.settings-recharge-hours {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #111827;
+}
+
+.settings-income-row {
+  cursor: pointer;
+}
+
+.settings-income-row td {
+  transition: background-color 0.14s ease;
+}
+
+.settings-income-row:hover td {
+  background: #f8fafc;
+}
+
+.settings-income-row.is-expanded td {
+  background: #f8fafc;
+  border-bottom-color: transparent;
+}
+
+.settings-income-detail-row td {
+  padding-top: 0;
+}
+
+.settings-income-detail {
+  position: relative;
+  min-height: 28px;
+  padding: 10px 0 4px;
+  background: transparent;
+}
+
+.settings-income-detail-item {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 25%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.settings-income-detail-item--student { left: 18%; }
+.settings-income-detail-item--course { left: 48%; }
+.settings-income-detail-item--type { left: 75%; }
+
+.settings-income-detail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+}
+
+.settings-income-detail-value {
+  font-size: 14px;
+  color: #111827;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 640px) {
+  .settings-orders-table {
+    min-width: 420px;
+  }
+}
+

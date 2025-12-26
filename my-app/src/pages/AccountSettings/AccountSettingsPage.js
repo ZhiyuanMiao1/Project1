@@ -3,10 +3,8 @@ import {
   FiAward,
   FiBell,
   FiBookOpen,
-  FiChevronDown,
   FiCreditCard,
   FiGlobe,
-  FiMessageSquare,
   FiShield,
   FiUser,
 } from 'react-icons/fi';
@@ -15,26 +13,17 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchAccountProfile, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
-import AvailabilityEditor from './AvailabilityEditor';
-import {
-  buildShortUTC,
-  buildTimeZoneOptions,
-  convertSelectionsBetweenTimeZones,
-  extractCityName,
-  orderTimeZoneOptionsAroundSelected,
-} from '../StudentCourseRequest/steps/timezoneUtils';
-import defaultAvatar from '../../assets/images/default-avatar.jpg';
-import {
-  COURSE_TYPE_ICON_MAP,
-  COURSE_TYPE_ID_TO_LABEL,
-  DIRECTION_ICON_MAP,
-  DIRECTION_OPTIONS,
-  DIRECTION_ID_TO_LABEL,
-} from '../../constants/courseMappings';
 import {
   broadcastHomeCourseOrderChanged,
   normalizeHomeCourseOrderIds,
 } from '../../utils/homeCourseOrder';
+import ProfileSection from './sections/ProfileSection';
+import StudentDataSection from './sections/StudentDataSection';
+import MentorDataSection from './sections/MentorDataSection';
+import SecuritySection from './sections/SecuritySection';
+import NotificationsSection from './sections/NotificationsSection';
+import PaymentsSection from './sections/PaymentsSection';
+import LanguageSection, { DEFAULT_HOME_COURSE_ORDER_IDS } from './sections/LanguageSection';
 import './AccountSettingsPage.css';
 
 const SETTINGS_SECTIONS = [
@@ -75,377 +64,6 @@ const SETTINGS_SECTIONS = [
   },
 ];
 
-const MOCK_RECHARGE_RECORDS = [
-  { id: 'topup-2025-12-18-01', timeZone: 'UTC+08:00', time: '2025/12/18 20:10', amount: 200, courseHours: 2 },
-  { id: 'topup-2025-12-10-02', timeZone: 'UTC+08:00', time: '2025/12/10 14:32', amount: 300, courseHours: 3 },
-  { id: 'topup-2025-11-26-03', timeZone: 'UTC+08:00', time: '2025/11/26 09:05', amount: 150, courseHours: 1.5 },
-];
-
-const MOCK_INCOME_RECORDS = [
-  {
-    id: 'income-2025-12-16-01',
-    timeZone: 'UTC+08:00',
-    time: '2025/12/16 21:40',
-    amount: 360,
-    teachingHours: 1.5,
-    studentId: 's44',
-    courseDirectionId: 'statistics',
-    courseTypeId: 'final-review',
-  },
-  {
-    id: 'income-2025-12-03-02',
-    timeZone: 'UTC+08:00',
-    time: '2025/12/03 18:20',
-    amount: 240,
-    teachingHours: 1,
-    studentId: 's12',
-    courseDirectionId: 'algo',
-    courseTypeId: 'pre-study',
-  },
-];
-
-const MOCK_WRITTEN_REVIEWS = [
-  { id: 'review-2025-12-12-01', target: '导师 Alex', rating: 3.6, content: '讲解清晰，反馈及时。', time: '2025/12/12 20:10' },
-  { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4.4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
-];
-
-const MOCK_ABOUT_ME_REVIEWS = [
-  { id: 'aboutme-2025-12-05-01', target: 's12', rating: 4.4, content: '讲解很清晰，学习效率提升很多。', time: '2025/12/05 18:20' },
-  { id: 'aboutme-2025-11-09-02', target: 's44', rating: 3.6, content: '很有耐心，建议也很到位。', time: '2025/11/09 10:15' },
-];
-
-const cnyFormatter = new Intl.NumberFormat('zh-CN', {
-  style: 'currency',
-  currency: 'CNY',
-  maximumFractionDigits: 2,
-});
-
-const formatCny = (value) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-  return cnyFormatter.format(value);
-};
-
-const formatCourseHours = (value) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-  const normalized = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
-  return normalized;
-};
-
-const formatReviewMonth = (value) => {
-  if (typeof value !== 'string' || !value) return '';
-  const match = value.match(/(\d{4})[/-](\d{1,2})/);
-  if (!match) return value;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  if (!Number.isFinite(year) || !Number.isFinite(month)) return value;
-  return `${year}年${month}月`;
-};
-
-const getReviewDisplayName = (value) => {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  const withoutPrefix = trimmed.replace(/^导师\s*/, '').trim();
-  return withoutPrefix || trimmed;
-};
-
-const DEFAULT_HOME_COURSE_ORDER_IDS = DIRECTION_OPTIONS.map((opt) => opt.id);
-
-function HomeCourseOrderEditor({ orderIds = [], disabled = false, onChangeOrder, onResetOrder }) {
-  const [draggingId, setDraggingId] = useState(null);
-  const [dragOverId, setDragOverId] = useState(null);
-
-  const optionById = useMemo(() => new Map(DIRECTION_OPTIONS.map((opt) => [opt.id, opt])), []);
-  const orderedOptions = useMemo(
-    () => orderIds.map((id) => optionById.get(id)).filter(Boolean),
-    [orderIds, optionById],
-  );
-
-  const moveItem = (fromId, toId) => {
-    if (!fromId || !toId || fromId === toId) return null;
-    const fromIndex = orderIds.indexOf(fromId);
-    const toIndex = orderIds.indexOf(toId);
-    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return null;
-    const next = [...orderIds];
-    const [removed] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, removed);
-    return next;
-  };
-
-  const handleDragStart = (e, id) => {
-    if (disabled) return;
-    setDraggingId(id);
-    setDragOverId(null);
-    try {
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', id);
-    } catch {}
-  };
-
-  const handleDragOver = (e, id) => {
-    if (disabled) return;
-    e.preventDefault();
-    if (dragOverId !== id) setDragOverId(id);
-    try {
-      e.dataTransfer.dropEffect = 'move';
-    } catch {}
-  };
-
-  const handleDrop = (e, id) => {
-    if (disabled) return;
-    e.preventDefault();
-    let fromId = draggingId;
-    if (!fromId) {
-      try {
-        fromId = e.dataTransfer.getData('text/plain');
-      } catch {}
-    }
-    const next = moveItem(fromId, id);
-    setDraggingId(null);
-    setDragOverId(null);
-    if (!next) return;
-    if (typeof onChangeOrder === 'function') onChangeOrder(next);
-  };
-
-  const handleDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
-  };
-
-  return (
-    <div className={`settings-course-order ${disabled ? 'is-disabled' : ''}`}>
-      <div className="settings-course-order-head">
-        <div className="settings-course-order-hint">拖动课程卡片调整首页课程顺序（自动保存）</div>
-        <button
-          type="button"
-          className="settings-action"
-          onClick={onResetOrder}
-          disabled={disabled}
-        >
-          恢复默认
-        </button>
-      </div>
-
-      <ul className="settings-course-order-grid" aria-label="首页课程排序">
-        {orderedOptions.map((opt) => {
-          const Icon = DIRECTION_ICON_MAP[opt.id];
-          const isDragging = draggingId === opt.id;
-          const isDropTarget = dragOverId === opt.id && draggingId && draggingId !== opt.id;
-          return (
-            <li key={opt.id} className="settings-course-order-cell">
-              <button
-                type="button"
-                className={`settings-course-order-item ${isDragging ? 'is-dragging' : ''} ${isDropTarget ? 'is-drop-target' : ''}`}
-                draggable={!disabled}
-                onDragStart={(e) => handleDragStart(e, opt.id)}
-                onDragOver={(e) => handleDragOver(e, opt.id)}
-                onDrop={(e) => handleDrop(e, opt.id)}
-                onDragEnd={handleDragEnd}
-                aria-label={`拖动排序：${opt.label}`}
-              >
-                <span className="settings-course-order-item-icon" aria-hidden="true">
-                  {Icon ? <Icon size={16} /> : null}
-                </span>
-                <span className="settings-course-order-item-label">{opt.label}</span>
-                <span className="settings-course-order-item-handle" aria-hidden="true">
-                  ⋮⋮
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-function RechargeTable({ records = [] }) {
-  return (
-    <div className="settings-orders-table-wrapper">
-      <table className="settings-orders-table">
-        <thead>
-          <tr>
-            <th scope="col">时区</th>
-            <th scope="col">时间</th>
-            <th scope="col">金额</th>
-            <th scope="col">获得课时</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((record) => (
-            <tr key={record.id}>
-              <td className="settings-recharge-timezone">{record.timeZone}</td>
-              <td className="settings-orders-time">{record.time}</td>
-              <td className="settings-orders-amount">{formatCny(record.amount)}</td>
-              <td className="settings-recharge-hours">{formatCourseHours(record.courseHours)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function IncomeTable({ records = [] }) {
-  const [expandedRecordIds, setExpandedRecordIds] = useState(() => ({}));
-
-  const toggleExpanded = (id) => {
-    setExpandedRecordIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleRowKeyDown = (e, id) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      toggleExpanded(id);
-    }
-  };
-
-  return (
-    <div className="settings-orders-table-wrapper">
-      <table className="settings-orders-table">
-        <thead>
-          <tr>
-            <th scope="col">时区</th>
-            <th scope="col">时间</th>
-            <th scope="col">金额</th>
-            <th scope="col">授课时长</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((record) => {
-            const expanded = !!expandedRecordIds[record.id];
-            const directionId = record.courseDirectionId || 'others';
-            const courseTypeId = record.courseTypeId || 'others';
-            const courseName = DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || '其它课程方向';
-            const courseTypeName = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || '其它类型';
-            const DirectionIcon = DIRECTION_ICON_MAP[directionId] || DIRECTION_ICON_MAP.others;
-            const CourseTypeIcon = COURSE_TYPE_ICON_MAP[courseTypeId] || COURSE_TYPE_ICON_MAP.others;
-            const detailsId = `settings-income-detail-${record.id}`;
-
-            return (
-              <React.Fragment key={record.id}>
-                <tr
-                  className={`settings-income-row ${expanded ? 'is-expanded' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={expanded}
-                  aria-controls={detailsId}
-                  onClick={() => toggleExpanded(record.id)}
-                  onKeyDown={(e) => handleRowKeyDown(e, record.id)}
-                >
-                  <td className="settings-recharge-timezone">{record.timeZone}</td>
-                  <td className="settings-orders-time">{record.time}</td>
-                  <td className="settings-orders-amount">{formatCny(record.amount)}</td>
-                  <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
-                </tr>
-                <tr
-                  id={detailsId}
-                  className="settings-income-detail-row"
-                  hidden={!expanded}
-                >
-                  <td colSpan={4}>
-                    <div className="settings-income-detail">
-                      <div className="settings-income-detail-item settings-income-detail-item--student">
-                        <span className="settings-income-detail-value">{record.studentId || '--'}</span>
-                      </div>
-                      <div className="settings-income-detail-item settings-income-detail-item--course">
-                        <span className="settings-income-detail-icon" aria-hidden="true">
-                          {DirectionIcon ? <DirectionIcon size={16} /> : null}
-                        </span>
-                        <span className="settings-income-detail-value">{courseName}</span>
-                      </div>
-                      <div className="settings-income-detail-item settings-income-detail-item--type">
-                        <span className="settings-income-detail-icon" aria-hidden="true">
-                          {CourseTypeIcon ? <CourseTypeIcon size={16} /> : null}
-                        </span>
-                        <span className="settings-income-detail-value">{courseTypeName}</span>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFallback = '导师' }) {
-  const STAR_PATH =
-    'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
-
-  return (
-    <ul className="settings-written-reviews-list" aria-label={ariaLabel}>
-      {reviews.map((review) => {
-        const displayName = getReviewDisplayName(review.target) || nameFallback;
-        const monthLabel = formatReviewMonth(review.time);
-        const ratingLabel = typeof review.rating === 'number' ? String(review.rating) : String(review.rating || '--');
-        const numericRating = Number(review.rating);
-        const clampedRating = Number.isFinite(numericRating) ? Math.max(0, Math.min(5, numericRating)) : 0;
-        const ratingForStars = Math.round(clampedRating * 10) / 10;
-
-        return (
-          <li key={review.id} className="settings-written-review-item">
-            <img className="settings-written-review-avatar" src={defaultAvatar} alt="" />
-            <div className="settings-written-review-body">
-              <div className="settings-written-review-meta">
-                <span className="settings-written-review-name">{displayName}</span>
-                {monthLabel ? <span className="settings-written-review-date">{monthLabel}</span> : null}
-              </div>
-              <div className="settings-written-review-text">{review.content}</div>
-            </div>
-            <div className="settings-written-review-rating" aria-label={`评分 ${ratingLabel}`}>
-              <div className="settings-written-review-stars" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, starIndex) => {
-                  const fillRatio = Math.max(0, Math.min(1, ratingForStars - starIndex));
-                  const fillWidth = 24 * fillRatio;
-                  const showDivider = fillRatio > 0 && fillRatio < 1;
-                  const idPrefix = `settings-written-review-${review.id}-star-${starIndex}`;
-
-                  return (
-                    <svg
-                      key={starIndex}
-                      className="settings-written-review-star"
-                      viewBox="0 0 24 24"
-                      aria-hidden="true"
-                      focusable="false"
-                    >
-                      <defs>
-                        <clipPath id={`${idPrefix}-fill`}>
-                          <rect x="0" y="0" width={fillWidth} height="24" />
-                        </clipPath>
-                        <clipPath id={`${idPrefix}-shape`}>
-                          <path d={STAR_PATH} />
-                        </clipPath>
-                      </defs>
-                      <path className="settings-written-review-star-base" d={STAR_PATH} />
-                      <path className="settings-written-review-star-fill" d={STAR_PATH} clipPath={`url(#${idPrefix}-fill)`} />
-                      {showDivider ? (
-                        <g clipPath={`url(#${idPrefix}-shape)`}>
-                          <line
-                            className="settings-written-review-star-divider"
-                            x1={fillWidth}
-                            x2={fillWidth}
-                            y1="2"
-                            y2="22"
-                          />
-                        </g>
-                      ) : null}
-                    </svg>
-                  );
-                })}
-              </div>
-              <span className="settings-written-review-rating-value">{ratingLabel}</span>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -485,32 +103,15 @@ function AccountSettingsPage({ mode = 'student' }) {
       return { email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null };
     }
   });
-  const [homeCourseOrderExpanded, setHomeCourseOrderExpanded] = useState(false);
   const [homeCourseOrderIds, setHomeCourseOrderIds] = useState(() => [...DEFAULT_HOME_COURSE_ORDER_IDS]);
   const [savingHomeCourseOrder, setSavingHomeCourseOrder] = useState(false);
   const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
-  const [degreeDraft, setDegreeDraft] = useState('');
-  const [schoolDraft, setSchoolDraft] = useState('');
-  const [timeZoneDraft, setTimeZoneDraft] = useState('');
-  const [editingDegree, setEditingDegree] = useState(false);
-  const [editingSchool, setEditingSchool] = useState(false);
-  const [editingTimeZone, setEditingTimeZone] = useState(false);
   const [savingAccountProfile, setSavingAccountProfile] = useState(false);
-  const [editingPassword, setEditingPassword] = useState(false);
-  const [newPasswordDraft, setNewPasswordDraft] = useState('');
-  const [confirmPasswordDraft, setConfirmPasswordDraft] = useState('');
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false);
   const [savingEmailNotifications, setSavingEmailNotifications] = useState(false);
   const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
-  const [paymentsExpanded, setPaymentsExpanded] = useState(false);
-  const [receiptsExpanded, setReceiptsExpanded] = useState(false);
-  const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
-  const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
-  const [availabilityExpanded, setAvailabilityExpanded] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [availability, setAvailability] = useState(() => {
     let timeZone = 'Asia/Shanghai';
@@ -538,6 +139,13 @@ function AccountSettingsPage({ mode = 'student' }) {
     }
   }, []);
 
+  const showToast = (message, kind = 'success') => {
+    const id = Date.now();
+    setToast({ id, kind, message });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2600);
+  };
+
   useEffect(() => {
     if (!isLoggedIn) {
       setIdsStatus('idle');
@@ -548,17 +156,11 @@ function AccountSettingsPage({ mode = 'student' }) {
       setStudentAvatarUploadError('');
       setMentorAvatarUploading(false);
       setMentorAvatarUploadError('');
-      setEditingPassword(false);
-      setNewPasswordDraft('');
-      setConfirmPasswordDraft('');
-      setSavingPassword(false);
-      setPasswordError('');
       setEmailNotificationsEnabled(false);
       setSavingEmailNotifications(false);
       setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
       setSavingHomeCourseOrder(false);
-      setHomeCourseOrderExpanded(false);
-      setAvailabilityExpanded(false);
+      setSavingAccountProfile(false);
       setAvailabilityStatus('idle');
       setAvailability(() => {
         let timeZone = 'Asia/Shanghai';
@@ -598,8 +200,6 @@ function AccountSettingsPage({ mode = 'student' }) {
           )
         );
         setIdsStatus('loaded');
-        setDegreeDraft(typeof data.degree === 'string' ? data.degree : '');
-        setSchoolDraft(typeof data.school === 'string' ? data.school : '');
         setEmailNotificationsEnabled(
           typeof data.emailNotificationsEnabled === 'boolean' ? data.emailNotificationsEnabled : false
         );
@@ -673,20 +273,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
-  const canEditTimeZone = isLoggedIn && availabilityStatus === 'loaded';
   const emailNotificationsDisabled = !isLoggedIn || idsStatus === 'loading' || savingEmailNotifications;
-  const availabilityTimeZone = useMemo(() => {
-    const raw = typeof availability?.timeZone === 'string' ? availability.timeZone.trim() : '';
-    return raw || 'Asia/Shanghai';
-  }, [availability?.timeZone]);
-  const timeZoneCity = useMemo(() => extractCityName(availabilityTimeZone), [availabilityTimeZone]);
-  const timeZoneShort = useMemo(() => buildShortUTC(availabilityTimeZone), [availabilityTimeZone]);
-  const timeZoneDisplayValue = useMemo(() => {
-    if (!isLoggedIn) return '请先登录';
-    if (availabilityStatus === 'loading') return '加载中...';
-    if (availabilityStatus === 'error') return '加载失败';
-    return `${timeZoneShort}（${timeZoneCity || '时区'}）`;
-  }, [availabilityStatus, isLoggedIn, timeZoneCity, timeZoneShort]);
   const availabilityDaysCount = useMemo(() => {
     const selections = availability?.daySelections;
     if (!selections || typeof selections !== 'object') return 0;
@@ -725,6 +312,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
     return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
   })();
+
   const onPickStudentAvatar = () => {
     if (!isLoggedIn) {
       showToast('请先登录', 'error');
@@ -920,197 +508,6 @@ function AccountSettingsPage({ mode = 'student' }) {
     mentorAvatarUploadSeqRef.current += 1;
   }, []);
 
-  const DEGREE_OPTIONS = useMemo(() => ([
-    { value: '本科', label: '本科' },
-    { value: '硕士', label: '硕士' },
-    { value: 'PhD', label: 'PhD' },
-  ]), []);
-
-  const orderedTimeZoneOptions = useMemo(() => {
-    const now = new Date();
-    return orderTimeZoneOptionsAroundSelected(
-      buildTimeZoneOptions(now),
-      (timeZoneDraft || availabilityTimeZone),
-      now
-    );
-  }, [availabilityTimeZone, timeZoneDraft]);
-
-  const DegreeSelect = ({ id, value, onChange }) => {
-    const [open, setOpen] = useState(false);
-    const buttonRef = useRef(null);
-    const listRef = useRef(null);
-
-    useEffect(() => {
-      if (!open) return;
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const idx = Math.max(0, DEGREE_OPTIONS.findIndex((o) => o.value === value));
-      const itemEl = listEl.querySelector(`[data-index="${idx}"]`);
-      if (!itemEl) return;
-      const listH = listEl.clientHeight;
-      const top = itemEl.offsetTop;
-      const h = itemEl.offsetHeight;
-      const target = top - Math.max(0, (listH - h) / 2);
-      try { listEl.scrollTo({ top: target, behavior: 'auto' }); } catch { listEl.scrollTop = target; }
-    }, [open, value]);
-
-    useEffect(() => {
-      const onDoc = (e) => {
-        if (!open) return;
-        const btn = buttonRef.current;
-        const list = listRef.current;
-        if (btn && btn.contains(e.target)) return;
-        if (list && list.contains(e.target)) return;
-        setOpen(false);
-      };
-      document.addEventListener('mousedown', onDoc);
-      return () => document.removeEventListener('mousedown', onDoc);
-    }, [open]);
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') { setOpen(false); return; }
-      if (!open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); return; }
-      if (!open) return;
-      const i = Math.max(0, DEGREE_OPTIONS.findIndex((o) => o.value === value));
-      if (e.key === 'ArrowDown') { e.preventDefault(); onChange(DEGREE_OPTIONS[Math.min(DEGREE_OPTIONS.length - 1, i + 1)].value); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); onChange(DEGREE_OPTIONS[Math.max(0, i - 1)].value); }
-      else if (e.key === 'Enter') { e.preventDefault(); setOpen(false); }
-    };
-
-    const selectedLabel = useMemo(() => DEGREE_OPTIONS.find(o => o.value === value)?.label || '', [value]);
-
-    return (
-      <div className="mx-select" data-open={open ? 'true' : 'false'}>
-        <button
-          id={id}
-          ref={buttonRef}
-          type="button"
-          className="mx-select__button"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          onKeyDown={handleKeyDown}
-        >
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
-          <span className="mx-select__caret" aria-hidden>
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </button>
-        {open && (
-          <div className="mx-select__popover">
-            <ul ref={listRef} role="listbox" aria-labelledby={id} className="mx-select__list">
-              {DEGREE_OPTIONS.map((opt, index) => {
-                const selected = opt.value === value;
-                return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={selected}
-                    data-index={index}
-                    className={`mx-select__option ${selected ? 'selected' : ''}`}
-                    onClick={() => { onChange(opt.value); setOpen(false); }}
-                  >
-                    {opt.label}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const TimeZoneSelect = ({ id, value, onChange, options }) => {
-    const [open, setOpen] = useState(false);
-    const buttonRef = useRef(null);
-    const listRef = useRef(null);
-
-    useEffect(() => {
-      if (!open) return;
-      const listEl = listRef.current;
-      if (!listEl) return;
-      const idx = Math.max(0, options.findIndex((o) => o.value === value));
-      const itemEl = listEl.querySelector(`[data-index="${idx}"]`);
-      if (!itemEl) return;
-      const listH = listEl.clientHeight;
-      const top = itemEl.offsetTop;
-      const h = itemEl.offsetHeight;
-      const target = top - Math.max(0, (listH - h) / 2);
-      try { listEl.scrollTo({ top: target, behavior: 'auto' }); } catch { listEl.scrollTop = target; }
-    }, [open, options, value]);
-
-    useEffect(() => {
-      const onDoc = (e) => {
-        if (!open) return;
-        const btn = buttonRef.current;
-        const list = listRef.current;
-        if (btn && btn.contains(e.target)) return;
-        if (list && list.contains(e.target)) return;
-        setOpen(false);
-      };
-      document.addEventListener('mousedown', onDoc);
-      return () => document.removeEventListener('mousedown', onDoc);
-    }, [open]);
-
-    const selectedLabel = useMemo(() => options.find((o) => o.value === value)?.label || '', [options, value]);
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') { setOpen(false); return; }
-      if (!open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); return; }
-      if (!open) return;
-      const cur = Math.max(0, options.findIndex((o) => o.value === value));
-      if (e.key === 'ArrowDown') { e.preventDefault(); onChange(options[Math.min(options.length - 1, cur + 1)].value); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); onChange(options[Math.max(0, cur - 1)].value); }
-      else if (e.key === 'Enter') { e.preventDefault(); setOpen(false); }
-    };
-
-    return (
-      <div className="mx-select mx-select--timezone" data-open={open ? 'true' : 'false'}>
-        <button
-          id={id}
-          ref={buttonRef}
-          type="button"
-          className="mx-select__button"
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
-          onKeyDown={handleKeyDown}
-        >
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
-          <span className="mx-select__caret" aria-hidden>
-            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-        </button>
-        {open && (
-          <div className="mx-select__popover">
-            <ul ref={listRef} role="listbox" aria-labelledby={id} className="mx-select__list">
-              {options.map((opt, index) => {
-                const selected = opt.value === value;
-                return (
-                  <li
-                    key={opt.value}
-                    role="option"
-                    aria-selected={selected}
-                    data-index={index}
-                    className={`mx-select__option ${selected ? 'selected' : ''}`}
-                    onClick={() => { onChange(opt.value); setOpen(false); }}
-                  >
-                    {opt.label}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const saveAccountProfilePatch = async (patch) => {
     if (savingAccountProfile) return;
     setSavingAccountProfile(true);
@@ -1123,13 +520,6 @@ function AccountSettingsPage({ mode = 'student' }) {
     } finally {
       setSavingAccountProfile(false);
     }
-  };
-
-  const showToast = (message, kind = 'success') => {
-    const id = Date.now();
-    setToast({ id, kind, message });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2600);
   };
 
   const persistAvailability = async (nextAvailability, { successMessage = '空余时间已保存' } = {}) => {
@@ -1200,14 +590,6 @@ function AccountSettingsPage({ mode = 'student' }) {
     persistHomeCourseOrder([...DEFAULT_HOME_COURSE_ORDER_IDS], { successMessage: '已恢复默认顺序' });
   };
 
-  const isHomeCourseOrderCustomized = useMemo(() => {
-    if (!Array.isArray(homeCourseOrderIds) || homeCourseOrderIds.length !== DEFAULT_HOME_COURSE_ORDER_IDS.length) return false;
-    for (let i = 0; i < DEFAULT_HOME_COURSE_ORDER_IDS.length; i += 1) {
-      if (homeCourseOrderIds[i] !== DEFAULT_HOME_COURSE_ORDER_IDS[i]) return true;
-    }
-    return false;
-  }, [homeCourseOrderIds]);
-
   const homeCourseOrderDisabled = !isLoggedIn || idsStatus === 'loading' || savingHomeCourseOrder;
 
   const toggleEmailNotifications = async () => {
@@ -1228,56 +610,6 @@ function AccountSettingsPage({ mode = 'student' }) {
       showToast(msg, 'error');
     } finally {
       setSavingEmailNotifications(false);
-    }
-  };
-
-  const startPasswordEdit = () => {
-    if (!isLoggedIn) {
-      setPasswordError('请先登录');
-      return;
-    }
-    setPasswordError('');
-    setNewPasswordDraft('');
-    setConfirmPasswordDraft('');
-    setEditingPassword(true);
-  };
-
-  const cancelPasswordEdit = () => {
-    setEditingPassword(false);
-    setNewPasswordDraft('');
-    setConfirmPasswordDraft('');
-    setPasswordError('');
-  };
-
-  const saveNewPassword = async () => {
-    if (savingPassword) return;
-    if (!isLoggedIn) {
-      setPasswordError('请先登录');
-      return;
-    }
-
-    const newPassword = newPasswordDraft;
-    const confirmPassword = confirmPasswordDraft;
-    if (typeof newPassword !== 'string' || newPassword.length < 6) {
-      setPasswordError('密码至少6位');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError('两次输入的密码不一致');
-      return;
-    }
-
-    setSavingPassword(true);
-    setPasswordError('');
-    try {
-      await api.put('/api/account/password', { newPassword, confirmPassword });
-      cancelPasswordEdit();
-      showToast('密码修改成功', 'success');
-    } catch (e) {
-      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '修改失败，请稍后再试';
-      setPasswordError(msg);
-    } finally {
-      setSavingPassword(false);
     }
   };
 
@@ -1360,574 +692,76 @@ function AccountSettingsPage({ mode = 'student' }) {
               aria-label={`${activeSection?.label || '设置'}内容`}
             >
               {activeSectionId === 'profile' && (
-                <>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">StudentID</div>
-                      <div className="settings-row-value">{studentIdValue}</div>
-                    </div>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">MentorID</div>
-                      <div className="settings-row-value">{mentorIdValue}</div>
-                    </div>
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">邮箱</div>
-                      <div className="settings-row-value">{emailValue}</div>
-                    </div>
-                  </div>
-                  <div className={`settings-row ${editingDegree ? 'settings-row--overlay' : ''}`}>
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">学历</div>
-                      <div className={`settings-row-value ${canEditEducationProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
-                        {canEditEducationProfile && editingDegree ? (
-                          <DegreeSelect
-                            id="mx-degree-inline"
-                            value={degreeDraft || ''}
-                            onChange={(v) => setDegreeDraft(v)}
-                          />
-                        ) : (
-                          degreeValue
-                        )}
-                      </div>
-                    </div>
-                    {canEditEducationProfile && (
-                      <button
-                        type="button"
-                        className="settings-action"
-                        disabled={savingAccountProfile}
-                        onClick={() => {
-                          if (!editingDegree) {
-                            setEditingDegree(true);
-                            setDegreeDraft(accountProfile.degree || '');
-                            return;
-                          }
-                          saveAccountProfilePatch({ degree: degreeDraft || '' });
-                          setEditingDegree(false);
-                        }}
-                      >
-                        {editingDegree ? '保存' : '编辑'}
-                      </button>
-                    )}
-                  </div>
-                  <div className={`settings-row ${editingSchool ? 'settings-row--overlay' : ''}`}>
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">学校</div>
-                      <div className={`settings-row-value ${canEditEducationProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>
-                        {canEditEducationProfile && editingSchool ? (
-                          <input
-                            type="text"
-                            className="settings-inline-input"
-                            value={schoolDraft}
-                            placeholder="可选填"
-                            onChange={(e) => setSchoolDraft(e.target.value)}
-                          />
-                        ) : (
-                          schoolValue
-                        )}
-                      </div>
-                    </div>
-                    {canEditEducationProfile && (
-                      <button
-                        type="button"
-                        className="settings-action"
-                        disabled={savingAccountProfile}
-                        onClick={() => {
-                          if (!editingSchool) {
-                            setEditingSchool(true);
-                            setSchoolDraft(accountProfile.school || '');
-                            return;
-                          }
-                          saveAccountProfilePatch({ school: schoolDraft || '' });
-                          setEditingSchool(false);
-                        }}
-                      >
-                        {editingSchool ? '保存' : '编辑'}
-                      </button>
-                    )}
-                  </div>
-                  <div className={`settings-row ${editingTimeZone ? 'settings-row--overlay' : ''}`}>
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">时区</div>
-                      <div className={`settings-row-value ${canEditTimeZone && editingTimeZone ? 'settings-row-value--interactive' : ''}`}>
-                        {canEditTimeZone && editingTimeZone ? (
-                          <TimeZoneSelect
-                            id="mx-timezone-inline"
-                            value={timeZoneDraft || availabilityTimeZone}
-                            onChange={(v) => setTimeZoneDraft(v)}
-                            options={orderedTimeZoneOptions}
-                          />
-                        ) : (
-                          timeZoneDisplayValue
-                        )}
-                      </div>
-                    </div>
-                    {canEditTimeZone && (
-                      <button
-                        type="button"
-                        className="settings-action"
-                        disabled={savingAvailability}
-                        onClick={async () => {
-                          if (!editingTimeZone) {
-                            setEditingTimeZone(true);
-                            setTimeZoneDraft(availabilityTimeZone);
-                            return;
-                          }
-                          const nextTimeZone = timeZoneDraft || availabilityTimeZone;
-                          const nextDaySelections = convertSelectionsBetweenTimeZones(
-                            availability?.daySelections || {},
-                            availabilityTimeZone,
-                            nextTimeZone
-                          );
-                          const ok = await persistAvailability(
-                            {
-                              ...(availability || { timeZone: availabilityTimeZone, sessionDurationHours: 2, daySelections: {} }),
-                              timeZone: nextTimeZone,
-                              daySelections: nextDaySelections,
-                            },
-                            { successMessage: '时区已保存' }
-                          );
-                          if (ok) setEditingTimeZone(false);
-                        }}
-                      >
-                        {editingTimeZone ? '保存' : '编辑'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="settings-accordion-item">
-                    <button
-                      type="button"
-                      className="settings-accordion-trigger"
-                      aria-expanded={availabilityExpanded}
-                      aria-controls="settings-availability"
-                      onClick={() => setAvailabilityExpanded((prev) => !prev)}
-                    >
-                      <div className="settings-row-main">
-                        <div className="settings-row-title">空余时间</div>
-                        <div className="settings-row-value">{availabilitySummary}</div>
-                      </div>
-                      <span className="settings-accordion-icon" aria-hidden="true">
-                        <FiChevronDown size={18} />
-                      </span>
-                    </button>
-                    <div
-                      id="settings-availability"
-                      className="settings-accordion-panel"
-                      hidden={!availabilityExpanded}
-                    >
-                      <AvailabilityEditor
-                        value={availability}
-                        disabled={!isLoggedIn}
-                        loading={availabilityStatus === 'loading'}
-                        saving={savingAvailability}
-                        onChange={setAvailability}
-                        onSave={(next) => persistAvailability(next)}
-                      />
-                    </div>
-                  </div>
-                </>
+                <ProfileSection
+                  studentIdValue={studentIdValue}
+                  mentorIdValue={mentorIdValue}
+                  emailValue={emailValue}
+                  degreeValue={degreeValue}
+                  schoolValue={schoolValue}
+                  canEditEducationProfile={canEditEducationProfile}
+                  savingAccountProfile={savingAccountProfile}
+                  accountProfile={accountProfile}
+                  onSaveAccountProfilePatch={saveAccountProfilePatch}
+                  availability={availability}
+                  availabilityStatus={availabilityStatus}
+                  savingAvailability={savingAvailability}
+                  availabilitySummary={availabilitySummary}
+                  isLoggedIn={isLoggedIn}
+                  onAvailabilityChange={setAvailability}
+                  onPersistAvailability={persistAvailability}
+                />
               )}
 
               {activeSectionId === 'studentData' && (
-                <div className="settings-data-section" aria-label="学生数据">
-                  <section className="settings-student-card" aria-label="学生数据概览">
-                    <div className="settings-student-card-left">
-                      <div className="settings-student-avatar-wrap">
-                        <button
-                          type="button"
-                          className={`settings-student-avatar-btn ${studentAvatarUrl ? 'has-avatar' : ''} ${studentAvatarUploading ? 'is-uploading' : ''}`}
-                          aria-label="更换头像"
-                          onClick={onPickStudentAvatar}
-                          disabled={studentAvatarUploading}
-                        >
-                          {studentAvatarUrl ? (
-                            <img className="settings-student-avatar-img" src={studentAvatarUrl} alt="" />
-                          ) : (
-                            <span className="settings-student-avatar-initial" aria-hidden="true">{studentAvatarInitial}</span>
-                          )}
-                        </button>
-                        {studentAvatarUploading && (
-                          <span className="settings-student-avatar-uploading" aria-live="polite">上传中…</span>
-                        )}
-                        <svg className="settings-student-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <circle cx="12" cy="12" r="12" fill="currentColor" />
-                          <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
-                        </svg>
-                        <input
-                          ref={studentAvatarInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="settings-student-avatar-input"
-                          onChange={onStudentAvatarChange}
-                        />
-                      </div>
-                      {studentAvatarUploadError ? (
-                        <div className="settings-student-avatar-error" role="alert">{studentAvatarUploadError}</div>
-                      ) : null}
-                      <div className="settings-student-main">
-                        <div className="settings-student-name">{studentIdValue}</div>
-                        <div className="settings-student-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 学生'}</div>
-                      </div>
-                    </div>
-
-                    <div className="settings-student-metrics" aria-label="学生数据指标">
-                      <div className="settings-student-metric">
-                        <div className="settings-student-metric-label">上课</div>
-                        <div className="settings-student-metric-value">
-                          3<span className="settings-student-metric-unit">次</span>
-                        </div>
-                      </div>
-                      <div className="settings-student-metric">
-                        <div className="settings-student-metric-label">评价</div>
-                        <div className="settings-student-metric-value">
-                          2<span className="settings-student-metric-unit">条</span>
-                        </div>
-                      </div>
-                      <div className="settings-student-metric">
-                        <div className="settings-student-metric-label">加入MentorX</div>
-                        <div className="settings-student-metric-value">
-                          {joinedMentorXDaysDisplay}<span className="settings-student-metric-unit">天</span>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <div className="settings-student-reviews">
-                    <div className="settings-student-reviews-divider" aria-hidden="true" />
-                    <div className="settings-accordion-item">
-                      <button
-                        type="button"
-                        className="settings-accordion-trigger"
-                        aria-expanded={writtenReviewsExpanded}
-                        aria-controls="settings-written-reviews"
-                        onClick={() => setWrittenReviewsExpanded((prev) => !prev)}
-                      >
-                        <div className="settings-row-main">
-                          <div className="settings-row-title settings-student-reviews-title">
-                            <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
-                            <span>我撰写的评价</span>
-                          </div>
-                          {!MOCK_WRITTEN_REVIEWS.length ? (
-                            <div className="settings-row-value">暂无评价</div>
-                          ) : null}
-                        </div>
-                        <span className="settings-accordion-icon" aria-hidden="true">
-                          <FiChevronDown size={18} />
-                        </span>
-                      </button>
-                      <div
-                        id="settings-written-reviews"
-                        className="settings-accordion-panel"
-                        hidden={!writtenReviewsExpanded}
-                      >
-                        {MOCK_WRITTEN_REVIEWS.length ? (
-                          <WrittenReviewsTable reviews={MOCK_WRITTEN_REVIEWS} ariaLabel="我撰写的评价列表" nameFallback="导师" />
-                        ) : (
-                          <div className="settings-orders-empty">暂无评价</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <StudentDataSection
+                  studentAvatarUrl={studentAvatarUrl}
+                  studentAvatarUploading={studentAvatarUploading}
+                  studentAvatarUploadError={studentAvatarUploadError}
+                  onPickStudentAvatar={onPickStudentAvatar}
+                  studentAvatarInputRef={studentAvatarInputRef}
+                  onStudentAvatarChange={onStudentAvatarChange}
+                  studentAvatarInitial={studentAvatarInitial}
+                  studentIdValue={studentIdValue}
+                  schoolValue={schoolValue}
+                  joinedMentorXDaysDisplay={joinedMentorXDaysDisplay}
+                />
               )}
 
               {activeSectionId === 'mentorData' && (
-                <div className="settings-data-section" aria-label="导师数据">
-                  <section className="settings-mentor-card" aria-label="导师数据概览">
-                      <div className="settings-mentor-card-left">
-                      <div className="settings-mentor-avatar-wrap">
-                        <button
-                          type="button"
-                          className={`settings-mentor-avatar-btn ${mentorAvatarUrl ? 'has-avatar' : ''} ${mentorAvatarUploading ? 'is-uploading' : ''}`}
-                          aria-label="更换头像"
-                          onClick={onPickMentorAvatar}
-                          disabled={mentorAvatarUploading}
-                        >
-                          {mentorAvatarUrl ? (
-                            <img className="settings-mentor-avatar-img" src={mentorAvatarUrl} alt="" />
-                          ) : (
-                            <img className="settings-mentor-avatar-img" src={defaultAvatar} alt="" />
-                          )}
-                        </button>
-                        {mentorAvatarUploading && (
-                          <span className="settings-mentor-avatar-uploading" aria-live="polite">上传中…</span>
-                        )}
-                        <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                          <circle cx="12" cy="12" r="12" fill="currentColor" />
-                          <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M9 8 L10.1 6.6 A1.8 1.8 0 0 1 11.6 5.8 H12.4 A1.8 1.8 0 0 1 13.9 6.6 L15 8" fill="none" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          <circle cx="12" cy="12.5" r="3" fill="none" stroke="#ffffff" strokeWidth="1.2" />
-                        </svg>
-                        <input
-                          ref={mentorAvatarInputRef}
-                          type="file"
-                          accept="image/*"
-                          className="settings-mentor-avatar-input"
-                          onChange={onMentorAvatarChange}
-                        />
-                      </div>
-                      {mentorAvatarUploadError ? (
-                        <div className="settings-mentor-avatar-error" role="alert">{mentorAvatarUploadError}</div>
-                      ) : null}
-                      <div className="settings-mentor-main">
-                        <div className="settings-mentor-name">{mentorIdValue}</div>
-                        <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 导师'}</div>
-                      </div>
-                    </div>
-
-                    <div className="settings-mentor-metrics" aria-label="导师数据指标">
-                      <div className="settings-mentor-metric">
-                        <div className="settings-mentor-metric-label">上课</div>
-                        <div className="settings-mentor-metric-value">
-                          3<span className="settings-mentor-metric-unit">次</span>
-                        </div>
-                      </div>
-                      <div className="settings-mentor-metric">
-                        <div className="settings-mentor-metric-label">被评价</div>
-                        <div className="settings-mentor-metric-value">
-                          2<span className="settings-mentor-metric-unit">条</span>
-                        </div>
-                      </div>
-                      <div className="settings-mentor-metric">
-                        <div className="settings-mentor-metric-label">加入MentorX</div>
-                        <div className="settings-mentor-metric-value">
-                          {mentorJoinedMentorXDaysDisplay}<span className="settings-mentor-metric-unit">天</span>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <div className="settings-student-reviews">
-                    <div className="settings-student-reviews-divider" aria-hidden="true" />
-                    <div className="settings-accordion-item">
-                      <button
-                        type="button"
-                        className="settings-accordion-trigger"
-                        aria-expanded={aboutMeReviewsExpanded}
-                        aria-controls="settings-about-me-reviews"
-                        onClick={() => setAboutMeReviewsExpanded((prev) => !prev)}
-                      >
-                        <div className="settings-row-main">
-                          <div className="settings-row-title settings-student-reviews-title">
-                            <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
-                            <span>关于我的评价</span>
-                          </div>
-                          {!MOCK_ABOUT_ME_REVIEWS.length ? (
-                            <div className="settings-row-value">暂无评价</div>
-                          ) : null}
-                        </div>
-                        <span className="settings-accordion-icon" aria-hidden="true">
-                          <FiChevronDown size={18} />
-                        </span>
-                      </button>
-                      <div
-                        id="settings-about-me-reviews"
-                        className="settings-accordion-panel"
-                        hidden={!aboutMeReviewsExpanded}
-                      >
-                        {MOCK_ABOUT_ME_REVIEWS.length ? (
-                          <WrittenReviewsTable reviews={MOCK_ABOUT_ME_REVIEWS} ariaLabel="关于我的评价列表" nameFallback="StudentID" />
-                        ) : (
-                          <div className="settings-orders-empty">暂无评价</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <MentorDataSection
+                  mentorAvatarUrl={mentorAvatarUrl}
+                  mentorAvatarUploading={mentorAvatarUploading}
+                  mentorAvatarUploadError={mentorAvatarUploadError}
+                  onPickMentorAvatar={onPickMentorAvatar}
+                  mentorAvatarInputRef={mentorAvatarInputRef}
+                  onMentorAvatarChange={onMentorAvatarChange}
+                  mentorIdValue={mentorIdValue}
+                  schoolValue={schoolValue}
+                  mentorJoinedMentorXDaysDisplay={mentorJoinedMentorXDaysDisplay}
+                />
               )}
 
               {activeSectionId === 'security' && (
-                <>
-                  <div className={`settings-row ${editingPassword ? 'settings-row--overlay' : ''}`}>
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">登录密码</div>
-                      <div className={`settings-row-value ${editingPassword ? 'settings-row-value--interactive' : ''}`}>
-                        {editingPassword ? (
-                          <div className="settings-password-fields">
-                            <input
-                              type="password"
-                              className="settings-password-input"
-                              value={newPasswordDraft}
-                              placeholder="新密码（至少6位）"
-                              autoComplete="new-password"
-                              onChange={(e) => setNewPasswordDraft(e.target.value)}
-                            />
-                            <input
-                              type="password"
-                              className="settings-password-input"
-                              value={confirmPasswordDraft}
-                              placeholder="确认新密码"
-                              autoComplete="new-password"
-                              onChange={(e) => setConfirmPasswordDraft(e.target.value)}
-                            />
-                            {passwordError && (
-                              <div className="settings-inline-error" role="alert">{passwordError}</div>
-                            )}
-                          </div>
-                        ) : (
-                          '已设置'
-                        )}
-                      </div>
-                    </div>
-                    {editingPassword ? (
-                      <div className="settings-row-actions">
-                        <button type="button" className="settings-action" disabled={savingPassword} onClick={saveNewPassword}>
-                          {savingPassword ? '保存中...' : '保存'}
-                        </button>
-                        <button type="button" className="settings-action" disabled={savingPassword} onClick={cancelPasswordEdit}>
-                          取消
-                        </button>
-                      </div>
-                    ) : (
-                      <button type="button" className="settings-action" disabled={!isLoggedIn} onClick={startPasswordEdit}>
-                        修改
-                      </button>
-                    )}
-                  </div>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">数据个性化</div>
-                      <div className="settings-row-value">用于优化推荐内容</div>
-                    </div>
-                    <label className="settings-switch">
-                      <input type="checkbox" defaultChecked />
-                      <span className="settings-switch-track" aria-hidden="true" />
-                    </label>
-                  </div>
-                </>
+                <SecuritySection isLoggedIn={isLoggedIn} onShowToast={showToast} />
               )}
 
               {activeSectionId === 'notifications' && (
-                <>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">邮件通知</div>
-                      <div className="settings-row-value">重要更新与课程提醒</div>
-                    </div>
-                    <label className="settings-switch">
-                      <input
-                        type="checkbox"
-                        checked={emailNotificationsEnabled}
-                        onChange={toggleEmailNotifications}
-                        disabled={emailNotificationsDisabled}
-                      />
-                      <span className="settings-switch-track" aria-hidden="true" />
-                    </label>
-                  </div>
-                </>
+                <NotificationsSection
+                  emailNotificationsEnabled={emailNotificationsEnabled}
+                  emailNotificationsDisabled={emailNotificationsDisabled}
+                  onToggleEmailNotifications={toggleEmailNotifications}
+                />
               )}
 
-              {activeSectionId === 'payments' && (
-                <>
-                  <div className="settings-accordion-item">
-                    <button
-                      type="button"
-                      className="settings-accordion-trigger"
-                      aria-expanded={paymentsExpanded}
-                      aria-controls="settings-payments-history"
-                      onClick={() => setPaymentsExpanded((prev) => !prev)}
-                    >
-                      <div className="settings-row-main">
-                      <div className="settings-row-title">付款</div>
-                      <div className="settings-row-value">
-                          {MOCK_RECHARGE_RECORDS.length ? `充值记录（${MOCK_RECHARGE_RECORDS.length}）` : '暂无记录'}
-                        </div>
-                      </div>
-                      <span className="settings-accordion-icon" aria-hidden="true">
-                        <FiChevronDown size={18} />
-                      </span>
-                    </button>
-                    <div
-                      id="settings-payments-history"
-                      className="settings-accordion-panel"
-                      hidden={!paymentsExpanded}
-                    >
-                      {MOCK_RECHARGE_RECORDS.length ? (
-                        <RechargeTable records={MOCK_RECHARGE_RECORDS} />
-                      ) : (
-                        <div className="settings-orders-empty">暂无充值记录</div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="settings-accordion-item">
-                    <button
-                      type="button"
-                      className="settings-accordion-trigger"
-                      aria-expanded={receiptsExpanded}
-                      aria-controls="settings-receipts-history"
-                      onClick={() => setReceiptsExpanded((prev) => !prev)}
-                    >
-                      <div className="settings-row-main">
-                      <div className="settings-row-title">收款</div>
-                      <div className="settings-row-value">
-                          {MOCK_INCOME_RECORDS.length ? `入账记录（${MOCK_INCOME_RECORDS.length}）` : '暂无记录'}
-                        </div>
-                      </div>
-                      <span className="settings-accordion-icon" aria-hidden="true">
-                        <FiChevronDown size={18} />
-                      </span>
-                    </button>
-                    <div
-                      id="settings-receipts-history"
-                      className="settings-accordion-panel"
-                      hidden={!receiptsExpanded}
-                    >
-                      {MOCK_INCOME_RECORDS.length ? (
-                        <IncomeTable records={MOCK_INCOME_RECORDS} />
-                      ) : (
-                        <div className="settings-orders-empty">暂无入账记录</div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+              {activeSectionId === 'payments' && <PaymentsSection />}
 
               {activeSectionId === 'language' && (
-                <>
-                  <div className="settings-row">
-                    <div className="settings-row-main">
-                      <div className="settings-row-title">语言</div>
-                      <div className="settings-row-value">简体中文</div>
-                    </div>
-                    <button type="button" className="settings-action">更改</button>
-                  </div>
-
-                  <div className="settings-accordion-item">
-                    <button
-                      type="button"
-                      className="settings-accordion-trigger"
-                      aria-expanded={homeCourseOrderExpanded}
-                      aria-controls="settings-home-course-order"
-                      onClick={() => setHomeCourseOrderExpanded((prev) => !prev)}
-                    >
-                        <div className="settings-row-main">
-                          <div className="settings-row-title">首页课程排序</div>
-                        <div className="settings-row-value">{isHomeCourseOrderCustomized ? '自定义' : '默认顺序'}</div>
-                      </div>
-                      <span className="settings-accordion-icon" aria-hidden="true">
-                        <FiChevronDown size={18} />
-                      </span>
-                    </button>
-                    <div
-                      id="settings-home-course-order"
-                      className="settings-accordion-panel"
-                      hidden={!homeCourseOrderExpanded}
-                    >
-                      <HomeCourseOrderEditor
-                        orderIds={homeCourseOrderIds}
-                        disabled={homeCourseOrderDisabled}
-                        onChangeOrder={(nextOrderIds) => persistHomeCourseOrder(nextOrderIds)}
-                        onResetOrder={resetHomeCourseOrder}
-                      />
-                    </div>
-                  </div>
-                </>
+                <LanguageSection
+                  homeCourseOrderIds={homeCourseOrderIds}
+                  homeCourseOrderDisabled={homeCourseOrderDisabled}
+                  onChangeHomeCourseOrder={persistHomeCourseOrder}
+                  onResetHomeCourseOrder={resetHomeCourseOrder}
+                />
               )}
             </div>
           </div>
