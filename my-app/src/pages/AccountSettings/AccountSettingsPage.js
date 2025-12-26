@@ -446,6 +446,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const toastTimerRef = useRef(null);
   const studentAvatarInputRef = useRef(null);
   const mentorAvatarInputRef = useRef(null);
+  const mentorAvatarUploadSeqRef = useRef(0);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -453,6 +454,8 @@ function AccountSettingsPage({ mode = 'student' }) {
   });
   const [studentAvatarUrl, setStudentAvatarUrl] = useState(null);
   const [mentorAvatarUrl, setMentorAvatarUrl] = useState(null);
+  const [mentorAvatarUploading, setMentorAvatarUploading] = useState(false);
+  const [mentorAvatarUploadError, setMentorAvatarUploadError] = useState('');
   const [accountProfile, setAccountProfile] = useState(() => {
     try {
       const raw = localStorage.getItem('authUser');
@@ -527,6 +530,10 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (!isLoggedIn) {
       setIdsStatus('idle');
       setAccountProfile({ email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null });
+      setStudentAvatarUrl(null);
+      setMentorAvatarUrl(null);
+      setMentorAvatarUploading(false);
+      setMentorAvatarUploadError('');
       setEditingPassword(false);
       setNewPasswordDraft('');
       setConfirmPasswordDraft('');
@@ -587,6 +594,25 @@ function AccountSettingsPage({ mode = 'student' }) {
         setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
         setIdsStatus('error');
       });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let alive = true;
+    const seq = mentorAvatarUploadSeqRef.current;
+
+    api.get('/api/mentor/profile')
+      .then((res) => {
+        if (!alive) return;
+        if (seq !== mentorAvatarUploadSeqRef.current) return;
+        const avatarUrl = res?.data?.profile?.avatarUrl;
+        if (typeof avatarUrl === 'string' && avatarUrl.trim()) {
+          setMentorAvatarUrl(avatarUrl);
+        }
+      })
+      .catch(() => {});
 
     return () => { alive = false; };
   }, [isLoggedIn]);
@@ -675,6 +701,11 @@ function AccountSettingsPage({ mode = 'student' }) {
   };
 
   const onPickMentorAvatar = () => {
+    if (!isLoggedIn) {
+      showToast('请先登录', 'error');
+      setShowMentorAuth(true);
+      return;
+    }
     if (mentorAvatarInputRef.current) mentorAvatarInputRef.current.click();
   };
 
@@ -697,23 +728,84 @@ function AccountSettingsPage({ mode = 'student' }) {
     try { e.target.value = ''; } catch {}
   };
 
-  const onMentorAvatarChange = (e) => {
+  const onMentorAvatarChange = async (e) => {
     const file = e.target.files && e.target.files[0];
+    try { e.target.value = ''; } catch {}
     if (!file) return;
 
-    if (!file.type || !file.type.startsWith('image/')) {
-      alert('请选择图片文件');
-      try { e.target.value = ''; } catch {}
+    if (!isLoggedIn) {
+      showToast('请先登录', 'error');
+      setShowMentorAuth(true);
       return;
     }
 
-    const nextUrl = URL.createObjectURL(file);
-    setMentorAvatarUrl((prev) => {
-      try { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); } catch {}
-      return nextUrl;
-    });
+    if (mentorAvatarUploading) return;
 
-    try { e.target.value = ''; } catch {}
+    if (file.size > 5 * 1024 * 1024) {
+      const msg = '头像文件需 ≤ 5MB';
+      setMentorAvatarUploadError(msg);
+      showToast(msg, 'error');
+      return;
+    }
+
+    if (file.type && !String(file.type).toLowerCase().startsWith('image/')) {
+      const msg = '请选择图片文件';
+      setMentorAvatarUploadError(msg);
+      showToast(msg, 'error');
+      return;
+    }
+
+    const seq = ++mentorAvatarUploadSeqRef.current;
+    const prevUrl = mentorAvatarUrl;
+
+    const previewUrl = URL.createObjectURL(file);
+    setMentorAvatarUrl(previewUrl);
+    setMentorAvatarUploadError('');
+    setMentorAvatarUploading(true);
+
+    try {
+      const signRes = await api.post('/api/oss/policy', {
+        fileName: file.name,
+        contentType: file.type,
+        size: file.size,
+      });
+      if (seq !== mentorAvatarUploadSeqRef.current) return;
+
+      const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
+      if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
+        throw new Error('签名响应不完整');
+      }
+
+      const formData = new FormData();
+      formData.append('key', key);
+      formData.append('policy', policy);
+      formData.append('OSSAccessKeyId', accessKeyId);
+      formData.append('success_action_status', '200');
+      formData.append('signature', signature);
+      formData.append('file', file);
+
+      const uploadRes = await fetch(host, { method: 'POST', body: formData });
+      if (seq !== mentorAvatarUploadSeqRef.current) return;
+      if (!uploadRes.ok) throw new Error('上传失败');
+
+      await api.put('/api/mentor/profile', { avatarUrl: fileUrl });
+      if (seq !== mentorAvatarUploadSeqRef.current) return;
+
+      setMentorAvatarUrl(fileUrl);
+      showToast('头像已更新', 'success');
+    } catch (err) {
+      if (seq !== mentorAvatarUploadSeqRef.current) return;
+      let msg = err?.response?.data?.error || err?.message || '上传失败，请稍后再试';
+      if (msg === 'Failed to fetch' || msg === 'NetworkError') {
+        msg = '上传失败（请检查 OSS CORS 配置）';
+      }
+      setMentorAvatarUploadError(msg);
+      setMentorAvatarUrl(prevUrl || null);
+      showToast(msg, 'error');
+    } finally {
+      if (seq !== mentorAvatarUploadSeqRef.current) return;
+      setMentorAvatarUploading(false);
+    }
   };
 
   useEffect(() => () => {
@@ -723,6 +815,10 @@ function AccountSettingsPage({ mode = 'student' }) {
   useEffect(() => () => {
     try { if (mentorAvatarUrl && mentorAvatarUrl.startsWith('blob:')) URL.revokeObjectURL(mentorAvatarUrl); } catch {}
   }, [mentorAvatarUrl]);
+
+  useEffect(() => () => {
+    mentorAvatarUploadSeqRef.current += 1;
+  }, []);
 
   const DEGREE_OPTIONS = useMemo(() => ([
     { value: '本科', label: '本科' },
@@ -1291,13 +1387,14 @@ function AccountSettingsPage({ mode = 'student' }) {
               {activeSectionId === 'mentorData' && (
                 <div className="settings-data-section" aria-label="导师数据">
                   <section className="settings-mentor-card" aria-label="导师数据概览">
-                    <div className="settings-mentor-card-left">
+                      <div className="settings-mentor-card-left">
                       <div className="settings-mentor-avatar-wrap">
                         <button
                           type="button"
-                          className={`settings-mentor-avatar-btn ${mentorAvatarUrl ? 'has-avatar' : ''}`}
+                          className={`settings-mentor-avatar-btn ${mentorAvatarUrl ? 'has-avatar' : ''} ${mentorAvatarUploading ? 'is-uploading' : ''}`}
                           aria-label="更换头像"
                           onClick={onPickMentorAvatar}
+                          disabled={mentorAvatarUploading}
                         >
                           {mentorAvatarUrl ? (
                             <img className="settings-mentor-avatar-img" src={mentorAvatarUrl} alt="" />
@@ -1305,6 +1402,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                             <img className="settings-mentor-avatar-img" src={defaultAvatar} alt="" />
                           )}
                         </button>
+                        {mentorAvatarUploading && (
+                          <span className="settings-mentor-avatar-uploading" aria-live="polite">上传中…</span>
+                        )}
                         <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                           <circle cx="12" cy="12" r="12" fill="currentColor" />
                           <rect x="6" y="8" width="12" height="9" rx="2" ry="2" fill="none" stroke="#ffffff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -1319,6 +1419,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                           onChange={onMentorAvatarChange}
                         />
                       </div>
+                      {mentorAvatarUploadError ? (
+                        <div className="settings-mentor-avatar-error" role="alert">{mentorAvatarUploadError}</div>
+                      ) : null}
                       <div className="settings-mentor-main">
                         <div className="settings-mentor-name">{mentorIdValue}</div>
                         <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 导师'}</div>
