@@ -1102,6 +1102,16 @@
   display: inline-block;
 }
 
+.settings-page .mx-select--timezone {
+  width: min(560px, 100%);
+}
+
+.settings-page .mx-select--timezone .mx-select__option {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .settings-page .mx-select__button {
   width: 100%;
   text-align: left;

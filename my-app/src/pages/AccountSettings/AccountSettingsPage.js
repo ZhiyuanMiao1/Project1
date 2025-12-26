@@ -1068,7 +1068,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     };
 
     return (
-      <div className="mx-select" data-open={open ? 'true' : 'false'}>
+      <div className="mx-select mx-select--timezone" data-open={open ? 'true' : 'false'}>
         <button
           id={id}
           ref={buttonRef}
