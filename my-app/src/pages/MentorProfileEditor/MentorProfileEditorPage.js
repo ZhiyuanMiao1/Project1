@@ -140,6 +140,7 @@ const buildShortUTCWithCity = (timeZone) => {
 function MentorProfileEditorPage() {
   const navigate = useNavigate();
   const saveHintTimerRef = useRef(null);
+  const avatarUploadSeqRef = useRef(0);
 
   // 基本资料（默认值使右侧预览完整）
   const [name, setName] = useState('');
@@ -159,6 +160,9 @@ function MentorProfileEditorPage() {
 
   // 头像：默认显示项目内的 default-avatar，可点击上传预览
   const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUploadError, setAvatarUploadError] = useState(null);
   const avatarInputRef = useRef(null);
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const [saveHint, setSaveHint] = useState(null); // { id: number }
@@ -168,6 +172,10 @@ function MentorProfileEditorPage() {
       clearTimeout(saveHintTimerRef.current);
       saveHintTimerRef.current = null;
     }
+  }, []);
+
+  useEffect(() => () => {
+    avatarUploadSeqRef.current += 1;
   }, []);
 
   const showSavedHint = () => {
@@ -181,21 +189,86 @@ function MentorProfileEditorPage() {
     if (avatarInputRef.current) avatarInputRef.current.click();
   };
 
-  const onAvatarChange = (e) => {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const nextUrl = URL.createObjectURL(file);
-    setAvatarUrl((prev) => {
+  const setNextAvatarPreviewUrl = (nextUrl) => {
+    setAvatarPreviewUrl((prev) => {
       try { if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev); } catch {}
       return nextUrl;
     });
   };
 
   useEffect(() => () => {
-    try { if (avatarUrl && avatarUrl.startsWith('blob:')) URL.revokeObjectURL(avatarUrl); } catch {}
-  }, [avatarUrl]);
+    try { if (avatarPreviewUrl && avatarPreviewUrl.startsWith('blob:')) URL.revokeObjectURL(avatarPreviewUrl); } catch {}
+  }, [avatarPreviewUrl]);
+
+  const onAvatarChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    try { e.target.value = ''; } catch {}
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarUploadError('头像文件需 ≤ 5MB');
+      return;
+    }
+    if (file.type && !String(file.type).toLowerCase().startsWith('image/')) {
+      setAvatarUploadError('仅支持图片文件');
+      return;
+    }
+
+    const seq = ++avatarUploadSeqRef.current;
+    const prevAvatarUrl = avatarUrl;
+
+    const nextPreview = URL.createObjectURL(file);
+    setNextAvatarPreviewUrl(nextPreview);
+    setAvatarUploadError(null);
+    setAvatarUploading(true);
+
+    try {
+      const signRes = await api.post('/api/oss/policy', {
+        fileName: file.name,
+        contentType: file.type,
+        size: file.size,
+      });
+      if (seq !== avatarUploadSeqRef.current) return;
+
+      const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
+      if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
+        throw new Error('签名响应不完整');
+      }
+
+      const formData = new FormData();
+      formData.append('key', key);
+      formData.append('policy', policy);
+      formData.append('OSSAccessKeyId', accessKeyId);
+      formData.append('success_action_status', '200');
+      formData.append('signature', signature);
+      formData.append('file', file);
+
+      const uploadRes = await fetch(host, { method: 'POST', body: formData });
+      if (seq !== avatarUploadSeqRef.current) return;
+      if (!uploadRes.ok) throw new Error('上传失败');
+
+      setAvatarUrl(fileUrl);
+      setNextAvatarPreviewUrl(fileUrl);
+    } catch (err) {
+      if (seq !== avatarUploadSeqRef.current) return;
+      let msg = err?.response?.data?.error || err?.message || '上传失败，请稍后再试';
+      if (msg === 'Failed to fetch' || msg === 'NetworkError') {
+        msg = '上传失败（请检查 OSS CORS 配置）';
+      }
+      setAvatarUploadError(msg);
+      setAvatarUrl(prevAvatarUrl || null);
+      setNextAvatarPreviewUrl(prevAvatarUrl || null);
+    } finally {
+      if (seq !== avatarUploadSeqRef.current) return;
+      setAvatarUploading(false);
+    }
+  };
 
   const handleSave = async () => {
+    if (avatarUploading) {
+      alert('头像上传中，请稍后再保存');
+      return;
+    }
     try {
       const payload = {
         displayName: name,
@@ -265,6 +338,7 @@ function MentorProfileEditorPage() {
           if (p.timezone) setTimezone(p.timezone);
           setCoursesInput(Array.isArray(p.courses) ? p.courses.join('，') : '');
           setAvatarUrl(p.avatarUrl || null);
+          setNextAvatarPreviewUrl(p.avatarUrl || null);
         }
       } catch (e) {
         // 忽略 404/空数据，仅在控制台提示
@@ -285,8 +359,8 @@ function MentorProfileEditorPage() {
     timezone: buildShortUTCWithCity(timezone),
     languages: '中文, 英语',
     courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
-    imageUrl: avatarUrl || null,
-  }), [name, gender, degree, school, timezone, courses, avatarUrl]);
+    imageUrl: avatarPreviewUrl || avatarUrl || null,
+  }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl]);
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
@@ -551,17 +625,21 @@ function MentorProfileEditorPage() {
           <div className="mx-editor-avatar-shell">
             <button
               type="button"
-              className={`mx-editor-avatar ${avatarUrl ? 'has-avatar' : ''}`}
+              className={`mx-editor-avatar ${avatarUrl ? 'has-avatar' : ''} ${avatarUploading ? 'is-uploading' : ''}`}
               aria-label="修改头像"
               onClick={onPickAvatar}
+              disabled={avatarUploading}
             >
               <img
                 className="mx-editor-avatar-img"
-                src={avatarUrl || defaultAvatar}
+                src={avatarPreviewUrl || avatarUrl || defaultAvatar}
                 alt="头像"
               />
-              {!avatarUrl && (
+              {!avatarPreviewUrl && !avatarUrl && (
                 <span className="mx-editor-avatar-placeholder">头像</span>
+              )}
+              {avatarUploading && (
+                <span className="mx-editor-avatar-uploading" aria-live="polite">上传中…</span>
               )}
               <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 {/* 黑色实心圆底 */}
@@ -580,6 +658,9 @@ function MentorProfileEditorPage() {
               onChange={onAvatarChange}
             />
           </div>
+          {avatarUploadError && (
+            <div className="mx-editor-avatar-error" role="alert">{avatarUploadError}</div>
+          )}
         </div>
         <div className="container mx-editor-grid">
           {/* 左侧：表单 */}
@@ -636,6 +717,7 @@ function MentorProfileEditorPage() {
           type="button"
           className="mx-save-button"
           onClick={(e) => { try { e.currentTarget.blur(); } catch {} handleSave(); }}
+          disabled={avatarUploading}
         >保存</button>
       </div>
       
