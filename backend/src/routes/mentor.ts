@@ -15,7 +15,7 @@ router.get('/permissions', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const rows = await query<any[]>(
-      'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+      "SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
       [req.user!.id]
     );
     const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
@@ -37,7 +37,7 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
 
   // 审核 gating：仅审核通过的导师可查看卡片
   try {
-    const rows = await query<any[]>('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user!.id]);
+    const rows = await query<any[]>("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user!.id]);
     const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
     if (!approved) {
       return res.status(403).json({ error: '导师审核中' });
@@ -71,7 +71,7 @@ router.get('/profile', requireAuth, async (req: Request, res: Response) => {
   if (req.user?.role !== 'mentor') return res.status(403).json({ error: '仅导师可访问' });
   try {
     const rows = await query<any[]>(
-      'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+      "SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
       [req.user!.id]
     );
     const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
@@ -126,7 +126,7 @@ router.put(
     try {
       // 审核 gating
       const rows = await query<any[]>(
-        'SELECT mentor_approved FROM users WHERE id = ? LIMIT 1',
+        "SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
         [req.user!.id]
       );
       const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;

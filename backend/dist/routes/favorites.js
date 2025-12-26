@@ -10,14 +10,14 @@ const normalizeRole = (value, fallback) => {
     return value === 'mentor' || value === 'student' ? value : fallback;
 };
 const getUserById = async (userId) => {
-    const rows = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE id = ? LIMIT 1', [userId]);
+    const rows = await (0, db_1.query)('SELECT id, email, username FROM users WHERE id = ? LIMIT 1', [userId]);
     return rows[0] || null;
 };
 /**
  * 根据当前登录用户 + 请求的 role 决定操作哪个身份的收藏
- * - 若请求的 role 与当前 token 相同，直接用当前用户
- * - 若不同，则基于 email 查找同邮箱下的对应身份账号（为方便用户无需重新登录）
- * - 导师身份仍需通过审核
+ * - v2 数据库结构下：同一账号只有一个 user_id，student/mentor 作为 user_roles 存在
+ * - requestedRole 若不存在：student 可自动补齐；mentor 则返回未开通
+ * - 导师身份仍需通过审核（mentor_approved）
  */
 async function resolveTargetUser(req, res, requestedRole) {
     if (!req.user) {
@@ -30,32 +30,15 @@ async function resolveTargetUser(req, res, requestedRole) {
             res.status(401).json({ error: '登录状态异常，请重新登录' });
             return null;
         }
-        if (current.role === requestedRole) {
-            if (requestedRole === 'mentor') {
-                const approved = current.mentor_approved === 1 || current.mentor_approved === true;
-                if (!approved) {
-                    res.status(403).json({ error: '导师审核中，暂不可使用导师收藏', reason: 'mentor_not_approved' });
-                    return null;
-                }
-            }
-            return { userId: current.id, role: current.role };
-        }
-        // 查找同邮箱的另一身份账号，让用户无需切换登录
-        const siblings = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1', [current.email, requestedRole]);
-        if (!siblings.length) {
+        const roleRows = await (0, db_1.query)('SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1', [current.id, requestedRole]);
+        if (!roleRows.length) {
             if (requestedRole === 'student') {
                 try {
-                    const created = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [current.username || null, current.email, current.password_hash, 'student', 0]);
-                    return { userId: created.insertId, role: 'student' };
+                    await (0, db_1.query)('INSERT IGNORE INTO user_roles (user_id, role, mentor_approved, public_id) VALUES (?, ?, ?, ?)', [current.id, 'student', 0, '']);
+                    return { userId: current.id, role: 'student' };
                 }
                 catch (err) {
-                    if (err && err.code === 'ER_DUP_ENTRY') {
-                        const fallback = await (0, db_1.query)('SELECT id, email, role, mentor_approved, username, password_hash FROM users WHERE email = ? AND role = ? LIMIT 1', [current.email, 'student']);
-                        if (fallback[0]) {
-                            return { userId: fallback[0].id, role: fallback[0].role };
-                        }
-                    }
-                    console.error('Auto-create student identity failed:', err);
+                    console.error('Auto-create student role failed:', err);
                     res.status(500).json({ error: '服务器错误，请稍后再试' });
                     return null;
                 }
@@ -64,15 +47,14 @@ async function resolveTargetUser(req, res, requestedRole) {
             res.status(403).json({ error: msg, reason: 'role_not_available' });
             return null;
         }
-        const target = siblings[0];
         if (requestedRole === 'mentor') {
-            const approved = target.mentor_approved === 1 || target.mentor_approved === true;
+            const approved = roleRows?.[0]?.mentor_approved === 1 || roleRows?.[0]?.mentor_approved === true;
             if (!approved) {
                 res.status(403).json({ error: '导师审核中，暂不可使用导师收藏', reason: 'mentor_not_approved' });
                 return null;
             }
         }
-        return { userId: target.id, role: target.role };
+        return { userId: current.id, role: requestedRole };
     }
     catch (e) {
         console.error('Resolve target user failed:', e);

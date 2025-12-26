@@ -6,6 +6,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
+    "db:migrate:v2": "npm run build && node dist/scripts/migrate-v2.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

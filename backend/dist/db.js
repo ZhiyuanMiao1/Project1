@@ -8,8 +8,14 @@ exports.query = query;
 const promise_1 = __importDefault(require("mysql2/promise"));
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+const parseDbPort = (value, fallback = 3306) => {
+    const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+};
 exports.pool = promise_1.default.createPool({
     host: process.env.DB_HOST || 'localhost',
+    port: parseDbPort(process.env.DB_PORT, 3306),
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'project1',

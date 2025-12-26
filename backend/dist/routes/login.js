@@ -22,45 +22,30 @@ router.post('/', [
     // 仅基于 email + password 进行身份判定；如同一邮箱下多条记录均匹配，优先 mentor
     const { email, password } = req.body;
     try {
-        let user;
-        // 统一按邮箱取出所有候选账号
-        const rows = await (0, db_1.query)('SELECT id, username, email, password_hash, role, public_id FROM users WHERE email = ?', [email]);
-        if (rows.length === 0) {
+        const accounts = await (0, db_1.query)('SELECT id, username, email, password_hash FROM users WHERE email = ? LIMIT 1', [email]);
+        const account = accounts[0];
+        if (!account)
             return res.status(401).json({ error: '邮箱或密码错误' });
-        }
-        // 遍历比对，收集所有匹配的账号
-        const matches = [];
-        for (const row of rows) {
-            try {
-                const ok = await bcryptjs_1.default.compare(password, row.password_hash);
-                if (ok)
-                    matches.push(row);
-            }
-            catch { }
-        }
-        if (matches.length === 0) {
+        const isMatch = await bcryptjs_1.default.compare(password, account.password_hash);
+        if (!isMatch)
             return res.status(401).json({ error: '邮箱或密码错误' });
+        // 读取该账号已开通的角色；若没有任何角色，默认补一个 student 角色
+        let roles = await (0, db_1.query)('SELECT role, public_id, mentor_approved FROM user_roles WHERE user_id = ?', [account.id]);
+        if (!roles.length) {
+            await (0, db_1.query)('INSERT INTO user_roles (user_id, role, mentor_approved, public_id) VALUES (?, ?, ?, ?)', [account.id, 'student', 0, '']);
+            roles = await (0, db_1.query)('SELECT role, public_id, mentor_approved FROM user_roles WHERE user_id = ?', [account.id]);
         }
-        if (matches.length === 1) {
-            user = matches[0];
-        }
-        else {
-            // 多条均匹配：为消除“入口依赖”，采用固定优先级（mentor > student）
-            user = matches.find(m => m.role === 'mentor') || matches[0];
-        }
-        if (!user) {
-            return res.status(401).json({ error: '邮箱或密码错误' });
-        }
-        const isMatch = await bcryptjs_1.default.compare(password, user.password_hash);
-        if (!isMatch) {
-            return res.status(401).json({ error: '邮箱或密码错误' });
-        }
+        const preferred = roles.some((r) => r.role === 'mentor') ? 'mentor' : 'student';
+        const roleRow = roles.find((r) => r.role === preferred) || roles[0];
+        const activeRole = roleRow?.role === 'mentor' || roleRow?.role === 'student' ? roleRow.role : 'student';
+        const publicId = roleRow?.public_id || null;
         const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
-        const token = jsonwebtoken_1.default.sign({ id: user.id, role: user.role }, secret, { expiresIn: '1h' });
+        const token = jsonwebtoken_1.default.sign({ id: account.id, role: activeRole }, secret, { expiresIn: '1h' });
         return res.json({
             message: '登录成功',
             token,
-            user: { id: user.id, username: user.username, email: user.email, role: user.role, public_id: user.public_id || null },
+            user: { id: account.id, username: account.username, email: account.email, role: activeRole, public_id: publicId },
+            roles: roles.map((r) => ({ role: r.role, public_id: r.public_id, mentor_approved: r.mentor_approved })),
         });
     }
     catch (err) {

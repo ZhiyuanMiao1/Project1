@@ -13,7 +13,7 @@ router.get('/permissions', auth_1.requireAuth, async (req, res) => {
         return res.status(403).json({ error: '仅导师可访问', canEditProfile: false, reason: 'not_mentor' });
     }
     try {
-        const rows = await (0, db_1.query)('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved) {
             return res.status(403).json({ error: '导师审核中，暂不可编辑个人名片', canEditProfile: false, reason: 'pending_review' });
@@ -32,7 +32,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
     }
     // 审核 gating：仅审核通过的导师可查看卡片
     try {
-        const rows = await (0, db_1.query)('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved) {
             return res.status(403).json({ error: '导师审核中' });
@@ -64,7 +64,7 @@ router.get('/profile', auth_1.requireAuth, async (req, res) => {
     if (req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
     try {
-        const rows = await (0, db_1.query)('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved)
             return res.status(403).json({ error: '导师审核中' });
@@ -114,7 +114,7 @@ router.put('/profile', auth_1.requireAuth, [
     }
     try {
         // 审核 gating
-        const rows = await (0, db_1.query)('SELECT mentor_approved FROM users WHERE id = ? LIMIT 1', [req.user.id]);
+        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved)
             return res.status(403).json({ error: '导师审核中，暂不可保存' });

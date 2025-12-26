@@ -1,37 +1,36 @@
--- MySQL schema for basic auth + role-scoped public IDs
+-- MySQL schema (v2) - unified users + roles
+-- Key idea:
+-- - `users` is the account table (one row per person, id as PK, email UNIQUE but NOT PK)
+-- - `user_roles` stores role-specific info (StudentID/MentorID via `public_id`, and mentor approval)
 SET NAMES utf8mb4;
 
--- 1) Base table (fresh install path)
+-- 1) Account table (one user_id for both student/mentor)
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(100) NULL,
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_users_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2) Role table (one row per role per user)
+CREATE TABLE IF NOT EXISTS `user_roles` (
+  `user_id` INT NOT NULL,
   `role` ENUM('mentor','student') NOT NULL,
-  -- 审核状态：导师账号需审核通过方可访问导师卡片
+  -- mentor approval is only meaningful when role='mentor'
   `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0,
   -- role-scoped public id: student => s#, mentor => m#
   `public_id` VARCHAR(20) NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  -- 同一邮箱可在不同角色各注册一次；对 (email, role) 做唯一约束
-  UNIQUE KEY `uniq_users_email_role` (`email`, `role`),
-  UNIQUE KEY `uniq_users_public_id` (`public_id`)
+  PRIMARY KEY (`user_id`, `role`),
+  UNIQUE KEY `uniq_user_roles_public_id` (`public_id`),
+  CONSTRAINT `fk_user_roles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Account-level settings shared across roles
-CREATE TABLE IF NOT EXISTS `account_settings` (
-  `email` VARCHAR(255) NOT NULL,
-  `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
-  `home_course_order_json` TEXT NULL,
-  `availability_json` TEXT NULL,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
--- 2) Role counters table used to allocate next serial per role
+-- 3) Role counters (used by trigger to allocate next serial per role)
 CREATE TABLE IF NOT EXISTS `role_counters` (
   `role` ENUM('mentor','student') NOT NULL PRIMARY KEY,
   `next_serial` INT NOT NULL
@@ -42,14 +41,11 @@ INSERT IGNORE INTO `role_counters` (`role`, `next_serial`) VALUES
   ('student', 0),
   ('mentor', 0);
 
-
-
--- 3) Trigger to auto-assign `public_id` on insert when not provided
--- Uses LAST_INSERT_ID trick to atomically fetch incrementing serial per role
-DROP TRIGGER IF EXISTS `bi_users_public_id`;
+-- 4) Trigger to auto-assign `public_id` on insert when not provided
+DROP TRIGGER IF EXISTS `bi_user_roles_public_id`;
 DELIMITER //
-CREATE TRIGGER `bi_users_public_id`
-BEFORE INSERT ON `users`
+CREATE TRIGGER `bi_user_roles_public_id`
+BEFORE INSERT ON `user_roles`
 FOR EACH ROW
 BEGIN
   IF NEW.public_id IS NULL OR NEW.public_id = '' THEN
@@ -68,7 +64,19 @@ BEGIN
 END //
 DELIMITER ;
 
--- 4) Mentor profile table: one row per mentor user
+-- 5) Account-level settings shared across roles (keyed by user_id)
+CREATE TABLE IF NOT EXISTS `account_settings` (
+  `user_id` INT NOT NULL,
+  `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
+  `home_course_order_json` TEXT NULL,
+  `availability_json` TEXT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `fk_account_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6) Mentor profile table: one row per mentor account
 CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `user_id` INT NOT NULL,
   `display_name` VARCHAR(100) NULL,
@@ -84,7 +92,7 @@ CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   CONSTRAINT `fk_mentor_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 5) 收藏夹表：按 user_id + role 隔离学生/导师收藏
+-- 7) Favorites (isolated by role but owned by the same user_id)
 CREATE TABLE IF NOT EXISTS `favorite_collections` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
@@ -93,10 +101,10 @@ CREATE TABLE IF NOT EXISTS `favorite_collections` (
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_fav_user_role_name` (`user_id`, `role`, `name`),
-  CONSTRAINT `fk_fav_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_fav_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_fav_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 6) 收藏条目表：默认收藏到「默认收藏夹」，后续可支持移动到其他收藏夹
 CREATE TABLE IF NOT EXISTS `favorite_items` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
@@ -109,24 +117,7 @@ CREATE TABLE IF NOT EXISTS `favorite_items` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_fav_user_role_item` (`user_id`, `role`, `item_type`, `item_id`),
   KEY `idx_fav_items_collection` (`collection_id`),
-  CONSTRAINT `fk_fav_items_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_fav_items_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE,
   CONSTRAINT `fk_fav_items_collection` FOREIGN KEY (`collection_id`) REFERENCES `favorite_collections`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ========== 兼容性迁移：从 email 唯一 改为 (email, role) 唯一 ==========
--- 说明：若早期版本已创建了 `uniq_users_email` 唯一索引，请执行以下语句迁移。
--- 注意：MySQL 低版本不支持 DROP INDEX IF EXISTS，如无该索引会报错，可手动忽略。
-
--- 删除旧的 email 唯一索引（若存在）
--- DROP INDEX IF EXISTS `uniq_users_email` ON `users`;
--- 低版本兼容写法（如果不存在会报错，可按需跳过）：
--- DROP INDEX `uniq_users_email` ON `users`;
-
--- 创建新的 (email, role) 复合唯一索引（若不存在）
--- CREATE UNIQUE INDEX `uniq_users_email_role` ON `users` (`email`, `role`);
-
--- ========== 审核字段迁移（如为已有库升级） ==========
--- 若已存在 `users` 表但没有 `mentor_approved` 字段，请执行：
---   ALTER TABLE `users` ADD COLUMN `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;
--- 宿主 MySQL 版本若支持，可使用 IF NOT EXISTS 变体：
---   ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `mentor_approved` TINYINT(1) NOT NULL DEFAULT 0;

@@ -8,6 +8,21 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
 const router = (0, express_1.Router)();
+const getRoleRow = async (userId, role) => {
+    const rows = await (0, db_1.query)('SELECT role, public_id FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1', [userId, role]);
+    return rows[0] || null;
+};
+const ensureRole = async (userId, role) => {
+    const existing = await getRoleRow(userId, role);
+    if (existing)
+        return existing;
+    // public_id 由触发器生成：这里插入空字符串触发分配
+    await (0, db_1.query)('INSERT INTO user_roles (user_id, role, mentor_approved, public_id) VALUES (?, ?, ?, ?)', [userId, role, role === 'mentor' ? 0 : 0, '']);
+    const created = await getRoleRow(userId, role);
+    if (!created)
+        throw new Error('failed_to_create_role');
+    return created;
+};
 router.post('/', [
     (0, express_validator_1.body)('username').optional().isLength({ min: 3 }).withMessage('用户名至少3个字符'),
     (0, express_validator_1.body)('email').isEmail().withMessage('请输入有效的邮箱'),
@@ -20,46 +35,49 @@ router.post('/', [
     }
     const { username = null, email, password, role } = req.body;
     try {
-        // 允许同一邮箱分别以 student / mentor 注册各一次
-        // 仅当同一角色下已存在该邮箱时，才视为冲突
-        const existing = await (0, db_1.query)('SELECT id FROM users WHERE email = ? AND role = ? LIMIT 1', [email, role]);
-        if (existing.length > 0) {
+        const accountRows = await (0, db_1.query)('SELECT id, username, email, password_hash FROM users WHERE email = ? LIMIT 1', [email]);
+        let userId;
+        let passwordHash;
+        if (accountRows.length === 0) {
+            passwordHash = await bcryptjs_1.default.hash(password, 10);
+            const created = await (0, db_1.query)('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, passwordHash]);
+            userId = created.insertId;
+        }
+        else {
+            const account = accountRows[0];
+            userId = account.id;
+            passwordHash = account.password_hash;
+            const ok = await bcryptjs_1.default.compare(password, passwordHash);
+            if (!ok) {
+                // 统一返回“邮箱或密码错误”，避免泄露邮箱是否存在
+                return res.status(401).json({ error: '邮箱或密码错误' });
+            }
+            // 如果传了 username 且数据库为空，则顺手补齐
+            if (username && !account.username) {
+                await (0, db_1.query)('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
+            }
+        }
+        const existingRole = await getRoleRow(userId, role);
+        if (existingRole) {
             return res.status(409).json({ error: '该邮箱在该角色下已被注册' });
         }
-        const passwordHash = await bcryptjs_1.default.hash(password, 10);
-        // mentor_approved 仅用于导师审核；创建时统一置 0，由人工审核修改
-        const mentorApproved = 0;
-        const result = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [username, email, passwordHash, role, mentorApproved]);
-        // 读取触发器生成的 public_id 返回给前端
-        const inserted = await (0, db_1.query)('SELECT public_id, role FROM users WHERE id = ? LIMIT 1', [result.insertId]);
-        const public_id = inserted?.[0]?.public_id || null;
-        const finalRole = inserted?.[0]?.role || role;
-        // 若选择注册为导师，则自动为其创建学生身份（若尚未存在）
+        const mainRole = await ensureRole(userId, role);
+        // 若开通导师身份，则确保也有 student 身份（与旧逻辑一致，方便后续切换）
         let pairedStudent = null;
-        if (finalRole === 'mentor') {
-            const hasStudent = await (0, db_1.query)('SELECT id FROM users WHERE email = ? AND role = ? LIMIT 1', [email, 'student']);
-            if (hasStudent.length === 0) {
-                const studentInsert = await (0, db_1.query)('INSERT INTO users (username, email, password_hash, role, mentor_approved) VALUES (?, ?, ?, ?, ?)', [username, email, passwordHash, 'student', 0]);
-                const sRow = await (0, db_1.query)('SELECT public_id FROM users WHERE id = ? LIMIT 1', [studentInsert.insertId]);
-                pairedStudent = { userId: studentInsert.insertId, public_id: sRow?.[0]?.public_id || null };
-            }
-            else {
-                // 已存在则读出其 public_id 以便返回
-                const sInfo = await (0, db_1.query)('SELECT id, public_id FROM users WHERE email = ? AND role = ? LIMIT 1', [email, 'student']);
-                if (sInfo.length > 0)
-                    pairedStudent = { userId: sInfo[0].id, public_id: sInfo[0].public_id };
-            }
+        if (role === 'mentor') {
+            const studentRole = await ensureRole(userId, 'student');
+            pairedStudent = { userId, public_id: studentRole.public_id || null };
         }
         return res.status(201).json({
             message: '用户注册成功',
-            userId: result.insertId,
-            public_id,
-            role: finalRole,
+            userId,
+            public_id: mainRole.public_id || null,
+            role,
             paired_student: pairedStudent,
         });
     }
     catch (err) {
-        // MySQL 唯一键冲突（如 (email, role) 唯一约束 或 public_id 唯一约束）
+        // MySQL 唯一键冲突（如 users.email / user_roles PK / public_id 唯一约束）
         if (err && err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: '该邮箱在该角色下已被注册' });
         }
