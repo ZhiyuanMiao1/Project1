@@ -720,11 +720,13 @@
   filter: brightness(0.98);
 }
 
+.settings-student-avatar-btn:disabled,
 .settings-mentor-avatar-btn:disabled {
   cursor: not-allowed;
   opacity: 0.95;
   filter: none;
 }
+.settings-student-avatar-btn.is-uploading,
 .settings-mentor-avatar-btn.is-uploading {
   cursor: progress;
 }
@@ -782,7 +784,30 @@
   pointer-events: none;
 }
 
+.settings-student-avatar-uploading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
 .settings-mentor-avatar-error {
+  margin-top: 6px;
+  max-width: 220px;
+  text-align: center;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-student-avatar-error {
   margin-top: 6px;
   max-width: 220px;
   text-align: center;

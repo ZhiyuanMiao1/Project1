@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS `account_settings` (
   `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
   `home_course_order_json` TEXT NULL,
   `availability_json` TEXT NULL,
+  `student_avatar_url` VARCHAR(500) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
@@ -120,4 +121,3 @@ CREATE TABLE IF NOT EXISTS `favorite_items` (
   CONSTRAINT `fk_fav_items_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE,
   CONSTRAINT `fk_fav_items_collection` FOREIGN KEY (`collection_id`) REFERENCES `favorite_collections`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

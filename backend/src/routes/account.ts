@@ -28,6 +28,7 @@ type AccountSettingsRow = {
   email_notifications: number | null;
   home_course_order_json?: string | null;
   availability_json?: string | null;
+  student_avatar_url?: string | null;
 };
 
 const router = Router();
@@ -123,6 +124,31 @@ const ensureAvailabilityColumn = async () => {
     const message = String(e?.message || '');
     if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
       availabilityColumnEnsured = true;
+      return true;
+    }
+    return false;
+  }
+};
+
+let studentAvatarColumnEnsured = false;
+
+const isMissingStudentAvatarColumnError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('student_avatar_url');
+};
+
+const ensureStudentAvatarColumn = async () => {
+  if (studentAvatarColumnEnsured) return true;
+  try {
+    await dbQuery('ALTER TABLE account_settings ADD COLUMN student_avatar_url VARCHAR(500) NULL');
+    studentAvatarColumnEnsured = true;
+    return true;
+  } catch (e: any) {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+      studentAvatarColumnEnsured = true;
       return true;
     }
     return false;
@@ -226,28 +252,31 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     const email = current.email;
 
     let settingsRows: AccountSettingsRow[] = [];
-    try {
-      settingsRows = await dbQuery<AccountSettingsRow[]>(
-        'SELECT email_notifications, home_course_order_json FROM account_settings WHERE user_id = ? LIMIT 1',
-        [userId]
-      );
-    } catch (e: any) {
-      if (!isMissingHomeCourseOrderColumnError(e)) throw e;
-      const ensured = await ensureHomeCourseOrderColumn();
-      if (ensured) {
+    let columns = ['email_notifications', 'home_course_order_json', 'student_avatar_url'];
+    while (true) {
+      try {
         settingsRows = await dbQuery<AccountSettingsRow[]>(
-          'SELECT email_notifications, home_course_order_json FROM account_settings WHERE user_id = ? LIMIT 1',
+          `SELECT ${columns.join(', ')} FROM account_settings WHERE user_id = ? LIMIT 1`,
           [userId]
         );
-      } else {
-        settingsRows = await dbQuery<AccountSettingsRow[]>(
-          'SELECT email_notifications FROM account_settings WHERE user_id = ? LIMIT 1',
-          [userId]
-        );
+        break;
+      } catch (e: any) {
+        if (isMissingHomeCourseOrderColumnError(e)) {
+          const ensured = await ensureHomeCourseOrderColumn();
+          if (!ensured) columns = columns.filter((c) => c !== 'home_course_order_json');
+          continue;
+        }
+        if (isMissingStudentAvatarColumnError(e)) {
+          const ensured = await ensureStudentAvatarColumn();
+          if (!ensured) columns = columns.filter((c) => c !== 'student_avatar_url');
+          continue;
+        }
+        throw e;
       }
     }
     let emailNotificationsEnabled = false;
     let homeCourseOrderIds: string[] | null = null;
+    let studentAvatarUrl: string | null = null;
     if (settingsRows.length === 0) {
       await dbQuery(
         'INSERT IGNORE INTO account_settings (user_id, email_notifications) VALUES (?, ?)',
@@ -257,6 +286,9 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     } else {
       emailNotificationsEnabled = !!settingsRows[0]?.email_notifications;
       homeCourseOrderIds = parseOrderIds(settingsRows[0]?.home_course_order_json);
+      studentAvatarUrl = typeof settingsRows[0]?.student_avatar_url === 'string' && settingsRows[0].student_avatar_url.trim()
+        ? settingsRows[0].student_avatar_url.trim()
+        : null;
     }
 
     const rows = await dbQuery<PublicIdRow[]>(
@@ -301,12 +333,51 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       mentorCreatedAt,
       emailNotificationsEnabled,
       homeCourseOrderIds,
+      studentAvatarUrl,
     });
   } catch (e) {
     console.error('Account ids error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });
+
+router.put(
+  '/student-avatar',
+  requireAuth,
+  [body('avatarUrl').optional({ nullable: true }).isString().trim().isLength({ max: 500 }).withMessage('头像地址无效')],
+  async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: '未授权' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const hasAvatarUrl = Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl');
+    if (!hasAvatarUrl) return res.status(400).json({ error: '没有可保存的字段' });
+
+    const raw = (req.body as any).avatarUrl;
+    const normalized = typeof raw === 'string' ? raw.trim() : '';
+    const nextAvatarUrl = normalized ? normalized : null;
+
+    try {
+      const ensured = await ensureStudentAvatarColumn();
+      if (!ensured) return res.status(500).json({ error: '服务器错误：无法初始化头像字段' });
+
+      await dbQuery(
+        'INSERT IGNORE INTO account_settings (user_id, email_notifications) VALUES (?, ?)',
+        [req.user.id, 1]
+      );
+      await dbQuery(
+        'UPDATE account_settings SET student_avatar_url = ? WHERE user_id = ?',
+        [nextAvatarUrl, req.user.id]
+      );
+
+      return res.json({ message: '保存成功', studentAvatarUrl: nextAvatarUrl });
+    } catch (e) {
+      console.error('Save student avatar error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
 
 router.put(
   '/profile',
