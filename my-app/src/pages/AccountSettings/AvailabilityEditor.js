@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
-import { buildShortUTC, getDefaultTimeZone } from '../StudentCourseRequest/steps/timezoneUtils';
+import { buildShortUTC, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -74,21 +74,41 @@ function AvailabilityEditor({
     return () => clearInterval(id);
   }, []);
 
-  const currentTimeZone = useMemo(() => getDefaultTimeZone(), []);
+  const selectedTimeZone = useMemo(() => {
+    const raw = typeof value?.timeZone === 'string' ? value.timeZone.trim() : '';
+    return raw || getDefaultTimeZone();
+  }, [value?.timeZone]);
 
   const safeValue = useMemo(() => {
     const daySelections = value && typeof value.daySelections === 'object' && value.daySelections && !Array.isArray(value.daySelections)
       ? value.daySelections
       : {};
     const sessionDurationHours = typeof value?.sessionDurationHours === 'number' ? value.sessionDurationHours : 2;
-    return { timeZone: currentTimeZone, sessionDurationHours, daySelections };
-  }, [currentTimeZone, value]);
+    return { timeZone: selectedTimeZone, sessionDurationHours, daySelections };
+  }, [selectedTimeZone, value]);
+
+  useEffect(() => {
+    const parts = getZonedParts(selectedTimeZone, new Date());
+    const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
+    setSelectedDate(todayNoon);
+    setViewMonth(new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1));
+    setSelectedRangeKeys([ymdKey(todayNoon)]);
+    setDragStartKey(null);
+    setDragEndKey(null);
+    setDragPreviewKeys(new Set());
+    setIsDraggingRange(false);
+  }, [selectedTimeZone]);
+
+  const nowParts = useMemo(
+    () => getZonedParts(selectedTimeZone, new Date(nowTick)),
+    [nowTick, selectedTimeZone],
+  );
 
   const todayStart = useMemo(() => {
-    const d = new Date(nowTick);
+    const d = new Date(nowParts.year, nowParts.month - 1, nowParts.day);
     d.setHours(0, 0, 0, 0);
     return d;
-  }, [nowTick]);
+  }, [nowParts.day, nowParts.month, nowParts.year]);
 
   const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
 
@@ -128,16 +148,12 @@ function AvailabilityEditor({
     const endTs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
     while (cur.getTime() <= endTs) {
       const t = new Date(cur);
-      const isPast = (() => {
-        const dd = new Date(t);
-        dd.setHours(0, 0, 0, 0);
-        return dd.getTime() < todayStart.getTime();
-      })();
-      if (!isPast) res.push(ymdKey(t));
+      const key = ymdKey(t);
+      if (key >= todayKey) res.push(key);
       cur.setDate(cur.getDate() + 1);
     }
     return res;
-  }, [keyToDateStrict, todayStart]);
+  }, [keyToDateStrict, todayKey]);
 
   const endDragSelection = useCallback(() => {
     if (!isDraggingRange || !dragStartKey || !dragEndKey) {
@@ -168,10 +184,9 @@ function AvailabilityEditor({
     if (selectedKey < todayKey) return 95;
     if (selectedKey !== todayKey) return -1;
 
-    const now = new Date(nowTick);
-    const totalMinutes = now.getHours() * 60 + now.getMinutes() + (now.getSeconds() > 0 ? 1 : 0);
+    const totalMinutes = nowParts.hour * 60 + nowParts.minute + (nowParts.second > 0 ? 1 : 0);
     return Math.floor(Math.max(0, Math.min(1439, totalMinutes)) / 15);
-  }, [nowTick, selectedKey, todayKey]);
+  }, [nowParts.hour, nowParts.minute, nowParts.second, selectedKey, todayKey]);
 
   const onPrevMonth = useCallback(() => {
     setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
@@ -214,9 +229,9 @@ function AvailabilityEditor({
   }
 
   return (
-    <div className="settings-availability">
+      <div className="settings-availability">
       <div className="settings-availability-meta">
-        <span>时区：{buildShortUTC(currentTimeZone)} {currentTimeZone}</span>
+        <span>时区：{buildShortUTC(selectedTimeZone)} {selectedTimeZone}</span>
       </div>
 
       <div className="schedule-sidebar" aria-label="空余时间选择">
@@ -248,11 +263,7 @@ function AvailabilityEditor({
               const selected = isSameDay(date, selectedDate);
               const key = ymdKey(date);
               const hasSelection = !!(safeValue.daySelections[key] && safeValue.daySelections[key].length);
-              const isPast = (() => {
-                const d = new Date(date);
-                d.setHours(0, 0, 0, 0);
-                return d.getTime() < todayStart.getTime();
-              })();
+              const isPast = key < todayKey;
               const inMultiSelected = (selectedRangeKeys || []).includes(key);
               const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
                 ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
