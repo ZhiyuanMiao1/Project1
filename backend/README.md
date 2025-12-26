@@ -38,7 +38,7 @@ mysql -h <DB_HOST> -P <DB_PORT> -u <DB_USER> -p <DB_NAME> < schema.sql
 示例：
 
 ```
-mysql -h rm-xxxxxxxxxxxx.mysql.rds.aliyuncs.com -P 3306 -u your_db_user -p project1 < schema.sql
+mysql -h rm-xxxxxxxxxxxx.mysql.rds.aliyuncs.com -P 3306 -u mentorx_dev -p project1 < schema.sql
 ```
 
 ## 安装与启动
