@@ -28,11 +28,46 @@ const TZ_CITY_MAP = {
   '-3': '圣保罗',
 };
 
+const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(referenceDate).filter((p) => p.type !== 'literal').map((p) => [p.type, p.value]));
+    const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(iso);
+    return Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+  } catch {
+    return 0;
+  }
+};
+
+const buildUtcOffsetLabel = (offsetMinutes) => {
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  if (minutes === 0) return `UTC${sign}${hours}`;
+  return `UTC${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
 const formatTimezoneWithCity = (tz) => {
   if (!tz) return '';
-  const base = tz.replace(/\s*\(.*\)\s*$/, '').trim(); // 去掉已有括号
+  const raw = String(tz).trim();
+  const stripped = raw.replace(/\s*\(.*\)\s*$/, '').trim();
+  const base = raw.includes('/') && !/UTC\s*[+-]/i.test(stripped)
+    ? buildUtcOffsetLabel(getTimeZoneOffsetMinutes(raw))
+    : stripped;
+
   const match = base.match(/UTC\s*([+-])\s*(\d{1,2})(?::\d{2})?/i);
-  if (!match) return tz;
+  if (!match) return stripped || raw;
   const sign = match[1] === '-' ? '-' : '+';
   const hoursRaw = match[2];
   const hoursKey = hoursRaw.length === 1 ? `${sign}${hoursRaw}` : `${sign}${hoursRaw.padStart(2, '0')}`;
@@ -112,6 +147,10 @@ function StudentListingCard({
   const timezoneLabel = formatTimezoneWithCity(data.timezone);
   const courses = Array.isArray(data?.courses) ? data.courses : [];
   const languagesRaw = typeof data?.languages === 'string' ? data.languages : '';
+  const ratingRaw = Number.parseFloat(String(data?.rating ?? 0));
+  const ratingValue = Number.isFinite(ratingRaw) && ratingRaw > 0 ? Math.round(ratingRaw * 10) / 10 : 0;
+  const reviewRaw = Number.parseInt(String(data?.reviewCount ?? 0), 10);
+  const reviewCountValue = Number.isFinite(reviewRaw) && reviewRaw > 0 ? reviewRaw : 0;
   const languageTokens = languagesRaw
     ? languagesRaw.split(',').map((lang) => lang.trim()).filter(Boolean)
     : [];
@@ -163,7 +202,7 @@ function StudentListingCard({
         >
           <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
         </svg>
-        <span className="rating-text">{data.rating} | {data.reviewCount} 条评价</span>
+        <span className="rating-text">{ratingValue} | {reviewCountValue} 条评价</span>
       </p>
       {/* 时区和语言合并 */}
       <div className="listing-timezone-languages">

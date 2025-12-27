@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import StudentListingCard from '../ListingCard/StudentListingCard';
 import './Listings.css';
-import tutor1Image from '../../assets/images/tutor1.jpg';
-import tutor2Image from '../../assets/images/tutor2.jpg';
-import tutor3Image from '../../assets/images/tutor3.jpg';
-import tutor4Image from '../../assets/images/tutor4.jpg';
-import tutor5Image from '../../assets/images/tutor5.jpg';
-import tutor6Image from '../../assets/images/tutor6.jpg';
 import { fetchFavoriteItems } from '../../api/favorites';
+import { fetchApprovedMentors } from '../../api/mentors';
 
 function StudentListings() {
   const [loading, setLoading] = useState(true);
@@ -15,11 +10,70 @@ function StudentListings() {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
+  const [mentors, setMentors] = useState([]);
+  const [listError, setListError] = useState('');
 
   // 模拟加载动画，避免页面切换过于生硬
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
+    let alive = true;
+    let timer = null;
+
+    const load = async () => {
+      setListError('');
+      setLoading(true);
+      const startedAt = Date.now();
+
+      try {
+        const res = await fetchApprovedMentors();
+        if (!alive) return;
+
+        const list = Array.isArray(res?.data?.mentors) ? res.data.mentors : [];
+        const normalized = list
+          .map((item) => {
+            const ratingRaw = Number.parseFloat(String(item?.rating ?? 0));
+            const reviewCountRaw = Number.parseInt(String(item?.reviewCount ?? item?.review_count ?? 0), 10);
+
+            return {
+              ...item,
+              id: item?.id,
+              name: item?.name,
+              gender: item?.gender || '',
+              degree: item?.degree || '',
+              school: item?.school || '',
+              rating: Number.isFinite(ratingRaw) && ratingRaw > 0 ? Math.round(ratingRaw * 10) / 10 : 0,
+              reviewCount: Number.isFinite(reviewCountRaw) && reviewCountRaw > 0 ? reviewCountRaw : 0,
+              courses: Array.isArray(item?.courses) ? item.courses : [],
+              timezone: typeof item?.timezone === 'string' ? item.timezone : '',
+              languages: typeof item?.languages === 'string' ? item.languages : '',
+              imageUrl: item?.imageUrl ?? item?.avatarUrl ?? item?.avatar_url ?? null,
+            };
+          })
+          .filter((item) => item && item.id);
+
+        setMentors(normalized);
+      } catch (e) {
+        if (!alive) return;
+        setMentors([]);
+        const msg = e?.response?.data?.error || e?.message || 'Failed to load mentors';
+        setListError(String(msg));
+      } finally {
+        const elapsed = Date.now() - startedAt;
+        const minDelay = 500;
+        const remaining = minDelay - elapsed;
+        const done = () => {
+          if (!alive) return;
+          setLoading(false);
+        };
+        if (remaining > 0) timer = setTimeout(done, remaining);
+        else done();
+      }
+    };
+
+    load();
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -56,7 +110,7 @@ function StudentListings() {
   }, [isLoggedIn]);
 
   const favoriteIdSet = useMemo(() => favoriteIds, [favoriteIds]);
-  const listingData = [
+  /* const listingData = [
     {
       id: 1,
       name: '张三',
@@ -187,7 +241,7 @@ function StudentListings() {
       languages: '西班牙语, 英语',
       imageUrl: null, // 使用默认头像
     },
-  ];
+  ]; */
 
   return (
     <div className="listings container">
@@ -206,7 +260,11 @@ function StudentListings() {
                 <div className="sk sk-line short" />
               </div>
             ))
-          : listingData.map((item) => (
+          : listError ? (
+              <p style={{ margin: 0, color: '#64748b', gridColumn: '1 / -1' }}>{listError}</p>
+            ) : mentors.length === 0 ? (
+              <p style={{ margin: 0, color: '#64748b', gridColumn: '1 / -1' }}>暂无导师</p>
+            ) : mentors.map((item) => (
               <StudentListingCard
                 key={item.id}
                 data={item}

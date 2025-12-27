@@ -1,0 +1,139 @@
+import { Router, Request, Response } from 'express';
+import { query } from '../db';
+
+const router = Router();
+
+type ApprovedMentorRow = {
+  public_id: string;
+  username: string | null;
+  display_name: string | null;
+  gender: string | null;
+  degree: string | null;
+  school: string | null;
+  timezone: string | null;
+  courses_json: string | null;
+  avatar_url: string | null;
+  rating: any;
+  review_count: any;
+  updated_at?: Date | string | null;
+};
+
+let mentorRatingColumnsEnsured = false;
+
+const isMissingRatingColumnsError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  if (!(code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column'))) return false;
+  return message.includes('rating') || message.includes('review_count');
+};
+
+const ensureMentorRatingColumns = async () => {
+  if (mentorRatingColumnsEnsured) return true;
+
+  const ensureColumn = async (sql: string) => {
+    try {
+      await query(sql);
+      return true;
+    } catch (e: any) {
+      const code = String(e?.code || '');
+      const message = String(e?.message || '');
+      if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) return true;
+      return false;
+    }
+  };
+
+  const okRating = await ensureColumn('ALTER TABLE mentor_profiles ADD COLUMN rating DECIMAL(3,2) NOT NULL DEFAULT 0');
+  const okReviewCount = await ensureColumn('ALTER TABLE mentor_profiles ADD COLUMN review_count INT NOT NULL DEFAULT 0');
+
+  mentorRatingColumnsEnsured = okRating && okReviewCount;
+  return mentorRatingColumnsEnsured;
+};
+
+const parseCourses = (raw: any): string[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((s) => (typeof s === 'string' ? s.trim() : '')).filter(Boolean).slice(0, 50);
+  } catch {
+    return [];
+  }
+};
+
+const normalizeRating = (raw: any) => {
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0;
+};
+
+const normalizeCount = (raw: any) => {
+  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? '0'), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+// GET /api/mentors/approved
+// Public: return mentors who have passed approval.
+router.get('/approved', async (_req: Request, res: Response) => {
+  const runQuery = async () => {
+    const rows = await query<ApprovedMentorRow[]>(
+      `
+      SELECT
+        ur.public_id,
+        u.username,
+        mp.display_name,
+        mp.gender,
+        mp.degree,
+        mp.school,
+        mp.timezone,
+        mp.courses_json,
+        mp.avatar_url,
+        mp.rating,
+        mp.review_count,
+        mp.updated_at
+      FROM user_roles ur
+      JOIN users u ON u.id = ur.user_id
+      LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+      WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
+      ORDER BY mp.updated_at DESC, ur.public_id ASC
+      LIMIT 200
+      `
+    );
+    return rows || [];
+  };
+
+  try {
+    let rows: ApprovedMentorRow[] = [];
+    try {
+      rows = await runQuery();
+    } catch (e: any) {
+      if (!isMissingRatingColumnsError(e)) throw e;
+      const ensured = await ensureMentorRatingColumns();
+      if (!ensured) throw e;
+      rows = await runQuery();
+    }
+
+    const mentors = rows.map((row) => {
+      const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
+      return {
+        id: row.public_id,
+        name,
+        gender: row.gender || '',
+        degree: row.degree || '',
+        school: row.school || '',
+        rating: normalizeRating(row.rating),
+        reviewCount: normalizeCount(row.review_count),
+        courses: parseCourses(row.courses_json),
+        timezone: row.timezone || '',
+        languages: '',
+        imageUrl: row.avatar_url || null,
+      };
+    });
+
+    return res.json({ mentors });
+  } catch (e) {
+    console.error('Fetch approved mentors error:', e);
+    return res.status(500).json({ error: 'server_error' });
+  }
+});
+
+export default router;
+

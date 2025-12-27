@@ -5,6 +5,7 @@ import registerRoute from './routes/register';
 import loginRoute from './routes/login';
 import accountRoute from './routes/account';
 import mentorRoute from './routes/mentor';
+import mentorsRoute from './routes/mentors';
 import favoritesRoute from './routes/favorites';
 import ossRoute from './routes/oss';
 
@@ -21,6 +22,7 @@ app.use('/api/register', registerRoute);
 app.use('/api/login', loginRoute);
 app.use('/api/account', accountRoute);
 app.use('/api/mentor', mentorRoute);
+app.use('/api/mentors', mentorsRoute);
 app.use('/api/favorites', favoritesRoute);
 app.use('/api/oss', ossRoute);
 
