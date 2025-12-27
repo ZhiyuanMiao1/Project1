@@ -77,10 +77,15 @@ const matchesRegion = (mentorTimezone, region, referenceDate = new Date()) => {
 const hasNonEmptyText = (value) => typeof value === 'string' && value.trim().length > 0;
 
 const hasAnyMentorCardInfo = (mentor) => {
+  const idRaw = mentor?.id;
+  const hasId = typeof idRaw !== 'undefined' && idRaw !== null && String(idRaw).trim().length > 0;
+  const hasName = hasNonEmptyText(mentor?.name);
   const courses = Array.isArray(mentor?.courses) ? mentor.courses : [];
   const hasCourses = courses.some((c) => typeof c === 'string' && c.trim().length > 0);
 
   return (
+    hasId ||
+    hasName ||
     hasNonEmptyText(mentor?.imageUrl) ||
     hasNonEmptyText(mentor?.school) ||
     hasNonEmptyText(mentor?.degree) ||
@@ -89,6 +94,8 @@ const hasAnyMentorCardInfo = (mentor) => {
     hasCourses
   );
 };
+
+const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
 
 function StudentListings() {
   const [loading, setLoading] = useState(true);
@@ -113,16 +120,19 @@ function StudentListings() {
 
   const mentors = useMemo(() => {
     const region = typeof appliedRegion === 'string' ? appliedRegion.trim() : '';
-    const needle = typeof appliedExactSearch === 'string' ? appliedExactSearch.trim() : '';
-    const needleLower = needle.toLowerCase();
+    const needle = typeof appliedExactSearch === 'string' ? appliedExactSearch : '';
+    const needleLower = normalizeSearchText(needle);
     const now = new Date();
 
     return (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
+      if (needleLower) {
+        const id = normalizeSearchText(m?.id);
+        const name = normalizeSearchText(m?.name);
+        return id === needleLower || name === needleLower;
+      }
+
       if (!matchesRegion(m?.timezone, region, now)) return false;
-      if (!needle) return true;
-      const id = String(m?.id ?? '');
-      const name = String(m?.name ?? '');
-      return id.toLowerCase().includes(needleLower) || name.toLowerCase().includes(needleLower);
+      return true;
     });
   }, [allMentors, appliedRegion, appliedExactSearch]);
 
@@ -161,7 +171,11 @@ function StudentListings() {
               imageUrl: item?.imageUrl ?? item?.avatarUrl ?? item?.avatar_url ?? null,
             };
           })
-          .filter((item) => item && item.id && hasAnyMentorCardInfo(item));
+          .filter((item) => {
+            if (!item) return false;
+            const idOk = typeof item.id !== 'undefined' && item.id !== null && String(item.id).trim().length > 0;
+            return idOk && hasAnyMentorCardInfo(item);
+          });
 
         setAllMentors(normalized);
       } catch (e) {
