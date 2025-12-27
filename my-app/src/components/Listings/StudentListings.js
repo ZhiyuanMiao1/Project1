@@ -376,7 +376,7 @@ function StudentListings() {
           : listError ? (
               <p style={{ margin: 0, color: '#64748b', gridColumn: '1 / -1' }}>{listError}</p>
             ) : mentors.length === 0 ? (
-              <p style={{ margin: 0, color: '#64748b', gridColumn: '1 / -1' }}>暂无导师</p>
+              <div className="listing-empty" role="status" aria-live="polite">暂无导师</div>
             ) : mentors.map((item) => (
               <StudentListingCard
                 key={item.id}
