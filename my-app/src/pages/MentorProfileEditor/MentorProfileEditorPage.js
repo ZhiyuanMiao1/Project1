@@ -353,7 +353,7 @@ function MentorProfileEditorPage() {
     name: name || '导师称呼',
     gender: gender || '',
     degree: degree || '硕士',
-    school: school || '学校',
+    school: (school || '').trim(),
     rating: 4.9,
     reviewCount: 120,
     timezone: buildShortUTCWithCity(timezone),

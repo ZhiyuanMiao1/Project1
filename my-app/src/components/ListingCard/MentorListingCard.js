@@ -104,7 +104,7 @@ function MentorListingCard({
 
   const name = (data?.name && String(data.name).trim()) || `S${data?.id ?? ''}`;
   const degree = data?.degree || '';
-  const school = data?.school || '';
+  const school = typeof data?.school === 'string' ? data.school.trim() : (data?.school ? String(data.school).trim() : '');
 
   const degreeClass = (() => {
     const d = (degree || '').toLowerCase();

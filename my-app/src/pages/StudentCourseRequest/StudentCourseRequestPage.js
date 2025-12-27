@@ -572,9 +572,10 @@ function StudentCourseRequestPage() {
   const previewDegree = isLoggedIn
     ? (accountProfile.degree || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未填写学历')))
     : mockStudent.level;
-  const previewSchool = isLoggedIn
-    ? (accountProfile.school || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未填写学校')))
+  const previewSchoolRaw = isLoggedIn
+    ? (typeof accountProfile.school === 'string' ? accountProfile.school : '')
     : mockStudent.school;
+  const previewSchool = (previewSchoolRaw || '').trim();
   const previewAvatarInitial = (accountProfile.studentId || mockStudent.name || 'S').slice(0, 1).toUpperCase();
   const previewDirectionLabel = useMemo(() => {
     const found = DIRECTION_OPTIONS.find((o) => o.id === formData.courseDirection);
@@ -825,7 +826,7 @@ function StudentCourseRequestPage() {
                       <div className="name">{previewStudentId}</div>
                       <div className="chips">
                         <span className="chip green">{previewDegree}</span>
-                        <span className="chip gray">{previewSchool}</span>
+                        {!!previewSchool && <span className="chip gray">{previewSchool}</span>}
                       </div>
                     </div>
                   </div>
@@ -949,7 +950,7 @@ function StudentCourseRequestPage() {
                       <div className="name">{previewStudentId}</div>
                       <div className="chips">
                         <span className="chip green">{previewDegree}</span>
-                        <span className="chip gray">{previewSchool}</span>
+                        {!!previewSchool && <span className="chip gray">{previewSchool}</span>}
                       </div>
                     </div>
                   </div>

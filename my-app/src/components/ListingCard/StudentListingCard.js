@@ -144,6 +144,8 @@ function StudentListingCard({
     return '';
   })();
 
+  const school = typeof data?.school === 'string' ? data.school.trim() : '';
+
   const timezoneLabel = formatTimezoneWithCity(data.timezone);
   const courses = Array.isArray(data?.courses) ? data.courses : [];
   const languagesRaw = typeof data?.languages === 'string' ? data.languages : '';
@@ -189,7 +191,7 @@ function StudentListingCard({
           <span className={`listing-tag ${degreeClass}`}>
             {data.degree}
           </span>
-          <span className="listing-tag">{data.school}</span>
+          {school ? <span className="listing-tag">{school}</span> : null}
         </span>
       </h3>
       <p className="listing-rating">
