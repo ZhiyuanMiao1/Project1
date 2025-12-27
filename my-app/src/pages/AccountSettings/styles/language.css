@@ -97,9 +97,15 @@
 }
 
 .settings-course-order-item-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 14px;
   color: #9ca3af;
   letter-spacing: 1px;
   flex-shrink: 0;
 }
 
+.settings-course-order-item-handle svg {
+  display: block;
+}

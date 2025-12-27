@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FiChevronDown } from 'react-icons/fi';
+import { FiChevronDown, FiMenu } from 'react-icons/fi';
 import { DIRECTION_ICON_MAP, DIRECTION_OPTIONS } from '../../../constants/courseMappings';
 
 export const DEFAULT_HOME_COURSE_ORDER_IDS = DIRECTION_OPTIONS.map((opt) => opt.id);
@@ -101,7 +101,7 @@ function HomeCourseOrderEditor({ orderIds = [], disabled = false, onChangeOrder,
                 </span>
                 <span className="settings-course-order-item-label">{opt.label}</span>
                 <span className="settings-course-order-item-handle" aria-hidden="true">
-                  ??
+                  <FiMenu size={16} />
                 </span>
               </button>
             </li>
@@ -172,4 +172,3 @@ function LanguageSection({
 }
 
 export default LanguageSection;
-
