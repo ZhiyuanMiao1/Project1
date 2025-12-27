@@ -288,7 +288,7 @@ function StudentNavbar() {
               <input
                 ref={exactSearchInputRef}
                 type="text"
-                placeholder="输入导师的MentorID数字或导师姓名"
+                placeholder="输入导师的MentorID或姓名"
                 value={exactSearch}
                 onChange={(e) => {
                   const v = e.target.value;
