@@ -10,6 +10,8 @@ import BrandMark from '../common/BrandMark/BrandMark';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 
+const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
+
 function StudentNavbar() {
   const timezoneRef = useRef(null);
   const courseTypeRef = useRef(null);
@@ -164,6 +166,18 @@ function StudentNavbar() {
     return () => bar.removeEventListener('transitionend', onEnd);
   }, [isExactAnimating, exactSearch]);
 
+  const applySearch = () => {
+    try {
+      window.dispatchEvent(new CustomEvent(STUDENT_LISTINGS_SEARCH_EVENT, {
+        detail: {
+          region: selectedRegion,
+          exactSearch,
+          courseType: selectedCourseType,
+        },
+      }));
+    } catch {}
+  };
+
   return (
     <header className="navbar">
       {/* 顶部双层导航 */}
@@ -296,6 +310,12 @@ function StudentNavbar() {
                   setIsExactExpanded(true);
                   setIsSearchBarActive(true);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    applySearch();
+                  }
+                }}
                 onFocus={() => {
                   setActiveFilter('startDate');
                   setIsSearchBarActive(true);
@@ -305,7 +325,7 @@ function StudentNavbar() {
               />
             </div>
           </div>
-          <button className="search-btn">
+          <button type="button" className="search-btn" onClick={applySearch} aria-label="搜索">
             <i className="fas fa-search"></i>
           </button>
         </div>

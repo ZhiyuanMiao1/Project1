@@ -4,6 +4,76 @@ import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 
+const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
+
+const REGION_OFFSET_RANGES = {
+  中国: [{ min: 7.5, max: 8.5 }], // UTC+8
+  日韩: [{ min: 8.5, max: 9.5 }], // UTC+9
+  澳洲: [{ min: 9.5, max: 12.5 }], // UTC+10 ~ UTC+12
+  欧洲: [{ min: -1.5, max: 3.5 }], // UTC-1 ~ UTC+3
+  北美: [{ min: -10.5, max: -3.5 }], // UTC-10 ~ UTC-4
+};
+
+const parseUtcOffsetMinutesFromLabel = (tz) => {
+  if (!tz) return null;
+  const raw = String(tz).trim();
+  const match = raw.match(/UTC\\s*([+-])\\s*(\\d{1,2})(?::(\\d{2}))?/i);
+  if (!match) return null;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number.parseInt(match[2], 10);
+  const minutes = match[3] ? Number.parseInt(match[3], 10) : 0;
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return sign * (hours * 60 + minutes);
+};
+
+const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = Object.fromEntries(
+      fmt
+        .formatToParts(referenceDate)
+        .filter((p) => p.type !== 'literal')
+        .map((p) => [p.type, p.value])
+    );
+    const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(iso);
+    return Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+  } catch {
+    return null;
+  }
+};
+
+const getTimezoneOffsetMinutesFlexible = (tz, referenceDate = new Date()) => {
+  const parsed = parseUtcOffsetMinutesFromLabel(tz);
+  if (typeof parsed === 'number') return parsed;
+  const raw = typeof tz === 'string' ? tz.trim() : '';
+  if (raw && raw.includes('/')) {
+    return getTimeZoneOffsetMinutes(raw, referenceDate);
+  }
+  return null;
+};
+
+const matchesRegion = (mentorTimezone, region, referenceDate = new Date()) => {
+  const key = typeof region === 'string' ? region.trim() : '';
+  if (!key || key === '随便看看') return true;
+  const ranges = REGION_OFFSET_RANGES[key];
+  if (!ranges) return true;
+
+  const offMin = getTimezoneOffsetMinutesFlexible(mentorTimezone, referenceDate);
+  if (typeof offMin !== 'number') return false;
+  const offHours = offMin / 60;
+  return ranges.some((r) => offHours >= r.min && offHours <= r.max);
+};
+
 const hasNonEmptyText = (value) => typeof value === 'string' && value.trim().length > 0;
 
 const hasAnyMentorCardInfo = (mentor) => {
@@ -26,8 +96,35 @@ function StudentListings() {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
-  const [mentors, setMentors] = useState([]);
+  const [allMentors, setAllMentors] = useState([]);
   const [listError, setListError] = useState('');
+  const [appliedRegion, setAppliedRegion] = useState('');
+  const [appliedExactSearch, setAppliedExactSearch] = useState('');
+
+  useEffect(() => {
+    const handler = (event) => {
+      const detail = event?.detail || {};
+      setAppliedRegion(typeof detail.region === 'string' ? detail.region : '');
+      setAppliedExactSearch(typeof detail.exactSearch === 'string' ? detail.exactSearch : '');
+    };
+    window.addEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
+    return () => window.removeEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
+  }, []);
+
+  const mentors = useMemo(() => {
+    const region = typeof appliedRegion === 'string' ? appliedRegion.trim() : '';
+    const needle = typeof appliedExactSearch === 'string' ? appliedExactSearch.trim() : '';
+    const needleLower = needle.toLowerCase();
+    const now = new Date();
+
+    return (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
+      if (!matchesRegion(m?.timezone, region, now)) return false;
+      if (!needle) return true;
+      const id = String(m?.id ?? '');
+      const name = String(m?.name ?? '');
+      return id.toLowerCase().includes(needleLower) || name.toLowerCase().includes(needleLower);
+    });
+  }, [allMentors, appliedRegion, appliedExactSearch]);
 
   // 模拟加载动画，避免页面切换过于生硬
   useEffect(() => {
@@ -66,10 +163,10 @@ function StudentListings() {
           })
           .filter((item) => item && item.id && hasAnyMentorCardInfo(item));
 
-        setMentors(normalized);
+        setAllMentors(normalized);
       } catch (e) {
         if (!alive) return;
-        setMentors([]);
+        setAllMentors([]);
         const msg = e?.response?.data?.error || e?.message || 'Failed to load mentors';
         setListError(String(msg));
       } finally {
