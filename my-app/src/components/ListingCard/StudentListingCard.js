@@ -148,6 +148,7 @@ function StudentListingCard({
 
   const timezoneLabel = formatTimezoneWithCity(data.timezone);
   const courses = Array.isArray(data?.courses) ? data.courses : [];
+  const coursesLabel = courses.map((c) => String(c ?? '').trim()).filter(Boolean).join(' | ');
   const languagesRaw = typeof data?.languages === 'string' ? data.languages : '';
   const ratingRaw = Number.parseFloat(String(data?.rating ?? 0));
   const ratingValue = Number.isFinite(ratingRaw) && ratingRaw > 0 ? Math.round(ratingRaw * 10) / 10 : 0;
@@ -217,7 +218,7 @@ function StudentListingCard({
           ))}
         </div>
       </div>
-      <p className="listing-courses">{courses.join(' | ')}</p>
+      {coursesLabel ? <p className="listing-courses">{coursesLabel}</p> : null}
     </div>
   );
 }

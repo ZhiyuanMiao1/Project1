@@ -358,7 +358,7 @@ function MentorProfileEditorPage() {
     reviewCount: 120,
     timezone: buildShortUTCWithCity(timezone),
     languages: '中文, 英语',
-    courses: courses.length ? courses : ['Python编程', '机器学习', '深度学习'],
+    courses,
     imageUrl: avatarPreviewUrl || avatarUrl || null,
   }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl]);
 
