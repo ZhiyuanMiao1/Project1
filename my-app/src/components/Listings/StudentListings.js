@@ -4,6 +4,22 @@ import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 
+const hasNonEmptyText = (value) => typeof value === 'string' && value.trim().length > 0;
+
+const hasAnyMentorCardInfo = (mentor) => {
+  const courses = Array.isArray(mentor?.courses) ? mentor.courses : [];
+  const hasCourses = courses.some((c) => typeof c === 'string' && c.trim().length > 0);
+
+  return (
+    hasNonEmptyText(mentor?.imageUrl) ||
+    hasNonEmptyText(mentor?.school) ||
+    hasNonEmptyText(mentor?.degree) ||
+    hasNonEmptyText(mentor?.timezone) ||
+    hasNonEmptyText(mentor?.gender) ||
+    hasCourses
+  );
+};
+
 function StudentListings() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -48,7 +64,7 @@ function StudentListings() {
               imageUrl: item?.imageUrl ?? item?.avatarUrl ?? item?.avatar_url ?? null,
             };
           })
-          .filter((item) => item && item.id);
+          .filter((item) => item && item.id && hasAnyMentorCardInfo(item));
 
         setMentors(normalized);
       } catch (e) {

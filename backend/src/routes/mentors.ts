@@ -18,6 +18,20 @@ type ApprovedMentorRow = {
   updated_at?: Date | string | null;
 };
 
+type ApprovedMentorCard = {
+  id: string;
+  name: string;
+  gender: string;
+  degree: string;
+  school: string;
+  rating: number;
+  reviewCount: number;
+  courses: string[];
+  timezone: string;
+  languages: string;
+  imageUrl: string | null;
+};
+
 let mentorRatingColumnsEnsured = false;
 
 const isMissingRatingColumnsError = (e: any) => {
@@ -59,6 +73,8 @@ const parseCourses = (raw: any): string[] => {
     return [];
   }
 };
+
+const hasNonEmptyText = (value: any) => typeof value === 'string' && value.trim().length > 0;
 
 const normalizeRating = (raw: any) => {
   const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
@@ -111,22 +127,35 @@ router.get('/approved', async (_req: Request, res: Response) => {
       rows = await runQuery();
     }
 
-    const mentors = rows.map((row) => {
-      const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
-      return {
-        id: row.public_id,
-        name,
-        gender: row.gender || '',
-        degree: row.degree || '',
-        school: row.school || '',
-        rating: normalizeRating(row.rating),
-        reviewCount: normalizeCount(row.review_count),
-        courses: parseCourses(row.courses_json),
-        timezone: row.timezone || '',
-        languages: '',
-        imageUrl: row.avatar_url || null,
-      };
-    });
+    const mentors: ApprovedMentorCard[] = rows
+      .map((row) => {
+        const courses = parseCourses(row.courses_json);
+        const hasAnyProfileInfo =
+          hasNonEmptyText(row.avatar_url) ||
+          hasNonEmptyText(row.school) ||
+          hasNonEmptyText(row.degree) ||
+          hasNonEmptyText(row.timezone) ||
+          hasNonEmptyText(row.gender) ||
+          courses.length > 0;
+
+        if (!hasAnyProfileInfo) return undefined;
+
+        const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
+        return {
+          id: row.public_id,
+          name,
+          gender: row.gender || '',
+          degree: row.degree || '',
+          school: row.school || '',
+          rating: normalizeRating(row.rating),
+          reviewCount: normalizeCount(row.review_count),
+          courses,
+          timezone: row.timezone || '',
+          languages: '',
+          imageUrl: row.avatar_url || null,
+        };
+      })
+      .filter((mentor): mentor is ApprovedMentorCard => !!mentor);
 
     return res.json({ mentors });
   } catch (e) {
@@ -136,4 +165,3 @@ router.get('/approved', async (_req: Request, res: Response) => {
 });
 
 export default router;
-

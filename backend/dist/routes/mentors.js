@@ -45,6 +45,7 @@ const parseCourses = (raw) => {
         return [];
     }
 };
+const hasNonEmptyText = (value) => typeof value === 'string' && value.trim().length > 0;
 const normalizeRating = (raw) => {
     const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
     return Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0;
@@ -93,7 +94,17 @@ router.get('/approved', async (_req, res) => {
                 throw e;
             rows = await runQuery();
         }
-        const mentors = rows.map((row) => {
+        const mentors = rows
+            .map((row) => {
+            const courses = parseCourses(row.courses_json);
+            const hasAnyProfileInfo = hasNonEmptyText(row.avatar_url) ||
+                hasNonEmptyText(row.school) ||
+                hasNonEmptyText(row.degree) ||
+                hasNonEmptyText(row.timezone) ||
+                hasNonEmptyText(row.gender) ||
+                courses.length > 0;
+            if (!hasAnyProfileInfo)
+                return undefined;
             const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
             return {
                 id: row.public_id,
@@ -103,12 +114,13 @@ router.get('/approved', async (_req, res) => {
                 school: row.school || '',
                 rating: normalizeRating(row.rating),
                 reviewCount: normalizeCount(row.review_count),
-                courses: parseCourses(row.courses_json),
+                courses,
                 timezone: row.timezone || '',
                 languages: '',
                 imageUrl: row.avatar_url || null,
             };
-        });
+        })
+            .filter((mentor) => !!mentor);
         return res.json({ mentors });
     }
     catch (e) {
