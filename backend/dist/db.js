@@ -24,6 +24,17 @@ exports.pool = promise_1.default.createPool({
     queueLimit: 0,
 });
 async function query(sql, params = []) {
-    const [rows] = await exports.pool.execute(sql, params);
-    return rows;
+    try {
+        const [rows] = await exports.pool.execute(sql, params);
+        return rows;
+    }
+    catch (err) {
+        const code = err?.code;
+        if (code === 'ECONNRESET' || code === 'PROTOCOL_CONNECTION_LOST') {
+            console.error('DB connection lost/reset, retrying once...', { code });
+            const [rows] = await exports.pool.execute(sql, params);
+            return rows;
+        }
+        throw err;
+    }
 }

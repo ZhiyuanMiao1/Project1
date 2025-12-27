@@ -22,8 +22,18 @@ export const pool = mysql.createPool({
 });
 
 export async function query<T = any>(sql: string, params: any[] = []): Promise<T> {
-  const [rows] = await pool.execute(sql, params);
-  return rows as T;
+  try {
+    const [rows] = await pool.execute(sql, params);
+    return rows as T;
+  } catch (err: any) {
+    const code = err?.code as string | undefined;
+    if (code === 'ECONNRESET' || code === 'PROTOCOL_CONNECTION_LOST') {
+      console.error('DB connection lost/reset, retrying once...', { code });
+      const [rows] = await pool.execute(sql, params);
+      return rows as T;
+    }
+    throw err;
+  }
 }
 
 export type InsertResult = ResultSetHeader;
