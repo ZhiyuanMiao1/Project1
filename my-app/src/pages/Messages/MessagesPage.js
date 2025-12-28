@@ -1022,7 +1022,6 @@ function MessagesPage({ mode = 'student' }) {
                     const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
                     const isOutgoing = cardDirection === 'outgoing';
                     const isPrimary = Boolean(scheduleCard?.__primary);
-                    const readOnly = Boolean(scheduleCard?.readOnly) || !isPrimary;
 
                     const windowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
                       ? scheduleCard.window
@@ -1031,8 +1030,8 @@ function MessagesPage({ mode = 'student' }) {
                       ? scheduleCard.meetingId
                       : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
 
-                    const showActions = isPrimary && !isOutgoing && !readOnly;
-                    const isActionDisabled = readOnly;
+                    const showActions = !isOutgoing;
+                    const isActionDisabled = false;
 
                     const statusKey = normalizeScheduleStatus(scheduleCard?.status);
                     const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
@@ -1186,7 +1185,7 @@ function MessagesPage({ mode = 'student' }) {
                                   </>
                                 )}
                               </div>
-                            ) : (
+                            ) : isOutgoing ? (
                               <div className="schedule-actions">
                                 <button
                                   type="button"
@@ -1204,7 +1203,7 @@ function MessagesPage({ mode = 'student' }) {
                                   {statusMeta.label}
                                 </button>
                               </div>
-                            )}
+                            ) : null}
                           </div>
 
                           {isPrimary && scheduleHoverTime && (
