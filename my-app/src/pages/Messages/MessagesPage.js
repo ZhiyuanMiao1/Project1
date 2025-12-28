@@ -42,6 +42,13 @@ const getAuthedRole = () => {
   }
 };
 
+const getThreadMyRole = (thread) => {
+  if (!thread) return 'student';
+  // mock 数据：导师侧的会话都会携带学生的 counterpartId（StudentID）
+  if (typeof thread.counterpartId === 'string' && thread.counterpartId.trim()) return 'mentor';
+  return 'student';
+};
+
 const getCourseTitleParts = (thread, scheduleCard) => {
   const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
   const courseTypeId = scheduleCard?.courseTypeId || thread?.courseTypeId || 'others';
@@ -643,10 +650,20 @@ function MessagesPage() {
     return () => { alive = false; };
   }, [isLoggedIn, rescheduleOpen]);
 
-  const threads = useMemo(
-    () => (isMentorView ? MENTOR_THREADS : STUDENT_THREADS),
-    [isMentorView],
-  );
+  const threads = useMemo(() => {
+    if (!isMentorView) return STUDENT_THREADS;
+
+    // 导师也可能作为学生向其它导师提问，因此混合展示两类会话（mock 数据交错合并）
+    const merged = [];
+    const maxLen = Math.max(MENTOR_THREADS.length, STUDENT_THREADS.length);
+    for (let index = 0; index < maxLen; index += 1) {
+      const studentSide = STUDENT_THREADS[index];
+      const mentorSide = MENTOR_THREADS[index];
+      if (studentSide) merged.push(studentSide);
+      if (mentorSide) merged.push(mentorSide);
+    }
+    return merged;
+  }, [isMentorView]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [openMoreId, setOpenMoreId] = useState(null);
@@ -678,6 +695,7 @@ function MessagesPage() {
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
   const activeCounterpartDisplayName = useMemo(() => getThreadCounterpartDisplayName(activeThread), [activeThread]);
+  const isMentorInThread = useMemo(() => getThreadMyRole(activeThread) === 'mentor', [activeThread]);
   const detailAvatarInitial = useMemo(() => {
     const name = activeCounterpartDisplayName || '';
     return name.trim().charAt(0) || '·';
@@ -800,14 +818,15 @@ function MessagesPage() {
 
   const availability = useMemo(() => {
     const mySlots = Array.isArray(myAvailabilitySlots) ? myAvailabilitySlots : [];
-    const studentSlots = isMentorView ? buildMockAvailability(rescheduleDate, 'student') : mySlots;
-    const mentorSlots = isMentorView ? mySlots : buildMockAvailability(rescheduleDate, 'mentor');
+    const counterpartSlots = buildMockAvailability(rescheduleDate, isMentorInThread ? 'student' : 'mentor');
+    const studentSlots = isMentorInThread ? counterpartSlots : mySlots;
+    const mentorSlots = isMentorInThread ? mySlots : counterpartSlots;
     return {
       studentSlots,
       mentorSlots,
       commonSlots: intersectSlots(studentSlots, mentorSlots),
     };
-  }, [isMentorView, myAvailabilitySlots, rescheduleDate]);
+  }, [isMentorInThread, myAvailabilitySlots, rescheduleDate]);
 
   const shiftRescheduleDate = (deltaDays) => {
     setRescheduleDate((prev) => {
@@ -819,10 +838,10 @@ function MessagesPage() {
   };
 
   const columns = useMemo(() => {
-    const mySlots = isMentorView ? availability.mentorSlots : availability.studentSlots;
-    const counterpartSlots = isMentorView ? availability.studentSlots : availability.mentorSlots;
+    const mySlots = isMentorInThread ? availability.mentorSlots : availability.studentSlots;
+    const counterpartSlots = isMentorInThread ? availability.studentSlots : availability.mentorSlots;
     return { mySlots, counterpartSlots };
-  }, [availability.mentorSlots, availability.studentSlots, isMentorView]);
+  }, [availability.mentorSlots, availability.studentSlots, isMentorInThread]);
 
   const rescheduleMinDate = toMiddayDate();
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
