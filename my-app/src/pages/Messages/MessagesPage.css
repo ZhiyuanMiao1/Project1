@@ -7,6 +7,9 @@
 
 .messages-page .container {
   margin-left: 96px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .messages-header {
@@ -61,7 +64,8 @@
 .messages-shell {
   display: grid;
   grid-template-columns: 340px 1px 1fr;
-  min-height: 540px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: visible;
 }
 
@@ -71,6 +75,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
 }
 
 .messages-list-title {
@@ -102,9 +107,19 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  overflow: visible;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   padding-right: 0;
   padding-bottom: 24px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+
+.messages-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .message-item {
@@ -357,6 +372,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
 }
 
 .message-detail-head {
@@ -406,8 +422,9 @@
   flex-direction: column;
   gap: 16px;
   padding-right: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  max-height: 520px;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge legacy */
 }
@@ -1051,10 +1068,13 @@
 @media (max-width: 900px) {
   .messages-page .container {
     margin-left: 48px;
+    min-height: auto;
   }
 
   .messages-shell {
     grid-template-columns: 1fr;
+    flex: unset;
+    overflow: visible;
   }
 
   .messages-divider {
@@ -1063,6 +1083,11 @@
 
   .messages-detail-pane {
     order: -1;
+  }
+
+  .messages-list,
+  .message-detail-body {
+    overflow: visible;
   }
 }
 
