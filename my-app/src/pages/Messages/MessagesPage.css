@@ -420,7 +420,7 @@
 .schedule-row.is-outgoing {
   display: flex;
   justify-content: flex-end;
-  margin-top: -12px;
+  margin-top: 0;
   margin-right: -6px;
 }
 
