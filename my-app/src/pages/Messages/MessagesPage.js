@@ -24,17 +24,6 @@ const getCourseTitleParts = (thread, scheduleCard) => {
   return { courseName, courseType, directionId, courseTypeId, DirectionIcon, CourseTypeIcon };
 };
 
-const formatScheduleWindowFromSlot = ({ date, slot, timezoneLabel = 'GMT+8' }) => {
-  if (!(date instanceof Date) || !slot) return '';
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const weekday = weekdayLabels[date.getDay()] || '';
-  const start = minutesToTimeLabel(slot.startMinutes);
-  const end = minutesToTimeLabel(slot.endMinutes);
-  if (!start || !end) return '';
-  return `${month}月${day}日 ${weekday} ${start}-${end} (${timezoneLabel})`;
-};
-
 const SCHEDULE_STATUS_META = {
   pending: { label: '待确认', tone: 'pending' },
   accepted: { label: '已接受', tone: 'accept' },
@@ -567,7 +556,6 @@ function MessagesPage({ mode = 'student' }) {
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
-  const [rescheduleSelectedSlot, setRescheduleSelectedSlot] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [myAvailability, setMyAvailability] = useState(null);
 
@@ -682,7 +670,6 @@ function MessagesPage({ mode = 'student' }) {
     setDecisionMenuOpen(false);
     setRescheduleOpen(false);
     setRescheduleDate(toMiddayDate());
-    setRescheduleSelectedSlot(null);
   }, [activeThread?.id]);
 
   const decisionPopoverActions = useMemo(() => {
@@ -717,40 +704,6 @@ function MessagesPage({ mode = 'student' }) {
     setDecisionMenuOpen(false);
     if (value === 'rescheduling') setRescheduleOpen(true);
     else setRescheduleOpen(false);
-  };
-
-  const handleSendReschedule = () => {
-    if (!rescheduleSelectedSlot) return;
-    const windowText = formatScheduleWindowFromSlot({ date: rescheduleDate, slot: rescheduleSelectedSlot });
-    if (!windowText) return;
-
-    const { directionId, courseTypeId } = getCourseTitleParts(activeThread, scheduleCards?.[0]);
-
-    setScheduleCards((prev) => {
-      const previous = Array.isArray(prev) ? prev : [];
-      const history = previous.map((card) => ({
-        ...card,
-        __primary: false,
-        readOnly: true,
-      }));
-
-      const next = {
-        direction: 'outgoing',
-        window: windowText,
-        meetingId,
-        status: 'pending',
-        courseDirectionId: directionId,
-        courseTypeId,
-        __key: `reschedule-${Date.now()}`,
-        __primary: true,
-      };
-
-      return [next, ...history];
-    });
-
-    setScheduleDecision(null);
-    setRescheduleOpen(false);
-    setRescheduleSelectedSlot(null);
   };
 
   useEffect(() => {
@@ -832,11 +785,6 @@ function MessagesPage({ mode = 'student' }) {
     const counterpartSlots = isMentorView ? availability.studentSlots : availability.mentorSlots;
     return { mySlots, counterpartSlots };
   }, [availability.mentorSlots, availability.studentSlots, isMentorView]);
-
-  useEffect(() => {
-    if (!rescheduleOpen) return;
-    setRescheduleSelectedSlot(null);
-  }, [rescheduleDate, rescheduleOpen]);
 
   const rescheduleMinDate = toMiddayDate();
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
@@ -1289,41 +1237,6 @@ function MessagesPage({ mode = 'student' }) {
                 onClick={() => setRescheduleOpen(false)}
               >
                 <FiX size={18} aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="reschedule-suggestions" aria-label="推荐时间">
-              <div className="reschedule-suggestions-title">推荐可选时间</div>
-              {availability.commonSlots.length === 0 ? (
-                <div className="reschedule-suggestions-empty">暂无重叠空闲时间</div>
-              ) : (
-                <div className="reschedule-suggestions-grid" role="list">
-                  {availability.commonSlots.slice(0, 6).map((slot, index) => {
-                    const label = `${minutesToTimeLabel(slot.startMinutes)}-${minutesToTimeLabel(slot.endMinutes)}`;
-                    const isSelected =
-                      rescheduleSelectedSlot?.startMinutes === slot.startMinutes &&
-                      rescheduleSelectedSlot?.endMinutes === slot.endMinutes;
-                    return (
-                      <button
-                        key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
-                        type="button"
-                        className={`reschedule-suggestion ${isSelected ? 'selected' : ''}`}
-                        onClick={() => setRescheduleSelectedSlot(slot)}
-                        aria-pressed={isSelected}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              <button
-                type="button"
-                className="reschedule-send-btn"
-                onClick={handleSendReschedule}
-                disabled={!rescheduleSelectedSlot}
-              >
-                发送新时间
               </button>
             </div>
 
