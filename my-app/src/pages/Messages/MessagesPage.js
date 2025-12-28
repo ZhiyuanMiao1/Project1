@@ -564,6 +564,7 @@ function MessagesPage({ mode = 'student' }) {
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [scheduleDecision, setScheduleDecision] = useState(null);
+  const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
   const [rescheduleSelectedSlot, setRescheduleSelectedSlot] = useState(null);
@@ -626,6 +627,7 @@ function MessagesPage({ mode = 'student' }) {
   useEffect(() => {
     setActiveId(threads[0]?.id || null);
     setScheduleDecision(null);
+    setDecisionMenuOpen(false);
     setOpenMoreId(null);
   }, [threads]);
 
@@ -677,14 +679,42 @@ function MessagesPage({ mode = 'student' }) {
 
   useEffect(() => {
     setScheduleDecision(null);
+    setDecisionMenuOpen(false);
     setRescheduleOpen(false);
     setRescheduleDate(toMiddayDate());
     setRescheduleSelectedSlot(null);
   }, [activeThread?.id]);
 
+  const decisionPopoverActions = useMemo(() => {
+    if (scheduleDecision === 'accepted') {
+      return [
+        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+      ];
+    }
+    if (scheduleDecision === 'rejected') {
+      return [
+        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+      ];
+    }
+    if (scheduleDecision === 'rescheduling') {
+      return [
+        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+      ];
+    }
+    return [
+      { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+      { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+      { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+    ];
+  }, [scheduleDecision]);
+
   const handleScheduleDecision = (value) => {
     if (!value) return;
     setScheduleDecision(value);
+    setDecisionMenuOpen(false);
     if (value === 'rescheduling') setRescheduleOpen(true);
     else setRescheduleOpen(false);
   };
@@ -1001,7 +1031,7 @@ function MessagesPage({ mode = 'student' }) {
                       ? scheduleCard.meetingId
                       : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
 
-                    const showActions = !isOutgoing;
+                    const showActions = isPrimary && !isOutgoing && !readOnly;
                     const isActionDisabled = readOnly;
 
                     const statusKey = normalizeScheduleStatus(scheduleCard?.status);
@@ -1068,37 +1098,93 @@ function MessagesPage({ mode = 'student' }) {
 
                           <div className="schedule-card-bottom">
                             {showActions ? (
-                              <div className="schedule-actions">
-                                <button
-                                  type="button"
-                                  className="schedule-btn accept-btn"
-                                  onClick={() => handleScheduleDecision('accepted')}
-                                  disabled={isActionDisabled}
-                                  aria-pressed={scheduleDecision === 'accepted'}
-                                >
-                                  <span className="schedule-btn-icon accept">✓</span>
-                                  接受
-                                </button>
-                                <button
-                                  type="button"
-                                  className="schedule-btn reject-btn"
-                                  onClick={() => handleScheduleDecision('rejected')}
-                                  disabled={isActionDisabled}
-                                  aria-pressed={scheduleDecision === 'rejected'}
-                                >
-                                  <span className="schedule-btn-icon reject">−</span>
-                                  拒绝
-                                </button>
-                                <button
-                                  type="button"
-                                  className="schedule-btn reschedule-btn"
-                                  onClick={() => handleScheduleDecision('rescheduling')}
-                                  disabled={isActionDisabled}
-                                  aria-pressed={scheduleDecision === 'rescheduling'}
-                                >
-                                  <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                                  修改时间
-                                </button>
+                              <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
+                                {scheduleDecision ? (
+                                  <div
+                                    className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
+                                    onMouseEnter={() => setDecisionMenuOpen(true)}
+                                    onMouseLeave={() => setDecisionMenuOpen(false)}
+                                  >
+                                    <button
+                                      type="button"
+                                      className={`schedule-btn merged ${
+                                        scheduleDecision === 'accepted'
+                                          ? 'accept-btn'
+                                          : scheduleDecision === 'rejected'
+                                            ? 'reject-btn'
+                                            : 'reschedule-btn'
+                                      }`}
+                                      onClick={() => {
+                                        if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
+                                        else setDecisionMenuOpen((prev) => !prev);
+                                      }}
+                                    >
+                                      {scheduleDecision === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                                      {scheduleDecision === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                                      {scheduleDecision === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
+                                      {scheduleDecision === 'accepted' && '已接受'}
+                                      {scheduleDecision === 'rejected' && '已拒绝'}
+                                      {scheduleDecision === 'rescheduling' && '修改时间中'}
+                                      <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+                                    </button>
+                                    {decisionMenuOpen && (
+                                      <div className="schedule-decision-popover" role="menu">
+                                        <div className="schedule-decision-popover-title">修改日程状态为</div>
+                                        <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
+                                          {decisionPopoverActions.map((action) => (
+                                            <button
+                                              key={action.key}
+                                              type="button"
+                                              className={`schedule-btn small inline-action ${
+                                                action.tone === 'accept'
+                                                  ? 'accept-btn'
+                                                  : action.tone === 'reject'
+                                                    ? 'reject-btn'
+                                                    : 'reschedule-btn'
+                                              }`}
+                                              onClick={() => handleScheduleDecision(action.value)}
+                                            >
+                                              {action.tone === 'accept' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                                              {action.tone === 'reject' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                                              {action.tone === 'reschedule' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
+                                              {action.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn accept-btn"
+                                      onClick={() => handleScheduleDecision('accepted')}
+                                      disabled={isActionDisabled}
+                                    >
+                                      <span className="schedule-btn-icon check" aria-hidden="true" />
+                                      接受
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn reject-btn"
+                                      onClick={() => handleScheduleDecision('rejected')}
+                                      disabled={isActionDisabled}
+                                    >
+                                      <span className="schedule-btn-icon minus" aria-hidden="true" />
+                                      拒绝
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn reschedule-btn"
+                                      onClick={() => handleScheduleDecision('rescheduling')}
+                                      disabled={isActionDisabled}
+                                    >
+                                      <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                                      修改时间
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             ) : (
                               <div className="schedule-actions">
