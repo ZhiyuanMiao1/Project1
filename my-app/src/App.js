@@ -33,7 +33,7 @@ function App() {
 
         {/* 课程时间轴页面 */}
         <Route path="/student/courses" element={<CoursesPage />} />
-        <Route path="/student/messages" element={<MessagesPage mode="student" />} />
+        <Route path="/student/messages" element={<MessagesPage />} />
         <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
 
         {/* 导师个人名片编辑页面 */}
@@ -41,7 +41,7 @@ function App() {
 
         {/* 导师课程时间轴页 */}
         <Route path="/mentor/courses" element={<MentorCoursesPage />} />
-        <Route path="/mentor/messages" element={<MessagesPage mode="mentor" />} />
+        <Route path="/mentor/messages" element={<MessagesPage />} />
         <Route path="/mentor/settings" element={<AccountSettingsPage mode="mentor" />} />
 
         {/* 导师页面 */}

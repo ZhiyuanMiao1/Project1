@@ -4,6 +4,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
+import { useLocation } from 'react-router-dom';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
@@ -11,6 +12,35 @@ import {
   DIRECTION_ID_TO_LABEL,
 } from '../../constants/courseMappings';
 import './MessagesPage.css';
+
+const stripDisplaySuffix = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed
+    .replace(/\s*(导师|老师|同学)\s*$/u, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+const getThreadCounterpartDisplayName = (thread) => {
+  if (!thread) return '';
+  if (typeof thread.counterpartId === 'string' && thread.counterpartId.trim()) {
+    return thread.counterpartId.trim();
+  }
+  return stripDisplaySuffix(thread.counterpart);
+};
+
+const getAuthedRole = () => {
+  try {
+    const raw = localStorage.getItem('authUser');
+    const user = raw ? JSON.parse(raw) : {};
+    const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
+    return role === 'mentor' ? 'mentor' : 'student';
+  } catch {
+    return 'student';
+  }
+};
 
 const getCourseTitleParts = (thread, scheduleCard) => {
   const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
@@ -540,8 +570,17 @@ const buildMockAvailability = (date, role) => {
     ];
 };
 
-function MessagesPage({ mode = 'student' }) {
-  const isMentorView = mode === 'mentor';
+function MessagesPage() {
+  const location = useLocation();
+  const isMentorView = useMemo(() => {
+    try {
+      if (localStorage.getItem('authToken')) {
+        return getAuthedRole() === 'mentor';
+      }
+    } catch {}
+    return location.pathname.startsWith('/mentor');
+  }, [location.pathname]);
+
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
@@ -638,10 +677,11 @@ function MessagesPage({ mode = 'student' }) {
   }, [openMoreId]);
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
+  const activeCounterpartDisplayName = useMemo(() => getThreadCounterpartDisplayName(activeThread), [activeThread]);
   const detailAvatarInitial = useMemo(() => {
-    const name = activeThread?.counterpart || '';
+    const name = activeCounterpartDisplayName || '';
     return name.trim().charAt(0) || '·';
-  }, [activeThread]);
+  }, [activeCounterpartDisplayName]);
   const scheduleTitle = activeThread?.subject || '日程';
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
@@ -738,10 +778,8 @@ function MessagesPage({ mode = 'student' }) {
   );
 
   const counterpartDisplayName = useMemo(() => {
-    if (!activeThread) return '';
-    if (isMentorView) return activeThread.counterpartId || 'S--';
-    return activeThread.counterpart || '';
-  }, [activeThread, isMentorView]);
+    return activeCounterpartDisplayName || '';
+  }, [activeCounterpartDisplayName]);
 
   const participantLabels = useMemo(() => {
     return {
@@ -844,14 +882,15 @@ function MessagesPage({ mode = 'student' }) {
               <div>
                 <div className="messages-title-label">最近</div>
                 <div className="messages-title-sub">
-                  {isMentorView ? '学生会话' : '导师会话'}
+                  会话
                 </div>
               </div>
               <div className="messages-pill">{threads.length} 个会话</div>
             </div>
             <div className="messages-list">
               {threads.map((thread) => {
-                const initial = (thread.counterpart || '').trim().charAt(0) || '·';
+                const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
+                const initial = threadCounterpartDisplayName.trim().charAt(0) || '·';
                 const isActive = thread.id === activeThread?.id;
                 const rawTime = thread.time || '';
                 const timeParts = rawTime.split(/\s+/).filter(Boolean);
@@ -878,7 +917,7 @@ function MessagesPage({ mode = 'student' }) {
                     <div className="message-item-shell">
                       <div className="message-avatar" aria-hidden="true">{initial}</div>
                       <div className="message-content">
-                        <div className="message-name">{thread.counterpart}</div>
+                        <div className="message-name">{threadCounterpartDisplayName}</div>
                         <div className="message-subject">{listSubtitle}</div>
                       </div>
                       <div className="message-meta-col">
@@ -961,7 +1000,7 @@ function MessagesPage({ mode = 'student' }) {
                 <div className="message-detail-head">
                   <div className="message-detail-identity">
                     <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
-                    <div className="message-detail-name">{activeThread.counterpart}</div>
+                    <div className="message-detail-name">{activeCounterpartDisplayName}</div>
                   </div>
                 </div>
 
