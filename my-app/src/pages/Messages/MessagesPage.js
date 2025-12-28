@@ -6,6 +6,62 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import './MessagesPage.css';
 
+const COURSE_TITLE_SEPARATOR = ' - ';
+
+const parseCourseTitle = (value) => {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return { courseName: '', courseType: '' };
+
+  const parts = text.split(COURSE_TITLE_SEPARATOR).map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    const courseType = parts[parts.length - 1];
+    const courseName = parts.slice(0, -1).join(COURSE_TITLE_SEPARATOR);
+    return { courseName, courseType };
+  }
+
+  return { courseName: text, courseType: '' };
+};
+
+const formatScheduleWindowFromSlot = ({ date, slot, timezoneLabel = 'GMT+8' }) => {
+  if (!(date instanceof Date) || !slot) return '';
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const weekday = weekdayLabels[date.getDay()] || '';
+  const start = minutesToTimeLabel(slot.startMinutes);
+  const end = minutesToTimeLabel(slot.endMinutes);
+  if (!start || !end) return '';
+  return `${month}月${day}日 ${weekday} ${start}-${end} (${timezoneLabel})`;
+};
+
+const SCHEDULE_STATUS_META = {
+  pending: { label: '待确认', tone: 'pending' },
+  accepted: { label: '已接受', tone: 'accept' },
+  rejected: { label: '已拒绝', tone: 'reject' },
+  rescheduling: { label: '修改时间中', tone: 'reschedule' },
+};
+
+const normalizeScheduleStatus = (value) => {
+  const key = typeof value === 'string' ? value.trim() : '';
+  if (key in SCHEDULE_STATUS_META) return key;
+  return 'pending';
+};
+
+const buildScheduleCardsFromThread = (thread) => {
+  if (!thread) return [];
+
+  const main = thread.schedule && typeof thread.schedule === 'object'
+    ? [{ ...thread.schedule, __key: 'main', __primary: true }]
+    : [];
+
+  const history = Array.isArray(thread.scheduleHistory)
+    ? thread.scheduleHistory
+        .filter((item) => item && typeof item === 'object')
+        .map((item, index) => ({ ...item, __key: `history-${index}`, __primary: false }))
+    : [];
+
+  return [...main, ...history];
+};
+
 const STUDENT_THREADS = [
   {
     id: 's-01',
@@ -341,9 +397,9 @@ function MessagesPage({ mode = 'student' }) {
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [scheduleDecision, setScheduleDecision] = useState(null);
-  const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
+  const [rescheduleSelectedSlot, setRescheduleSelectedSlot] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [myAvailability, setMyAvailability] = useState(null);
 
@@ -403,7 +459,6 @@ function MessagesPage({ mode = 'student' }) {
   useEffect(() => {
     setActiveId(threads[0]?.id || null);
     setScheduleDecision(null);
-    setDecisionMenuOpen(false);
     setOpenMoreId(null);
   }, [threads]);
 
@@ -431,6 +486,7 @@ function MessagesPage({ mode = 'student' }) {
     return name.trim().charAt(0) || '·';
   }, [activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
+  const { courseName, courseType } = useMemo(() => parseCourseTitle(scheduleTitle), [scheduleTitle]);
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
@@ -447,58 +503,55 @@ function MessagesPage({ mode = 'student' }) {
     return formatHoverTime(candidateTime);
   }, [activeThread]);
 
-  const scheduleCards = useMemo(() => {
-    if (!activeThread) return [];
-    const main = activeThread.schedule && typeof activeThread.schedule === 'object'
-      ? [{ ...activeThread.schedule, __key: 'main', __primary: true }]
-      : [];
-    const history = Array.isArray(activeThread.scheduleHistory)
-      ? activeThread.scheduleHistory
-          .filter((item) => item && typeof item === 'object')
-          .map((item, index) => ({ ...item, __key: `history-${index}`, __primary: false }))
-      : [];
-    return [...main, ...history];
+  const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
+
+  useEffect(() => {
+    setScheduleCards(buildScheduleCardsFromThread(activeThread));
   }, [activeThread]);
 
   useEffect(() => {
     setScheduleDecision(null);
-    setDecisionMenuOpen(false);
     setRescheduleOpen(false);
     setRescheduleDate(toMiddayDate());
+    setRescheduleSelectedSlot(null);
   }, [activeThread?.id]);
-
-  const decisionPopoverActions = useMemo(() => {
-    if (scheduleDecision === 'accepted') {
-      return [
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-      ];
-    }
-    if (scheduleDecision === 'rejected') {
-      return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-      ];
-    }
-    if (scheduleDecision === 'rescheduling') {
-      return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-      ];
-    }
-    return [
-      { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-      { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-      { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-    ];
-  }, [scheduleDecision]);
 
   const handleScheduleDecision = (value) => {
     if (!value) return;
     setScheduleDecision(value);
-    setDecisionMenuOpen(false);
     if (value === 'rescheduling') setRescheduleOpen(true);
     else setRescheduleOpen(false);
+  };
+
+  const handleSendReschedule = () => {
+    if (!rescheduleSelectedSlot) return;
+    const windowText = formatScheduleWindowFromSlot({ date: rescheduleDate, slot: rescheduleSelectedSlot });
+    if (!windowText) return;
+
+    setScheduleCards((prev) => {
+      const previous = Array.isArray(prev) ? prev : [];
+      const history = previous.map((card) => ({
+        ...card,
+        __primary: false,
+        readOnly: true,
+      }));
+
+      const next = {
+        direction: 'outgoing',
+        window: windowText,
+        meetingId,
+        status: 'pending',
+        note: '你已发送新的时间，等待对方确认',
+        __key: `reschedule-${Date.now()}`,
+        __primary: true,
+      };
+
+      return [next, ...history];
+    });
+
+    setScheduleDecision(null);
+    setRescheduleOpen(false);
+    setRescheduleSelectedSlot(null);
   };
 
   useEffect(() => {
@@ -580,6 +633,11 @@ function MessagesPage({ mode = 'student' }) {
     const counterpartSlots = isMentorView ? availability.studentSlots : availability.mentorSlots;
     return { mySlots, counterpartSlots };
   }, [availability.mentorSlots, availability.studentSlots, isMentorView]);
+
+  useEffect(() => {
+    if (!rescheduleOpen) return;
+    setRescheduleSelectedSlot(null);
+  }, [rescheduleDate, rescheduleOpen]);
 
   const rescheduleMinDate = toMiddayDate();
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
@@ -766,10 +824,22 @@ function MessagesPage({ mode = 'student' }) {
                       ? scheduleCard.meetingId
                       : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
                     const noteText = (typeof scheduleCard?.note === 'string' && scheduleCard.note.trim())
-                      ? scheduleCard.note
-                      : (isOutgoing ? '你已发送日程邀请，等待对方确认' : '对方发起日程邀请');
+                      ? scheduleCard.note.trim()
+                      : '';
 
-                    const showActions = isPrimary && !isOutgoing && !readOnly;
+                    const showActions = !isOutgoing;
+                    const isActionDisabled = readOnly;
+
+                    const statusKey = normalizeScheduleStatus(scheduleCard?.status);
+                    const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
+                    const statusClassName =
+                      statusMeta.tone === 'accept'
+                        ? 'accept-btn'
+                        : statusMeta.tone === 'reject'
+                          ? 'reject-btn'
+                          : statusMeta.tone === 'reschedule'
+                            ? 'reschedule-btn'
+                            : 'pending-btn';
 
                     return (
                       <div
@@ -787,7 +857,15 @@ function MessagesPage({ mode = 'student' }) {
                               </div>
                               <div className="schedule-card-title-text">日程</div>
                             </div>
-                            <div className="schedule-card-title">{scheduleTitle}</div>
+                            <div className="schedule-card-title">
+                              <span className="schedule-card-title-main">{courseName || scheduleTitle}</span>
+                              {courseType ? (
+                                <>
+                                  <span className="schedule-card-title-sep" aria-hidden="true">-</span>
+                                  <span className="schedule-card-title-sub">{courseType}</span>
+                                </>
+                              ) : null}
+                            </div>
                           </div>
 
                           <div className="schedule-time-row">
@@ -802,84 +880,16 @@ function MessagesPage({ mode = 'student' }) {
 
                           <div className="schedule-meeting-id">{meetingText}</div>
 
-                          {isOutgoing ? (
-                            <div className="schedule-outgoing-note">{noteText}</div>
-                          ) : showActions ? (
-                          <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
-                            {scheduleDecision ? (
-                              <div
-                                className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
-                                onMouseEnter={() => setDecisionMenuOpen(true)}
-                                onMouseLeave={() => setDecisionMenuOpen(false)}
-                              >
-                                <button
-                                  type="button"
-                                  className={`schedule-btn merged ${
-                                    scheduleDecision === 'accepted'
-                                      ? 'accept-btn'
-                                      : scheduleDecision === 'rejected'
-                                        ? 'reject-btn'
-                                        : 'reschedule-btn'
-                                  }`}
-                                  onClick={() => {
-                                    if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
-                                  }}
-                                >
-                                  <span
-                                    className={`schedule-btn-icon ${
-                                      scheduleDecision === 'accepted'
-                                        ? 'accept'
-                                        : scheduleDecision === 'rejected'
-                                          ? 'reject'
-                                          : 'reschedule'
-                                    }`}
-                                  >
-                                    {scheduleDecision === 'accepted' ? '✓' : scheduleDecision === 'rejected' ? '−' : ''}
-                                  </span>
-                                  {scheduleDecision === 'accepted' && '已接受'}
-                                  {scheduleDecision === 'rejected' && '已拒绝'}
-                                  {scheduleDecision === 'rescheduling' && '修改时间中'}
-                                  <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
-                                </button>
-                                {decisionMenuOpen && (
-                                  <div className="schedule-decision-popover" role="menu">
-                                    <div className="schedule-decision-popover-title">修改日程状态为</div>
-                                    <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
-                                      {decisionPopoverActions.map((action) => (
-                                        <button
-                                          key={action.key}
-                                          type="button"
-                                          className={`schedule-btn small inline-action ${
-                                            action.tone === 'accept'
-                                              ? 'accept-btn'
-                                              : action.tone === 'reject'
-                                                ? 'reject-btn'
-                                                : 'reschedule-btn'
-                                          }`}
-                                          onClick={() => handleScheduleDecision(action.value)}
-                                        >
-                                          {action.tone === 'accept' && (
-                                            <span className="schedule-btn-icon check" aria-hidden="true" />
-                                          )}
-                                          {action.tone === 'reject' && (
-                                            <span className="schedule-btn-icon minus" aria-hidden="true" />
-                                          )}
-                                          {action.tone === 'reschedule' && (
-                                            <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                                          )}
-                                          {action.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <>
+                          <div className="schedule-card-bottom">
+                            {!!noteText && <div className="schedule-outgoing-note">{noteText}</div>}
+                            {showActions ? (
+                              <div className="schedule-actions">
                                 <button
                                   type="button"
                                   className="schedule-btn accept-btn"
                                   onClick={() => handleScheduleDecision('accepted')}
+                                  disabled={isActionDisabled}
+                                  aria-pressed={scheduleDecision === 'accepted'}
                                 >
                                   <span className="schedule-btn-icon accept">✓</span>
                                   接受
@@ -888,6 +898,8 @@ function MessagesPage({ mode = 'student' }) {
                                   type="button"
                                   className="schedule-btn reject-btn"
                                   onClick={() => handleScheduleDecision('rejected')}
+                                  disabled={isActionDisabled}
+                                  aria-pressed={scheduleDecision === 'rejected'}
                                 >
                                   <span className="schedule-btn-icon reject">−</span>
                                   拒绝
@@ -896,16 +908,26 @@ function MessagesPage({ mode = 'student' }) {
                                   type="button"
                                   className="schedule-btn reschedule-btn"
                                   onClick={() => handleScheduleDecision('rescheduling')}
+                                  disabled={isActionDisabled}
+                                  aria-pressed={scheduleDecision === 'rescheduling'}
                                 >
                                   <span className="schedule-btn-icon reschedule" aria-hidden="true" />
                                   修改时间
                                 </button>
-                              </>
+                              </div>
+                            ) : (
+                              <div className="schedule-actions">
+                                <button
+                                  type="button"
+                                  className={`schedule-btn status-btn ${statusClassName}`}
+                                  disabled
+                                  aria-label={`日程状态：${statusMeta.label}`}
+                                >
+                                  {statusMeta.label}
+                                </button>
+                              </div>
                             )}
                           </div>
-                          ) : (
-                            <div className="schedule-outgoing-note">{noteText}</div>
-                          )}
 
                           {isPrimary && scheduleHoverTime && (
                             <div className="schedule-hover-time" aria-hidden="true">
@@ -990,6 +1012,41 @@ function MessagesPage({ mode = 'student' }) {
                 onClick={() => setRescheduleOpen(false)}
               >
                 <FiX size={18} aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="reschedule-suggestions" aria-label="推荐时间">
+              <div className="reschedule-suggestions-title">推荐可选时间</div>
+              {availability.commonSlots.length === 0 ? (
+                <div className="reschedule-suggestions-empty">暂无重叠空闲时间</div>
+              ) : (
+                <div className="reschedule-suggestions-grid" role="list">
+                  {availability.commonSlots.slice(0, 6).map((slot, index) => {
+                    const label = `${minutesToTimeLabel(slot.startMinutes)}-${minutesToTimeLabel(slot.endMinutes)}`;
+                    const isSelected =
+                      rescheduleSelectedSlot?.startMinutes === slot.startMinutes &&
+                      rescheduleSelectedSlot?.endMinutes === slot.endMinutes;
+                    return (
+                      <button
+                        key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                        type="button"
+                        className={`reschedule-suggestion ${isSelected ? 'selected' : ''}`}
+                        onClick={() => setRescheduleSelectedSlot(slot)}
+                        aria-pressed={isSelected}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <button
+                type="button"
+                className="reschedule-send-btn"
+                onClick={handleSendReschedule}
+                disabled={!rescheduleSelectedSlot}
+              >
+                发送新时间
               </button>
             </div>
 
