@@ -166,6 +166,7 @@ function MentorProfileEditorPage() {
   const avatarInputRef = useRef(null);
   const [previewReplayKey, setPreviewReplayKey] = useState(0);
   const [saveHint, setSaveHint] = useState(null); // { id: number }
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => () => {
     if (saveHintTimerRef.current) {
@@ -267,8 +268,11 @@ function MentorProfileEditorPage() {
   const handleSave = async () => {
     if (avatarUploading) {
       alert('头像上传中，请稍后再保存');
-      return;
+      return false;
     }
+    if (saving) return false;
+
+    setSaving(true);
     try {
       const payload = {
         displayName: name,
@@ -283,10 +287,19 @@ function MentorProfileEditorPage() {
       // 重建右侧预览卡片，使其重新执行 reveal 动画
       setPreviewReplayKey((k) => k + 1);
       showSavedHint();
+      return true;
     } catch (e) {
       const msg = e?.response?.data?.error || '保存失败，请稍后再试';
       alert(msg);
+      return false;
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const handleSaveAndExit = async () => {
+    const ok = await handleSave();
+    if (ok) navigate('/mentor');
   };
 
   // 权限校验
@@ -605,8 +618,8 @@ function MentorProfileEditorPage() {
           <BrandMark className="nav-logo-text" to="/mentor" />
           <div className="step-header-actions">
             <div className="mx-editor-exit-wrap">
-              <button type="button" className="ghost-button" onClick={() => navigate('/mentor')}>
-                保存并退出
+              <button type="button" className="ghost-button" onClick={handleSaveAndExit} disabled={avatarUploading || saving}>
+                {saving ? '保存中...' : '保存并退出'}
               </button>
               {saveHint && (
                 <div key={saveHint.id} className="mx-editor-save-hint" role="status" aria-live="polite">
@@ -717,8 +730,8 @@ function MentorProfileEditorPage() {
           type="button"
           className="mx-save-button"
           onClick={(e) => { try { e.currentTarget.blur(); } catch {} handleSave(); }}
-          disabled={avatarUploading}
-        >保存</button>
+          disabled={avatarUploading || saving}
+        >{saving ? '保存中...' : '保存'}</button>
       </div>
       
     </div>
