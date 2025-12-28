@@ -408,6 +408,14 @@
   padding-right: 6px;
   overflow-y: auto;
   max-height: 520px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge legacy */
+}
+
+.message-detail-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .schedule-row {

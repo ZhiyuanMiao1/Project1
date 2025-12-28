@@ -134,6 +134,27 @@ const MENTOR_THREADS = [
       window: '12月24日 周三 21:00-22:30 (GMT+8)',
       meetingId: '会议号：603 221 448',
     },
+    scheduleHistory: [
+      {
+        direction: 'outgoing',
+        window: '12月23日 周二 20:00-21:00 (GMT+8)',
+        meetingId: '会议号：603 221 448',
+        note: '你已发送日程邀请（第一版时间），等待对方确认',
+      },
+      {
+        direction: 'incoming',
+        window: '12月24日 周三 20:30-22:00 (GMT+8)',
+        meetingId: '会议号：603 221 448',
+        note: '对方建议调整为 20:30 开始（仅展示用）',
+        readOnly: true,
+      },
+      {
+        direction: 'outgoing',
+        window: '12月24日 周三 21:00-22:30 (GMT+8)',
+        meetingId: '会议号：603 221 448',
+        note: '你已发送日程邀请（最终版时间），等待对方确认',
+      },
+    ],
     messages: [
       { id: 'm-04-1', author: '我', from: 'me', time: '11:05', text: '我这边先发一个可约时间：12月24日 21:00-22:30（GMT+8），你确认下是否OK。' },
       { id: 'm-04-2', author: 'Evan 同学', from: 'them', time: '11:12', text: '收到！我确认一下当天安排，稍后回复老师。' },
@@ -390,7 +411,6 @@ function MessagesPage({ mode = 'student' }) {
   }, [activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
-  const isOutgoingSchedule = activeSchedule?.direction === 'outgoing';
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
     : DEFAULT_SCHEDULE_WINDOW;
@@ -404,6 +424,19 @@ function MessagesPage({ mode = 'student' }) {
       : null;
     const candidateTime = activeThread.time || lastMessage?.time || '';
     return formatHoverTime(candidateTime);
+  }, [activeThread]);
+
+  const scheduleCards = useMemo(() => {
+    if (!activeThread) return [];
+    const main = activeThread.schedule && typeof activeThread.schedule === 'object'
+      ? [{ ...activeThread.schedule, __key: 'main', __primary: true }]
+      : [];
+    const history = Array.isArray(activeThread.scheduleHistory)
+      ? activeThread.scheduleHistory
+          .filter((item) => item && typeof item === 'object')
+          .map((item, index) => ({ ...item, __key: `history-${index}`, __primary: false }))
+      : [];
+    return [...main, ...history];
   }, [activeThread]);
 
   useEffect(() => {
@@ -699,142 +732,169 @@ function MessagesPage({ mode = 'student' }) {
                 </div>
 
                 <div className="message-detail-body">
-                  <div className={`schedule-row ${isOutgoingSchedule ? 'is-outgoing' : ''}`}>
-                    {!isOutgoingSchedule && (
-                      <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
-                    )}
-                    <div className="schedule-card">
-                      <div className="schedule-card-top">
-                        <div className="schedule-card-top-row">
-                          <div className="schedule-card-icon" aria-hidden="true">
-                            <FiCalendar size={18} />
-                          </div>
-                          <div className="schedule-card-title-text">日程</div>
-                        </div>
-                        <div className="schedule-card-title">{scheduleTitle}</div>
-                      </div>
+                  {scheduleCards.map((scheduleCard) => {
+                    const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
+                    const isOutgoing = cardDirection === 'outgoing';
+                    const isPrimary = Boolean(scheduleCard?.__primary);
+                    const readOnly = Boolean(scheduleCard?.readOnly) || !isPrimary;
 
-                      <div className="schedule-time-row">
-                        <FiClock size={16} aria-hidden="true" />
-                        <span>{scheduleWindow}</span>
-                      </div>
+                    const windowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
+                      ? scheduleCard.window
+                      : (isPrimary ? scheduleWindow : DEFAULT_SCHEDULE_WINDOW);
+                    const meetingText = (typeof scheduleCard?.meetingId === 'string' && scheduleCard.meetingId.trim())
+                      ? scheduleCard.meetingId
+                      : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
+                    const noteText = (typeof scheduleCard?.note === 'string' && scheduleCard.note.trim())
+                      ? scheduleCard.note
+                      : (isOutgoing ? '你已发送日程邀请，等待对方确认' : '对方发起日程邀请');
 
-                      <div className="schedule-link-row">
-                        <FiVideo size={16} aria-hidden="true" />
-                        <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
-                      </div>
+                    const showActions = isPrimary && !isOutgoing && !readOnly;
 
-                      <div className="schedule-meeting-id">{meetingId}</div>
-
-                      {isOutgoingSchedule ? (
-                        <div className="schedule-outgoing-note">你已发送日程邀请，等待对方确认</div>
-                      ) : (
-                      <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
-                        {scheduleDecision ? (
-                          <div
-                            className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
-                            onMouseEnter={() => setDecisionMenuOpen(true)}
-                            onMouseLeave={() => setDecisionMenuOpen(false)}
-                          >
-                            <button
-                              type="button"
-                              className={`schedule-btn merged ${
-                                scheduleDecision === 'accepted'
-                                  ? 'accept-btn'
-                                  : scheduleDecision === 'rejected'
-                                    ? 'reject-btn'
-                                    : 'reschedule-btn'
-                              }`}
-                              onClick={() => {
-                                if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
-                              }}
-                            >
-                              <span
-                                className={`schedule-btn-icon ${
-                                  scheduleDecision === 'accepted'
-                                    ? 'accept'
-                                    : scheduleDecision === 'rejected'
-                                      ? 'reject'
-                                      : 'reschedule'
-                                }`}
-                              >
-                                {scheduleDecision === 'accepted' ? '✓' : scheduleDecision === 'rejected' ? '−' : ''}
-                              </span>
-                              {scheduleDecision === 'accepted' && '已接受'}
-                              {scheduleDecision === 'rejected' && '已拒绝'}
-                              {scheduleDecision === 'rescheduling' && '修改时间中'}
-                              <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
-                            </button>
-                            {decisionMenuOpen && (
-                              <div className="schedule-decision-popover" role="menu">
-                                <div className="schedule-decision-popover-title">修改日程状态为</div>
-                                <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
-                                  {decisionPopoverActions.map((action) => (
-                                    <button
-                                      key={action.key}
-                                      type="button"
-                                      className={`schedule-btn small inline-action ${
-                                        action.tone === 'accept'
-                                          ? 'accept-btn'
-                                          : action.tone === 'reject'
-                                            ? 'reject-btn'
-                                            : 'reschedule-btn'
-                                      }`}
-                                      onClick={() => handleScheduleDecision(action.value)}
-                                    >
-                                      {action.tone === 'accept' && (
-                                        <span className="schedule-btn-icon check" aria-hidden="true" />
-                                      )}
-                                      {action.tone === 'reject' && (
-                                        <span className="schedule-btn-icon minus" aria-hidden="true" />
-                                      )}
-                                      {action.tone === 'reschedule' && (
-                                        <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                                      )}
-                                      {action.label}
-                                    </button>
-                                  ))}
-                                </div>
+                    return (
+                      <div
+                        key={scheduleCard.__key || scheduleCard.id || windowText}
+                        className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''}`}
+                      >
+                        {!isOutgoing && (
+                          <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                        )}
+                        <div className="schedule-card">
+                          <div className="schedule-card-top">
+                            <div className="schedule-card-top-row">
+                              <div className="schedule-card-icon" aria-hidden="true">
+                                <FiCalendar size={18} />
                               </div>
+                              <div className="schedule-card-title-text">日程</div>
+                            </div>
+                            <div className="schedule-card-title">{scheduleTitle}</div>
+                          </div>
+
+                          <div className="schedule-time-row">
+                            <FiClock size={16} aria-hidden="true" />
+                            <span>{windowText}</span>
+                          </div>
+
+                          <div className="schedule-link-row">
+                            <FiVideo size={16} aria-hidden="true" />
+                            <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
+                          </div>
+
+                          <div className="schedule-meeting-id">{meetingText}</div>
+
+                          {isOutgoing ? (
+                            <div className="schedule-outgoing-note">{noteText}</div>
+                          ) : showActions ? (
+                          <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
+                            {scheduleDecision ? (
+                              <div
+                                className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
+                                onMouseEnter={() => setDecisionMenuOpen(true)}
+                                onMouseLeave={() => setDecisionMenuOpen(false)}
+                              >
+                                <button
+                                  type="button"
+                                  className={`schedule-btn merged ${
+                                    scheduleDecision === 'accepted'
+                                      ? 'accept-btn'
+                                      : scheduleDecision === 'rejected'
+                                        ? 'reject-btn'
+                                        : 'reschedule-btn'
+                                  }`}
+                                  onClick={() => {
+                                    if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
+                                  }}
+                                >
+                                  <span
+                                    className={`schedule-btn-icon ${
+                                      scheduleDecision === 'accepted'
+                                        ? 'accept'
+                                        : scheduleDecision === 'rejected'
+                                          ? 'reject'
+                                          : 'reschedule'
+                                    }`}
+                                  >
+                                    {scheduleDecision === 'accepted' ? '✓' : scheduleDecision === 'rejected' ? '−' : ''}
+                                  </span>
+                                  {scheduleDecision === 'accepted' && '已接受'}
+                                  {scheduleDecision === 'rejected' && '已拒绝'}
+                                  {scheduleDecision === 'rescheduling' && '修改时间中'}
+                                  <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+                                </button>
+                                {decisionMenuOpen && (
+                                  <div className="schedule-decision-popover" role="menu">
+                                    <div className="schedule-decision-popover-title">修改日程状态为</div>
+                                    <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
+                                      {decisionPopoverActions.map((action) => (
+                                        <button
+                                          key={action.key}
+                                          type="button"
+                                          className={`schedule-btn small inline-action ${
+                                            action.tone === 'accept'
+                                              ? 'accept-btn'
+                                              : action.tone === 'reject'
+                                                ? 'reject-btn'
+                                                : 'reschedule-btn'
+                                          }`}
+                                          onClick={() => handleScheduleDecision(action.value)}
+                                        >
+                                          {action.tone === 'accept' && (
+                                            <span className="schedule-btn-icon check" aria-hidden="true" />
+                                          )}
+                                          {action.tone === 'reject' && (
+                                            <span className="schedule-btn-icon minus" aria-hidden="true" />
+                                          )}
+                                          {action.tone === 'reschedule' && (
+                                            <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                                          )}
+                                          {action.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="schedule-btn accept-btn"
+                                  onClick={() => handleScheduleDecision('accepted')}
+                                >
+                                  <span className="schedule-btn-icon accept">✓</span>
+                                  接受
+                                </button>
+                                <button
+                                  type="button"
+                                  className="schedule-btn reject-btn"
+                                  onClick={() => handleScheduleDecision('rejected')}
+                                >
+                                  <span className="schedule-btn-icon reject">−</span>
+                                  拒绝
+                                </button>
+                                <button
+                                  type="button"
+                                  className="schedule-btn reschedule-btn"
+                                  onClick={() => handleScheduleDecision('rescheduling')}
+                                >
+                                  <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                                  修改时间
+                                </button>
+                              </>
                             )}
                           </div>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="schedule-btn accept-btn"
-                              onClick={() => handleScheduleDecision('accepted')}
-                            >
-                              <span className="schedule-btn-icon accept">✓</span>
-                              接受
-                            </button>
-                            <button
-                              type="button"
-                              className="schedule-btn reject-btn"
-                              onClick={() => handleScheduleDecision('rejected')}
-                            >
-                              <span className="schedule-btn-icon reject">−</span>
-                              拒绝
-                            </button>
-                            <button
-                              type="button"
-                              className="schedule-btn reschedule-btn"
-                              onClick={() => handleScheduleDecision('rescheduling')}
-                            >
-                              <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                              修改时间
-                            </button>
-                          </>
-                        )}
-                      </div>
-                      )}
-                      {scheduleHoverTime && (
-                        <div className="schedule-hover-time" aria-hidden="true">
-                          {scheduleHoverTime}
+                          ) : (
+                            <div className="schedule-outgoing-note">{noteText}</div>
+                          )}
+
+                          {isPrimary && scheduleHoverTime && (
+                            <div className="schedule-hover-time" aria-hidden="true">
+                              {scheduleHoverTime}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             ) : (
