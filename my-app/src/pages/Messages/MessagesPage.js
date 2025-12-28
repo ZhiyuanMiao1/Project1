@@ -1190,10 +1190,17 @@ function MessagesPage({ mode = 'student' }) {
                               <div className="schedule-actions">
                                 <button
                                   type="button"
-                                  className={`schedule-btn status-btn ${statusClassName}`}
+                                  className={
+                                    statusKey === 'pending'
+                                      ? `schedule-btn status-btn ${statusClassName}`
+                                      : `schedule-btn merged ${statusClassName}`
+                                  }
                                   disabled
                                   aria-label={`日程状态：${statusMeta.label}`}
                                 >
+                                  {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                                  {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                                  {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
                                   {statusMeta.label}
                                 </button>
                               </div>

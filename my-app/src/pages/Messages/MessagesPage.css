@@ -665,6 +665,10 @@
   position: relative;
 }
 
+.schedule-btn.merged:disabled {
+  opacity: 1;
+}
+
 .schedule-btn.status-btn {
   width: 100%;
   justify-content: center;
