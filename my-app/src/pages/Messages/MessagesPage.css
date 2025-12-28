@@ -494,6 +494,21 @@
   overflow: hidden;
 }
 
+.schedule-card-title-piece {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.schedule-card-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0f172a;
+}
+
 .schedule-card-title-main {
   font-weight: 750;
 }

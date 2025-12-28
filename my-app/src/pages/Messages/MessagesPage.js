@@ -4,22 +4,24 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
+import {
+  COURSE_TYPE_ICON_MAP,
+  COURSE_TYPE_ID_TO_LABEL,
+  DIRECTION_ICON_MAP,
+  DIRECTION_ID_TO_LABEL,
+} from '../../constants/courseMappings';
 import './MessagesPage.css';
 
-const COURSE_TITLE_SEPARATOR = ' - ';
+const getCourseTitleParts = (thread, scheduleCard) => {
+  const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
+  const courseTypeId = scheduleCard?.courseTypeId || thread?.courseTypeId || 'others';
 
-const parseCourseTitle = (value) => {
-  const text = typeof value === 'string' ? value.trim() : '';
-  if (!text) return { courseName: '', courseType: '' };
+  const courseName = DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || '其它课程方向';
+  const courseType = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || '其它类型';
+  const DirectionIcon = DIRECTION_ICON_MAP[directionId] || DIRECTION_ICON_MAP.others || null;
+  const CourseTypeIcon = COURSE_TYPE_ICON_MAP[courseTypeId] || COURSE_TYPE_ICON_MAP.others || null;
 
-  const parts = text.split(COURSE_TITLE_SEPARATOR).map((part) => part.trim()).filter(Boolean);
-  if (parts.length >= 2) {
-    const courseType = parts[parts.length - 1];
-    const courseName = parts.slice(0, -1).join(COURSE_TITLE_SEPARATOR);
-    return { courseName, courseType };
-  }
-
-  return { courseName: text, courseType: '' };
+  return { courseName, courseType, directionId, courseTypeId, DirectionIcon, CourseTypeIcon };
 };
 
 const formatScheduleWindowFromSlot = ({ date, slot, timezoneLabel = 'GMT+8' }) => {
@@ -112,6 +114,8 @@ const STUDENT_THREADS = [
     subject: '论文选题讨论 - 日程邀请',
     counterpart: '赵老师',
     counterpartMeta: '导师 · 研究方法',
+    courseDirectionId: 'writing',
+    courseTypeId: 'course-selection',
     time: '周三 18:05',
     unread: false,
     tags: ['日程已发送'],
@@ -120,6 +124,8 @@ const STUDENT_THREADS = [
       direction: 'outgoing',
       window: '12月28日 周日 20:00-21:00 (GMT+8)',
       meetingId: '会议号：884 112 309',
+      courseDirectionId: 'writing',
+      courseTypeId: 'course-selection',
     },
     messages: [
       { id: 's-04-1', author: '我', from: 'me', time: '18:05', text: '老师我把讨论时间发您了：12月28日 20:00-21:00（GMT+8），您看是否方便？' },
@@ -181,6 +187,8 @@ const MENTOR_THREADS = [
     counterpart: 'Lily 同学',
     counterpartId: 'S18',
     counterpartMeta: '学生 · 待确认',
+    courseDirectionId: 'algo',
+    courseTypeId: 'pre-study',
     time: '今天 13:10',
     unread: true,
     tags: ['待确认', '日程邀请'],
@@ -190,6 +198,8 @@ const MENTOR_THREADS = [
       window: '12月26日 周五 19:30-21:00 (GMT+8)',
       meetingId: '会议号：710 332 091',
       note: '对方发起日程邀请，等待你选择',
+      courseDirectionId: 'algo',
+      courseTypeId: 'pre-study',
     },
     messages: [
       { id: 'm-05-1', author: 'Lily 同学', from: 'them', time: '13:10', text: '老师我这周想补一下课，先发了个时间：12月26日 19:30-21:00（GMT+8），您看可以吗？' },
@@ -202,6 +212,8 @@ const MENTOR_THREADS = [
     counterpart: 'Evan 同学',
     counterpartId: 'S33',
     counterpartMeta: '学生 · 新预约',
+    courseDirectionId: 'statistics',
+    courseTypeId: 'final-review',
     time: '今天 11:05',
     unread: false,
     tags: ['日程已发送'],
@@ -210,6 +222,8 @@ const MENTOR_THREADS = [
       direction: 'outgoing',
       window: '12月24日 周三 21:00-22:30 (GMT+8)',
       meetingId: '会议号：603 221 448',
+      courseDirectionId: 'statistics',
+      courseTypeId: 'final-review',
     },
     scheduleHistory: [
       {
@@ -217,6 +231,8 @@ const MENTOR_THREADS = [
         window: '12月23日 周二 20:00-21:00 (GMT+8)',
         meetingId: '会议号：603 221 448',
         note: '你已发送日程邀请（第一版时间），等待对方确认',
+        courseDirectionId: 'statistics',
+        courseTypeId: 'final-review',
       },
       {
         direction: 'incoming',
@@ -224,12 +240,16 @@ const MENTOR_THREADS = [
         meetingId: '会议号：603 221 448',
         note: '对方建议调整为 20:30 开始（仅展示用）',
         readOnly: true,
+        courseDirectionId: 'statistics',
+        courseTypeId: 'final-review',
       },
       {
         direction: 'outgoing',
         window: '12月24日 周三 21:00-22:30 (GMT+8)',
         meetingId: '会议号：603 221 448',
         note: '你已发送日程邀请（最终版时间），等待对方确认',
+        courseDirectionId: 'statistics',
+        courseTypeId: 'final-review',
       },
     ],
     messages: [
@@ -486,7 +506,6 @@ function MessagesPage({ mode = 'student' }) {
     return name.trim().charAt(0) || '·';
   }, [activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
-  const { courseName, courseType } = useMemo(() => parseCourseTitle(scheduleTitle), [scheduleTitle]);
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
@@ -528,6 +547,8 @@ function MessagesPage({ mode = 'student' }) {
     const windowText = formatScheduleWindowFromSlot({ date: rescheduleDate, slot: rescheduleSelectedSlot });
     if (!windowText) return;
 
+    const { directionId, courseTypeId } = getCourseTitleParts(activeThread, scheduleCards?.[0]);
+
     setScheduleCards((prev) => {
       const previous = Array.isArray(prev) ? prev : [];
       const history = previous.map((card) => ({
@@ -542,6 +563,8 @@ function MessagesPage({ mode = 'student' }) {
         meetingId,
         status: 'pending',
         note: '你已发送新的时间，等待对方确认',
+        courseDirectionId: directionId,
+        courseTypeId,
         __key: `reschedule-${Date.now()}`,
         __primary: true,
       };
@@ -841,6 +864,8 @@ function MessagesPage({ mode = 'student' }) {
                             ? 'reschedule-btn'
                             : 'pending-btn';
 
+                    const titleParts = getCourseTitleParts(activeThread, scheduleCard);
+
                     return (
                       <div
                         key={scheduleCard.__key || scheduleCard.id || windowText}
@@ -858,11 +883,21 @@ function MessagesPage({ mode = 'student' }) {
                               <div className="schedule-card-title-text">日程</div>
                             </div>
                             <div className="schedule-card-title">
-                              <span className="schedule-card-title-main">{courseName || scheduleTitle}</span>
-                              {courseType ? (
+                              <span className="schedule-card-title-piece">
+                                <span className="schedule-card-title-icon" aria-hidden="true">
+                                  {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
+                                </span>
+                                <span className="schedule-card-title-main">{titleParts.courseName || scheduleTitle}</span>
+                              </span>
+                              {titleParts.courseType ? (
                                 <>
                                   <span className="schedule-card-title-sep" aria-hidden="true">-</span>
-                                  <span className="schedule-card-title-sub">{courseType}</span>
+                                  <span className="schedule-card-title-piece">
+                                    <span className="schedule-card-title-icon" aria-hidden="true">
+                                      {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
+                                    </span>
+                                    <span className="schedule-card-title-sub">{titleParts.courseType}</span>
+                                  </span>
                                 </>
                               ) : null}
                             </div>
