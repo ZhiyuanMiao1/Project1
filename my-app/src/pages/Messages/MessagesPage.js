@@ -120,6 +120,27 @@ const MENTOR_THREADS = [
     ],
   },
   {
+    id: 'm-05',
+    subject: '补课时间确认 - 日程邀请',
+    counterpart: 'Lily 同学',
+    counterpartId: 'S18',
+    counterpartMeta: '学生 · 待确认',
+    time: '今天 13:10',
+    unread: true,
+    tags: ['待确认', '日程邀请'],
+    summary: 'Lily：我这边发了一个补课时间邀请，老师看看是否方便？',
+    schedule: {
+      direction: 'incoming',
+      window: '12月26日 周五 19:30-21:00 (GMT+8)',
+      meetingId: '会议号：710 332 091',
+      note: '对方发起日程邀请，等待你选择',
+    },
+    messages: [
+      { id: 'm-05-1', author: 'Lily 同学', from: 'them', time: '13:10', text: '老师我这周想补一下课，先发了个时间：12月26日 19:30-21:00（GMT+8），您看可以吗？' },
+      { id: 'm-05-2', author: '我', from: 'me', time: '13:12', text: '收到，我看下当天安排，稍后确认。' },
+    ],
+  },
+  {
     id: 'm-04',
     subject: '期末复习安排 - 日程邀请',
     counterpart: 'Evan 同学',
