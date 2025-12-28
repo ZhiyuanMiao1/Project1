@@ -99,7 +99,7 @@
 }
 
 /* 鼠标悬浮时的效果 */
-.login-input:hover {
+.login-input:hover:not(:focus) {
     border-color: #000000; /* 仅改变颜色，不改变宽度 */
     border-radius: 10px; /* 给选中框增加圆角 */
     box-shadow: 0 0 8px rgba(0, 0, 0, 0.2); /* 添加阴影效果 */
