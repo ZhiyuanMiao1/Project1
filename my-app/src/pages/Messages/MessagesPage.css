@@ -665,6 +665,13 @@
   position: relative;
 }
 
+.schedule-btn.merged.accept-btn:hover,
+.schedule-btn.merged.reject-btn:hover,
+.schedule-btn.merged.reschedule-btn:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .schedule-btn.merged:disabled {
   opacity: 1;
 }
