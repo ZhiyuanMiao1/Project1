@@ -600,6 +600,7 @@ function MessagesPage() {
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
   const messageBodyScrollRef = useRef(null);
+  const scheduleCardSendTimeoutRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
   const rescheduleInitialScrollSet = useRef(false);
   const rescheduleResizeRef = useRef(null);
@@ -745,6 +746,14 @@ function MessagesPage() {
   }, [activeThread]);
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
+  const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
+
+  useEffect(() => () => {
+    if (scheduleCardSendTimeoutRef.current) {
+      clearTimeout(scheduleCardSendTimeoutRef.current);
+      scheduleCardSendTimeoutRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     setScheduleCards(buildScheduleCardsFromThread(activeThread));
@@ -761,6 +770,11 @@ function MessagesPage() {
     setDecisionMenuOpen(false);
     setRescheduleOpen(false);
     setRescheduleDate(toMiddayDate());
+    setIsScheduleCardSending(false);
+    if (scheduleCardSendTimeoutRef.current) {
+      clearTimeout(scheduleCardSendTimeoutRef.current);
+      scheduleCardSendTimeoutRef.current = null;
+    }
   }, [activeThread?.id]);
 
   const decisionPopoverActions = useMemo(() => {
@@ -959,6 +973,13 @@ function MessagesPage() {
       timelineConfig.timezoneLabel,
     );
     if (!nextWindow) return;
+
+    setIsScheduleCardSending(true);
+    if (scheduleCardSendTimeoutRef.current) clearTimeout(scheduleCardSendTimeoutRef.current);
+    scheduleCardSendTimeoutRef.current = setTimeout(() => {
+      setIsScheduleCardSending(false);
+      scheduleCardSendTimeoutRef.current = null;
+    }, 900);
 
     setScheduleCards((prev) => {
       if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -1202,6 +1223,7 @@ function MessagesPage() {
 
                     const statusKey = normalizeScheduleStatus(scheduleCard?.status);
                     const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
+                    const isSendingCard = isScheduleCardSending && isPrimary && isOutgoing && statusKey === 'pending';
                     const statusClassName =
                       statusMeta.tone === 'accept'
                         ? 'accept-btn'
@@ -1221,7 +1243,7 @@ function MessagesPage() {
                         {!isOutgoing && (
                           <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
                         )}
-                        <div className="schedule-card">
+                        <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
                           <div className="schedule-card-top">
                             <div className="schedule-card-top-row">
                               <div className="schedule-card-icon" aria-hidden="true">
@@ -1364,6 +1386,7 @@ function MessagesPage() {
                                   disabled
                                   aria-label={`日程状态：${statusMeta.label}`}
                                 >
+                                  {isSendingCard && <span className="schedule-btn-spinner" aria-hidden="true" />}
                                   {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
                                   {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
                                   {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}

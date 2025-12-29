@@ -473,6 +473,36 @@
   overflow: hidden;
 }
 
+.schedule-card.is-sending {
+  animation: scheduleCardSendIn 240ms ease-out both;
+}
+
+.schedule-card.is-sending::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    rgba(15, 23, 42, 0.02) 0%,
+    rgba(15, 23, 42, 0.1) 30%,
+    rgba(15, 23, 42, 0.02) 60%
+  );
+  transform: translateX(-60%);
+  animation: scheduleCardShimmer 0.9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.schedule-btn-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(15, 23, 42, 0.22);
+  border-top-color: #0f172a;
+  margin-right: 6px;
+  display: inline-block;
+  animation: scheduleBtnSpin 0.8s linear infinite;
+}
+
 .schedule-card-top {
   display: flex;
   flex-direction: column;
@@ -615,6 +645,49 @@
   align-items: center;
   margin-top: 0;
   width: 100%;
+}
+
+@keyframes scheduleCardSendIn {
+  0% {
+    opacity: 0.3;
+    transform: translateY(8px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes scheduleCardShimmer {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+@keyframes scheduleBtnSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-card.is-sending {
+    animation: none;
+  }
+
+  .schedule-card.is-sending::after {
+    animation: none;
+  }
+
+  .schedule-btn-spinner {
+    animation: none;
+  }
 }
 
 .schedule-actions .schedule-btn:not(.merged):not(.inline-action) {
