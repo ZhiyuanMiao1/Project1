@@ -809,6 +809,35 @@ function MessagesPage() {
     setDecisionMenuOpen(false);
     if (value === 'rescheduling') setRescheduleOpen(true);
     else setRescheduleOpen(false);
+
+    if (value === 'accepted' || value === 'rejected') {
+      setScheduleCards((prev) => {
+        if (!Array.isArray(prev) || prev.length === 0) return prev;
+
+        const next = prev.filter((card) => {
+          if (!card || typeof card !== 'object') return true;
+          if (!card.__pendingReschedule) return true;
+          const direction = card.direction === 'outgoing' ? 'outgoing' : 'incoming';
+          if (direction !== 'outgoing') return true;
+          const statusKey = normalizeScheduleStatus(card.status);
+          return statusKey !== 'pending';
+        });
+
+        if (next.length === prev.length) return prev;
+        if (next.some((card) => card && typeof card === 'object' && card.__primary)) return next;
+        if (next.length === 0) return next;
+
+        const lastIndex = next.length - 1;
+        next[lastIndex] = { ...next[lastIndex], __primary: true };
+        return next;
+      });
+
+      setIsScheduleCardSending(false);
+      if (scheduleCardSendTimeoutRef.current) {
+        clearTimeout(scheduleCardSendTimeoutRef.current);
+        scheduleCardSendTimeoutRef.current = null;
+      }
+    }
   };
 
   useEffect(() => {
@@ -995,12 +1024,14 @@ function MessagesPage() {
       const historyEntry = {
         ...primary,
         __primary: false,
+        __pendingReschedule: false,
         readOnly: true,
         __key: `history-${Date.now()}`,
       };
 
       const updatedPrimary = {
         ...primary,
+        __pendingReschedule: true,
         direction: 'outgoing',
         status: 'pending',
         window: nextWindow,
