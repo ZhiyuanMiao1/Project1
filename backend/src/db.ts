@@ -19,6 +19,8 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  enableKeepAlive: true, // 保持心跳
+  keepAliveInitialDelay: 10000
 });
 
 export async function query<T = any>(sql: string, params: any[] = []): Promise<T> {
