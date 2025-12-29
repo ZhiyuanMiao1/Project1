@@ -602,6 +602,7 @@ function MessagesPage() {
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
+  const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [myAvailability, setMyAvailability] = useState(null);
 
@@ -649,6 +650,14 @@ function MessagesPage() {
 
     return () => { alive = false; };
   }, [isLoggedIn, rescheduleOpen]);
+
+  useEffect(() => {
+    if (!rescheduleOpen) setRescheduleSelection(null);
+  }, [rescheduleOpen]);
+
+  useEffect(() => {
+    setRescheduleSelection(null);
+  }, [rescheduleDate]);
 
   const threads = useMemo(() => {
     if (!isMentorView) return STUDENT_THREADS;
@@ -789,6 +798,18 @@ function MessagesPage() {
     bodyPaddingTop: 0,
     timezoneLabel: 'GMT+08',
   }), []);
+
+  const handleRescheduleTimelineClick = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const rawMinutes = timelineConfig.startHour * 60 + offsetY / pixelsPerMinute;
+    const snappedStart = Math.round(rawMinutes / 15) * 15;
+    const minStart = timelineConfig.startHour * 60;
+    const maxStart = timelineConfig.endHour * 60 - 60;
+    const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
+    setRescheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+  };
 
   const displayHours = useMemo(
     () => Array.from({ length: timelineConfig.endHour - timelineConfig.startHour }, (_, index) => timelineConfig.startHour + index),
@@ -1318,7 +1339,11 @@ function MessagesPage() {
                     '--rs-timeline-height': `${timelineConfig.rowHeight * (timelineConfig.endHour - timelineConfig.startHour)}px`,
                   }}
                 >
-                  <div className="reschedule-time-col" aria-hidden="true">
+                  <div
+                    className="reschedule-time-col"
+                    aria-hidden="true"
+                    onClick={handleRescheduleTimelineClick}
+                  >
                     {displayHours.map((hour) => (
                       <div key={hour} className="reschedule-time-label">
                         {hour === 0 ? null : (
@@ -1328,7 +1353,11 @@ function MessagesPage() {
                     ))}
                   </div>
 
-                  <div className="reschedule-column left" aria-label="我的空闲时间">
+                  <div
+                    className="reschedule-column left"
+                    aria-label="我的空闲时间"
+                    onClick={handleRescheduleTimelineClick}
+                  >
                     {columns.mySlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
@@ -1343,7 +1372,11 @@ function MessagesPage() {
                     ))}
                   </div>
 
-                  <div className="reschedule-column right" aria-label="对方空闲时间">
+                  <div
+                    className="reschedule-column right"
+                    aria-label="对方空闲时间"
+                    onClick={handleRescheduleTimelineClick}
+                  >
                     {columns.counterpartSlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
@@ -1357,6 +1390,20 @@ function MessagesPage() {
                       </div>
                     ))}
                   </div>
+
+                  {rescheduleSelection && (
+                    <div className="reschedule-selection-layer" aria-hidden="true">
+                      <div
+                        className="reschedule-slot selection"
+                        style={{
+                          top: `${(rescheduleSelection.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                          height: `${(rescheduleSelection.endMinutes - rescheduleSelection.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                        }}
+                      >
+                        {minutesToTimeLabel(rescheduleSelection.startMinutes)} - {minutesToTimeLabel(rescheduleSelection.endMinutes)}
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               </div>
