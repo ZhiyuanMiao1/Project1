@@ -1045,7 +1045,7 @@ function MessagesPage() {
       return [...rest, historyEntry, updatedPrimary];
     });
 
-    setScheduleDecision(null);
+    setScheduleDecision('rescheduling');
     setDecisionMenuOpen(false);
     setRescheduleOpen(false);
   };
