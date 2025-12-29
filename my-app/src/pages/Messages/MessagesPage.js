@@ -754,7 +754,7 @@ function MessagesPage() {
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
     scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id, scheduleCards.length]);
+  }, [activeThread?.id, scheduleCards]);
 
   useEffect(() => {
     setScheduleDecision(null);
@@ -967,6 +967,10 @@ function MessagesPage() {
       const primary = prev[primaryIndex];
       const rest = prev.filter((_, index) => index !== primaryIndex);
 
+      const primaryDirection = primary?.direction === 'outgoing' ? 'outgoing' : 'incoming';
+      const primaryStatusKey = normalizeScheduleStatus(primary?.status);
+      const shouldUpdateExistingPending = primaryDirection === 'outgoing' && primaryStatusKey === 'pending';
+
       const historyEntry = {
         ...primary,
         __primary: false,
@@ -981,6 +985,10 @@ function MessagesPage() {
         window: nextWindow,
         __primary: true,
       };
+
+      if (shouldUpdateExistingPending) {
+        return [...rest, updatedPrimary];
+      }
 
       return [...rest, historyEntry, updatedPrimary];
     });
