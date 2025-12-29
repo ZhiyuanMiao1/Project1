@@ -592,6 +592,7 @@ function MessagesPage() {
   const menuAnchorRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
   const rescheduleInitialScrollSet = useRef(false);
+  const rescheduleResizeRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -652,7 +653,14 @@ function MessagesPage() {
   }, [isLoggedIn, rescheduleOpen]);
 
   useEffect(() => {
-    if (!rescheduleOpen) setRescheduleSelection(null);
+    if (rescheduleOpen) return;
+    const resizeState = rescheduleResizeRef.current;
+    if (resizeState) {
+      document.body.style.userSelect = resizeState.previousUserSelect ?? '';
+      document.body.classList.remove('reschedule-resizing');
+      rescheduleResizeRef.current = null;
+    }
+    setRescheduleSelection(null);
   }, [rescheduleOpen]);
 
   useEffect(() => {
@@ -809,6 +817,74 @@ function MessagesPage() {
     const maxStart = timelineConfig.endHour * 60 - 60;
     const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
     setRescheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+  };
+
+  const clearRescheduleResizeState = () => {
+    const state = rescheduleResizeRef.current;
+    if (!state) return;
+    document.body.style.userSelect = state.previousUserSelect ?? '';
+    document.body.classList.remove('reschedule-resizing');
+    rescheduleResizeRef.current = null;
+  };
+
+  const handleSelectionResizePointerMove = (event) => {
+    const state = rescheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
+    const snappedDelta = Math.round(deltaMinutes / 15) * 15;
+    const minStart = timelineConfig.startHour * 60;
+    const maxEnd = timelineConfig.endHour * 60;
+    const minDuration = 15;
+
+    if (state.edge === 'start') {
+      const startMinutes = Math.max(
+        minStart,
+        Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
+      );
+      setRescheduleSelection({ startMinutes, endMinutes: state.endMinutes });
+      return;
+    }
+
+    const endMinutes = Math.max(
+      state.startMinutes + minDuration,
+      Math.min(maxEnd, state.endMinutes + snappedDelta),
+    );
+    setRescheduleSelection({ startMinutes: state.startMinutes, endMinutes });
+  };
+
+  const handleSelectionResizePointerUp = (event) => {
+    const state = rescheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+    event.preventDefault();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+    clearRescheduleResizeState();
+  };
+
+  const handleSelectionResizePointerDown = (edge) => (event) => {
+    if (!rescheduleSelection) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    clearRescheduleResizeState();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {}
+
+    rescheduleResizeRef.current = {
+      edge,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startMinutes: rescheduleSelection.startMinutes,
+      endMinutes: rescheduleSelection.endMinutes,
+      previousUserSelect: document.body.style.userSelect,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('reschedule-resizing');
   };
 
   const displayHours = useMemo(
@@ -1400,6 +1476,22 @@ function MessagesPage() {
                           height: `${(rescheduleSelection.endMinutes - rescheduleSelection.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
                         }}
                       >
+                        <div
+                          className="reschedule-selection-handle top"
+                          role="presentation"
+                          onPointerDown={handleSelectionResizePointerDown('start')}
+                          onPointerMove={handleSelectionResizePointerMove}
+                          onPointerUp={handleSelectionResizePointerUp}
+                          onPointerCancel={handleSelectionResizePointerUp}
+                        />
+                        <div
+                          className="reschedule-selection-handle bottom"
+                          role="presentation"
+                          onPointerDown={handleSelectionResizePointerDown('end')}
+                          onPointerMove={handleSelectionResizePointerMove}
+                          onPointerUp={handleSelectionResizePointerUp}
+                          onPointerCancel={handleSelectionResizePointerUp}
+                        />
                         {minutesToTimeLabel(rescheduleSelection.startMinutes)} - {minutesToTimeLabel(rescheduleSelection.endMinutes)}
                       </div>
                     </div>

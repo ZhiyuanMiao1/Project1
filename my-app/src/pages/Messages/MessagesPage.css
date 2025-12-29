@@ -1363,11 +1363,36 @@
 }
 
 .reschedule-slot.selection {
-  border-radius: 0;
-  background: rgba(34, 197, 94, 0.18);
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  color: #0f5132;
+  border-radius: 8px;
+  background: rgba(10, 222, 20, 0.775);
+  border: none;
+  background-clip: padding-box;
+  color: #207e47;
   box-shadow: none;
+  pointer-events: none;
+}
+
+.reschedule-selection-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  pointer-events: auto;
+  cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M10%202V18%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22/%3E%3Cpath%20d%3D%22M6.5%206.5%20L10%202.5%20L13.5%206.5%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M6.5%2013.5%20L10%2017.5%20L13.5%2013.5%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E") 10 10, ns-resize;
+  touch-action: none;
+}
+
+.reschedule-selection-handle.top {
+  top: -6px;
+}
+
+.reschedule-selection-handle.bottom {
+  bottom: -6px;
+}
+
+body.reschedule-resizing,
+body.reschedule-resizing * {
+  cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M10%202V18%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22/%3E%3Cpath%20d%3D%22M6.5%206.5%20L10%202.5%20L13.5%206.5%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Cpath%20d%3D%22M6.5%2013.5%20L10%2017.5%20L13.5%2013.5%22%20fill%3D%22none%22%20stroke%3D%22%23000%22%20stroke-width%3D%221.6%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E") 10 10, ns-resize !important;
 }
 
 @keyframes rescheduleOverlayFade {
