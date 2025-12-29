@@ -494,6 +494,15 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
+const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08') => {
+  if (!(date instanceof Date)) return '';
+  const weekdayLabel = weekdayLabels[date.getDay()] || '';
+  const startLabel = minutesToTimeLabel(startMinutes);
+  const endLabel = minutesToTimeLabel(endMinutes);
+  if (!startLabel || !endLabel) return '';
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
+};
+
 const toMiddayDate = (value = new Date()) => {
   const base = value instanceof Date ? new Date(value) : new Date(value);
   base.setHours(12, 0, 0, 0);
@@ -932,6 +941,46 @@ function MessagesPage() {
       next.setDate(next.getDate() + deltaDays);
       return next < today ? today : next;
     });
+  };
+
+  const handleRescheduleSend = () => {
+    if (!rescheduleSelection) return;
+    const nextWindow = formatScheduleWindow(
+      rescheduleDate,
+      rescheduleSelection.startMinutes,
+      rescheduleSelection.endMinutes,
+      timelineConfig.timezoneLabel,
+    );
+    if (!nextWindow) return;
+
+    setScheduleCards((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+      const primaryIndex = prev.findIndex((item) => Boolean(item?.__primary));
+      if (primaryIndex < 0) return prev;
+      const primary = prev[primaryIndex];
+      const rest = prev.filter((_, index) => index !== primaryIndex);
+
+      const historyEntry = {
+        ...primary,
+        __primary: false,
+        readOnly: true,
+        __key: `history-${Date.now()}`,
+      };
+
+      const updatedPrimary = {
+        ...primary,
+        direction: 'outgoing',
+        status: 'pending',
+        window: nextWindow,
+        __primary: true,
+      };
+
+      return [updatedPrimary, historyEntry, ...rest];
+    });
+
+    setScheduleDecision(null);
+    setDecisionMenuOpen(false);
+    setRescheduleOpen(false);
   };
 
   const columns = useMemo(() => {
@@ -1499,6 +1548,17 @@ function MessagesPage() {
 
                 </div>
               </div>
+            </div>
+
+            <div className="reschedule-footer">
+              <button
+                type="button"
+                className="reschedule-send-btn"
+                onClick={handleRescheduleSend}
+                disabled={!rescheduleSelection}
+              >
+                发送预约
+              </button>
             </div>
           </aside>
         </div>
