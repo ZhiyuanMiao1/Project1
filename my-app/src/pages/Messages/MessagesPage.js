@@ -77,17 +77,17 @@ const normalizeScheduleStatus = (value) => {
 const buildScheduleCardsFromThread = (thread) => {
   if (!thread) return [];
 
-  const main = thread.schedule && typeof thread.schedule === 'object'
-    ? [{ ...thread.schedule, __key: 'main', __primary: true }]
-    : [];
-
   const history = Array.isArray(thread.scheduleHistory)
     ? thread.scheduleHistory
         .filter((item) => item && typeof item === 'object')
         .map((item, index) => ({ ...item, __key: `history-${index}`, __primary: false }))
     : [];
 
-  return [...main, ...history];
+  const main = thread.schedule && typeof thread.schedule === 'object'
+    ? [{ ...thread.schedule, __key: 'main', __primary: true }]
+    : [];
+
+  return [...history, ...main];
 };
 
 const STUDENT_THREADS = [
@@ -599,6 +599,7 @@ function MessagesPage() {
 
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
+  const messageBodyScrollRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
   const rescheduleInitialScrollSet = useRef(false);
   const rescheduleResizeRef = useRef(null);
@@ -748,6 +749,12 @@ function MessagesPage() {
   useEffect(() => {
     setScheduleCards(buildScheduleCardsFromThread(activeThread));
   }, [activeThread]);
+
+  useEffect(() => {
+    const scrollEl = messageBodyScrollRef.current;
+    if (!scrollEl) return;
+    scrollEl.scrollTop = scrollEl.scrollHeight;
+  }, [activeThread?.id, scheduleCards.length]);
 
   useEffect(() => {
     setScheduleDecision(null);
@@ -975,7 +982,7 @@ function MessagesPage() {
         __primary: true,
       };
 
-      return [updatedPrimary, historyEntry, ...rest];
+      return [...rest, historyEntry, updatedPrimary];
     });
 
     setScheduleDecision(null);
@@ -1169,7 +1176,7 @@ function MessagesPage() {
                   </div>
                 </div>
 
-                <div className="message-detail-body">
+                <div className="message-detail-body" ref={messageBodyScrollRef}>
                   {scheduleCards.map((scheduleCard) => {
                     const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
                     const isOutgoing = cardDirection === 'outgoing';
