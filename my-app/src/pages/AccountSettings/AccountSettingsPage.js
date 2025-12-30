@@ -17,6 +17,7 @@ import {
   broadcastHomeCourseOrderChanged,
   normalizeHomeCourseOrderIds,
 } from '../../utils/homeCourseOrder';
+import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import ProfileSection from './sections/ProfileSection';
 import StudentDataSection from './sections/StudentDataSection';
 import MentorDataSection from './sections/MentorDataSection';
@@ -277,8 +278,19 @@ function AccountSettingsPage({ mode = 'student' }) {
   const availabilityDaysCount = useMemo(() => {
     const selections = availability?.daySelections;
     if (!selections || typeof selections !== 'object') return 0;
-    return Object.keys(selections).filter((key) => Array.isArray(selections[key]) && selections[key].length > 0).length;
-  }, [availability?.daySelections]);
+
+    const timeZone = typeof availability?.timeZone === 'string' && availability.timeZone.trim()
+      ? availability.timeZone.trim()
+      : getDefaultTimeZone();
+    const todayParts = getZonedParts(timeZone, new Date());
+    const todayKey = `${todayParts.year}-${String(todayParts.month).padStart(2, '0')}-${String(todayParts.day).padStart(2, '0')}`;
+
+    return Object.keys(selections).filter((key) => {
+      if (typeof key !== 'string' || key < todayKey) return false;
+      const blocks = selections[key];
+      return Array.isArray(blocks) && blocks.length > 0;
+    }).length;
+  }, [availability?.daySelections, availability?.timeZone]);
   const availabilitySummary = useMemo(() => {
     if (!isLoggedIn) return '请先登录';
     if (availabilityStatus === 'loading') return '加载中...';
