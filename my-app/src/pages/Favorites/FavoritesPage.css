@@ -149,26 +149,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
 }
 
 .cover-empty-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 18px;
+  width: 84px;
+  height: 84px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: rgba(15, 23, 42, 0.48);
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px dashed rgba(100, 116, 139, 0.55);
-  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(3px);
+  color: rgba(255, 255, 255, 0.98);
 }
 
-.cover-empty-icon svg {
-  width: 22px;
-  height: 22px;
+.cover-empty-heart {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 10px 22px rgba(15, 23, 42, 0.18));
 }
 
 .cover-grid {
