@@ -142,7 +142,6 @@ function StudentCourseRequestPage() {
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const availabilityHydratingRef = useRef(false);
   const hasEditedAvailabilityRef = useRef(false);
-  const availabilitySaveTimerRef = useRef(null);
   const lastSavedAvailabilityFingerprintRef = useRef('');
 
   // Stable mock profile for preview (when student info is missing)
@@ -495,48 +494,11 @@ function StudentCourseRequestPage() {
 
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
 
-  // Debounced auto-save when user edits availability on schedule step.
-  useEffect(() => {
-    if (!isLoggedIn) return undefined;
-    if (!availabilityReady) return undefined;
-    if (!isScheduleStep) return undefined;
-    if (availabilityHydratingRef.current) return undefined;
-    if (!hasEditedAvailabilityRef.current) return undefined;
-
-    const payload = {
-      timeZone: selectedTimeZone || DEFAULT_TIME_ZONE,
-      sessionDurationHours: formData.sessionDurationHours,
-      daySelections,
-    };
-    const fingerprint = buildAvailabilityFingerprint(payload);
-    if (fingerprint === lastSavedAvailabilityFingerprintRef.current) return undefined;
-
-    if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
-    availabilitySaveTimerRef.current = setTimeout(() => {
-      api.put('/api/account/availability', payload)
-        .then(() => {
-          lastSavedAvailabilityFingerprintRef.current = fingerprint;
-        })
-        .catch(() => {
-          // Keep silent: schedule step has no explicit "save" UX.
-        });
-    }, 600);
-
-    return () => {
-      if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
-    };
-  }, [availabilityReady, daySelections, formData.sessionDurationHours, isLoggedIn, isScheduleStep, selectedTimeZone]);
-
   const flushAvailabilitySave = useCallback(() => {
     if (!isLoggedIn) return;
     if (!availabilityReady) return;
     if (availabilityHydratingRef.current) return;
     if (!hasEditedAvailabilityRef.current) return;
-
-    if (availabilitySaveTimerRef.current) {
-      clearTimeout(availabilitySaveTimerRef.current);
-      availabilitySaveTimerRef.current = null;
-    }
 
     const payload = {
       timeZone: selectedTimeZone || DEFAULT_TIME_ZONE,
@@ -554,10 +516,6 @@ function StudentCourseRequestPage() {
         // Silent fail.
       });
   }, [availabilityReady, daySelections, formData.sessionDurationHours, isLoggedIn, selectedTimeZone]);
-
-  useEffect(() => () => {
-    if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
-  }, []);
   
   const startPageTransition = (action) => {
     if (typeof action !== 'function') {
