@@ -79,13 +79,15 @@ function AvailabilityEditor({
     return raw || getDefaultTimeZone();
   }, [value?.timeZone]);
 
-  const safeValue = useMemo(() => {
-    const daySelections = value && typeof value.daySelections === 'object' && value.daySelections && !Array.isArray(value.daySelections)
-      ? value.daySelections
+  const normalizeAvailability = useCallback((nextValue) => {
+    const daySelections = nextValue && typeof nextValue.daySelections === 'object' && nextValue.daySelections && !Array.isArray(nextValue.daySelections)
+      ? nextValue.daySelections
       : {};
-    const sessionDurationHours = typeof value?.sessionDurationHours === 'number' ? value.sessionDurationHours : 2;
+    const sessionDurationHours = typeof nextValue?.sessionDurationHours === 'number' ? nextValue.sessionDurationHours : 2;
     return { timeZone: selectedTimeZone, sessionDurationHours, daySelections };
-  }, [selectedTimeZone, value]);
+  }, [selectedTimeZone]);
+
+  const safeValue = useMemo(() => normalizeAvailability(value), [normalizeAvailability, value]);
 
   useEffect(() => {
     const parts = getZonedParts(selectedTimeZone, new Date());
@@ -202,23 +204,29 @@ function AvailabilityEditor({
   }, [todayStart, viewMonth]);
 
   const setDayBlocks = useCallback((key, nextBlocks) => {
-    const nextDaySelections = { ...(safeValue.daySelections || {}) };
-    if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[key] = nextBlocks;
-    else delete nextDaySelections[key];
-    onChange({ ...safeValue, daySelections: nextDaySelections });
-  }, [onChange, safeValue]);
+    onChange((prev) => {
+      const prevSafe = normalizeAvailability(prev);
+      const nextDaySelections = { ...(prevSafe.daySelections || {}) };
+      if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[key] = nextBlocks;
+      else delete nextDaySelections[key];
+      return { ...prevSafe, daySelections: nextDaySelections };
+    });
+  }, [normalizeAvailability, onChange]);
 
   const getDayBlocks = useCallback((key) => safeValue.daySelections[key] || [], [safeValue.daySelections]);
 
   const handleBlocksChange = useCallback((nextBlocks) => {
     const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [selectedKey];
-    const nextDaySelections = { ...(safeValue.daySelections || {}) };
-    for (const k of targets) {
-      if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[k] = nextBlocks;
-      else delete nextDaySelections[k];
-    }
-    onChange({ ...safeValue, daySelections: nextDaySelections });
-  }, [onChange, safeValue, selectedKey, selectedRangeKeys]);
+    onChange((prev) => {
+      const prevSafe = normalizeAvailability(prev);
+      const nextDaySelections = { ...(prevSafe.daySelections || {}) };
+      for (const k of targets) {
+        if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[k] = nextBlocks;
+        else delete nextDaySelections[k];
+      }
+      return { ...prevSafe, daySelections: nextDaySelections };
+    });
+  }, [normalizeAvailability, onChange, selectedKey, selectedRangeKeys]);
 
   if (loading) {
     return <div className="settings-availability-hint">加载中...</div>;
@@ -319,7 +327,7 @@ function AvailabilityEditor({
 
         <ScheduleTimesPanel
           value={safeValue.sessionDurationHours}
-          onChange={(next) => onChange({ ...safeValue, sessionDurationHours: next })}
+          onChange={(next) => onChange((prev) => ({ ...normalizeAvailability(prev), sessionDurationHours: next }))}
           listRef={timesListRef}
           blocks={selectedBlocks}
           onBlocksChange={handleBlocksChange}
