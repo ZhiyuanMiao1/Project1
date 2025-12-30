@@ -24,7 +24,8 @@ interface RoleRow {
 router.post(
   '/',
   [
-    body('email').isEmail().withMessage('请输入有效的邮箱'),
+    // email 字段兼容旧前端；这里允许传入 email / StudentID(s#) / MentorID(m#)
+    body('email').trim().notEmpty().withMessage('请输入邮箱、StudentID或MentorID'),
     body('password').notEmpty().withMessage('密码不能为空'),
     body('role').optional().isIn(['mentor', 'student']).withMessage('角色无效'),
   ],
@@ -35,19 +36,30 @@ router.post(
     }
 
     // 为保证“从哪个页面触发登录不影响结果”，此处不再依赖前端传入的 role
-    // 仅基于 email + password 进行身份判定；如同一邮箱下多条记录均匹配，优先 mentor
+    // 仅基于“邮箱/StudentID/MentorID + password”进行身份判定；如同一账号下多条角色记录均匹配，优先 mentor
     const { email, password } = req.body as { email: string; password: string };
+    const identifier = String(email ?? '').trim();
 
     try {
-      const accounts = await query<AccountRow[]>(
-        'SELECT id, username, email, password_hash FROM users WHERE email = ? LIMIT 1',
-        [email]
-      );
+      const looksLikeEmail = identifier.includes('@');
+      const accounts = looksLikeEmail
+        ? await query<AccountRow[]>(
+            'SELECT id, username, email, password_hash FROM users WHERE email = ? LIMIT 1',
+            [identifier]
+          )
+        : await query<AccountRow[]>(
+            `SELECT u.id, u.username, u.email, u.password_hash
+             FROM users u
+             JOIN user_roles r ON r.user_id = u.id
+             WHERE r.public_id = ?
+             LIMIT 1`,
+            [identifier.toLowerCase()]
+          );
       const account = accounts[0];
-      if (!account) return res.status(401).json({ error: '邮箱或密码错误' });
+      if (!account) return res.status(401).json({ error: '邮箱/StudentID/MentorID或密码错误' });
 
       const isMatch = await bcrypt.compare(password, account.password_hash);
-      if (!isMatch) return res.status(401).json({ error: '邮箱或密码错误' });
+      if (!isMatch) return res.status(401).json({ error: '邮箱/StudentID/MentorID或密码错误' });
 
       // 读取该账号已开通的角色；若没有任何角色，默认补一个 student 角色
       let roles = await query<RoleRow[]>(

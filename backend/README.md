@@ -6,7 +6,7 @@
 ## API
 
 - `POST /api/register`：注册/开通角色（`email`、`password`、`role`、可选 `username`）。同一 `email` 只对应一个账号 `userId`；若账号已存在且密码正确，可追加开通另一角色。
-- `POST /api/login`：用户登录（`email`、`password`），返回 JWT（默认优先使用 `mentor` 作为 token role），并返回该账号已开通的角色列表（含 `public_id`）。
+- `POST /api/login`：用户登录（`email` 支持邮箱 / StudentID(s#) / MentorID(m#)，`password`），返回 JWT（默认优先使用 `mentor` 作为 token role），并返回该账号已开通的角色列表（含 `public_id`）。
 - `GET /api/mentor/cards`：导师卡片；仅 `role=mentor` 且 `mentor_approved=1` 可访问，否则返回 403 `{ error: '导师审核中' }`。
 
 ## 环境变量（已迁移到阿里云 RDS）

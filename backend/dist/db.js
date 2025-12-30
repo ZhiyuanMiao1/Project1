@@ -22,6 +22,8 @@ exports.pool = promise_1.default.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    enableKeepAlive: true, // 保持心跳
+    keepAliveInitialDelay: 10000
 });
 async function query(sql, params = []) {
     try {

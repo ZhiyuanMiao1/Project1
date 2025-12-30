@@ -32,8 +32,9 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
   }, [errorFieldState, fieldError]);
 
   const validate = () => {
-    if (!email) return { message: '请输入邮箱', field: 'email' };
-    if (!/\S+@\S+\.\S+/.test(email)) return { message: '邮箱格式不正确', field: 'email' };
+    const v = String(email || '').trim();
+    if (!v) return { message: '请输入邮箱、StudentID或MentorID', field: 'email' };
+    if (v.includes('@') && !/\S+@\S+\.\S+/.test(v)) return { message: '邮箱格式不正确', field: 'email' };
     if (!password) return { message: '请输入密码', field: 'password' };
     return null;
   };
@@ -113,14 +114,16 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
         <div className="login-input-area">
           <input
             ref={emailRef}
-            type="email"
+            type="text"
             placeholder="请输入邮箱、StudentID或MentorID"
             className={`login-input ${errorFieldState === 'email' ? 'error' : ''}`}
             value={email}
             onChange={(e) => {
               const v = e.target.value;
               setEmail(v);
-              if (errorFieldState === 'email' && /\S+@\S+\.\S+/.test(v)) {
+              const vv = String(v || '').trim();
+              const ok = vv && (!vv.includes('@') || /\S+@\S+\.\S+/.test(vv));
+              if (errorFieldState === 'email' && ok) {
                 setErrorFieldState('');
                 setFieldError('');
               }
