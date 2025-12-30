@@ -834,7 +834,7 @@ function StudentCourseRequestPage() {
                     <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}                  （{tzCity || '时区'}）</span></div>
                     <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
-                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>{previewCourseTypeLabel}</span></div>
                     )}
                     {hasTotalCourseHours && (
                       <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>
@@ -958,7 +958,7 @@ function StudentCourseRequestPage() {
                     <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
                     <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
-                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>课程类型：{previewCourseTypeLabel}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>{previewCourseTypeLabel}</span></div>
                     )}
                     {hasTotalCourseHours && (
                       <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>

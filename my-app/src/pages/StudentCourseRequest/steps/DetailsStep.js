@@ -21,10 +21,10 @@ function DetailsStep({ formData, onChange }) {
       </div>
 
       <div className="step-field-group">
-        <label className="field-label" htmlFor="courseFocus">课程的关注点或素材</label>
+        <label className="field-label" htmlFor="courseFocus">具体课程和需求</label>
         <textarea
           id="courseFocus"
-          placeholder={'例如： Biomedical Engineering 课程的 Quiz1、Quiz2 需要讲解。\n\n也可以写一些学习偏好，比如：希望老师在 PPT 上标注一下'}
+          placeholder={'例如： Biomedical Engineering 课程的 Quiz1、Quiz2 需要讲解。\n\n希望导师对PPT讲的更细致一些'}
           value={formData.courseFocus}
           onChange={onChange('courseFocus')}
           rows={5}
