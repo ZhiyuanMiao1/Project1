@@ -5,6 +5,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
 import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import { fetchAccountProfile } from '../../api/account';
+import api from '../../api/client';
 import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
 import UploadStep from './steps/UploadStep';
@@ -74,6 +75,33 @@ const isAllowedAttachmentFile = (file) => {
   return !!ext && ALLOWED_ATTACHMENT_EXTS.has(ext);
 };
 
+const normalizeAccountAvailability = (raw) => {
+  if (!raw || typeof raw !== 'object') return null;
+  const timeZone = typeof raw.timeZone === 'string' && raw.timeZone.trim() ? raw.timeZone.trim() : DEFAULT_TIME_ZONE;
+  const sessionDurationHours = typeof raw.sessionDurationHours === 'number' ? raw.sessionDurationHours : 2;
+  const daySelections = raw.daySelections && typeof raw.daySelections === 'object' && !Array.isArray(raw.daySelections)
+    ? raw.daySelections
+    : {};
+  return { timeZone, sessionDurationHours, daySelections };
+};
+
+const buildAvailabilityFingerprint = ({ timeZone, sessionDurationHours, daySelections }) => {
+  const tz = typeof timeZone === 'string' ? timeZone : '';
+  const dur = Number.isFinite(sessionDurationHours) ? Number(sessionDurationHours).toFixed(2) : '';
+  const selections = daySelections && typeof daySelections === 'object' ? daySelections : {};
+  const keys = Object.keys(selections).sort();
+  const parts = [];
+  for (const key of keys) {
+    const blocks = selections[key];
+    if (!Array.isArray(blocks) || blocks.length === 0) continue;
+    const blockStr = blocks
+      .map((b) => `${Math.floor(Number(b?.start) || 0)}-${Math.floor(Number(b?.end) || 0)}`)
+      .join(',');
+    parts.push(`${key}:${blockStr}`);
+  }
+  return `${tz}|${dur}|${parts.join('|')}`;
+};
+
 
 
 function StudentCourseRequestPage() {
@@ -109,6 +137,14 @@ function StudentCourseRequestPage() {
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
   const previousTimeZoneRef = useRef(selectedTimeZone);
 
+  // Sync schedule availability with Account Settings (/api/account/availability)
+  const [pendingAccountAvailability, setPendingAccountAvailability] = useState(null);
+  const [availabilityReady, setAvailabilityReady] = useState(false);
+  const availabilityHydratingRef = useRef(false);
+  const hasEditedAvailabilityRef = useRef(false);
+  const availabilitySaveTimerRef = useRef(null);
+  const lastSavedAvailabilityFingerprintRef = useRef('');
+
   // Stable mock profile for preview (when student info is missing)
   const mockStudent = useMemo(() => generateMockStudentProfile(), []);
 
@@ -123,6 +159,45 @@ function StudentCourseRequestPage() {
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
+
+  useEffect(() => {
+    setAvailabilityReady(false);
+    setPendingAccountAvailability(null);
+    availabilityHydratingRef.current = false;
+
+    if (!isLoggedIn) {
+      lastSavedAvailabilityFingerprintRef.current = '';
+      return undefined;
+    }
+
+    let alive = true;
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        const normalized = normalizeAccountAvailability(res?.data?.availability);
+        if (normalized) {
+          lastSavedAvailabilityFingerprintRef.current = buildAvailabilityFingerprint(normalized);
+          if (!hasEditedAvailabilityRef.current) {
+            availabilityHydratingRef.current = true;
+            setPendingAccountAvailability(normalized);
+            setFormData((prev) => ({
+              ...prev,
+              availability: normalized.timeZone,
+              sessionDurationHours: normalized.sessionDurationHours,
+            }));
+          }
+        }
+        if (!normalized || hasEditedAvailabilityRef.current) {
+          setAvailabilityReady(true);
+        }
+      })
+      .catch(() => {
+        if (!alive) return;
+        setAvailabilityReady(true);
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -347,6 +422,17 @@ function StudentCourseRequestPage() {
     previousTimeZoneRef.current = nextTz;
   }, [buildKey, selectedTimeZone, selectedDate, setSelectedDateNoon]);
 
+  // Apply fetched account availability after timezone-switch effect runs (avoid double conversion).
+  useEffect(() => {
+    if (!pendingAccountAvailability) return;
+    if (selectedTimeZone !== pendingAccountAvailability.timeZone) return;
+
+    setDaySelections(pendingAccountAvailability.daySelections || {});
+    availabilityHydratingRef.current = false;
+    setPendingAccountAvailability(null);
+    setAvailabilityReady(true);
+  }, [pendingAccountAvailability, selectedTimeZone]);
+
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
 
@@ -408,6 +494,70 @@ function StudentCourseRequestPage() {
   const isUploadStep = currentStep.id === 'upload';
 
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
+
+  // Debounced auto-save when user edits availability on schedule step.
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+    if (!availabilityReady) return undefined;
+    if (!isScheduleStep) return undefined;
+    if (availabilityHydratingRef.current) return undefined;
+    if (!hasEditedAvailabilityRef.current) return undefined;
+
+    const payload = {
+      timeZone: selectedTimeZone || DEFAULT_TIME_ZONE,
+      sessionDurationHours: formData.sessionDurationHours,
+      daySelections,
+    };
+    const fingerprint = buildAvailabilityFingerprint(payload);
+    if (fingerprint === lastSavedAvailabilityFingerprintRef.current) return undefined;
+
+    if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
+    availabilitySaveTimerRef.current = setTimeout(() => {
+      api.put('/api/account/availability', payload)
+        .then(() => {
+          lastSavedAvailabilityFingerprintRef.current = fingerprint;
+        })
+        .catch(() => {
+          // Keep silent: schedule step has no explicit "save" UX.
+        });
+    }, 600);
+
+    return () => {
+      if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
+    };
+  }, [availabilityReady, daySelections, formData.sessionDurationHours, isLoggedIn, isScheduleStep, selectedTimeZone]);
+
+  const flushAvailabilitySave = useCallback(() => {
+    if (!isLoggedIn) return;
+    if (!availabilityReady) return;
+    if (availabilityHydratingRef.current) return;
+    if (!hasEditedAvailabilityRef.current) return;
+
+    if (availabilitySaveTimerRef.current) {
+      clearTimeout(availabilitySaveTimerRef.current);
+      availabilitySaveTimerRef.current = null;
+    }
+
+    const payload = {
+      timeZone: selectedTimeZone || DEFAULT_TIME_ZONE,
+      sessionDurationHours: formData.sessionDurationHours,
+      daySelections,
+    };
+    const fingerprint = buildAvailabilityFingerprint(payload);
+    if (fingerprint === lastSavedAvailabilityFingerprintRef.current) return;
+
+    api.put('/api/account/availability', payload)
+      .then(() => {
+        lastSavedAvailabilityFingerprintRef.current = fingerprint;
+      })
+      .catch(() => {
+        // Silent fail.
+      });
+  }, [availabilityReady, daySelections, formData.sessionDurationHours, isLoggedIn, selectedTimeZone]);
+
+  useEffect(() => () => {
+    if (availabilitySaveTimerRef.current) clearTimeout(availabilitySaveTimerRef.current);
+  }, []);
   
   const startPageTransition = (action) => {
     if (typeof action !== 'function') {
@@ -495,6 +645,9 @@ function StudentCourseRequestPage() {
 
   const handleNext = () => {
     startPageTransition(() => {
+      if (currentStep.id === 'schedule') {
+        flushAvailabilitySave();
+      }
       if (currentStep.id === 'direction') {
         // 进入方向选择阶段时，默认选中第一个选项
         if (!isDirectionSelection) {
@@ -760,7 +913,10 @@ function StudentCourseRequestPage() {
         return (
           <ScheduleStepContent
             availability={formData.availability}
-            onAvailabilityChange={handleChange("availability")}
+            onAvailabilityChange={(e) => {
+              hasEditedAvailabilityRef.current = true;
+              setFormData((prev) => ({ ...prev, availability: e.target.value }));
+            }}
             orderedTimeZoneOptions={orderedTimeZoneOptions}
             monthLabel={monthLabel}
             onPrevMonth={handlePrevMonth}
@@ -842,7 +998,10 @@ function StudentCourseRequestPage() {
               <button
                 type="button"
                 className="ghost-button"
-                onClick={() => navigate('/student')}
+                onClick={() => {
+                  flushAvailabilitySave();
+                  navigate('/student');
+                }}
               >
                 保存并退出
               </button>
@@ -938,7 +1097,10 @@ function StudentCourseRequestPage() {
                     setSelectedDate={setSelectedDateNoon}
                     setViewMonth={setViewMonth}
                     daySelections={daySelections}
-                    setDaySelections={setDaySelections}
+                    setDaySelections={(updater) => {
+                      hasEditedAvailabilityRef.current = true;
+                      setDaySelections(updater);
+                    }}
                     dragPreviewKeys={dragPreviewKeys}
                     setDragPreviewKeys={setDragPreviewKeys}
                     enumerateKeysInclusive={enumerateKeysInclusive}
@@ -953,9 +1115,15 @@ function StudentCourseRequestPage() {
                     ymdKey={ymdKey}
                     timesListRef={timesListRef}
                     sessionDurationHours={formData.sessionDurationHours}
-                    setFormData={setFormData}
+                    setFormData={(updater) => {
+                      hasEditedAvailabilityRef.current = true;
+                      setFormData(updater);
+                    }}
                     getDayBlocks={getBlocksForDay}
-                    setDayBlocks={setBlocksForDay}
+                    setDayBlocks={(key, next) => {
+                      hasEditedAvailabilityRef.current = true;
+                      setBlocksForDay(key, next);
+                    }}
                     selectedTimeZone={selectedTimeZone}
                     zonedTodayKey={zonedTodayKey}
                     zonedNowMinutes={zonedNowMinutes}
