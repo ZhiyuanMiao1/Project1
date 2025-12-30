@@ -55,6 +55,25 @@ const toNoonDate = (dateLike) => {
 
 const QUARTER_HOUR_MS = 15 * 60 * 1000;
 
+const ATTACHMENT_ACCEPT = '.pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip';
+const ALLOWED_ATTACHMENT_EXTS = new Set(
+  ATTACHMENT_ACCEPT.split(',')
+    .map((s) => s.trim().replace(/^\./, '').toLowerCase())
+    .filter(Boolean)
+);
+
+const getFileExt = (fileName) => {
+  if (!fileName) return '';
+  const idx = String(fileName).lastIndexOf('.');
+  if (idx < 0) return '';
+  return String(fileName).slice(idx + 1).toLowerCase();
+};
+
+const isAllowedAttachmentFile = (file) => {
+  const ext = getFileExt(file?.name);
+  return !!ext && ALLOWED_ATTACHMENT_EXTS.has(ext);
+};
+
 
 
 function StudentCourseRequestPage() {
@@ -86,6 +105,7 @@ function StudentCourseRequestPage() {
   const [transitionStage, setTransitionStage] = useState('idle');
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
+  const [uploadValidationMessage, setUploadValidationMessage] = useState('');
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
   const previousTimeZoneRef = useRef(selectedTimeZone);
 
@@ -411,9 +431,25 @@ function StudentCourseRequestPage() {
   const handleAddFiles = (filesLike) => {
     const list = Array.from(filesLike || []);
     if (!list.length) return;
+    const accepted = list.filter(isAllowedAttachmentFile);
+    const rejected = list.filter((f) => !isAllowedAttachmentFile(f));
+
+    if (rejected.length) {
+      const names = rejected
+        .map((f) => f?.name)
+        .filter(Boolean)
+        .slice(0, 3)
+        .join('、');
+      const suffix = rejected.length > 3 ? ' 等' : '';
+      setUploadValidationMessage(`不支持的文件：${names}${suffix}（仅支持 ${ATTACHMENT_ACCEPT}）`);
+    } else {
+      setUploadValidationMessage('');
+    }
+
+    if (!accepted.length) return;
     setFormData((prev) => ({
       ...prev,
-      attachments: [...(prev.attachments || []), ...list],
+      attachments: [...(prev.attachments || []), ...accepted],
     }));
   };
 
@@ -454,6 +490,7 @@ function StudentCourseRequestPage() {
   };
   const handleClearAttachments = () => {
     setFormData((prev) => ({ ...prev, attachments: [] }));
+    setUploadValidationMessage('');
   };
 
   const handleNext = () => {
@@ -753,6 +790,8 @@ function StudentCourseRequestPage() {
             attachments={formData.attachments}
             onRemoveAttachment={handleRemoveAttachment}
             onClearAttachments={handleClearAttachments}
+            accept={ATTACHMENT_ACCEPT}
+            validationMessage={uploadValidationMessage}
           />
         );
       default:

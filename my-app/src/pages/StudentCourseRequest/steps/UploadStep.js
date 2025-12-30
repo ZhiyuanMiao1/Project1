@@ -13,6 +13,8 @@ function UploadStep({
   attachments,
   onRemoveAttachment,
   onClearAttachments,
+  accept,
+  validationMessage,
 }) {
   return (
     <div className="step-field-stack upload-stack">
@@ -35,10 +37,15 @@ function UploadStep({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip"
+          accept={accept}
           style={{ display: 'none' }}
           onChange={onFileInputChange}
         />
+        {!!validationMessage && (
+          <div className="upload-validation" role="status" aria-live="polite">
+            {validationMessage}
+          </div>
+        )}
       </div>
 
       {(attachments && attachments.length > 0) && (
