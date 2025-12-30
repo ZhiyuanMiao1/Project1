@@ -736,14 +736,6 @@ function MessagesPage() {
   const meetingId = (typeof activeSchedule?.meetingId === 'string' && activeSchedule.meetingId.trim())
     ? activeSchedule.meetingId
     : DEFAULT_MEETING_ID;
-  const scheduleHoverTime = useMemo(() => {
-    if (!activeThread) return '';
-    const lastMessage = Array.isArray(activeThread.messages) && activeThread.messages.length > 0
-      ? activeThread.messages[activeThread.messages.length - 1]
-      : null;
-    const candidateTime = activeThread.time || lastMessage?.time || '';
-    return formatHoverTime(candidateTime);
-  }, [activeThread]);
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
@@ -1241,6 +1233,7 @@ function MessagesPage() {
                     const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
                     const isOutgoing = cardDirection === 'outgoing';
                     const isPrimary = Boolean(scheduleCard?.__primary);
+                    const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '');
 
                     const windowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
                       ? scheduleCard.window
@@ -1427,9 +1420,9 @@ function MessagesPage() {
                             ) : null}
                           </div>
 
-                          {isPrimary && scheduleHoverTime && (
+                          {cardHoverTime && (
                             <div className="schedule-hover-time" aria-hidden="true">
-                              {scheduleHoverTime}
+                              {cardHoverTime}
                             </div>
                           )}
                         </div>
