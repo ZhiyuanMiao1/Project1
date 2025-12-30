@@ -444,7 +444,7 @@
   padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
 }
 .file-item .meta { display: flex; gap: 10px; align-items: baseline; }
-.file-item .name { font-weight: 600; }
+.file-item .name { font-weight: 500; }
 .file-item .size { color: #6b7280; font-size: 12px; }
 .file-actions { display: flex; justify-content: flex-end; }
 
