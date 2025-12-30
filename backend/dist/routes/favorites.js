@@ -240,7 +240,7 @@ router.get('/items', auth_1.requireAuth, [
         return;
     const collectionId = req.query.collectionId ? Number(req.query.collectionId) : null;
     const itemType = req.query.itemType ? String(req.query.itemType) : null;
-    const limit = req.query.limit ? Number(req.query.limit) : Number.NaN;
+    const limit = req.query.limit ? Number.parseInt(String(req.query.limit), 10) : Number.NaN;
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : null;
     const idsOnly = (() => {
         const raw = req.query.idsOnly;
@@ -266,15 +266,12 @@ router.get('/items', auth_1.requireAuth, [
             where.push('fi.item_type = ?');
             params.push(itemType);
         }
-        const sqlParams = [...params, target.userId, target.role];
         const sql = `SELECT fi.id, fi.collection_id, fi.item_type, fi.item_id, fi.payload_json, fi.created_at
          FROM favorite_items fi
          INNER JOIN favorite_collections fc ON fc.id = fi.collection_id
          WHERE ${where.join(' AND ')} AND fc.user_id = ? AND fc.role = ?
-         ORDER BY fi.created_at DESC, fi.id DESC${safeLimit ? ' LIMIT ?' : ''}`;
-        if (safeLimit)
-            sqlParams.push(safeLimit);
-        const rows = await (0, db_1.query)(sql, sqlParams);
+         ORDER BY fi.created_at DESC, fi.id DESC${safeLimit ? ` LIMIT ${safeLimit}` : ''}`;
+        const rows = await (0, db_1.query)(sql, [...params, target.userId, target.role]);
         if (idsOnly) {
             return res.json({ ids: rows.map((r) => String(r.item_id)) });
         }
