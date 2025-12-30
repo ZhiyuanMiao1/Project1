@@ -4,13 +4,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection } from '../../api/favorites';
+import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection, fetchFavoriteItems } from '../../api/favorites';
 import tutor1 from '../../assets/images/tutor1.jpg';
 import tutor2 from '../../assets/images/tutor2.jpg';
 import tutor3 from '../../assets/images/tutor3.jpg';
 import tutor4 from '../../assets/images/tutor4.jpg';
 import tutor5 from '../../assets/images/tutor5.jpg';
 import tutor6 from '../../assets/images/tutor6.jpg';
+import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import './FavoritesPage.css';
 
 const COVER_POOL = [tutor1, tutor2, tutor3, tutor4, tutor5, tutor6];
@@ -23,14 +24,23 @@ const RECENT_COLLECTION = {
   images: [tutor1, tutor2, tutor3, tutor4],
 };
 
-
-
-const buildCover = (seed = 0) => {
-  const covers = [];
-  for (let i = 0; i < 4; i += 1) {
-    covers.push(COVER_POOL[(seed + i) % COVER_POOL.length]);
+const getCoverImageUrl = (payload) => {
+  if (!payload || typeof payload !== 'object') return null;
+  const candidates = [
+    payload.imageUrl,
+    payload.avatarUrl,
+    payload.avatar_url,
+    payload.photoUrl,
+    payload.photo_url,
+    payload.image,
+    payload.avatar,
+  ];
+  for (const val of candidates) {
+    if (typeof val === 'string' && val.trim()) return val.trim();
   }
-  return covers;
+  const images = Array.isArray(payload.images) ? payload.images : [];
+  const firstImage = images.find((img) => typeof img === 'string' && img.trim());
+  return firstImage ? firstImage.trim() : null;
 };
 
 const formatCreatedAt = (value) => {
@@ -50,6 +60,7 @@ function FavoritesPage() {
   const [pendingDelete, setPendingDelete] = useState(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [userCollections, setUserCollections] = useState([]);
+  const [collectionCovers, setCollectionCovers] = useState(() => ({}));
   const [recentVisitLabel] = useState(RECENT_COLLECTION.meta || '今天');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -60,6 +71,7 @@ function FavoritesPage() {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
   const menuAnchorRef = useRef(null);
+  const loadSeqRef = useRef(0);
 
   const preferredRole = useMemo(() => {
     const searchRole = (() => {
@@ -130,9 +142,12 @@ function FavoritesPage() {
   }, [isLoggedIn, preferredRole]);
 
   const loadCollections = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     if (!isLoggedIn) {
       setUserCollections([]);
+      setCollectionCovers({});
       setErrorMessage('请登录后查看收藏夹');
+      setLoading(false);
       return;
     }
 
@@ -141,8 +156,26 @@ function FavoritesPage() {
     try {
       const res = await fetchFavoriteCollections(preferredRole);
       const list = Array.isArray(res?.data?.collections) ? res.data.collections : [];
+      const coverEntries = await Promise.all(
+        list.map(async (collection) => {
+          const collectionId = collection?.id;
+          if (!collectionId) return [String(collectionId ?? ''), []];
+          try {
+            const itemsRes = await fetchFavoriteItems({ role: preferredRole, collectionId, limit: 4 });
+            const items = Array.isArray(itemsRes?.data?.items) ? itemsRes.data.items : [];
+            const cover = items.slice(0, 4).map((item) => getCoverImageUrl(item?.payload) || defaultAvatar);
+            return [String(collectionId), cover];
+          } catch {
+            return [String(collectionId), []];
+          }
+        })
+      );
+
+      if (loadSeqRef.current !== seq) return;
       setUserCollections(list);
+      setCollectionCovers(Object.fromEntries(coverEntries));
     } catch (e) {
+      if (loadSeqRef.current !== seq) return;
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
       if (status === 401) {
@@ -152,8 +185,10 @@ function FavoritesPage() {
       } else {
         setErrorMessage(msg || '加载收藏夹失败，请稍后再试');
       }
+      setUserCollections([]);
+      setCollectionCovers({});
     } finally {
-      setLoading(false);
+      if (loadSeqRef.current === seq) setLoading(false);
     }
   }, [isLoggedIn, preferredRole]);
 
@@ -177,17 +212,17 @@ function FavoritesPage() {
       isRecent: true,
     };
 
-    const mapped = userCollections.map((item, idx) => ({
+    const mapped = userCollections.map((item) => ({
       isDefault: !!item.isDefault,
       id: item.id,
       title: item.name,
-      cover: buildCover(item.id || idx),
+      cover: Array.isArray(collectionCovers?.[String(item.id)]) ? collectionCovers[String(item.id)] : [],
       metaText: item.isDefault ? '系统默认' : formatCreatedAt(item.createdAt),
       isRecent: false,
     }));
 
     return [recentCard, ...mapped];
-  }, [recentVisitLabel, userCollections]);
+  }, [collectionCovers, recentVisitLabel, userCollections]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
@@ -212,6 +247,11 @@ function FavoritesPage() {
     deleteFavoriteCollection(pendingDelete.id)
       .then(() => {
         setUserCollections((prev) => prev.filter((c) => c.id !== pendingDelete.id));
+        setCollectionCovers((prev) => {
+          const next = { ...(prev || {}) };
+          delete next[String(pendingDelete.id)];
+          return next;
+        });
         closeDeleteModal();
       })
       .catch((e) => {
@@ -247,6 +287,7 @@ function FavoritesPage() {
       const created = res?.data?.collection;
       if (created) {
         setUserCollections((prev) => [created, ...prev]);
+        setCollectionCovers((prev) => ({ ...(prev || {}), [String(created.id)]: [] }));
       }
       closeCreateModal();
     } catch (e) {
@@ -310,6 +351,8 @@ function FavoritesPage() {
           {normalizedCollections.map((item) => {
             const isRecent = item.isRecent;
             const isDefault = !!item.isDefault;
+            const cover = Array.isArray(item.cover) ? item.cover.slice(0, 4) : [];
+            const coverCount = cover.length;
             const cardClass = `favorites-card ${isRecent ? 'favorites-card--highlight' : 'favorites-card--removable'}`;
             return (
               <article
@@ -365,13 +408,21 @@ function FavoritesPage() {
                       </svg>
                     </button>
                   )}
-                  <div className="cover-grid">
-                    {item.cover.map((src, idx) => (
-                      <div key={idx} className={`cover-cell cover-cell-${idx}`}>
-                        <img src={src} alt={`${item.title} 封面 ${idx + 1}`} />
+                  {coverCount === 0 ? (
+                    <div className="cover-empty" aria-label="空收藏夹">
+                      <div className="cover-empty-icon" aria-hidden="true">
+                        <FaHeart />
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="cover-grid" data-count={coverCount}>
+                      {cover.map((src, idx) => (
+                        <div key={idx} className={`cover-cell cover-cell-${idx}`}>
+                          <img src={src} alt={`${item.title} 封面 ${idx + 1}`} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="favorites-card-body">
                   <div className="favorites-card-title">

@@ -228,6 +228,7 @@ router.get('/items', auth_1.requireAuth, [
     (0, express_validator_1.query)('collectionId').optional().isInt({ gt: 0 }).withMessage('collectionId无效'),
     (0, express_validator_1.query)('itemType').optional().isString().trim().isLength({ min: 1, max: 50 }).withMessage('itemType无效'),
     (0, express_validator_1.query)('idsOnly').optional().isIn(['1', '0', 'true', 'false']),
+    (0, express_validator_1.query)('limit').optional().isInt({ gt: 0, lt: 101 }).withMessage('limit无效'),
 ], async (req, res) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
@@ -239,6 +240,8 @@ router.get('/items', auth_1.requireAuth, [
         return;
     const collectionId = req.query.collectionId ? Number(req.query.collectionId) : null;
     const itemType = req.query.itemType ? String(req.query.itemType) : null;
+    const limit = req.query.limit ? Number(req.query.limit) : Number.NaN;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : null;
     const idsOnly = (() => {
         const raw = req.query.idsOnly;
         if (raw === '1' || raw === 'true')
@@ -263,11 +266,15 @@ router.get('/items', auth_1.requireAuth, [
             where.push('fi.item_type = ?');
             params.push(itemType);
         }
-        const rows = await (0, db_1.query)(`SELECT fi.id, fi.collection_id, fi.item_type, fi.item_id, fi.payload_json, fi.created_at
+        const sqlParams = [...params, target.userId, target.role];
+        const sql = `SELECT fi.id, fi.collection_id, fi.item_type, fi.item_id, fi.payload_json, fi.created_at
          FROM favorite_items fi
          INNER JOIN favorite_collections fc ON fc.id = fi.collection_id
          WHERE ${where.join(' AND ')} AND fc.user_id = ? AND fc.role = ?
-         ORDER BY fi.created_at DESC, fi.id DESC`, [...params, target.userId, target.role]);
+         ORDER BY fi.created_at DESC, fi.id DESC${safeLimit ? ' LIMIT ?' : ''}`;
+        if (safeLimit)
+            sqlParams.push(safeLimit);
+        const rows = await (0, db_1.query)(sql, sqlParams);
         if (idsOnly) {
             return res.json({ ids: rows.map((r) => String(r.item_id)) });
         }

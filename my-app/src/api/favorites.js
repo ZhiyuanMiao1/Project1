@@ -12,12 +12,14 @@ export const deleteFavoriteCollection = (id) => {
   return client.delete(`/api/favorites/collections/${id}`);
 };
 
-export const fetchFavoriteItems = ({ role, collectionId, itemType, idsOnly } = {}) => {
+export const fetchFavoriteItems = ({ role, collectionId, itemType, idsOnly, limit } = {}) => {
   const params = {};
   if (role) params.role = role;
   if (collectionId) params.collectionId = collectionId;
   if (itemType) params.itemType = itemType;
   if (idsOnly) params.idsOnly = 1;
+  const limitNumber = Number(limit);
+  if (Number.isFinite(limitNumber) && limitNumber > 0) params.limit = limitNumber;
   return client.get('/api/favorites/items', { params });
 };
 
