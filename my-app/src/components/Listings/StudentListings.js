@@ -5,6 +5,7 @@ import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
+const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
 
 const REGION_OFFSET_RANGES = {
   中国: [{ min: 7.5, max: 8.5 }], // UTC+8
@@ -107,6 +108,7 @@ function StudentListings() {
   const [listError, setListError] = useState('');
   const [appliedRegion, setAppliedRegion] = useState('');
   const [appliedExactSearch, setAppliedExactSearch] = useState('');
+  const [appliedCategoryId, setAppliedCategoryId] = useState(null);
 
   useEffect(() => {
     const handler = (event) => {
@@ -116,6 +118,15 @@ function StudentListings() {
     };
     window.addEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
     return () => window.removeEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = (event) => {
+      const id = event?.detail?.categoryId;
+      setAppliedCategoryId(typeof id === 'string' && id.trim() ? id.trim() : null);
+    };
+    window.addEventListener(STUDENT_LISTINGS_CATEGORY_EVENT, handler);
+    return () => window.removeEventListener(STUDENT_LISTINGS_CATEGORY_EVENT, handler);
   }, []);
 
   const mentors = useMemo(() => {
@@ -147,7 +158,7 @@ function StudentListings() {
       const startedAt = Date.now();
 
       try {
-        const res = await fetchApprovedMentors();
+        const res = await fetchApprovedMentors({ directionId: appliedCategoryId || '' });
         if (!alive) return;
 
         const list = Array.isArray(res?.data?.mentors) ? res.data.mentors : [];
@@ -201,7 +212,7 @@ function StudentListings() {
       alive = false;
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [appliedCategoryId]);
 
   useEffect(() => {
     const handler = (event) => {

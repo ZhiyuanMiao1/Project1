@@ -4,6 +4,7 @@ import { query } from '../db';
 const router = Router();
 
 type ApprovedMentorRow = {
+  user_id: number;
   public_id: string;
   username: string | null;
   display_name: string | null;
@@ -30,7 +31,11 @@ type ApprovedMentorCard = {
   timezone: string;
   languages: string;
   imageUrl: string | null;
+  relevanceScore?: number;
+  relevanceCourse?: string;
 };
+
+type MentorInternal = ApprovedMentorCard & { _userId: number };
 
 let mentorRatingColumnsEnsured = false;
 
@@ -86,13 +91,56 @@ const normalizeCount = (raw: any) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
+const parseEmbedding = (raw: any): number[] | null => {
+  if (!raw) return null;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const out = parsed.map((x) => (typeof x === 'number' ? x : Number.parseFloat(String(x))));
+    if (out.some((n) => !Number.isFinite(n))) return null;
+    return out as number[];
+  } catch {
+    return null;
+  }
+};
+
+const l2Norm = (vec: number[]) => {
+  let sum = 0;
+  for (let i = 0; i < vec.length; i++) sum += vec[i] * vec[i];
+  return Math.sqrt(sum);
+};
+
+const cosineSimilarity = (a: number[], aNorm: number, b: number[], bNorm: number) => {
+  if (a.length !== b.length || a.length === 0) return 0;
+  if (aNorm <= 0 || bNorm <= 0) return 0;
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot / (aNorm * bNorm);
+};
+
+type MentorCourseEmbeddingRow = { user_id: number; course_text: string; embedding: any };
+
+async function loadDirectionEmbeddingById(directionId: string) {
+  const rows = await query<any[]>(
+    'SELECT embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id = ? LIMIT 1',
+    ['direction', directionId]
+  );
+  const row = rows?.[0];
+  const embedding = parseEmbedding(row?.embedding);
+  if (!embedding) return null;
+  return { embedding, embeddingDim: Number(row?.embedding_dim) || embedding.length };
+}
+
 // GET /api/mentors/approved
 // Public: return mentors who have passed approval.
 router.get('/approved', async (_req: Request, res: Response) => {
+  const directionId = typeof _req.query?.directionId === 'string' ? _req.query.directionId.trim() : '';
+
   const runQuery = async () => {
     const rows = await query<ApprovedMentorRow[]>(
       `
       SELECT
+        ur.user_id,
         ur.public_id,
         u.username,
         mp.display_name,
@@ -127,21 +175,22 @@ router.get('/approved', async (_req: Request, res: Response) => {
       rows = await runQuery();
     }
 
-    const mentors: ApprovedMentorCard[] = rows
-      .map((row) => {
-        const courses = parseCourses(row.courses_json);
-        const hasAnyProfileInfo =
-          hasNonEmptyText(row.avatar_url) ||
-          hasNonEmptyText(row.school) ||
-          hasNonEmptyText(row.degree) ||
-          hasNonEmptyText(row.timezone) ||
-          hasNonEmptyText(row.gender) ||
-          courses.length > 0;
+    let mentors: MentorInternal[] = rows.flatMap((row) => {
+      const courses = parseCourses(row.courses_json);
+      const hasAnyProfileInfo =
+        hasNonEmptyText(row.avatar_url) ||
+        hasNonEmptyText(row.school) ||
+        hasNonEmptyText(row.degree) ||
+        hasNonEmptyText(row.timezone) ||
+        hasNonEmptyText(row.gender) ||
+        courses.length > 0;
 
-        if (!hasAnyProfileInfo) return undefined;
+      if (!hasAnyProfileInfo) return [];
 
-        const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
-        return {
+      const name = (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id;
+      return [
+        {
+          _userId: Number(row.user_id),
           id: row.public_id,
           name,
           gender: row.gender || '',
@@ -153,11 +202,71 @@ router.get('/approved', async (_req: Request, res: Response) => {
           timezone: row.timezone || '',
           languages: '',
           imageUrl: row.avatar_url || null,
-        };
-      })
-      .filter((mentor): mentor is ApprovedMentorCard => !!mentor);
+        },
+      ];
+    });
 
-    return res.json({ mentors });
+    if (directionId) {
+      const queryEmbeddingInfo = await loadDirectionEmbeddingById(directionId);
+      if (queryEmbeddingInfo) {
+        const q = queryEmbeddingInfo.embedding;
+        const qNorm = l2Norm(q);
+
+        const userIds = mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n));
+        if (userIds.length > 0) {
+          const placeholders = userIds.map(() => '?').join(',');
+          let courseRows: MentorCourseEmbeddingRow[] = [];
+          try {
+            courseRows = await query<MentorCourseEmbeddingRow[]>(
+              `SELECT user_id, course_text, embedding FROM mentor_course_embeddings WHERE user_id IN (${placeholders})`,
+              userIds as any[]
+            );
+          } catch (e: any) {
+            const code = String(e?.code || '');
+            const msg = String(e?.message || '');
+            if (!(code === 'ER_NO_SUCH_TABLE' || msg.includes("doesn't exist"))) throw e;
+            courseRows = [];
+          }
+
+          const byUser = new Map<number, Array<{ courseText: string; embedding: number[]; norm: number }>>();
+          for (const r of courseRows || []) {
+            const uid = Number(r?.user_id);
+            if (!Number.isFinite(uid)) continue;
+            const emb = parseEmbedding(r?.embedding);
+            if (!emb || emb.length !== q.length) continue;
+            const list = byUser.get(uid) || [];
+            list.push({ courseText: String(r?.course_text || ''), embedding: emb, norm: l2Norm(emb) });
+            byUser.set(uid, list);
+          }
+
+          mentors = mentors
+            .map((m) => {
+              const uid = Number(m._userId);
+              const list = byUser.get(uid) || [];
+              let bestScore = 0;
+              let bestCourse = '';
+              for (const item of list) {
+                const score = cosineSimilarity(q, qNorm, item.embedding, item.norm);
+                if (score > bestScore) {
+                  bestScore = score;
+                  bestCourse = item.courseText;
+                }
+              }
+              return { ...m, relevanceScore: bestScore, relevanceCourse: bestCourse };
+            })
+            .sort((a, b) => {
+              const sa = typeof a.relevanceScore === 'number' ? a.relevanceScore : 0;
+              const sb = typeof b.relevanceScore === 'number' ? b.relevanceScore : 0;
+              if (sb !== sa) return sb - sa;
+              return String(a.id).localeCompare(String(b.id));
+            });
+        }
+      }
+    }
+
+    const publicMentors: ApprovedMentorCard[] = mentors.map(({ _userId, ...rest }) => rest);
+
+    return res.json({ mentors: publicMentors });
   } catch (e) {
     console.error('Fetch approved mentors error:', e);
     return res.status(500).json({ error: 'server_error' });
