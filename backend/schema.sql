@@ -123,3 +123,21 @@ CREATE TABLE IF NOT EXISTS `favorite_items` (
   CONSTRAINT `fk_fav_items_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE,
   CONSTRAINT `fk_fav_items_collection` FOREIGN KEY (`collection_id`) REFERENCES `favorite_collections`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8) Course embeddings (DashScope text-embedding-v4)
+CREATE TABLE IF NOT EXISTS `course_embeddings` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `kind` ENUM('direction','course_type') NOT NULL,
+  `source_id` VARCHAR(64) NOT NULL,
+  `label` VARCHAR(255) NOT NULL,
+  `model` VARCHAR(64) NOT NULL,
+  `embedding_dim` INT NOT NULL,
+  `embedding` JSON NOT NULL,
+  `text` VARCHAR(512) NOT NULL,
+  `text_hash` CHAR(64) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_embeddings_kind_source` (`kind`, `source_id`),
+  KEY `idx_course_embeddings_label` (`label`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
