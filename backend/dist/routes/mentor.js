@@ -4,7 +4,14 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
+const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
 const router = (0, express_1.Router)();
+const requiredEnv = (name) => {
+    const value = process.env[name];
+    if (!value || !value.trim())
+        throw new Error(`Missing env var: ${name}`);
+    return value.trim();
+};
 // GET /api/mentor/permissions
 // Check mentor permissions (e.g., can edit profile card)
 router.get('/permissions', auth_1.requireAuth, async (req, res) => {
@@ -134,21 +141,55 @@ router.put('/profile', auth_1.requireAuth, [
         const nextDegree = (Object.prototype.hasOwnProperty.call(req.body, 'degree') ? degree : (existing.degree || ''));
         const nextSchool = (Object.prototype.hasOwnProperty.call(req.body, 'school') ? school : (existing.school || ''));
         const nextTimezone = (Object.prototype.hasOwnProperty.call(req.body, 'timezone') ? timezone : (existing.timezone || ''));
-        const nextCourses = Object.prototype.hasOwnProperty.call(req.body, 'courses') ? (courses || []) : (Array.isArray(existingCourses) ? existingCourses : []);
+        const nextCoursesRaw = Object.prototype.hasOwnProperty.call(req.body, 'courses')
+            ? (courses || [])
+            : (Array.isArray(existingCourses) ? existingCourses : []);
+        const nextCourses = (0, mentorCourseEmbeddings_1.sanitizeMentorCourses)(nextCoursesRaw, 50);
         const nextAvatarUrl = Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl') ? (avatarUrl ?? null) : (existing.avatar_url ?? null);
-        const coursesJson = JSON.stringify((nextCourses || []).filter(Boolean));
-        // Upsert by user_id
-        await (0, db_1.query)(`INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-            display_name = VALUES(display_name),
-            gender = VALUES(gender),
-            degree = VALUES(degree),
-            school = VALUES(school),
-            timezone = VALUES(timezone),
-            courses_json = VALUES(courses_json),
-            avatar_url = VALUES(avatar_url),
-            updated_at = CURRENT_TIMESTAMP`, [req.user.id, nextDisplayName, nextGender || null, nextDegree || null, nextSchool || null, nextTimezone || null, coursesJson, nextAvatarUrl]);
+        const coursesJson = JSON.stringify(nextCourses);
+        const userId = req.user.id;
+        const preparedEmbeddings = nextCourses.length > 0
+            ? await (0, mentorCourseEmbeddings_1.prepareMentorCourseEmbeddings)({
+                userId,
+                courses: nextCourses,
+                apiKey: requiredEnv('DASHSCOPE_API_KEY'),
+            })
+            : { keepKeys: [], upserts: [] };
+        const conn = await db_1.pool.getConnection();
+        try {
+            await conn.beginTransaction();
+            // Upsert by user_id
+            await conn.execute(`INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+              display_name = VALUES(display_name),
+              gender = VALUES(gender),
+              degree = VALUES(degree),
+              school = VALUES(school),
+              timezone = VALUES(timezone),
+              courses_json = VALUES(courses_json),
+              avatar_url = VALUES(avatar_url),
+              updated_at = CURRENT_TIMESTAMP`, [userId, nextDisplayName, nextGender || null, nextDegree || null, nextSchool || null, nextTimezone || null, coursesJson, nextAvatarUrl]);
+            await (0, mentorCourseEmbeddings_1.applyMentorCourseEmbeddings)({
+                userId,
+                keepKeys: preparedEmbeddings.keepKeys,
+                upserts: preparedEmbeddings.upserts,
+                exec: async (sql, args = []) => {
+                    await conn.execute(sql, args);
+                },
+            });
+            await conn.commit();
+        }
+        catch (e) {
+            try {
+                await conn.rollback();
+            }
+            catch { }
+            throw e;
+        }
+        finally {
+            conn.release();
+        }
         return res.json({ message: '保存成功' });
     }
     catch (e) {

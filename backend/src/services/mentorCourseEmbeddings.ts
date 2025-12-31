@@ -1,0 +1,229 @@
+import crypto from 'crypto';
+import { dashscopeEmbedTexts } from './dashscopeEmbeddings';
+import { query } from '../db';
+
+export type MentorCourseEmbeddingRow = {
+  courseText: string;
+  courseTextNorm: string;
+  courseKey: string;
+  model: string;
+  embeddingDim: number;
+  embedding: number[];
+  textHash: string;
+};
+
+const DEFAULT_MODEL = 'text-embedding-v4';
+
+const sha256Hex = (input: string) => crypto.createHash('sha256').update(input).digest('hex');
+
+const normalizeCourseText = (input: string) => {
+  const s = String(input ?? '').trim();
+  const collapsed = s.replace(/\s+/g, ' ');
+  return collapsed.toLowerCase();
+};
+
+export function sanitizeMentorCourses(raw: any, maxCount = 50): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const s = item.trim();
+    if (!s) continue;
+    if (s.length > 100) continue;
+    const key = normalizeCourseText(s);
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+    if (out.length >= maxCount) break;
+  }
+
+  return out;
+}
+
+export async function ensureMentorCourseEmbeddingsTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS \`mentor_course_embeddings\` (
+      \`id\` INT NOT NULL AUTO_INCREMENT,
+      \`user_id\` INT NOT NULL,
+      \`course_text\` VARCHAR(255) NOT NULL,
+      \`course_text_norm\` VARCHAR(255) NOT NULL,
+      \`course_key\` CHAR(64) NOT NULL,
+      \`model\` VARCHAR(64) NOT NULL,
+      \`embedding_dim\` INT NOT NULL,
+      \`embedding\` JSON NOT NULL,
+      \`text_hash\` CHAR(64) NOT NULL,
+      \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (\`id\`),
+      UNIQUE KEY \`uniq_mentor_course_user_key\` (\`user_id\`, \`course_key\`),
+      KEY \`idx_mentor_course_user\` (\`user_id\`),
+      CONSTRAINT \`fk_mentor_course_embeddings_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+type GlobalEmbeddingRow = { label: string; embedding: any; embedding_dim: number; model: string };
+
+async function loadGlobalEmbeddingsByLabel(labels: string[], model: string) {
+  const unique = Array.from(new Set(labels.map((s) => s.trim()).filter(Boolean)));
+  if (unique.length === 0) return new Map<string, { embedding: number[]; embeddingDim: number }>();
+  const placeholders = unique.map(() => '?').join(',');
+  const rows = await query<GlobalEmbeddingRow[]>(
+    `SELECT label, embedding, embedding_dim, model FROM course_embeddings WHERE model = ? AND label IN (${placeholders})`,
+    [model, ...unique]
+  );
+
+  const map = new Map<string, { embedding: number[]; embeddingDim: number }>();
+  for (const r of rows || []) {
+    const label = String(r.label || '').trim();
+    if (!label) continue;
+    try {
+      const emb = typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding;
+      if (Array.isArray(emb) && emb.length > 0) {
+        map.set(label, { embedding: emb as number[], embeddingDim: Number(r.embedding_dim) || emb.length });
+      }
+    } catch {
+      // ignore malformed rows
+    }
+  }
+  return map;
+}
+
+type ExistingHashRow = { course_key: string; text_hash: string };
+
+async function loadExistingHashes(userId: number, keys: string[]) {
+  if (keys.length === 0) return new Map<string, string>();
+  const placeholders = keys.map(() => '?').join(',');
+  const rows = await query<ExistingHashRow[]>(
+    `SELECT course_key, text_hash FROM mentor_course_embeddings WHERE user_id = ? AND course_key IN (${placeholders})`,
+    [userId, ...keys]
+  );
+  const map = new Map<string, string>();
+  for (const r of rows || []) {
+    if (!r?.course_key) continue;
+    map.set(String(r.course_key), String(r.text_hash || ''));
+  }
+  return map;
+}
+
+export async function prepareMentorCourseEmbeddings(params: {
+  userId: number;
+  courses: string[];
+  apiKey: string;
+  model?: string;
+  url?: string;
+}) {
+  const model = (params.model || DEFAULT_MODEL).trim();
+
+  const items = params.courses
+    .map((courseText) => {
+      const courseTextTrim = String(courseText ?? '').trim();
+      const courseTextNorm = normalizeCourseText(courseTextTrim);
+      const courseKey = sha256Hex(courseTextNorm);
+      const textHash = sha256Hex(`${model}\n${courseTextTrim}`);
+      return { courseText: courseTextTrim, courseTextNorm, courseKey, textHash };
+    })
+    .filter((x) => x.courseText && x.courseTextNorm);
+
+  const keys = items.map((i) => i.courseKey);
+
+  await ensureMentorCourseEmbeddingsTable();
+
+  const existingByKey = await loadExistingHashes(params.userId, keys);
+  const globalByLabel = await loadGlobalEmbeddingsByLabel(items.map((i) => i.courseText), model);
+
+  const toEmbed: string[] = [];
+  const toEmbedIdx: number[] = [];
+  const prepared: MentorCourseEmbeddingRow[] = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const existingHash = existingByKey.get(it.courseKey);
+    if (existingHash && existingHash === it.textHash) continue;
+
+    const global = globalByLabel.get(it.courseText);
+    if (global) {
+      prepared.push({
+        courseText: it.courseText,
+        courseTextNorm: it.courseTextNorm,
+        courseKey: it.courseKey,
+        model,
+        embeddingDim: global.embeddingDim,
+        embedding: global.embedding,
+        textHash: it.textHash,
+      });
+      continue;
+    }
+
+    toEmbed.push(it.courseText);
+    toEmbedIdx.push(i);
+  }
+
+  if (toEmbed.length > 0) {
+    const embeddings = await dashscopeEmbedTexts(toEmbed, { apiKey: params.apiKey, model, url: params.url, batchSize: 16 });
+    for (let j = 0; j < embeddings.length; j++) {
+      const idx = toEmbedIdx[j];
+      const it = items[idx];
+      const emb = embeddings[j];
+      prepared.push({
+        courseText: it.courseText,
+        courseTextNorm: it.courseTextNorm,
+        courseKey: it.courseKey,
+        model,
+        embeddingDim: emb.length,
+        embedding: emb,
+        textHash: it.textHash,
+      });
+    }
+  }
+
+  return {
+    model,
+    keepKeys: keys,
+    upserts: prepared,
+  };
+}
+
+export async function applyMentorCourseEmbeddings(params: {
+  userId: number;
+  keepKeys: string[];
+  upserts: MentorCourseEmbeddingRow[];
+  exec: (sql: string, args?: any[]) => Promise<any>;
+}) {
+  await ensureMentorCourseEmbeddingsTable();
+
+  const exec = params.exec;
+
+  if (params.keepKeys.length === 0) {
+    await exec('DELETE FROM mentor_course_embeddings WHERE user_id = ?', [params.userId]);
+  } else {
+    const placeholders = params.keepKeys.map(() => '?').join(',');
+    await exec(`DELETE FROM mentor_course_embeddings WHERE user_id = ? AND course_key NOT IN (${placeholders})`, [
+      params.userId,
+      ...params.keepKeys,
+    ]);
+  }
+
+  for (const r of params.upserts) {
+    const embeddingJson = JSON.stringify(r.embedding);
+    await exec(
+      `
+      INSERT INTO mentor_course_embeddings
+        (user_id, course_text, course_text_norm, course_key, model, embedding_dim, embedding, text_hash)
+      VALUES
+        (?, ?, ?, ?, ?, ?, CAST(? AS JSON), ?)
+      ON DUPLICATE KEY UPDATE
+        course_text = VALUES(course_text),
+        course_text_norm = VALUES(course_text_norm),
+        model = VALUES(model),
+        embedding_dim = VALUES(embedding_dim),
+        embedding = VALUES(embedding),
+        text_hash = VALUES(text_hash)
+    `,
+      [params.userId, r.courseText, r.courseTextNorm, r.courseKey, r.model, r.embeddingDim, embeddingJson, r.textHash]
+    );
+  }
+}

@@ -141,3 +141,22 @@ CREATE TABLE IF NOT EXISTS `course_embeddings` (
   UNIQUE KEY `uniq_course_embeddings_kind_source` (`kind`, `source_id`),
   KEY `idx_course_embeddings_label` (`label`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9) Mentor custom course embeddings
+CREATE TABLE IF NOT EXISTS `mentor_course_embeddings` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `course_text` VARCHAR(255) NOT NULL,
+  `course_text_norm` VARCHAR(255) NOT NULL,
+  `course_key` CHAR(64) NOT NULL,
+  `model` VARCHAR(64) NOT NULL,
+  `embedding_dim` INT NOT NULL,
+  `embedding` JSON NOT NULL,
+  `text_hash` CHAR(64) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_mentor_course_user_key` (`user_id`, `course_key`),
+  KEY `idx_mentor_course_user` (`user_id`),
+  CONSTRAINT `fk_mentor_course_embeddings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
