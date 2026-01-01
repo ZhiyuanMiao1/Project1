@@ -13,12 +13,18 @@ type CourseRow = {
 };
 
 const DEFAULT_MODEL = 'text-embedding-v4';
+const DEFAULT_DIMENSION = 256;
 const DEFAULT_EMBEDDINGS_URL = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding';
 
 function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value || !value.trim()) throw new Error(`Missing env var: ${name}`);
   return value.trim();
+}
+
+function parseDimension(raw: any, fallback = DEFAULT_DIMENSION) {
+  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? '').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 function sha256Hex(input: string) {
@@ -120,7 +126,8 @@ async function ensureTable() {
   `);
 }
 
-async function fetchEmbedding(opts: { text: string; model: string; apiKey: string; url: string }) {
+async function fetchEmbedding(opts: { text: string; model: string; apiKey: string; url: string; dimension: number }) {
+  const dim = parseDimension(opts.dimension, DEFAULT_DIMENSION);
   const res = await fetch(opts.url, {
     method: 'POST',
     headers: {
@@ -130,6 +137,7 @@ async function fetchEmbedding(opts: { text: string; model: string; apiKey: strin
     body: JSON.stringify({
       model: opts.model,
       input: { texts: [opts.text] },
+      parameters: { dimension: dim },
     }),
   });
 
@@ -187,6 +195,10 @@ async function main() {
   const limit = typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : null;
 
   const model = (typeof args.get('model') === 'string' ? String(args.get('model')) : DEFAULT_MODEL).trim();
+  const dimension = parseDimension(
+    typeof args.get('dimension') === 'string' ? String(args.get('dimension')) : process.env.DASHSCOPE_EMBEDDING_DIM,
+    DEFAULT_DIMENSION
+  );
   const embeddingsUrl = String(process.env.DASHSCOPE_EMBEDDINGS_URL || DEFAULT_EMBEDDINGS_URL).trim();
   const apiKey = requiredEnv('DASHSCOPE_API_KEY');
 
@@ -197,14 +209,14 @@ async function main() {
   await ensureTable();
 
   console.log(`[embed-course-mappings] source=${courseMappingsPath}`);
-  console.log(`[embed-course-mappings] model=${model} url=${embeddingsUrl}`);
+  console.log(`[embed-course-mappings] model=${model} dim=${dimension} url=${embeddingsUrl}`);
   console.log(`[embed-course-mappings] total=${rows.length} force=${force} dryRun=${dryRun}`);
 
   let embedded = 0;
   let skipped = 0;
 
   for (const row of rows) {
-    const textHash = sha256Hex(`${model}\n${row.text}`);
+    const textHash = sha256Hex(`${model}\n${dimension}\n${row.text}`);
     const existing = await getExistingTextHash(row.kind, row.sourceId);
     if (!force && existing && existing === textHash) {
       skipped++;
@@ -217,7 +229,7 @@ async function main() {
       continue;
     }
 
-    const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl });
+    const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl, dimension });
     await upsertEmbedding(row, model, embedding, textHash);
     embedded++;
 
@@ -233,4 +245,3 @@ main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
-

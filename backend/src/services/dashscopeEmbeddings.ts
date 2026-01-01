@@ -6,12 +6,15 @@ export type DashScopeEmbeddingOptions = {
   model: string;
   url?: string;
   batchSize?: number;
+  dimension?: number;
 };
 
 export async function dashscopeEmbedTexts(texts: string[], opts: DashScopeEmbeddingOptions): Promise<number[][]> {
   const clean = texts.map((t) => String(t ?? '').trim());
   const url = (opts.url || DEFAULT_EMBEDDINGS_URL).trim();
   const batchSize = Math.max(1, Math.min(64, Number(opts.batchSize || 16)));
+  const dimensionRaw = typeof opts.dimension === 'number' ? opts.dimension : Number(opts.dimension);
+  const dimension = Number.isFinite(dimensionRaw) && dimensionRaw > 0 ? Math.floor(dimensionRaw) : null;
 
   const out: number[][] = [];
 
@@ -28,6 +31,7 @@ export async function dashscopeEmbedTexts(texts: string[], opts: DashScopeEmbedd
       body: JSON.stringify({
         model: opts.model,
         input: { texts: batch },
+        ...(dimension ? { parameters: { dimension } } : {}),
       }),
     });
 
@@ -59,4 +63,3 @@ export async function dashscopeEmbedTexts(texts: string[], opts: DashScopeEmbedd
 
   return out;
 }
-

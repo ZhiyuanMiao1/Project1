@@ -11,6 +11,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const dashscopeEmbeddings_1 = require("./dashscopeEmbeddings");
 const db_1 = require("../db");
 const DEFAULT_MODEL = 'text-embedding-v4';
+const DEFAULT_DIMENSION = 256;
 const sha256Hex = (input) => crypto_1.default.createHash('sha256').update(input).digest('hex');
 const normalizeCourseText = (input) => {
     const s = String(input ?? '').trim();
@@ -63,12 +64,16 @@ async function ensureMentorCourseEmbeddingsTable() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 }
-async function loadGlobalEmbeddingsByLabel(labels, model) {
+const parseEmbeddingDimension = (raw, fallback = DEFAULT_DIMENSION) => {
+    const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+async function loadGlobalEmbeddingsByLabel(labels, model, dimension) {
     const unique = Array.from(new Set(labels.map((s) => s.trim()).filter(Boolean)));
     if (unique.length === 0)
         return new Map();
     const placeholders = unique.map(() => '?').join(',');
-    const rows = await (0, db_1.query)(`SELECT label, embedding, embedding_dim, model FROM course_embeddings WHERE model = ? AND label IN (${placeholders})`, [model, ...unique]);
+    const rows = await (0, db_1.query)(`SELECT label, embedding, embedding_dim, model FROM course_embeddings WHERE model = ? AND embedding_dim = ? AND label IN (${placeholders})`, [model, dimension, ...unique]);
     const map = new Map();
     for (const r of rows || []) {
         const label = String(r.label || '').trim();
@@ -101,19 +106,20 @@ async function loadExistingHashes(userId, keys) {
 }
 async function prepareMentorCourseEmbeddings(params) {
     const model = (params.model || DEFAULT_MODEL).trim();
+    const dimension = parseEmbeddingDimension(params.dimension, parseEmbeddingDimension(process.env.DASHSCOPE_EMBEDDING_DIM, DEFAULT_DIMENSION));
     const items = params.courses
         .map((courseText) => {
         const courseTextTrim = String(courseText ?? '').trim();
         const courseTextNorm = normalizeCourseText(courseTextTrim);
         const courseKey = sha256Hex(courseTextNorm);
-        const textHash = sha256Hex(`${model}\n${courseTextTrim}`);
+        const textHash = sha256Hex(`${model}\n${dimension}\n${courseTextTrim}`);
         return { courseText: courseTextTrim, courseTextNorm, courseKey, textHash };
     })
         .filter((x) => x.courseText && x.courseTextNorm);
     const keys = items.map((i) => i.courseKey);
     await ensureMentorCourseEmbeddingsTable();
     const existingByKey = await loadExistingHashes(params.userId, keys);
-    const globalByLabel = await loadGlobalEmbeddingsByLabel(items.map((i) => i.courseText), model);
+    const globalByLabel = await loadGlobalEmbeddingsByLabel(items.map((i) => i.courseText), model, dimension);
     const toEmbed = [];
     const toEmbedIdx = [];
     const prepared = [];
@@ -129,6 +135,7 @@ async function prepareMentorCourseEmbeddings(params) {
                 courseTextNorm: it.courseTextNorm,
                 courseKey: it.courseKey,
                 model,
+                dimension,
                 embeddingDim: global.embeddingDim,
                 embedding: global.embedding,
                 textHash: it.textHash,
@@ -139,7 +146,13 @@ async function prepareMentorCourseEmbeddings(params) {
         toEmbedIdx.push(i);
     }
     if (toEmbed.length > 0) {
-        const embeddings = await (0, dashscopeEmbeddings_1.dashscopeEmbedTexts)(toEmbed, { apiKey: params.apiKey, model, url: params.url, batchSize: 16 });
+        const embeddings = await (0, dashscopeEmbeddings_1.dashscopeEmbedTexts)(toEmbed, {
+            apiKey: params.apiKey,
+            model,
+            url: params.url,
+            batchSize: 16,
+            dimension,
+        });
         for (let j = 0; j < embeddings.length; j++) {
             const idx = toEmbedIdx[j];
             const it = items[idx];
@@ -149,6 +162,7 @@ async function prepareMentorCourseEmbeddings(params) {
                 courseTextNorm: it.courseTextNorm,
                 courseKey: it.courseKey,
                 model,
+                dimension,
                 embeddingDim: emb.length,
                 embedding: emb,
                 textHash: it.textHash,
@@ -157,6 +171,7 @@ async function prepareMentorCourseEmbeddings(params) {
     }
     return {
         model,
+        dimension,
         keepKeys: keys,
         upserts: prepared,
     };
