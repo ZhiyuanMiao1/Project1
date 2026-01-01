@@ -153,6 +153,7 @@ export function courseTypeToCnLabel(value) {
 export function normalizeCourseLabel(raw) {
   const s = String(raw || '').trim();
   if (!s) return '';
+  if (DIRECTION_ID_TO_LABEL[s]) return DIRECTION_ID_TO_LABEL[s];
   if (DIRECTION_LABEL_ICON_MAP[s]) return s;
   const lower = s.toLowerCase();
   const has = (re) => re.test(s) || re.test(lower);

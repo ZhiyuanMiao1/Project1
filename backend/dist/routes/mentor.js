@@ -48,6 +48,66 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
     catch (e) {
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
+    const formatDuration = (raw) => {
+        const n = typeof raw === 'number' ? raw : Number(raw);
+        if (!Number.isFinite(n) || n <= 0)
+            return '';
+        const s = Math.round(n * 100) / 100;
+        return `${Number.isInteger(s) ? String(s) : String(s)}小时`;
+    };
+    try {
+        const rows = await (0, db_1.query)(`SELECT
+         r.id AS request_id,
+         r.course_direction,
+         r.course_type,
+         r.course_types_json,
+         r.time_zone,
+         r.session_duration_hours,
+         ur.public_id AS student_public_id,
+         mp.degree AS student_degree,
+         mp.school AS student_school,
+         mp.timezone AS student_timezone
+       FROM course_requests r
+       JOIN (
+         SELECT user_id, MAX(id) AS max_id
+         FROM course_requests
+         WHERE status = 'submitted'
+         GROUP BY user_id
+       ) latest
+         ON latest.user_id = r.user_id AND latest.max_id = r.id
+       JOIN user_roles ur
+         ON ur.user_id = r.user_id AND ur.role = 'student'
+       LEFT JOIN mentor_profiles mp
+         ON mp.user_id = r.user_id
+       WHERE r.status = 'submitted'
+       ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id ASC
+       LIMIT 200`);
+        const cards = (rows || []).map((r) => {
+            let courseTypes = [];
+            try {
+                courseTypes = r.course_types_json ? JSON.parse(r.course_types_json) : [];
+            }
+            catch {
+                courseTypes = [];
+            }
+            const courseType = (r.course_type || courseTypes?.[0] || '').toString();
+            return {
+                id: Number(r.request_id),
+                name: String(r.student_public_id || '').toUpperCase(),
+                degree: r.student_degree || '',
+                school: r.student_school || '',
+                timezone: r.time_zone || r.student_timezone || '',
+                courses: r.course_direction ? [String(r.course_direction)] : [],
+                courseType,
+                expectedDuration: formatDuration(r.session_duration_hours),
+            };
+        });
+        return res.json({ cards });
+    }
+    catch (e) {
+        console.error('Fetch mentor cards error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
     // Demo data; replace with DB query if needed
     const cards = [
         { id: 1, degree: 'PhD', school: '哈佛大学', courses: ['编程基础'], timezone: 'UTC+8 (北京)', expectedDuration: '2小时', expectedTime: '2025-02-01', courseType: '选课指导' },

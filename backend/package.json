@@ -9,6 +9,7 @@
     "db:migrate:v2": "npm run build && node dist/scripts/migrate-v2.js",
     "embed:courses": "npm run build && node dist/scripts/embed-course-mappings.js",
     "backfill:mentor-courses": "npm run build && node dist/scripts/backfill-mentor-course-embeddings.js",
+    "seed:mentor-cards": "npm run build && node dist/scripts/seed-mentor-cards.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

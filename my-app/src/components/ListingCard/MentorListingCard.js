@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
-import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
+import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
 import { toggleFavoriteItem } from '../../api/favorites';
 
 // 时区城市映射，与时区选择下拉一致
@@ -31,9 +31,51 @@ const TZ_CITY_MAP = {
 
 const formatTimezoneWithCity = (tz) => {
   if (!tz) return '';
-  const base = tz.replace(/\s*\(.*\)\s*$/, '').trim();
+  const raw = String(tz).trim();
+  const base = raw.replace(/\s*\(.*\)\s*$/, '').trim();
   const match = base.match(/UTC\s*([+-])\s*(\d{1,2})(?::\d{2})?/i);
-  if (!match) return tz;
+  if (!match) {
+    // Support IANA time zones like "Asia/Shanghai"
+    if (raw.includes('/')) {
+      try {
+        const referenceDate = new Date();
+        const fmt = new Intl.DateTimeFormat('en-US', {
+          timeZone: raw,
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        });
+        const parts = Object.fromEntries(
+          fmt
+            .formatToParts(referenceDate)
+            .filter((p) => p.type !== 'literal')
+            .map((p) => [p.type, p.value])
+        );
+        const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+        const tzAsUTC = new Date(iso);
+        const offMin = Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+
+        if (Number.isFinite(offMin)) {
+          const sign = offMin < 0 ? '-' : '+';
+          const abs = Math.abs(offMin);
+          const hh = Math.floor(abs / 60);
+          const mm = abs % 60;
+          const utc = mm ? `UTC${sign}${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}` : `UTC${sign}${hh}`;
+          const hoursKey = `${sign}${String(hh)}`;
+          const hoursKeyPadded = `${sign}${String(hh).padStart(2, '0')}`;
+          const city = TZ_CITY_MAP[hoursKeyPadded] || TZ_CITY_MAP[hoursKey];
+          return city ? `${utc} (${city})` : utc;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return raw;
+  }
   const sign = match[1] === '-' ? '-' : '+';
   const hoursRaw = match[2];
   const hoursKey = hoursRaw.length === 1 ? `${sign}${hoursRaw}` : `${sign}${hoursRaw.padStart(2, '0')}`;
@@ -121,7 +163,9 @@ function MentorListingCard({
   const courses = normalizedLabels.join(' | ');
   const CourseIcon = DIRECTION_LABEL_ICON_MAP[normalizedLabels[0]] || FaFileAlt;
 
-  const CourseTypeIcon = COURSE_TYPE_LABEL_ICON_MAP[data?.courseType] || FaGraduationCap;
+  const courseTypeRaw = data?.courseType ? String(data.courseType).trim() : '';
+  const courseTypeLabel = COURSE_TYPE_ID_TO_LABEL[courseTypeRaw] || courseTypeRaw;
+  const CourseTypeIcon = COURSE_TYPE_LABEL_ICON_MAP[courseTypeLabel] || FaGraduationCap;
 
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
 
@@ -163,10 +207,10 @@ function MentorListingCard({
             <span>{courses}</span>
           </div>
         )}
-        {!!data?.courseType && (
+        {!!courseTypeLabel && (
           <div className="item" role="listitem">
             <span className="icon"><CourseTypeIcon /></span>
-            <span>{data.courseType}</span>
+            <span>{courseTypeLabel}</span>
           </div>
         )}
         {!!data?.expectedDuration && (
