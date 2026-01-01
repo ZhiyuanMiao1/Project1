@@ -168,6 +168,7 @@ function MentorListingCard({
   const CourseTypeIcon = COURSE_TYPE_LABEL_ICON_MAP[courseTypeLabel] || FaGraduationCap;
 
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
+  const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
@@ -183,7 +184,7 @@ function MentorListingCard({
 
       <div className="card-header">
         <div className="avatar" aria-hidden="true">
-          {name.slice(0, 1).toUpperCase() || 'S'}
+          {avatarUrl ? <img className="avatar-img" src={avatarUrl} alt="" /> : (name.slice(0, 1).toUpperCase() || 'S')}
         </div>
         <div className="header-texts">
           <div className="name">{name}</div>

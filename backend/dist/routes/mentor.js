@@ -66,7 +66,8 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          ur.public_id AS student_public_id,
          mp.degree AS student_degree,
          mp.school AS student_school,
-         mp.timezone AS student_timezone
+         mp.timezone AS student_timezone,
+         s.student_avatar_url AS student_avatar_url
        FROM course_requests r
        JOIN (
          SELECT user_id, MAX(id) AS max_id
@@ -79,6 +80,8 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          ON ur.user_id = r.user_id AND ur.role = 'student'
        LEFT JOIN mentor_profiles mp
          ON mp.user_id = r.user_id
+       LEFT JOIN account_settings s
+         ON s.user_id = r.user_id
        WHERE r.status = 'submitted'
        ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id ASC
        LIMIT 200`);
@@ -97,6 +100,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
                 degree: r.student_degree || '',
                 school: r.student_school || '',
                 timezone: r.time_zone || r.student_timezone || '',
+                avatarUrl: r.student_avatar_url || null,
                 courses: r.course_direction ? [String(r.course_direction)] : [],
                 courseType,
                 expectedDuration: formatDuration(r.session_duration_hours),
