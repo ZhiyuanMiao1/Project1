@@ -230,19 +230,15 @@ const applyUpdate = async (conn, requestId, userId, update) => {
      SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND user_id = ?`, [...args, requestId, userId]);
 };
-const ensureStudent = (req, res) => {
+const ensureAuthed = (req, res) => {
     if (!req.user) {
         res.status(401).json({ error: '未授权' });
-        return false;
-    }
-    if (req.user.role !== 'student') {
-        res.status(403).json({ error: '仅学生可操作' });
         return false;
     }
     return true;
 };
 router.get('/draft', auth_1.requireAuth, async (req, res) => {
-    if (!ensureStudent(req, res))
+    if (!ensureAuthed(req, res))
         return;
     try {
         const [rows] = await db_1.pool.execute("SELECT * FROM course_requests WHERE user_id = ? AND status = 'draft' ORDER BY updated_at DESC LIMIT 1", [req.user.id]);
@@ -320,7 +316,7 @@ router.post('/save', auth_1.requireAuth, [
     (0, express_validator_1.body)('contactValue').optional().isString().isLength({ max: 200 }),
     (0, express_validator_1.body)('attachments').optional().isArray(),
 ], async (req, res) => {
-    if (!ensureStudent(req, res))
+    if (!ensureAuthed(req, res))
         return;
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty())
@@ -404,7 +400,7 @@ router.post('/submit', auth_1.requireAuth, [
     (0, express_validator_1.body)('contactValue').optional().isString().isLength({ max: 200 }),
     (0, express_validator_1.body)('attachments').optional().isArray(),
 ], async (req, res) => {
-    if (!ensureStudent(req, res))
+    if (!ensureAuthed(req, res))
         return;
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty())

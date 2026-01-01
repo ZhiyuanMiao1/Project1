@@ -235,20 +235,16 @@ const applyUpdate = async (conn: any, requestId: number, userId: number, update:
   );
 };
 
-const ensureStudent = (req: Request, res: Response) => {
+const ensureAuthed = (req: Request, res: Response) => {
   if (!req.user) {
     res.status(401).json({ error: '未授权' });
-    return false;
-  }
-  if (req.user.role !== 'student') {
-    res.status(403).json({ error: '仅学生可操作' });
     return false;
   }
   return true;
 };
 
 router.get('/draft', requireAuth, async (req: Request, res: Response) => {
-  if (!ensureStudent(req, res)) return;
+  if (!ensureAuthed(req, res)) return;
 
   try {
     const [rows] = await pool.execute<any[]>(
@@ -328,7 +324,7 @@ router.post(
     body('attachments').optional().isArray(),
   ],
   async (req: Request, res: Response) => {
-    if (!ensureStudent(req, res)) return;
+    if (!ensureAuthed(req, res)) return;
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -429,7 +425,7 @@ router.post(
     body('attachments').optional().isArray(),
   ],
   async (req: Request, res: Response) => {
-    if (!ensureStudent(req, res)) return;
+    if (!ensureAuthed(req, res)) return;
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -514,4 +510,3 @@ router.post(
 );
 
 export default router;
-

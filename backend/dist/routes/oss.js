@@ -86,8 +86,7 @@ router.post('/policy', auth_1.requireAuth, [
             : 'mentorAvatar';
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
-    if (scope === 'courseRequestAttachment' && req.user?.role !== 'student')
-        return res.status(403).json({ error: '仅学生可访问' });
+    // courseRequestAttachment: allow any authed user (mentor can submit requests too).
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
