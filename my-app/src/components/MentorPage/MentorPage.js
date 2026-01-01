@@ -7,10 +7,81 @@ import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
 import './MentorPage.css';
 
+const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
+
+const REGION_OFFSET_RANGES = {
+  中国: [{ min: 7.5, max: 8.5 }], // UTC+8
+  日韩: [{ min: 8.5, max: 9.5 }], // UTC+9
+  澳洲: [{ min: 9.5, max: 12.5 }], // UTC+10 ~ UTC+12
+  欧洲: [{ min: -1.5, max: 3.5 }], // UTC-1 ~ UTC+3
+  北美: [{ min: -10.5, max: -3.5 }], // UTC-10 ~ UTC-4
+};
+
+const parseUtcOffsetMinutesFromLabel = (tz) => {
+  if (!tz) return null;
+  const raw = String(tz).trim();
+  const match = raw.match(/UTC\s*([+-])\s*(\d{1,2})(?::(\d{2}))?/i);
+  if (!match) return null;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number.parseInt(match[2], 10);
+  const minutes = match[3] ? Number.parseInt(match[3], 10) : 0;
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return sign * (hours * 60 + minutes);
+};
+
+const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const parts = Object.fromEntries(
+      fmt
+        .formatToParts(referenceDate)
+        .filter((p) => p.type !== 'literal')
+        .map((p) => [p.type, p.value])
+    );
+    const iso = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}.000Z`;
+    const tzAsUTC = new Date(iso);
+    return Math.round((tzAsUTC.getTime() - referenceDate.getTime()) / 60000);
+  } catch {
+    return null;
+  }
+};
+
+const getTimezoneOffsetMinutesFlexible = (tz, referenceDate = new Date()) => {
+  const parsed = parseUtcOffsetMinutesFromLabel(tz);
+  if (typeof parsed === 'number') return parsed;
+  const raw = typeof tz === 'string' ? tz.trim() : '';
+  if (raw && raw.includes('/')) {
+    return getTimeZoneOffsetMinutes(raw, referenceDate);
+  }
+  return null;
+};
+
+const matchesRegion = (timezone, region, referenceDate = new Date()) => {
+  const key = typeof region === 'string' ? region.trim() : '';
+  if (!key || key === '随便看看') return true;
+  const ranges = REGION_OFFSET_RANGES[key];
+  if (!ranges) return true;
+
+  const offMin = getTimezoneOffsetMinutesFlexible(timezone, referenceDate);
+  if (typeof offMin !== 'number') return false;
+  const offHours = offMin / 60;
+  return ranges.some((r) => offHours >= r.min && offHours <= r.max);
+};
+
 function MentorPage() {
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [cards, setCards] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
+  const [appliedRegion, setAppliedRegion] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -68,6 +139,15 @@ function MentorPage() {
   }, [currentPath, navigate]);
 
   useEffect(() => {
+    const handler = (event) => {
+      const detail = event?.detail || {};
+      setAppliedRegion(typeof detail.region === 'string' ? detail.region : '');
+    };
+    window.addEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
+    return () => window.removeEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     if (status !== 'ok') {
       setFavoriteIds(new Set());
@@ -88,6 +168,13 @@ function MentorPage() {
     return () => { alive = false; };
   }, [status]);
 
+  const filteredCards = useMemo(() => {
+    const list = Array.isArray(cards) ? cards : [];
+    if (!appliedRegion || appliedRegion.trim() === '' || appliedRegion.trim() === '随便看看') return list;
+    const referenceDate = new Date();
+    return list.filter((item) => matchesRegion(item?.timezone, appliedRegion, referenceDate));
+  }, [cards, appliedRegion]);
+
   return (
     <div className="app">
       <MentorNavbar />
@@ -95,7 +182,7 @@ function MentorPage() {
 
       {status === 'ok' && (
         <MentorListings
-          data={cards}
+          data={filteredCards}
           favoriteIds={favoriteIds}
           onFavoriteChange={(itemId, favorited) => {
             setFavoriteIds((prev) => {

@@ -12,6 +12,8 @@ import { courseTypeToCnLabel } from '../../constants/courseMappings';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 
+const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
+
 function MentorNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
   const courseTypeRef = useRef(null); // 课程类型锚点
@@ -105,6 +107,23 @@ function MentorNavbar() {
     window.addEventListener('auth:login-required', onLoginRequired);
     return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
+
+  const applySearch = (overrides = {}) => {
+    const nextRegion = typeof overrides.region === 'string' ? overrides.region : selectedRegion;
+    const nextCourseType = typeof overrides.courseType === 'string' ? overrides.courseType : selectedCourseType;
+    const nextStartDate = typeof overrides.startDate === 'string' ? overrides.startDate : selectedStartDate;
+    try {
+      window.dispatchEvent(
+        new CustomEvent(MENTOR_LISTINGS_SEARCH_EVENT, {
+          detail: {
+            region: nextRegion,
+            courseType: nextCourseType,
+            startDate: nextStartDate,
+          },
+        })
+      );
+    } catch {}
+  };
 
   const handleEditProfileClick = async () => {
     // 无权限（审核中/非导师）直接不可点
@@ -248,7 +267,7 @@ function MentorNavbar() {
               />
             </div>
           </div>
-          <button className="search-btn">
+          <button type="button" className="search-btn" onClick={applySearch} aria-label="搜索">
             <i className="fas fa-search"></i>
           </button>
         </div>
@@ -264,7 +283,7 @@ function MentorNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(region) => setSelectedRegion(region)}
+          onSelect={(region) => setSelectedRegion(region || '')}
           anchorRef={timezoneRef}
         />
       )}

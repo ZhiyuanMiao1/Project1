@@ -23,17 +23,21 @@ function MentorListings({ data, favoriteIds, onFavoriteChange }) {
                 <div className="sk sk-line short" />
               </div>
             ))
-          : list.map((item) => (
-              <MentorListingCard
-                key={item.id}
-                data={item}
-                favoriteRole="mentor"
-                favoriteItemType="student_request"
-                favoriteItemId={item.id}
-                initialFavorited={!!favoriteIds?.has?.(String(item.id))}
-                onFavoriteChange={onFavoriteChange}
-              />
-            ))}
+          : list.length === 0 ? (
+              <div className="listing-empty" role="status" aria-live="polite">暂无学生需求</div>
+            ) : (
+              list.map((item) => (
+                <MentorListingCard
+                  key={item.id}
+                  data={item}
+                  favoriteRole="mentor"
+                  favoriteItemType="student_request"
+                  favoriteItemId={item.id}
+                  initialFavorited={!!favoriteIds?.has?.(String(item.id))}
+                  onFavoriteChange={onFavoriteChange}
+                />
+              ))
+            )}
       </div>
     </div>
   );

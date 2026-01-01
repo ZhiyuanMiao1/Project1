@@ -344,10 +344,7 @@ function StudentNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(region) => {
-            setSelectedRegion(region);
-            applySearch({ region });
-          }}
+          onSelect={(region) => setSelectedRegion(region || '')}
           anchorRef={timezoneRef}
         />
       )}
@@ -362,8 +359,7 @@ function StudentNavbar() {
             }
           }}
           onSelect={(courseType) => {
-            setSelectedCourseType(courseType);
-            applySearch({ courseType });
+            setSelectedCourseType(courseType || '');
           }}
           anchorRef={courseTypeRef}
           mode="studentFeatures"
