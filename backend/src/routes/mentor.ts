@@ -78,7 +78,7 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
        JOIN (
          SELECT user_id, MAX(id) AS max_id
          FROM course_requests
-         WHERE status = 'submitted'
+         WHERE status = 'submitted' AND user_id <> ?
          GROUP BY user_id
        ) latest
          ON latest.user_id = r.user_id AND latest.max_id = r.id
@@ -88,9 +88,10 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
          ON mp.user_id = r.user_id
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
-       WHERE r.status = 'submitted'
+       WHERE r.status = 'submitted' AND r.user_id <> ?
        ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id ASC
-       LIMIT 200`
+       LIMIT 200`,
+      [req.user!.id, req.user!.id]
     );
 
     const cards = (rows || []).map((r) => {

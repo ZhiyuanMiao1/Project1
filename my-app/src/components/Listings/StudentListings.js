@@ -3,6 +3,7 @@ import StudentListingCard from '../ListingCard/StudentListingCard';
 import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
+import { fetchAccountProfile } from '../../api/account';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
@@ -111,6 +112,7 @@ function StudentListings() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try { return !!localStorage.getItem('authToken'); } catch { return false; }
   });
+  const [currentMentorId, setCurrentMentorId] = useState('');
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [allMentors, setAllMentors] = useState([]);
   const [listError, setListError] = useState('');
@@ -145,8 +147,14 @@ function StudentListings() {
     const needleLower = normalizeSearchText(needle);
     const courseType = typeof appliedCourseType === 'string' ? appliedCourseType.trim() : '';
     const now = new Date();
+    const ownMentorIdLower = normalizeSearchText(currentMentorId);
 
     const filtered = (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
+      if (ownMentorIdLower) {
+        const mentorIdLower = normalizeSearchText(m?.id);
+        if (mentorIdLower && mentorIdLower === ownMentorIdLower) return false;
+      }
+
       if (needleLower) {
         const id = normalizeSearchText(m?.id);
         const name = normalizeSearchText(m?.name);
@@ -180,7 +188,7 @@ function StudentListings() {
     }
 
     return filtered;
-  }, [allMentors, appliedRegion, appliedExactSearch, appliedCourseType]);
+  }, [allMentors, appliedRegion, appliedExactSearch, appliedCourseType, currentMentorId]);
 
   // 模拟加载动画，避免页面切换过于生硬
   useEffect(() => {
@@ -277,6 +285,28 @@ function StudentListings() {
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!isLoggedIn) {
+      setCurrentMentorId('');
+      return () => { alive = false; };
+    }
+
+    fetchAccountProfile()
+      .then((res) => {
+        if (!alive) return;
+        const next = typeof res?.data?.mentorId === 'string' ? res.data.mentorId.trim() : '';
+        setCurrentMentorId(next);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setCurrentMentorId('');
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     let alive = true;
