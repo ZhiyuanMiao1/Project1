@@ -70,6 +70,13 @@ const getFileExt = (fileName) => {
   return String(fileName).slice(idx + 1).toLowerCase();
 };
 
+const buildAttachmentLocalKey = (file) => {
+  const name = file?.name || '';
+  const size = Number(file?.size) || 0;
+  const lastModified = Number(file?.lastModified) || 0;
+  return `${name}|${size}|${lastModified}`;
+};
+
 const isAllowedAttachmentFile = (file) => {
   const ext = getFileExt(file?.name);
   return !!ext && ALLOWED_ATTACHMENT_EXTS.has(ext);
@@ -134,6 +141,9 @@ function StudentCourseRequestPage() {
   const pendingActionRef = useRef(null);
   const isMountedRef = useRef(true);
   const [uploadValidationMessage, setUploadValidationMessage] = useState('');
+  const [requestId, setRequestId] = useState(null);
+  const uploadedAttachmentsRef = useRef(new Map());
+  const [requestBusy, setRequestBusy] = useState(false);
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
   const previousTimeZoneRef = useRef(selectedTimeZone);
 
@@ -591,17 +601,191 @@ function StudentCourseRequestPage() {
   };
 
   const handleRemoveAttachment = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      attachments: (prev.attachments || []).filter((_, i) => i !== index),
-    }));
+    setFormData((prev) => {
+      const current = prev.attachments || [];
+      const removed = current[index];
+      if (removed) {
+        const localKey = buildAttachmentLocalKey(removed);
+        uploadedAttachmentsRef.current.delete(localKey);
+      }
+      return {
+        ...prev,
+        attachments: current.filter((_, i) => i !== index),
+      };
+    });
   };
   const handleClearAttachments = () => {
-    setFormData((prev) => ({ ...prev, attachments: [] }));
+    setFormData((prev) => {
+      const current = prev.attachments || [];
+      for (const file of current) {
+        const localKey = buildAttachmentLocalKey(file);
+        uploadedAttachmentsRef.current.delete(localKey);
+      }
+      return { ...prev, attachments: [] };
+    });
     setUploadValidationMessage('');
   };
 
+  const buildRequestPayload = (nextRequestId, attachmentsPayload) => {
+    const courseTypes = Array.isArray(formData.courseTypes) && formData.courseTypes.length
+      ? formData.courseTypes
+      : (formData.courseType ? [formData.courseType] : []);
+    const payload = {
+      ...(nextRequestId ? { requestId: nextRequestId } : {}),
+      learningGoal: formData.learningGoal,
+      courseDirection: formData.courseDirection,
+      courseType: formData.courseType,
+      courseTypes,
+      courseFocus: formData.courseFocus,
+      format: formData.format,
+      milestone: formData.milestone,
+      totalCourseHours: formData.totalCourseHours,
+      timeZone: formData.availability,
+      sessionDurationHours: formData.sessionDurationHours,
+      daySelections,
+      contactName: formData.contactName,
+      contactMethod: formData.contactMethod,
+      contactValue: formData.contactValue,
+    };
+    if (typeof attachmentsPayload !== 'undefined') {
+      payload.attachments = attachmentsPayload;
+    }
+    return payload;
+  };
+
+  const ensureDraftRequestId = async () => {
+    if (requestId) return requestId;
+    const res = await api.post('/api/requests/save', {});
+    const id = res?.data?.requestId;
+    if (!id) throw new Error('未获取到需求编号');
+    setRequestId(id);
+    return id;
+  };
+
+  const uploadAttachments = async (nextRequestId) => {
+    const files = Array.from(formData.attachments || []);
+    const out = [];
+
+    for (const file of files) {
+      const localKey = buildAttachmentLocalKey(file);
+      const cached = uploadedAttachmentsRef.current.get(localKey);
+      if (cached) {
+        out.push(cached);
+        continue;
+      }
+
+      const signRes = await api.post('/api/oss/policy', {
+        fileName: file.name,
+        contentType: file.type,
+        size: file.size,
+        scope: 'courseRequestAttachment',
+        requestId: nextRequestId,
+      });
+
+      const { host, key, policy, signature, accessKeyId, fileUrl, fileId, ext } = signRes?.data || {};
+      if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl || !fileId || !ext) {
+        throw new Error('上传签名响应不完整');
+      }
+
+      const formDataBody = new FormData();
+      formDataBody.append('key', key);
+      formDataBody.append('policy', policy);
+      formDataBody.append('OSSAccessKeyId', accessKeyId);
+      formDataBody.append('success_action_status', '200');
+      formDataBody.append('signature', signature);
+      formDataBody.append('file', file);
+
+      const uploadRes = await fetch(host, { method: 'POST', body: formDataBody });
+      if (!uploadRes.ok) throw new Error('上传失败');
+
+      const meta = {
+        fileId,
+        fileName: file.name,
+        ext,
+        contentType: file.type,
+        sizeBytes: file.size,
+        ossKey: key,
+        fileUrl,
+      };
+      uploadedAttachmentsRef.current.set(localKey, meta);
+      out.push(meta);
+    }
+
+    return out;
+  };
+
+  const saveRequestDraft = async ({ includeAttachments } = {}) => {
+    if (!isLoggedIn) {
+      alert('请先登录');
+      return null;
+    }
+    if (requestBusy) return null;
+
+    setRequestBusy(true);
+    try {
+      let nextRequestId = requestId;
+      let attachmentsPayload;
+
+      if (includeAttachments) {
+        const files = Array.from(formData.attachments || []);
+        if (files.length) {
+          nextRequestId = await ensureDraftRequestId();
+          attachmentsPayload = await uploadAttachments(nextRequestId);
+        } else {
+          attachmentsPayload = [];
+        }
+      }
+
+      const payload = buildRequestPayload(nextRequestId, attachmentsPayload);
+      const res = await api.post('/api/requests/save', payload);
+      const savedId = res?.data?.requestId;
+      if (savedId) setRequestId(savedId);
+      return savedId || null;
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '保存失败，请稍后再试';
+      alert(msg);
+      return null;
+    } finally {
+      setRequestBusy(false);
+    }
+  };
+
+  const submitRequest = async () => {
+    if (!isLoggedIn) {
+      alert('请先登录');
+      return;
+    }
+    if (requestBusy) return;
+
+    setRequestBusy(true);
+    try {
+      flushAvailabilitySave();
+      const files = Array.from(formData.attachments || []);
+      let nextRequestId = requestId;
+      let attachmentsPayload = [];
+      if (files.length) {
+        nextRequestId = await ensureDraftRequestId();
+        attachmentsPayload = await uploadAttachments(nextRequestId);
+      }
+      const payload = buildRequestPayload(nextRequestId, attachmentsPayload);
+      const res = await api.post('/api/requests/submit', payload);
+      const submittedId = res?.data?.requestId;
+      if (submittedId) setRequestId(submittedId);
+      setIsCompleted(true);
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '提交失败，请稍后再试';
+      alert(msg);
+    } finally {
+      setRequestBusy(false);
+    }
+  };
+
   const handleNext = () => {
+    if (requestBusy) return;
+    if (currentStepIndex === STEPS.length - 1) {
+      submitRequest();
+      return;
+    }
     startPageTransition(() => {
       if (currentStep.id === 'schedule') {
         flushAvailabilitySave();
@@ -630,10 +814,6 @@ function StudentCourseRequestPage() {
       // 两个子阶段都完成后才进入下一个大步骤
       }
 
-      if (currentStepIndex === STEPS.length - 1) {
-        setIsCompleted(true);
-        return;
-      }
       setCurrentStepIndex((index) => Math.min(index + 1, STEPS.length - 1));
     });
   };
@@ -923,19 +1103,26 @@ function StudentCourseRequestPage() {
               <button type="button" onClick={() => navigate('/student')}>
                 返回学生首页
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  startPageTransition(() => {
-                    setIsCompleted(false);
-                    setCurrentStepIndex(0);
-                    setIsDirectionSelection(false);
-                  });
-                }}
-                disabled={transitionStage !== 'idle'}
-              >
-                重新填写
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    startPageTransition(() => {
+                      setIsCompleted(false);
+                      setCurrentStepIndex(0);
+                      setIsDirectionSelection(false);
+                      setIsCourseTypeSelection(false);
+                      setFormData(INITIAL_FORM_STATE);
+                      setDaySelections({});
+                      setSelectedRangeKeys([]);
+                      setUploadValidationMessage('');
+                      setRequestId(null);
+                      uploadedAttachmentsRef.current.clear();
+                    });
+                  }}
+                  disabled={transitionStage !== 'idle'}
+                >
+                  重新填写
+                </button>
             </div>
           </div>
         </main>
@@ -956,9 +1143,11 @@ function StudentCourseRequestPage() {
               <button
                 type="button"
                 className="ghost-button"
-                onClick={() => {
+                disabled={requestBusy || transitionStage !== 'idle'}
+                onClick={async () => {
                   flushAvailabilitySave();
-                  navigate('/student');
+                  const savedId = await saveRequestDraft({ includeAttachments: true });
+                  if (savedId) navigate('/student');
                 }}
               >
                 保存并退出
@@ -1151,14 +1340,14 @@ function StudentCourseRequestPage() {
                 </div>
   
                 <div className="step-actions">
-                  <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle'}>
+                  <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle' || requestBusy}>
                     返回
                   </button>
                   <button
                     type="button"
                     className="primary-button"
                     onClick={handleNext}
-                    disabled={transitionStage !== 'idle'}
+                    disabled={transitionStage !== 'idle' || requestBusy}
                   >
                     {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
                   </button>

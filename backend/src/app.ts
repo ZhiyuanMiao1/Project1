@@ -8,6 +8,7 @@ import mentorRoute from './routes/mentor';
 import mentorsRoute from './routes/mentors';
 import favoritesRoute from './routes/favorites';
 import ossRoute from './routes/oss';
+import requestsRoute from './routes/requests';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api/mentor', mentorRoute);
 app.use('/api/mentors', mentorsRoute);
 app.use('/api/favorites', favoritesRoute);
 app.use('/api/oss', ossRoute);
+app.use('/api/requests', requestsRoute);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -11,6 +11,7 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const router = (0, express_1.Router)();
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
 const POLICY_EXPIRE_SECONDS = 120; // 2 minutes
 const resolveImageExt = (fileName, contentType) => {
     const allowed = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
@@ -27,6 +28,26 @@ const resolveImageExt = (fileName, contentType) => {
     };
     return map[ct] || null;
 };
+const resolveAttachmentExt = (fileName, contentType) => {
+    const allowed = new Set(['pdf', 'ppt', 'pptx', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'zip']);
+    const extFromName = path_1.default.extname(fileName || '').toLowerCase().replace(/^\./, '');
+    if (extFromName && allowed.has(extFromName))
+        return extFromName === 'jpeg' ? 'jpg' : extFromName;
+    const ct = (contentType || '').toLowerCase().trim();
+    const map = {
+        'application/pdf': 'pdf',
+        'application/msword': 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+        'application/vnd.ms-powerpoint': 'ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'application/zip': 'zip',
+        'application/x-zip-compressed': 'zip',
+    };
+    return map[ct] || null;
+};
 const buildOssHost = (bucket, region) => {
     const cleanBucket = (bucket || '').trim();
     const cleanRegion = (region || '').trim();
@@ -40,13 +61,33 @@ const buildOssHost = (bucket, region) => {
 router.post('/policy', auth_1.requireAuth, [
     (0, express_validator_1.body)('fileName').isString().trim().isLength({ min: 1, max: 255 }).withMessage('fileName 必填'),
     (0, express_validator_1.body)('contentType').optional().isString().trim().isLength({ max: 100 }),
-    (0, express_validator_1.body)('size').optional().isInt({ min: 1, max: MAX_AVATAR_BYTES }).withMessage('文件过大'),
-    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('size')
+        .optional()
+        .isInt({ min: 1, max: MAX_ATTACHMENT_BYTES })
+        .custom((value, { req }) => {
+        const scopeRaw = typeof req.body?.scope === 'string' ? String(req.body.scope) : '';
+        const scope = scopeRaw === 'studentAvatar'
+            ? 'studentAvatar'
+            : scopeRaw === 'courseRequestAttachment'
+                ? 'courseRequestAttachment'
+                : 'mentorAvatar';
+        const max = scope === 'courseRequestAttachment' ? MAX_ATTACHMENT_BYTES : MAX_AVATAR_BYTES;
+        return Number(value) <= max;
+    })
+        .withMessage('文件过大'),
+    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
 ], async (req, res) => {
     const scopeRaw = typeof req.body?.scope === 'string' ? String(req.body.scope) : '';
-    const scope = scopeRaw === 'studentAvatar' ? 'studentAvatar' : 'mentorAvatar';
+    const scope = scopeRaw === 'studentAvatar'
+        ? 'studentAvatar'
+        : scopeRaw === 'courseRequestAttachment'
+            ? 'courseRequestAttachment'
+            : 'mentorAvatar';
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
+    if (scope === 'courseRequestAttachment' && req.user?.role !== 'student')
+        return res.status(403).json({ error: '仅学生可访问' });
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
@@ -61,13 +102,16 @@ router.post('/policy', auth_1.requireAuth, [
         }
         const { fileName, contentType } = req.body;
         const ct = (contentType || '').toLowerCase().trim();
-        if (ct && !ct.startsWith('image/'))
-            return res.status(400).json({ error: '仅支持图片文件' });
-        const ext = resolveImageExt(fileName, ct);
+        const ext = scope === 'courseRequestAttachment'
+            ? resolveAttachmentExt(fileName, ct)
+            : resolveImageExt(fileName, ct);
         if (!ext)
-            return res.status(400).json({ error: '不支持的图片格式' });
+            return res.status(400).json({ error: scope === 'courseRequestAttachment' ? '不支持的文件格式' : '不支持的图片格式' });
+        if (scope !== 'courseRequestAttachment' && ct && !ct.startsWith('image/'))
+            return res.status(400).json({ error: '仅支持图片文件' });
         let businessId = '';
         let dir = '';
+        let maxBytes = MAX_AVATAR_BYTES;
         if (scope === 'mentorAvatar') {
             // 审核 gating + 获取 mentor public_id 作为业务 mentorId
             const roleRows = await (0, db_1.query)("SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
@@ -85,19 +129,31 @@ router.post('/policy', auth_1.requireAuth, [
             if (!businessId)
                 return res.status(403).json({ error: '未开通学生身份' });
         }
+        if (scope === 'courseRequestAttachment') {
+            const requestId = Number.parseInt(String(req.body?.requestId || ''), 10);
+            if (!Number.isFinite(requestId) || requestId <= 0)
+                return res.status(400).json({ error: 'requestId 必填' });
+            const rows = await (0, db_1.query)('SELECT id FROM course_requests WHERE id = ? AND user_id = ? LIMIT 1', [requestId, req.user.id]);
+            if (!rows?.[0])
+                return res.status(404).json({ error: '未找到课程需求' });
+            businessId = String(requestId);
+            maxBytes = MAX_ATTACHMENT_BYTES;
+        }
         const now = new Date();
         const yyyy = String(now.getFullYear());
         const mm = String(now.getMonth() + 1).padStart(2, '0');
         const fileId = crypto_1.default.randomUUID().replace(/-/g, '');
         dir = scope === 'mentorAvatar'
             ? `v1/mentors/${businessId}/avatar/${yyyy}/${mm}/`
-            : `v1/students/${businessId}/avatar/${yyyy}/${mm}/`;
+            : scope === 'studentAvatar'
+                ? `v1/students/${businessId}/avatar/${yyyy}/${mm}/`
+                : `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`;
         const key = `${dir}${fileId}.${ext}`;
         const expiration = new Date(Date.now() + POLICY_EXPIRE_SECONDS * 1000).toISOString();
         const policyObj = {
             expiration,
             conditions: [
-                ['content-length-range', 0, MAX_AVATAR_BYTES],
+                ['content-length-range', 0, maxBytes],
                 ['starts-with', '$key', dir],
             ],
         };
@@ -112,8 +168,10 @@ router.post('/policy', auth_1.requireAuth, [
             policy,
             signature,
             fileUrl: `${host}/${key}`,
-            maxBytes: MAX_AVATAR_BYTES,
+            maxBytes,
             scope,
+            fileId,
+            ext,
         });
     }
     catch (e) {

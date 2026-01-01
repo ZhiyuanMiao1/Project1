@@ -160,3 +160,48 @@ CREATE TABLE IF NOT EXISTS `mentor_course_embeddings` (
   KEY `idx_mentor_course_user` (`user_id`),
   CONSTRAINT `fk_mentor_course_embeddings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 10) Course requests (student publish / save draft)
+CREATE TABLE IF NOT EXISTS `course_requests` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `status` ENUM('draft','submitted') NOT NULL DEFAULT 'draft',
+  `learning_goal` VARCHAR(200) NULL,
+  `course_direction` VARCHAR(64) NULL,
+  `course_type` VARCHAR(64) NULL,
+  `course_types_json` TEXT NULL,
+  `course_focus` TEXT NULL,
+  `format` VARCHAR(64) NULL,
+  `milestone` TEXT NULL,
+  `total_course_hours` DECIMAL(6,2) NULL,
+  `time_zone` VARCHAR(64) NULL,
+  `session_duration_hours` DECIMAL(4,2) NULL,
+  `schedule_json` LONGTEXT NULL,
+  `contact_name` VARCHAR(100) NULL,
+  `contact_method` VARCHAR(32) NULL,
+  `contact_value` VARCHAR(200) NULL,
+  `submitted_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_course_requests_user_status` (`user_id`, `status`),
+  KEY `idx_course_requests_created_at` (`created_at`),
+  CONSTRAINT `fk_course_requests_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `course_request_attachments` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `request_id` INT NOT NULL,
+  `file_id` CHAR(32) NOT NULL,
+  `original_file_name` VARCHAR(255) NOT NULL,
+  `ext` VARCHAR(10) NOT NULL,
+  `content_type` VARCHAR(100) NULL,
+  `size_bytes` INT NOT NULL,
+  `oss_key` VARCHAR(1024) NOT NULL,
+  `file_url` VARCHAR(2048) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_request_file` (`request_id`, `file_id`),
+  KEY `idx_course_request_attachments_request` (`request_id`),
+  CONSTRAINT `fk_course_request_attachments_request` FOREIGN KEY (`request_id`) REFERENCES `course_requests`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
