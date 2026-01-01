@@ -166,13 +166,16 @@ function StudentNavbar() {
     return () => bar.removeEventListener('transitionend', onEnd);
   }, [isExactAnimating, exactSearch]);
 
-  const applySearch = () => {
+  const applySearch = (overrides = {}) => {
+    const nextRegion = typeof overrides.region === 'string' ? overrides.region : selectedRegion;
+    const nextExactSearch = typeof overrides.exactSearch === 'string' ? overrides.exactSearch : exactSearch;
+    const nextCourseType = typeof overrides.courseType === 'string' ? overrides.courseType : selectedCourseType;
     try {
       window.dispatchEvent(new CustomEvent(STUDENT_LISTINGS_SEARCH_EVENT, {
         detail: {
-          region: selectedRegion,
-          exactSearch,
-          courseType: selectedCourseType,
+          region: nextRegion,
+          exactSearch: nextExactSearch,
+          courseType: nextCourseType,
         },
       }));
     } catch {}
@@ -341,7 +344,10 @@ function StudentNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(region) => setSelectedRegion(region)}
+          onSelect={(region) => {
+            setSelectedRegion(region);
+            applySearch({ region });
+          }}
           anchorRef={timezoneRef}
         />
       )}
@@ -355,7 +361,10 @@ function StudentNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(courseType) => setSelectedCourseType(courseType)}
+          onSelect={(courseType) => {
+            setSelectedCourseType(courseType);
+            applySearch({ courseType });
+          }}
           anchorRef={courseTypeRef}
           mode="studentFeatures"
         />

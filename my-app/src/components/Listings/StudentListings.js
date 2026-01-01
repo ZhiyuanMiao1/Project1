@@ -116,6 +116,7 @@ function StudentListings() {
   const [listError, setListError] = useState('');
   const [appliedRegion, setAppliedRegion] = useState('');
   const [appliedExactSearch, setAppliedExactSearch] = useState('');
+  const [appliedCourseType, setAppliedCourseType] = useState('');
   const [appliedCategoryId, setAppliedCategoryId] = useState(null);
 
   useEffect(() => {
@@ -123,6 +124,7 @@ function StudentListings() {
       const detail = event?.detail || {};
       setAppliedRegion(typeof detail.region === 'string' ? detail.region : '');
       setAppliedExactSearch(typeof detail.exactSearch === 'string' ? detail.exactSearch : '');
+      setAppliedCourseType(typeof detail.courseType === 'string' ? detail.courseType : '');
     };
     window.addEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
     return () => window.removeEventListener(STUDENT_LISTINGS_SEARCH_EVENT, handler);
@@ -141,9 +143,10 @@ function StudentListings() {
     const region = typeof appliedRegion === 'string' ? appliedRegion.trim() : '';
     const needle = typeof appliedExactSearch === 'string' ? appliedExactSearch : '';
     const needleLower = normalizeSearchText(needle);
+    const courseType = typeof appliedCourseType === 'string' ? appliedCourseType.trim() : '';
     const now = new Date();
 
-    return (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
+    const filtered = (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
       if (needleLower) {
         const id = normalizeSearchText(m?.id);
         const name = normalizeSearchText(m?.name);
@@ -153,7 +156,31 @@ function StudentListings() {
       if (!matchesRegion(m?.timezone, region, now)) return false;
       return true;
     });
-  }, [allMentors, appliedRegion, appliedExactSearch]);
+
+    if (courseType === '评分高') {
+      return [...filtered].sort((a, b) => {
+        const ratingA = Number(a?.rating) || 0;
+        const ratingB = Number(b?.rating) || 0;
+        if (ratingB !== ratingA) return ratingB - ratingA;
+
+        const reviewsA = Number(a?.reviewCount) || 0;
+        const reviewsB = Number(b?.reviewCount) || 0;
+        if (reviewsB !== reviewsA) return reviewsB - reviewsA;
+
+        const nameA = normalizeSearchText(a?.name);
+        const nameB = normalizeSearchText(b?.name);
+        if (nameA && nameB && nameA !== nameB) return nameA < nameB ? -1 : 1;
+
+        const idA = normalizeSearchText(a?.id);
+        const idB = normalizeSearchText(b?.id);
+        if (idA !== idB) return idA < idB ? -1 : 1;
+
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [allMentors, appliedRegion, appliedExactSearch, appliedCourseType]);
 
   // 模拟加载动画，避免页面切换过于生硬
   useEffect(() => {
