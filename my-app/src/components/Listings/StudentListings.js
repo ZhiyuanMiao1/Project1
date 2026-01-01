@@ -98,6 +98,14 @@ const hasAnyMentorCardInfo = (mentor) => {
 
 const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
 
+const isDebugTimingEnabled = () => {
+  try {
+    return localStorage.getItem('debugTiming') === '1';
+  } catch {
+    return false;
+  }
+};
+
 function StudentListings() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -156,8 +164,11 @@ function StudentListings() {
       setListError('');
       setLoading(true);
       const startedAt = Date.now();
+      const debugTiming = isDebugTimingEnabled();
+      const t0 = debugTiming ? performance.now() : 0;
 
       try {
+        if (debugTiming) console.time(`[StudentListings] fetch mentors (${appliedCategoryId || 'all'})`);
         const res = await fetchApprovedMentors({ directionId: appliedCategoryId || '' });
         if (!alive) return;
 
@@ -189,11 +200,25 @@ function StudentListings() {
           });
 
         setAllMentors(normalized);
+        if (debugTiming) {
+          console.timeEnd(`[StudentListings] fetch mentors (${appliedCategoryId || 'all'})`);
+          console.log(
+            `[StudentListings] mentors=${normalized.length} category=${appliedCategoryId || '<none>'} ` +
+              `clientTotal=${(performance.now() - t0).toFixed(1)}ms`
+          );
+        }
       } catch (e) {
         if (!alive) return;
         setAllMentors([]);
         const msg = e?.response?.data?.error || e?.message || 'Failed to load mentors';
         setListError(String(msg));
+        if (debugTiming) {
+          console.timeEnd(`[StudentListings] fetch mentors (${appliedCategoryId || 'all'})`);
+          console.log(
+            `[StudentListings] ERROR category=${appliedCategoryId || '<none>'} clientTotal=${(performance.now() - t0).toFixed(1)}ms`,
+            e
+          );
+        }
       } finally {
         const elapsed = Date.now() - startedAt;
         const minDelay = 500;

@@ -3,6 +3,15 @@ import { query } from '../db';
 
 const router = Router();
 
+const hrNow = () => process.hrtime.bigint();
+const msSince = (start: bigint) => Number(hrNow() - start) / 1e6;
+
+const getTimingFlag = (req: Request) => {
+  const q = req.query as any;
+  const raw = typeof q?.timing === 'string' ? q.timing.trim() : '';
+  return raw === '1' || raw.toLowerCase() === 'true' || process.env.DEBUG_MENTOR_RANKING_TIMING === '1';
+};
+
 type ApprovedMentorRow = {
   user_id: number;
   public_id: string;
@@ -135,6 +144,9 @@ async function loadDirectionEmbeddingById(directionId: string) {
 // Public: return mentors who have passed approval.
 router.get('/approved', async (_req: Request, res: Response) => {
   const directionId = typeof _req.query?.directionId === 'string' ? _req.query.directionId.trim() : '';
+  const timingEnabled = getTimingFlag(_req);
+  const reqId = timingEnabled ? Math.random().toString(16).slice(2, 8) : '';
+  const t0 = timingEnabled ? hrNow() : 0n;
 
   const runQuery = async () => {
     const rows = await query<ApprovedMentorRow[]>(
@@ -165,6 +177,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
   };
 
   try {
+    const tMentorsQueryStart = timingEnabled ? hrNow() : 0n;
     let rows: ApprovedMentorRow[] = [];
     try {
       rows = await runQuery();
@@ -174,7 +187,9 @@ router.get('/approved', async (_req: Request, res: Response) => {
       if (!ensured) throw e;
       rows = await runQuery();
     }
+    const tMentorsQueryMs = timingEnabled ? msSince(tMentorsQueryStart) : 0;
 
+    const tBuildCardsStart = timingEnabled ? hrNow() : 0n;
     let mentors: MentorInternal[] = rows.flatMap((row) => {
       const courses = parseCourses(row.courses_json);
       const hasAnyProfileInfo =
@@ -205,15 +220,21 @@ router.get('/approved', async (_req: Request, res: Response) => {
         },
       ];
     });
+    const tBuildCardsMs = timingEnabled ? msSince(tBuildCardsStart) : 0;
 
     if (directionId) {
+      const tTabEmbeddingStart = timingEnabled ? hrNow() : 0n;
       const queryEmbeddingInfo = await loadDirectionEmbeddingById(directionId);
+      const tTabEmbeddingMs = timingEnabled ? msSince(tTabEmbeddingStart) : 0;
       if (queryEmbeddingInfo) {
         const q = queryEmbeddingInfo.embedding;
+        const tNormStart = timingEnabled ? hrNow() : 0n;
         const qNorm = l2Norm(q);
+        const tNormMs = timingEnabled ? msSince(tNormStart) : 0;
 
         const userIds = mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n));
         if (userIds.length > 0) {
+          const tEmbeddingsQueryStart = timingEnabled ? hrNow() : 0n;
           const placeholders = userIds.map(() => '?').join(',');
           let courseRows: MentorCourseEmbeddingRow[] = [];
           try {
@@ -227,18 +248,31 @@ router.get('/approved', async (_req: Request, res: Response) => {
             if (!(code === 'ER_NO_SUCH_TABLE' || msg.includes("doesn't exist"))) throw e;
             courseRows = [];
           }
+          const tEmbeddingsQueryMs = timingEnabled ? msSince(tEmbeddingsQueryStart) : 0;
 
+          const tParseAndGroupStart = timingEnabled ? hrNow() : 0n;
+          let embeddingRawChars = 0;
           const byUser = new Map<number, Array<{ courseText: string; embedding: number[]; norm: number }>>();
           for (const r of courseRows || []) {
             const uid = Number(r?.user_id);
             if (!Number.isFinite(uid)) continue;
+            if (timingEnabled) {
+              if (typeof r?.embedding === 'string') embeddingRawChars += r.embedding.length;
+              else {
+                try {
+                  embeddingRawChars += JSON.stringify(r?.embedding ?? null).length;
+                } catch {}
+              }
+            }
             const emb = parseEmbedding(r?.embedding);
             if (!emb || emb.length !== q.length) continue;
             const list = byUser.get(uid) || [];
             list.push({ courseText: String(r?.course_text || ''), embedding: emb, norm: l2Norm(emb) });
             byUser.set(uid, list);
           }
+          const tParseAndGroupMs = timingEnabled ? msSince(tParseAndGroupStart) : 0;
 
+          const tScoreStart = timingEnabled ? hrNow() : 0n;
           mentors = mentors
             .map((m) => {
               const uid = Number(m._userId);
@@ -260,8 +294,32 @@ router.get('/approved', async (_req: Request, res: Response) => {
               if (sb !== sa) return sb - sa;
               return String(a.id).localeCompare(String(b.id));
             });
+          const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
+
+          if (timingEnabled) {
+            const totalMs = msSince(t0);
+            console.log(
+              `[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${userIds.length} ` +
+                `courseRows=${courseRows.length} embChars≈${embeddingRawChars} dim=${q.length} | ` +
+                `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms ` +
+                `tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms norm=${tNormMs.toFixed(1)}ms ` +
+                `embSQL=${tEmbeddingsQueryMs.toFixed(1)}ms parseGroup=${tParseAndGroupMs.toFixed(1)}ms scoreSort=${tScoreMs.toFixed(1)}ms ` +
+                `TOTAL=${totalMs.toFixed(1)}ms`
+            );
+          }
         }
+      } else if (timingEnabled) {
+        const totalMs = msSince(t0);
+        console.log(
+          `[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} ` +
+            `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms (no tab embedding found)`
+        );
       }
+    } else if (timingEnabled) {
+      const totalMs = msSince(t0);
+      console.log(
+        `[mentors/approved timing ${reqId}] directionId=<none> mentors=${mentors.length} mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms`
+      );
     }
 
     const publicMentors: ApprovedMentorCard[] = mentors.map(({ _userId, ...rest }) => rest);
