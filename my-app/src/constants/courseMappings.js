@@ -146,7 +146,9 @@ export const COURSE_TYPE_EN_TO_CN = {
 };
 
 export function courseTypeToCnLabel(value) {
-  return COURSE_TYPE_EN_TO_CN[value] || value || '';
+  const raw = value || '';
+  if (COURSE_TYPE_ID_TO_LABEL[raw]) return COURSE_TYPE_ID_TO_LABEL[raw];
+  return COURSE_TYPE_EN_TO_CN[raw] || raw || '';
 }
 
 // Normalize free-text course titles to a standard label used above

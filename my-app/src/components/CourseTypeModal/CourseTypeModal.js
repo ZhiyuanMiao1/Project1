@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './CourseTypeModal.css';
+import { COURSE_TYPE_ID_TO_LABEL } from '../../constants/courseMappings';
 
 const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) => {
   const contentRef = useRef(null);
@@ -92,54 +93,54 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
               {/* 选课指导 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Course Selection')}
+                onClick={() => handleCourseTypeSelect('course-selection')}
               >
-                选课指导
+                {COURSE_TYPE_ID_TO_LABEL['course-selection'] || '选课指导'}
                 <i className="fas fa-lightbulb"></i>
               </button>
 
               {/* 课前预习 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Pre-class Preparation')}
+                onClick={() => handleCourseTypeSelect('pre-study')}
               >
-                课前预习
+                {COURSE_TYPE_ID_TO_LABEL['pre-study'] || '课前预习'}
                 <i className="fas fa-chalkboard-teacher"></i>
               </button>
 
               {/* 作业项目 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Assignment')}
+                onClick={() => handleCourseTypeSelect('assignment-project')}
               >
-                作业项目
+                {COURSE_TYPE_ID_TO_LABEL['assignment-project'] || '作业项目'}
                 <i className="fas fa-book"></i>
               </button>
 
               {/* 期末复习 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Exam Review')}
+                onClick={() => handleCourseTypeSelect('final-review')}
               >
-                期末复习
+                {COURSE_TYPE_ID_TO_LABEL['final-review'] || '期末复习'}
                 <i className="fas fa-graduation-cap"></i>
               </button>
 
               {/* 毕业论文 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Graduation Thesis')}
+                onClick={() => handleCourseTypeSelect('in-class-support')}
               >
-                毕业论文
+                {COURSE_TYPE_ID_TO_LABEL['in-class-support'] || '毕业论文'}
                 <i className="fas fa-pen"></i>
               </button>
 
-              {/* 其它类型（保持原有值以确保功能不变）*/}
+              {/* 其它类型 */}
               <button
                 className="course-type-button"
-                onClick={() => handleCourseTypeSelect('Programming')}
+                onClick={() => handleCourseTypeSelect('others')}
               >
-                其它类型
+                {COURSE_TYPE_ID_TO_LABEL['others'] || '其它类型'}
                 <i className="fas fa-code"></i>
               </button>
 

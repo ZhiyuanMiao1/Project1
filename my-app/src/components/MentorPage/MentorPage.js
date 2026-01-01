@@ -5,6 +5,7 @@ import CategoryFilters from '../CategoryFilters/CategoryFilters';
 import MentorListings from '../Listings/MentorListings';
 import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
+import { COURSE_TYPE_EN_TO_CN, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import './MentorPage.css';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
@@ -77,11 +78,22 @@ const matchesRegion = (timezone, region, referenceDate = new Date()) => {
   return ranges.some((r) => offHours >= r.min && offHours <= r.max);
 };
 
+const COURSE_TYPE_LABEL_TO_ID = new Map(COURSE_TYPE_OPTIONS.map((o) => [o.label, o.id]));
+
+const normalizeCourseTypeId = (value) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (COURSE_TYPE_ID_TO_LABEL[raw]) return raw; // already an id
+  const cnLabel = COURSE_TYPE_EN_TO_CN[raw] || raw; // english->cn, or pass-through
+  return COURSE_TYPE_LABEL_TO_ID.get(cnLabel) || '';
+};
+
 function MentorPage() {
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [cards, setCards] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [appliedRegion, setAppliedRegion] = useState('');
+  const [appliedCourseType, setAppliedCourseType] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -142,6 +154,7 @@ function MentorPage() {
     const handler = (event) => {
       const detail = event?.detail || {};
       setAppliedRegion(typeof detail.region === 'string' ? detail.region : '');
+      setAppliedCourseType(typeof detail.courseType === 'string' ? detail.courseType : '');
     };
     window.addEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
     return () => window.removeEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
@@ -170,10 +183,23 @@ function MentorPage() {
 
   const filteredCards = useMemo(() => {
     const list = Array.isArray(cards) ? cards : [];
-    if (!appliedRegion || appliedRegion.trim() === '' || appliedRegion.trim() === '随便看看') return list;
+    const regionKey = appliedRegion.trim();
+    const courseTypeId = normalizeCourseTypeId(appliedCourseType);
     const referenceDate = new Date();
-    return list.filter((item) => matchesRegion(item?.timezone, appliedRegion, referenceDate));
-  }, [cards, appliedRegion]);
+    return list.filter((item) => {
+      if (regionKey && regionKey !== '随便看看') {
+        if (!matchesRegion(item?.timezone, regionKey, referenceDate)) return false;
+      }
+
+      if (courseTypeId) {
+        const ids = Array.isArray(item?.courseTypes) ? item.courseTypes : (item?.courseType ? [item.courseType] : []);
+        const normalizedIds = ids.map(normalizeCourseTypeId).filter(Boolean);
+        if (!normalizedIds.includes(courseTypeId)) return false;
+      }
+
+      return true;
+    });
+  }, [cards, appliedRegion, appliedCourseType]);
 
   return (
     <div className="app">
