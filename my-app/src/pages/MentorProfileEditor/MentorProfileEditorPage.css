@@ -466,7 +466,6 @@
 .mx-editor-form > .form-row:nth-of-type(4) { border-top: 1px solid #e5e7eb; }
 .mx-editor-form > .form-row:nth-of-type(5) { border-top: 1px solid #e5e7eb; }
 .mx-editor-form > .form-row:nth-of-type(6) {
-  align-items: start;
   border-top: 1px solid #e5e7eb;     /* 中间分割线*/
   border-bottom: 1px solid #e5e7eb;  /* 底部闭合 */
   border-bottom-left-radius: 12px;
