@@ -563,8 +563,11 @@
   text-decoration: none;
 }
 .mx-lang-flag {
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1;
+  letter-spacing: 0.08em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 .mx-lang-plus {
   display: inline-flex;
@@ -636,18 +639,28 @@
 .mx-lang-option input {
   width: 16px;
   height: 16px;
+  accent-color: #111827;
+}
+.mx-lang-option input:focus-visible {
+  outline: 2px solid #111827;
+  outline-offset: 2px;
 }
 .mx-lang-option__flag {
-  font-size: 18px;
+  width: 34px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1;
+  letter-spacing: 0.08em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 .mx-lang-option__label {
   font-size: 14px;
   color: #111827;
 }
 .mx-lang-option.is-checked {
-  border-color: rgba(59, 130, 246, 0.55);
-  background: rgba(59, 130, 246, 0.06);
+  border-color: rgba(17, 24, 39, 0.55);
+  background: #ffffff;
 }
 .mx-lang-modal__footer {
   display: flex;

@@ -198,7 +198,7 @@ function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
             return (
               <label key={opt.code} className={`mx-lang-option ${checked ? 'is-checked' : ''}`}>
                 <input type="checkbox" checked={checked} onChange={() => toggle(opt.code)} />
-                <span className="mx-lang-option__flag" aria-hidden="true">{opt.flag}</span>
+                <span className="mx-lang-option__flag" aria-hidden="true">{String(opt.code || '').toUpperCase()}</span>
                 <span className="mx-lang-option__label">{opt.label}</span>
               </label>
             );
@@ -830,7 +830,7 @@ function MentorProfileEditorPage() {
                         const opt = TEACHING_LANGUAGE_MAP.get(code);
                         if (!opt) return null;
                         return (
-                          <span key={code} className="mx-lang-flag" title={opt.label} aria-hidden="true">{opt.flag}</span>
+                          <span key={code} className="mx-lang-flag" title={opt.label} aria-hidden="true">{String(opt.code || '').toUpperCase()}</span>
                         );
                       })}
                       <span className="mx-lang-plus" aria-hidden="true">+</span>
