@@ -466,6 +466,7 @@
 .mx-editor-form > .form-row:nth-of-type(4) { border-top: 1px solid #e5e7eb; }
 .mx-editor-form > .form-row:nth-of-type(5) { border-top: 1px solid #e5e7eb; }
 .mx-editor-form > .form-row:nth-of-type(6) {
+  align-items: start;
   border-top: 1px solid #e5e7eb;     /* 中间分割线*/
   border-bottom: 1px solid #e5e7eb;  /* 底部闭合 */
   border-bottom-left-radius: 12px;
@@ -525,12 +526,158 @@
   box-shadow: none;
   color: #111827;           /* 实际输入为黑色 */
 }
+.mx-courses-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.mx-teaching-languages-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.mx-teaching-languages-link,
+.mx-teaching-languages-trigger {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: #6b7280;
+}
+.mx-teaching-languages-link:hover,
+.mx-teaching-languages-trigger:hover {
+  color: #374151;
+  text-decoration: underline;
+}
+.mx-teaching-languages-link:focus-visible,
+.mx-teaching-languages-trigger:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.35);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.mx-teaching-languages-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.mx-lang-flag {
+  font-size: 16px;
+  line-height: 1;
+}
+.mx-lang-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 1;
+}
+.mx-teaching-languages-trigger:hover .mx-lang-plus {
+  color: #374151;
+  border-color: #9ca3af;
+}
 .mx-editor-form > .form-row:nth-of-type(6) textarea:focus {
   outline: none;
   box-shadow: none;
 }
 .mx-editor-form > .form-row:nth-of-type(6) textarea::placeholder {
   color: #9ca3af;           /* 预设占位变浅灰 */
+}
+
+/* ===== Teaching language modal ===== */
+.mx-lang-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: rgba(17, 24, 39, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.mx-lang-modal {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(17, 24, 39, 0.25);
+  overflow: hidden;
+}
+.mx-lang-modal__header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #eef2f7;
+}
+.mx-lang-modal__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+.mx-lang-modal__body {
+  padding: 12px 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+.mx-lang-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  user-select: none;
+}
+.mx-lang-option input {
+  width: 16px;
+  height: 16px;
+}
+.mx-lang-option__flag {
+  font-size: 18px;
+  line-height: 1;
+}
+.mx-lang-option__label {
+  font-size: 14px;
+  color: #111827;
+}
+.mx-lang-option.is-checked {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.06);
+}
+.mx-lang-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid #eef2f7;
+}
+.mx-lang-modal__btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+.mx-lang-modal__btn--ghost {
+  background: #ffffff;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+.mx-lang-modal__btn--ghost:hover { border-color: #d1d5db; background: #f9fafb; }
+.mx-lang-modal__btn--primary {
+  background: #111827;
+  color: #ffffff;
+}
+.mx-lang-modal__btn--primary:hover { background: #0b1220; }
+@media (max-width: 520px) {
+  .mx-lang-modal__body { grid-template-columns: 1fr; }
 }
 
 /* ---- Custom Select (复用学生页“首课时区”样式 ---- */

@@ -71,6 +71,32 @@ const FALLBACK_TIMEZONES = [
   'Asia/Tokyo', 'Australia/Brisbane', 'Pacific/Guadalcanal', 'Pacific/Auckland',
 ];
 
+const TEACHING_LANGUAGE_STORAGE_KEY = 'mentor.profile.teachingLanguages.v1';
+const TEACHING_LANGUAGE_OPTIONS = [
+  { code: 'zh', label: '中文', flag: '🇨🇳' },
+  { code: 'en', label: 'English', flag: '🇺🇸' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+];
+
+const TEACHING_LANGUAGE_MAP = new Map(TEACHING_LANGUAGE_OPTIONS.map((o) => [o.code, o]));
+const normalizeTeachingLanguageCodes = (raw) => {
+  const valid = new Set(TEACHING_LANGUAGE_OPTIONS.map((o) => o.code));
+  const input = Array.isArray(raw) ? raw : [];
+  const next = [];
+  const seen = new Set();
+  for (const item of input) {
+    const code = String(item || '').trim();
+    if (!code || !valid.has(code) || seen.has(code)) continue;
+    seen.add(code);
+    next.push(code);
+  }
+  return next;
+};
+
 const extractCityName = (tz) => {
   const segs = (tz || '').split('/');
   return segs.length > 1 ? segs.slice(1).join(' / ').replace(/_/g, ' ') : tz;
@@ -137,6 +163,56 @@ const buildShortUTCWithCity = (timeZone) => {
   return city ? `${utc} (${city})` : utc;
 };
 
+function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
+  const [draft, setDraft] = useState(() => normalizeTeachingLanguageCodes(value));
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(normalizeTeachingLanguageCodes(value));
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel?.();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  const toggle = (code) => {
+    setDraft((prev) => (prev.includes(code) ? prev.filter((x) => x !== code) : [...prev, code]));
+  };
+
+  return (
+    <div className="mx-lang-modal-overlay" onMouseDown={() => onCancel?.()}>
+      <div className="mx-lang-modal" role="dialog" aria-modal="true" aria-label="选择授课语言" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="mx-lang-modal__header">
+          <div className="mx-lang-modal__title">选择授课语言</div>
+        </div>
+        <div className="mx-lang-modal__body">
+          {TEACHING_LANGUAGE_OPTIONS.map((opt) => {
+            const checked = draft.includes(opt.code);
+            return (
+              <label key={opt.code} className={`mx-lang-option ${checked ? 'is-checked' : ''}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggle(opt.code)} />
+                <span className="mx-lang-option__flag" aria-hidden="true">{opt.flag}</span>
+                <span className="mx-lang-option__label">{opt.label}</span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="mx-lang-modal__footer">
+          <button type="button" className="mx-lang-modal__btn mx-lang-modal__btn--ghost" onClick={() => onCancel?.()}>取消</button>
+          <button type="button" className="mx-lang-modal__btn mx-lang-modal__btn--primary" onClick={() => onConfirm?.(normalizeTeachingLanguageCodes(draft))}>确定</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MentorProfileEditorPage() {
   const navigate = useNavigate();
   const saveHintTimerRef = useRef(null);
@@ -152,10 +228,32 @@ function MentorProfileEditorPage() {
     try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'; } catch { return 'Asia/Shanghai'; }
   });
   const [coursesInput, setCoursesInput] = useState('');
+  const [teachingLanguageCodes, setTeachingLanguageCodes] = useState([]);
+  const [teachingLangModalOpen, setTeachingLangModalOpen] = useState(false);
 
   const courses = useMemo(
     () => coursesInput.split(/[,，]/).map((s) => s.trim()).filter(Boolean),
     [coursesInput]
+  );
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TEACHING_LANGUAGE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setTeachingLanguageCodes(normalizeTeachingLanguageCodes(parsed));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TEACHING_LANGUAGE_STORAGE_KEY, JSON.stringify(teachingLanguageCodes));
+    } catch {}
+  }, [teachingLanguageCodes]);
+
+  const teachingLanguageLabel = useMemo(
+    () => teachingLanguageCodes.map((code) => TEACHING_LANGUAGE_MAP.get(code)?.label).filter(Boolean).join(', '),
+    [teachingLanguageCodes]
   );
 
   // 头像：默认显示项目内的 default-avatar，可点击上传预览
@@ -370,10 +468,10 @@ function MentorProfileEditorPage() {
     rating: 4.9,
     reviewCount: 120,
     timezone: buildShortUTCWithCity(timezone),
-    languages: '中文, 英语',
+    languages: teachingLanguageLabel,
     courses,
     imageUrl: avatarPreviewUrl || avatarUrl || null,
-  }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl]);
+  }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl, teachingLanguageLabel]);
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
@@ -706,15 +804,52 @@ function MentorProfileEditorPage() {
 
             <div className="form-row">
               <label htmlFor="mx-courses">可授课课程</label>
-              <textarea
-                id="mx-courses"
-                placeholder="Python编程，机器学习，深度学习"
-                value={coursesInput}
-                onChange={(e) => setCoursesInput(e.target.value)}
-                rows={3}
-              />
+              <div className="mx-courses-field">
+                <textarea
+                  id="mx-courses"
+                  placeholder="Python编程，机器学习，深度学习"
+                  value={coursesInput}
+                  onChange={(e) => setCoursesInput(e.target.value)}
+                  rows={3}
+                />
+                <div className="mx-teaching-languages-row">
+                  {teachingLanguageCodes.length === 0 ? (
+                    <button
+                      type="button"
+                      className="mx-teaching-languages-link"
+                      onClick={() => setTeachingLangModalOpen(true)}
+                    >添加授课语言</button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mx-teaching-languages-trigger"
+                      onClick={() => setTeachingLangModalOpen(true)}
+                      aria-label="编辑授课语言"
+                    >
+                      {teachingLanguageCodes.map((code) => {
+                        const opt = TEACHING_LANGUAGE_MAP.get(code);
+                        if (!opt) return null;
+                        return (
+                          <span key={code} className="mx-lang-flag" title={opt.label} aria-hidden="true">{opt.flag}</span>
+                        );
+                      })}
+                      <span className="mx-lang-plus" aria-hidden="true">+</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </section>
+
+          <TeachingLanguageModal
+            open={teachingLangModalOpen}
+            value={teachingLanguageCodes}
+            onCancel={() => setTeachingLangModalOpen(false)}
+            onConfirm={(next) => {
+              setTeachingLanguageCodes(next);
+              setTeachingLangModalOpen(false);
+            }}
+          />
 
           {/* 右侧：实时预览 */}
           <aside className="mx-editor-preview">
