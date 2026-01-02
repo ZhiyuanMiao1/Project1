@@ -14,10 +14,10 @@ import { ensureFreshAuth } from '../../utils/auth';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
-  '0_1': '0-1天',
-  '1_3': '1-3天',
-  '3_7': '3-7天',
-  gt7: '7天以上',
+  '0_1': '紧急（1天内）',
+  '1_3': '近期（3天内）',
+  '3_7': '一周内',
+  gt7: '长期',
 };
 
 function MentorNavbar() {
