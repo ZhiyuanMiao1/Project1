@@ -73,13 +73,13 @@ const FALLBACK_TIMEZONES = [
 
 const TEACHING_LANGUAGE_STORAGE_KEY = 'mentor.profile.teachingLanguages.v1';
 const TEACHING_LANGUAGE_OPTIONS = [
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
-  { code: 'en', label: 'English', flag: '🇺🇸' },
-  { code: 'ja', label: '日本語', flag: '🇯🇵' },
-  { code: 'ko', label: '한국어', flag: '🇰🇷' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-  { code: 'es', label: 'Español', flag: '🇪🇸' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'zh', label: '中文', flag: 'ZH' },
+  { code: 'en', label: 'English', flag: 'EN' },
+  { code: 'ja', label: '日本語', flag: 'JA' },
+  { code: 'ko', label: '한국어', flag: 'KO' },
+  { code: 'fr', label: 'Français', flag: 'FR' },
+  { code: 'es', label: 'Español', flag: 'ES' },
+  { code: 'de', label: 'Deutsch', flag: 'DE' },
 ];
 
 const TEACHING_LANGUAGE_MAP = new Map(TEACHING_LANGUAGE_OPTIONS.map((o) => [o.code, o]));
