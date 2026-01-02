@@ -92,6 +92,9 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
       let courseTypes: string[] = [];
       try { courseTypes = r.course_types_json ? JSON.parse(r.course_types_json) : []; } catch { courseTypes = []; }
       const courseType = (r.course_type || courseTypes?.[0] || '').toString();
+      if ((!Array.isArray(courseTypes) || courseTypes.length === 0) && courseType) {
+        courseTypes = [courseType];
+      }
 
       let daySelections: Record<string, { start: number; end: number }[]> = {};
       try { daySelections = r.schedule_json ? JSON.parse(r.schedule_json) : {}; } catch { daySelections = {}; }

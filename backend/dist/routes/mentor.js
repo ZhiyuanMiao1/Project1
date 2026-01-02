@@ -88,6 +88,9 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
                 courseTypes = [];
             }
             const courseType = (r.course_type || courseTypes?.[0] || '').toString();
+            if ((!Array.isArray(courseTypes) || courseTypes.length === 0) && courseType) {
+                courseTypes = [courseType];
+            }
             let daySelections = {};
             try {
                 daySelections = r.schedule_json ? JSON.parse(r.schedule_json) : {};

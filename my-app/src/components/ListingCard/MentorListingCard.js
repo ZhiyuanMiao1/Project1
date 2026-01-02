@@ -163,9 +163,15 @@ function MentorListingCard({
   const courses = normalizedLabels.join(' | ');
   const CourseIcon = DIRECTION_LABEL_ICON_MAP[normalizedLabels[0]] || FaFileAlt;
 
+  const courseTypeIds = Array.isArray(data?.courseTypes) ? data.courseTypes : [];
   const courseTypeRaw = data?.courseType ? String(data.courseType).trim() : '';
-  const courseTypeLabel = COURSE_TYPE_ID_TO_LABEL[courseTypeRaw] || courseTypeRaw;
-  const CourseTypeIcon = COURSE_TYPE_LABEL_ICON_MAP[courseTypeLabel] || FaGraduationCap;
+  const courseTypeLabels = (
+    courseTypeIds.length
+      ? courseTypeIds.map((id) => COURSE_TYPE_ID_TO_LABEL[String(id).trim()] || String(id).trim()).filter(Boolean)
+      : (courseTypeRaw ? [COURSE_TYPE_ID_TO_LABEL[courseTypeRaw] || courseTypeRaw] : [])
+  );
+  const courseTypeLabel = courseTypeLabels.join('、');
+  const CourseTypeIcon = COURSE_TYPE_LABEL_ICON_MAP[courseTypeLabels[0]] || FaGraduationCap;
 
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
