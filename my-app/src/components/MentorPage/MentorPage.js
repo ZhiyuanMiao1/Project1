@@ -9,6 +9,7 @@ import { COURSE_TYPE_EN_TO_CN, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_OPTIONS } fr
 import './MentorPage.css';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
+const MENTOR_LISTINGS_CATEGORY_EVENT = 'mentor:listings-category';
 
 const REGION_OFFSET_RANGES = {
   中国: [{ min: 7.5, max: 8.5 }], // UTC+8
@@ -176,6 +177,7 @@ function MentorPage() {
   const [appliedRegion, setAppliedRegion] = useState('');
   const [appliedCourseType, setAppliedCourseType] = useState('');
   const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedCategoryId, setAppliedCategoryId] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -244,6 +246,15 @@ function MentorPage() {
   }, []);
 
   useEffect(() => {
+    const handler = (event) => {
+      const detail = event?.detail || {};
+      setAppliedCategoryId(typeof detail.categoryId === 'string' ? detail.categoryId : null);
+    };
+    window.addEventListener(MENTOR_LISTINGS_CATEGORY_EVENT, handler);
+    return () => window.removeEventListener(MENTOR_LISTINGS_CATEGORY_EVENT, handler);
+  }, []);
+
+  useEffect(() => {
     let alive = true;
     if (status !== 'ok') {
       setFavoriteIds(new Set());
@@ -272,6 +283,12 @@ function MentorPage() {
     const referenceDate = new Date();
     const nowMs = referenceDate.getTime();
     return list.filter((item) => {
+      if (appliedCategoryId) {
+        const rawCourses = Array.isArray(item?.courses) ? item.courses : (item?.courses ? [item.courses] : []);
+        const courseIds = rawCourses.map((c) => String(c).trim()).filter(Boolean);
+        if (!courseIds.includes(appliedCategoryId)) return false;
+      }
+
       if (regionKey && regionKey !== '随便看看') {
         if (!matchesRegion(item?.timezone, regionKey, referenceDate)) return false;
       }
@@ -291,12 +308,12 @@ function MentorPage() {
 
       return true;
     });
-  }, [cards, appliedRegion, appliedCourseType, appliedStartDate]);
+  }, [cards, appliedRegion, appliedCourseType, appliedStartDate, appliedCategoryId]);
 
   return (
     <div className="app">
       <MentorNavbar />
-      <CategoryFilters />
+      <CategoryFilters eventName={MENTOR_LISTINGS_CATEGORY_EVENT} />
 
       {status === 'ok' && (
         <MentorListings

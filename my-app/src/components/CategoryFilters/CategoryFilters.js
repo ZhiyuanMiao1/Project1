@@ -10,7 +10,7 @@ const DIRECTION_OPTION_BY_ID = new Map(DIRECTION_OPTIONS.map((opt) => [opt.id, o
 
 const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
 
-function CategoryFilters() {
+function CategoryFilters({ eventName = STUDENT_LISTINGS_CATEGORY_EVENT } = {}) {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false); // 控制左侧按钮
   const [showRightArrow, setShowRightArrow] = useState(true); // 控制右侧按钮
@@ -187,7 +187,7 @@ function CategoryFilters() {
               setSelectedCategoryId((prev) => {
                 const next = prev === cat.id ? null : cat.id;
                 try {
-                  window.dispatchEvent(new CustomEvent(STUDENT_LISTINGS_CATEGORY_EVENT, { detail: { categoryId: next } }));
+                  window.dispatchEvent(new CustomEvent(eventName, { detail: { categoryId: next } }));
                 } catch {}
                 return next;
               });
