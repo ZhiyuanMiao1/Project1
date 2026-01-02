@@ -99,6 +99,20 @@ const hasAnyMentorCardInfo = (mentor) => {
 
 const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
 
+const countTeachingLanguages = (raw) => {
+  if (!raw) return 0;
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x ?? '').trim()).filter(Boolean).length;
+  }
+  const text = String(raw).trim();
+  if (!text) return 0;
+  return text
+    .split(/[,，]/g)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .length;
+};
+
 const isDebugTimingEnabled = () => {
   try {
     return localStorage.getItem('debugTiming') === '1';
@@ -149,7 +163,7 @@ function StudentListings() {
     const now = new Date();
     const ownMentorIdLower = normalizeSearchText(currentMentorId);
 
-    const filtered = (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
+    let filtered = (Array.isArray(allMentors) ? allMentors : []).filter((m) => {
       if (ownMentorIdLower) {
         const mentorIdLower = normalizeSearchText(m?.id);
         if (mentorIdLower && mentorIdLower === ownMentorIdLower) return false;
@@ -164,6 +178,10 @@ function StudentListings() {
       if (!matchesRegion(m?.timezone, region, now)) return false;
       return true;
     });
+
+    if (courseType === '双语授课') {
+      filtered = filtered.filter((m) => countTeachingLanguages(m?.teachingLanguages ?? m?.languages) >= 2);
+    }
 
     if (courseType === '评分高') {
       return [...filtered].sort((a, b) => {
