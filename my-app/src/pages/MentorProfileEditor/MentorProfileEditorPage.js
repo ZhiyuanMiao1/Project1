@@ -80,6 +80,7 @@ const TEACHING_LANGUAGE_OPTIONS = [
   { code: 'fr', label: 'Français', flag: 'FR' },
   { code: 'es', label: 'Español', flag: 'ES' },
   { code: 'de', label: 'Deutsch', flag: 'DE' },
+  { code: 'it', label: 'Italiano', flag: 'IT' },
 ];
 
 const TEACHING_LANGUAGE_MAP = new Map(TEACHING_LANGUAGE_OPTIONS.map((o) => [o.code, o]));
