@@ -70,13 +70,6 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          mp.timezone AS student_timezone,
          s.student_avatar_url AS student_avatar_url
        FROM course_requests r
-       JOIN (
-         SELECT user_id, MAX(id) AS max_id
-         FROM course_requests
-         WHERE status = 'submitted' AND user_id <> ?
-         GROUP BY user_id
-       ) latest
-         ON latest.user_id = r.user_id AND latest.max_id = r.id
        JOIN user_roles ur
          ON ur.user_id = r.user_id AND ur.role = 'student'
        LEFT JOIN mentor_profiles mp
@@ -84,8 +77,8 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
        WHERE r.status = 'submitted' AND r.user_id <> ?
-       ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id ASC
-       LIMIT 200`, [req.user.id, req.user.id]);
+       ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id DESC
+       LIMIT 200`, [req.user.id]);
         const cards = (rows || []).map((r) => {
             let courseTypes = [];
             try {
