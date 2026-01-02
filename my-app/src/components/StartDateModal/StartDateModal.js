@@ -58,27 +58,27 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
         <div className="start-date-options">
           <button
             className="start-date-option-button"
-            onClick={() => handleStartDateSelect('紧急（1天内）')}
+            onClick={() => handleStartDateSelect('0_1')}
           >
-            紧急（1天内）
+            0-1天
           </button>
           <button
             className="start-date-option-button"
-            onClick={() => handleStartDateSelect('近期（3天内）')}
+            onClick={() => handleStartDateSelect('1_3')}
           >
-            近期（3天内）
+            1-3天
           </button>
           <button
             className="start-date-option-button"
-            onClick={() => handleStartDateSelect('一周内')}
+            onClick={() => handleStartDateSelect('3_7')}
           >
-            一周内
+            3-7天
           </button>
           <button
             className="start-date-option-button"
-            onClick={() => handleStartDateSelect('长期')}
+            onClick={() => handleStartDateSelect('gt7')}
           >
-            长期
+            7天以上
           </button>
           <button
             className="start-date-option-button"

@@ -13,6 +13,12 @@ import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
+const START_DATE_LABELS = {
+  '0_1': '0-1天',
+  '1_3': '1-3天',
+  '3_7': '3-7天',
+  gt7: '7天以上',
+};
 
 function MentorNavbar() {
   const timezoneRef = useRef(null); // 时区筛选锚点
@@ -262,7 +268,7 @@ function MentorNavbar() {
               <input
                 type="text"
                 placeholder="选择首课日期"
-                value={selectedStartDate}
+                value={START_DATE_LABELS[selectedStartDate] || ''}
                 readOnly
               />
             </div>

@@ -78,6 +78,87 @@ const matchesRegion = (timezone, region, referenceDate = new Date()) => {
   return ranges.some((r) => offHours >= r.min && offHours <= r.max);
 };
 
+const SLOT_MINUTES = 15;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const parseDayKey = (key) => {
+  if (!key || typeof key !== 'string') return null;
+  const m = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  return { year: y, month: mo, day: d };
+};
+
+const localMinutesToUtcMs = (timeZone, year, month, day, minutesOfDay) => {
+  const hours = Math.floor(minutesOfDay / 60);
+  const minutes = minutesOfDay % 60;
+  const localAsUtcMs = Date.UTC(year, month - 1, day, hours, minutes, 0, 0);
+
+  const fixedOffset = parseUtcOffsetMinutesFromLabel(timeZone);
+  if (typeof fixedOffset === 'number') {
+    return localAsUtcMs - fixedOffset * 60000;
+  }
+
+  const raw = typeof timeZone === 'string' ? timeZone.trim() : '';
+  if (raw && raw.includes('/')) {
+    // Iterate because offset depends on the instant (DST).
+    let guess = localAsUtcMs;
+    for (let i = 0; i < 3; i += 1) {
+      const off = getTimeZoneOffsetMinutes(raw, new Date(guess));
+      const corrected = localAsUtcMs - off * 60000;
+      if (Math.abs(corrected - guess) < 1000) return corrected;
+      guess = corrected;
+    }
+    return guess;
+  }
+
+  // Fallback: treat as UTC.
+  return localAsUtcMs;
+};
+
+const getEarliestFutureAvailabilityMs = (daySelections, timeZone, nowMs) => {
+  if (!daySelections || typeof daySelections !== 'object') return null;
+  const entries = Object.entries(daySelections);
+  if (!entries.length) return null;
+
+  let best = Infinity;
+  for (const [key, blocks] of entries) {
+    if (!Array.isArray(blocks) || blocks.length === 0) continue;
+    const parsed = parseDayKey(key);
+    if (!parsed) continue;
+
+    for (const block of blocks) {
+      const startIdx = Number(block?.start);
+      const endIdx = Number(block?.end);
+      if (!Number.isFinite(startIdx) || !Number.isFinite(endIdx)) continue;
+      const startMin = Math.max(0, Math.min(95, Math.floor(Math.min(startIdx, endIdx)))) * SLOT_MINUTES;
+      const endMinExclusive = (Math.max(0, Math.min(95, Math.floor(Math.max(startIdx, endIdx)))) + 1) * SLOT_MINUTES;
+
+      const startMs = localMinutesToUtcMs(timeZone, parsed.year, parsed.month, parsed.day, startMin);
+      const endMs = localMinutesToUtcMs(timeZone, parsed.year, parsed.month, parsed.day, endMinExclusive);
+
+      if (endMs <= nowMs) continue;
+
+      const candidate = startMs <= nowMs && nowMs < endMs ? nowMs : startMs;
+      if (candidate < best) best = candidate;
+    }
+  }
+
+  return best === Infinity ? null : best;
+};
+
+const getStartDateBucket = (earliestMs, nowMs) => {
+  if (typeof earliestMs !== 'number' || !Number.isFinite(earliestMs)) return '';
+  const diffDays = (earliestMs - nowMs) / MS_PER_DAY;
+  if (diffDays < 1) return '0_1';
+  if (diffDays < 3) return '1_3';
+  if (diffDays <= 7) return '3_7';
+  return 'gt7';
+};
+
 const COURSE_TYPE_LABEL_TO_ID = new Map(COURSE_TYPE_OPTIONS.map((o) => [o.label, o.id]));
 
 const normalizeCourseTypeId = (value) => {
@@ -94,6 +175,7 @@ function MentorPage() {
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [appliedRegion, setAppliedRegion] = useState('');
   const [appliedCourseType, setAppliedCourseType] = useState('');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -155,6 +237,7 @@ function MentorPage() {
       const detail = event?.detail || {};
       setAppliedRegion(typeof detail.region === 'string' ? detail.region : '');
       setAppliedCourseType(typeof detail.courseType === 'string' ? detail.courseType : '');
+      setAppliedStartDate(typeof detail.startDate === 'string' ? detail.startDate : '');
     };
     window.addEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
     return () => window.removeEventListener(MENTOR_LISTINGS_SEARCH_EVENT, handler);
@@ -185,7 +268,9 @@ function MentorPage() {
     const list = Array.isArray(cards) ? cards : [];
     const regionKey = appliedRegion.trim();
     const courseTypeId = normalizeCourseTypeId(appliedCourseType);
+    const startDateKey = appliedStartDate.trim();
     const referenceDate = new Date();
+    const nowMs = referenceDate.getTime();
     return list.filter((item) => {
       if (regionKey && regionKey !== '随便看看') {
         if (!matchesRegion(item?.timezone, regionKey, referenceDate)) return false;
@@ -197,9 +282,16 @@ function MentorPage() {
         if (!normalizedIds.includes(courseTypeId)) return false;
       }
 
+      if (startDateKey) {
+        const tz = typeof item?.timezone === 'string' ? item.timezone : '';
+        const earliestMs = getEarliestFutureAvailabilityMs(item?.daySelections, tz, nowMs);
+        const bucket = earliestMs == null ? '' : getStartDateBucket(earliestMs, nowMs);
+        if (bucket !== startDateKey) return false;
+      }
+
       return true;
     });
-  }, [cards, appliedRegion, appliedCourseType]);
+  }, [cards, appliedRegion, appliedCourseType, appliedStartDate]);
 
   return (
     <div className="app">

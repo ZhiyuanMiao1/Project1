@@ -63,6 +63,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          r.course_types_json,
          r.time_zone,
          r.session_duration_hours,
+         r.schedule_json,
          ur.public_id AS student_public_id,
          mp.degree AS student_degree,
          mp.school AS student_school,
@@ -94,6 +95,13 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
                 courseTypes = [];
             }
             const courseType = (r.course_type || courseTypes?.[0] || '').toString();
+            let daySelections = {};
+            try {
+                daySelections = r.schedule_json ? JSON.parse(r.schedule_json) : {};
+            }
+            catch {
+                daySelections = {};
+            }
             return {
                 id: Number(r.request_id),
                 name: String(r.student_public_id || '').toUpperCase(),
@@ -102,8 +110,10 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
                 timezone: r.time_zone || r.student_timezone || '',
                 avatarUrl: r.student_avatar_url || null,
                 courses: r.course_direction ? [String(r.course_direction)] : [],
+                courseTypes,
                 courseType,
                 expectedDuration: formatDuration(r.session_duration_hours),
+                daySelections,
             };
         });
         return res.json({ cards });
