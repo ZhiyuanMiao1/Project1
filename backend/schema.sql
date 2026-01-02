@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `school` VARCHAR(200) NULL,
   `timezone` VARCHAR(64) NULL,
   `courses_json` TEXT NULL,          -- JSON array of strings
+  `teaching_languages_json` TEXT NULL, -- JSON array of language codes (e.g. ["zh","en"])
   `rating` DECIMAL(3,2) NOT NULL DEFAULT 0,
   `review_count` INT NOT NULL DEFAULT 0,
   `avatar_url` VARCHAR(500) NULL,

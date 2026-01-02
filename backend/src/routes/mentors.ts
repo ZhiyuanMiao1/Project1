@@ -1,5 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { query } from '../db';
+import {
+  ensureMentorTeachingLanguagesColumn,
+  formatTeachingLanguageCodesForCard,
+  isMissingTeachingLanguagesColumnError,
+  parseTeachingLanguagesJson,
+} from '../services/mentorTeachingLanguages';
 
 const router = Router();
 
@@ -22,6 +28,7 @@ type ApprovedMentorRow = {
   school: string | null;
   timezone: string | null;
   courses_json: string | null;
+  teaching_languages_json: string | null;
   avatar_url: string | null;
   rating: any;
   review_count: any;
@@ -161,6 +168,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
         mp.school,
         mp.timezone,
         mp.courses_json,
+        mp.teaching_languages_json,
         mp.avatar_url,
         mp.rating,
         mp.review_count,
@@ -182,9 +190,17 @@ router.get('/approved', async (_req: Request, res: Response) => {
     try {
       rows = await runQuery();
     } catch (e: any) {
-      if (!isMissingRatingColumnsError(e)) throw e;
-      const ensured = await ensureMentorRatingColumns();
-      if (!ensured) throw e;
+      const missingRating = isMissingRatingColumnsError(e);
+      const missingTeaching = isMissingTeachingLanguagesColumnError(e);
+      if (!missingRating && !missingTeaching) throw e;
+      if (missingRating) {
+        const ensured = await ensureMentorRatingColumns();
+        if (!ensured) throw e;
+      }
+      if (missingTeaching) {
+        const ensured = await ensureMentorTeachingLanguagesColumn();
+        if (!ensured) throw e;
+      }
       rows = await runQuery();
     }
     const tMentorsQueryMs = timingEnabled ? msSince(tMentorsQueryStart) : 0;
@@ -215,7 +231,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
           reviewCount: normalizeCount(row.review_count),
           courses,
           timezone: row.timezone || '',
-          languages: '',
+          languages: formatTeachingLanguageCodesForCard(parseTeachingLanguagesJson(row.teaching_languages_json)),
           imageUrl: row.avatar_url || null,
         },
       ];

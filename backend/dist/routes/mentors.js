@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
+const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const router = (0, express_1.Router)();
 const hrNow = () => process.hrtime.bigint();
 const msSince = (start) => Number(hrNow() - start) / 1e6;
@@ -120,6 +121,7 @@ router.get('/approved', async (_req, res) => {
         mp.school,
         mp.timezone,
         mp.courses_json,
+        mp.teaching_languages_json,
         mp.avatar_url,
         mp.rating,
         mp.review_count,
@@ -140,11 +142,20 @@ router.get('/approved', async (_req, res) => {
             rows = await runQuery();
         }
         catch (e) {
-            if (!isMissingRatingColumnsError(e))
+            const missingRating = isMissingRatingColumnsError(e);
+            const missingTeaching = (0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e);
+            if (!missingRating && !missingTeaching)
                 throw e;
-            const ensured = await ensureMentorRatingColumns();
-            if (!ensured)
-                throw e;
+            if (missingRating) {
+                const ensured = await ensureMentorRatingColumns();
+                if (!ensured)
+                    throw e;
+            }
+            if (missingTeaching) {
+                const ensured = await (0, mentorTeachingLanguages_1.ensureMentorTeachingLanguagesColumn)();
+                if (!ensured)
+                    throw e;
+            }
             rows = await runQuery();
         }
         const tMentorsQueryMs = timingEnabled ? msSince(tMentorsQueryStart) : 0;
@@ -172,7 +183,7 @@ router.get('/approved', async (_req, res) => {
                     reviewCount: normalizeCount(row.review_count),
                     courses,
                     timezone: row.timezone || '',
-                    languages: '',
+                    languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
                     imageUrl: row.avatar_url || null,
                 },
             ];

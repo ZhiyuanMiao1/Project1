@@ -5,6 +5,7 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
+const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const router = (0, express_1.Router)();
 const requiredEnv = (name) => {
     const value = process.env[name];
@@ -145,7 +146,19 @@ router.get('/profile', auth_1.requireAuth, async (req, res) => {
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved)
             return res.status(403).json({ error: '导师审核中' });
-        const prof = await (0, db_1.query)('SELECT user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);
+        const loadProfile = async () => (0, db_1.query)('SELECT user_id, display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);
+        let prof = [];
+        try {
+            prof = await loadProfile();
+        }
+        catch (e) {
+            if (!(0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e))
+                throw e;
+            const ensured = await (0, mentorTeachingLanguages_1.ensureMentorTeachingLanguagesColumn)();
+            if (!ensured)
+                throw e;
+            prof = await loadProfile();
+        }
         if (prof.length === 0)
             return res.json({ profile: null });
         const row = prof[0];
@@ -156,6 +169,7 @@ router.get('/profile', auth_1.requireAuth, async (req, res) => {
         catch {
             courses = [];
         }
+        const teachingLanguages = (0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json);
         return res.json({
             profile: {
                 displayName: row.display_name || '',
@@ -164,6 +178,7 @@ router.get('/profile', auth_1.requireAuth, async (req, res) => {
                 school: row.school || '',
                 timezone: row.timezone || '',
                 courses,
+                teachingLanguages,
                 avatarUrl: row.avatar_url || null,
                 updatedAt: row.updated_at,
             }
@@ -181,6 +196,11 @@ router.put('/profile', auth_1.requireAuth, [
     (0, express_validator_1.body)('school').optional().isString().isLength({ max: 200 }),
     (0, express_validator_1.body)('timezone').optional().isString().isLength({ max: 64 }),
     (0, express_validator_1.body)('courses').optional().isArray().custom((arr) => arr.every((s) => typeof s === 'string' && s.length <= 100)).withMessage('课程需为字符串数组'),
+    (0, express_validator_1.body)('teachingLanguages')
+        .optional()
+        .isArray()
+        .custom((arr) => arr.every((s) => typeof s === 'string' && s.trim().length > 0 && s.trim().length <= 10))
+        .withMessage('授课语言需为字符串数组'),
     (0, express_validator_1.body)('avatarUrl').optional({ nullable: true }).isString().isLength({ max: 500 }),
 ], async (req, res) => {
     if (req.user?.role !== 'mentor')
@@ -195,9 +215,21 @@ router.put('/profile', auth_1.requireAuth, [
         const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
         if (!approved)
             return res.status(403).json({ error: '导师审核中，暂不可保存' });
-        const { displayName, gender, degree, school, timezone, courses, avatarUrl, } = req.body;
+        const { displayName, gender, degree, school, timezone, courses, teachingLanguages, avatarUrl, } = req.body;
         // Merge update: unspecified fields keep existing values.
-        const existingRows = await (0, db_1.query)('SELECT display_name, gender, degree, school, timezone, courses_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);
+        const loadExisting = async () => (0, db_1.query)('SELECT display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);
+        let existingRows = [];
+        try {
+            existingRows = await loadExisting();
+        }
+        catch (e) {
+            if (!(0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e))
+                throw e;
+            const ensured = await (0, mentorTeachingLanguages_1.ensureMentorTeachingLanguagesColumn)();
+            if (!ensured)
+                throw e;
+            existingRows = await loadExisting();
+        }
         const existing = existingRows?.[0] || {};
         let existingCourses = [];
         try {
@@ -206,6 +238,7 @@ router.put('/profile', auth_1.requireAuth, [
         catch {
             existingCourses = [];
         }
+        const existingTeachingLanguages = (0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(existing.teaching_languages_json);
         const nextDisplayName = (Object.prototype.hasOwnProperty.call(req.body, 'displayName') ? displayName : (existing.display_name || ''));
         const nextGender = (Object.prototype.hasOwnProperty.call(req.body, 'gender') ? gender : (existing.gender || ''));
         const nextDegree = (Object.prototype.hasOwnProperty.call(req.body, 'degree') ? degree : (existing.degree || ''));
@@ -215,8 +248,13 @@ router.put('/profile', auth_1.requireAuth, [
             ? (courses || [])
             : (Array.isArray(existingCourses) ? existingCourses : []);
         const nextCourses = (0, mentorCourseEmbeddings_1.sanitizeMentorCourses)(nextCoursesRaw, 50);
+        const nextTeachingLanguagesRaw = Object.prototype.hasOwnProperty.call(req.body, 'teachingLanguages')
+            ? (teachingLanguages || [])
+            : (Array.isArray(existingTeachingLanguages) ? existingTeachingLanguages : []);
+        const nextTeachingLanguages = (0, mentorTeachingLanguages_1.sanitizeTeachingLanguageCodes)(nextTeachingLanguagesRaw, 20);
         const nextAvatarUrl = Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl') ? (avatarUrl ?? null) : (existing.avatar_url ?? null);
         const coursesJson = JSON.stringify(nextCourses);
+        const teachingLanguagesJson = JSON.stringify(nextTeachingLanguages);
         const userId = req.user.id;
         const preparedEmbeddings = nextCourses.length > 0
             ? await (0, mentorCourseEmbeddings_1.prepareMentorCourseEmbeddings)({
@@ -229,8 +267,8 @@ router.put('/profile', auth_1.requireAuth, [
         try {
             await conn.beginTransaction();
             // Upsert by user_id
-            await conn.execute(`INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            await conn.execute(`INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
               display_name = VALUES(display_name),
               gender = VALUES(gender),
@@ -238,8 +276,19 @@ router.put('/profile', auth_1.requireAuth, [
               school = VALUES(school),
               timezone = VALUES(timezone),
               courses_json = VALUES(courses_json),
+              teaching_languages_json = VALUES(teaching_languages_json),
               avatar_url = VALUES(avatar_url),
-              updated_at = CURRENT_TIMESTAMP`, [userId, nextDisplayName, nextGender || null, nextDegree || null, nextSchool || null, nextTimezone || null, coursesJson, nextAvatarUrl]);
+              updated_at = CURRENT_TIMESTAMP`, [
+                userId,
+                nextDisplayName,
+                nextGender || null,
+                nextDegree || null,
+                nextSchool || null,
+                nextTimezone || null,
+                coursesJson,
+                teachingLanguagesJson,
+                nextAvatarUrl,
+            ]);
             await (0, mentorCourseEmbeddings_1.applyMentorCourseEmbeddings)({
                 userId,
                 keepKeys: preparedEmbeddings.keepKeys,

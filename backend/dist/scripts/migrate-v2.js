@@ -219,6 +219,7 @@ async function main() {
       \`school\` VARCHAR(200) NULL,
       \`timezone\` VARCHAR(64) NULL,
       \`courses_json\` TEXT NULL,
+      \`teaching_languages_json\` TEXT NULL,
       \`avatar_url\` VARCHAR(500) NULL,
       \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

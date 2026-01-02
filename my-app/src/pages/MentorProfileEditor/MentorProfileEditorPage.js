@@ -380,6 +380,7 @@ function MentorProfileEditorPage() {
         school,
         timezone,
         courses,
+        teachingLanguages: teachingLanguageCodes,
         avatarUrl,
       };
       await api.put('/api/mentor/profile', payload);
@@ -449,6 +450,9 @@ function MentorProfileEditorPage() {
           setSchool(p.school || '');
           if (p.timezone) setTimezone(p.timezone);
           setCoursesInput(Array.isArray(p.courses) ? p.courses.join('，') : '');
+          if (Array.isArray(p.teachingLanguages)) {
+            setTeachingLanguageCodes(normalizeTeachingLanguageCodes(p.teachingLanguages));
+          }
           setAvatarUrl(p.avatarUrl || null);
           setNextAvatarPreviewUrl(p.avatarUrl || null);
         }

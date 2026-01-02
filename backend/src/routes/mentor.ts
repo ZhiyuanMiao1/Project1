@@ -3,6 +3,12 @@ import { requireAuth } from '../middleware/auth';
 import { pool, query } from '../db';
 import { body, validationResult } from 'express-validator';
 import { applyMentorCourseEmbeddings, prepareMentorCourseEmbeddings, sanitizeMentorCourses } from '../services/mentorCourseEmbeddings';
+import {
+  ensureMentorTeachingLanguagesColumn,
+  isMissingTeachingLanguagesColumnError,
+  parseTeachingLanguagesJson,
+  sanitizeTeachingLanguageCodes,
+} from '../services/mentorTeachingLanguages';
 
 const router = Router();
 
@@ -151,14 +157,26 @@ router.get('/profile', requireAuth, async (req: Request, res: Response) => {
     const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
     if (!approved) return res.status(403).json({ error: '导师审核中' });
 
-    const prof = await query<any[]>(
-      'SELECT user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1',
-      [req.user!.id]
-    );
+    const loadProfile = async () =>
+      query<any[]>(
+        'SELECT user_id, display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1',
+        [req.user!.id]
+      );
+
+    let prof: any[] = [];
+    try {
+      prof = await loadProfile();
+    } catch (e: any) {
+      if (!isMissingTeachingLanguagesColumnError(e)) throw e;
+      const ensured = await ensureMentorTeachingLanguagesColumn();
+      if (!ensured) throw e;
+      prof = await loadProfile();
+    }
     if (prof.length === 0) return res.json({ profile: null });
     const row = prof[0];
     let courses: string[] = [];
     try { courses = row.courses_json ? JSON.parse(row.courses_json) : []; } catch { courses = []; }
+    const teachingLanguages = parseTeachingLanguagesJson(row.teaching_languages_json);
     return res.json({
       profile: {
         displayName: row.display_name || '',
@@ -167,6 +185,7 @@ router.get('/profile', requireAuth, async (req: Request, res: Response) => {
         school: row.school || '',
         timezone: row.timezone || '',
         courses,
+        teachingLanguages,
         avatarUrl: row.avatar_url || null,
         updatedAt: row.updated_at,
       }
@@ -187,6 +206,11 @@ router.put(
     body('school').optional().isString().isLength({ max: 200 }),
     body('timezone').optional().isString().isLength({ max: 64 }),
     body('courses').optional().isArray().custom((arr) => arr.every((s: any) => typeof s === 'string' && s.length <= 100)).withMessage('课程需为字符串数组'),
+    body('teachingLanguages')
+      .optional()
+      .isArray()
+      .custom((arr) => arr.every((s: any) => typeof s === 'string' && s.trim().length > 0 && s.trim().length <= 10))
+      .withMessage('授课语言需为字符串数组'),
     body('avatarUrl').optional({ nullable: true }).isString().isLength({ max: 500 }),
   ],
   async (req: Request, res: Response) => {
@@ -213,19 +237,39 @@ router.put(
         school,
         timezone,
         courses,
+        teachingLanguages,
         avatarUrl,
       } = req.body as {
-        displayName?: string; gender?: string; degree?: string; school?: string; timezone?: string; courses?: string[]; avatarUrl?: string | null;
+        displayName?: string;
+        gender?: string;
+        degree?: string;
+        school?: string;
+        timezone?: string;
+        courses?: string[];
+        teachingLanguages?: string[];
+        avatarUrl?: string | null;
       };
 
       // Merge update: unspecified fields keep existing values.
-      const existingRows = await query<any[]>(
-        'SELECT display_name, gender, degree, school, timezone, courses_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1',
-        [req.user!.id]
-      );
+      const loadExisting = async () =>
+        query<any[]>(
+          'SELECT display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1',
+          [req.user!.id]
+        );
+
+      let existingRows: any[] = [];
+      try {
+        existingRows = await loadExisting();
+      } catch (e: any) {
+        if (!isMissingTeachingLanguagesColumnError(e)) throw e;
+        const ensured = await ensureMentorTeachingLanguagesColumn();
+        if (!ensured) throw e;
+        existingRows = await loadExisting();
+      }
       const existing = existingRows?.[0] || {};
       let existingCourses: string[] = [];
       try { existingCourses = existing.courses_json ? JSON.parse(existing.courses_json) : []; } catch { existingCourses = []; }
+      const existingTeachingLanguages = parseTeachingLanguagesJson(existing.teaching_languages_json);
 
       const nextDisplayName = (Object.prototype.hasOwnProperty.call(req.body, 'displayName') ? displayName : (existing.display_name || '')) as string;
       const nextGender = (Object.prototype.hasOwnProperty.call(req.body, 'gender') ? gender : (existing.gender || '')) as string;
@@ -236,9 +280,14 @@ router.put(
         ? (courses || [])
         : (Array.isArray(existingCourses) ? existingCourses : []);
       const nextCourses = sanitizeMentorCourses(nextCoursesRaw, 50);
+      const nextTeachingLanguagesRaw = Object.prototype.hasOwnProperty.call(req.body, 'teachingLanguages')
+        ? (teachingLanguages || [])
+        : (Array.isArray(existingTeachingLanguages) ? existingTeachingLanguages : []);
+      const nextTeachingLanguages = sanitizeTeachingLanguageCodes(nextTeachingLanguagesRaw, 20);
       const nextAvatarUrl = Object.prototype.hasOwnProperty.call(req.body, 'avatarUrl') ? (avatarUrl ?? null) : (existing.avatar_url ?? null);
 
       const coursesJson = JSON.stringify(nextCourses);
+      const teachingLanguagesJson = JSON.stringify(nextTeachingLanguages);
 
       const userId = req.user!.id;
       const preparedEmbeddings =
@@ -256,8 +305,8 @@ router.put(
 
         // Upsert by user_id
         await conn.execute(
-          `INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, avatar_url)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO mentor_profiles (user_id, display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
               display_name = VALUES(display_name),
               gender = VALUES(gender),
@@ -265,9 +314,20 @@ router.put(
               school = VALUES(school),
               timezone = VALUES(timezone),
               courses_json = VALUES(courses_json),
+              teaching_languages_json = VALUES(teaching_languages_json),
               avatar_url = VALUES(avatar_url),
               updated_at = CURRENT_TIMESTAMP`,
-          [userId, nextDisplayName, nextGender || null, nextDegree || null, nextSchool || null, nextTimezone || null, coursesJson, nextAvatarUrl]
+          [
+            userId,
+            nextDisplayName,
+            nextGender || null,
+            nextDegree || null,
+            nextSchool || null,
+            nextTimezone || null,
+            coursesJson,
+            teachingLanguagesJson,
+            nextAvatarUrl,
+          ]
         );
 
         await applyMentorCourseEmbeddings({
