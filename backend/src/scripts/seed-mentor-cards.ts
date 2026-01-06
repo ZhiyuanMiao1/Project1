@@ -40,7 +40,7 @@ const SEED_CARDS: SeedCard[] = [
   { publicId: 's12', degree: '硕士', school: '新加坡国立大学', timezone: 'UTC+8 (上海)', courseDirection: 'economics', courseType: 'pre-study', sessionDurationHours: 2 },
 ];
 
-const buildSeedEmail = (publicId: string) => `seed_${publicId}@mentorx.local`;
+const buildSeedEmail = (publicId: string) => `seed_${publicId}@mentory.local`;
 
 async function main() {
   const host = requiredEnv('DB_HOST');
@@ -152,4 +152,3 @@ main().catch((err) => {
   console.error('[seed-mentor-cards] failed:', err);
   process.exitCode = 1;
 });
-

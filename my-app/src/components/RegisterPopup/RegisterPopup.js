@@ -208,7 +208,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         <button className="register-modal-close" onClick={onClose}>&times;</button>
         <h2>注册</h2>
         <div className="register-modal-divider" />
-        <h3>MentorX欢迎您</h3>
+        <h3>Mentory欢迎您</h3>
 
         <div className="register-input-area">
           <input

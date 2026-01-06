@@ -31,7 +31,7 @@ const SEED_CARDS = [
     { publicId: 's11', degree: 'PhD', school: '苏黎世联邦理工', timezone: 'UTC+1 (柏林)', courseDirection: 'cybersecurity', courseType: 'assignment-project', sessionDurationHours: 1.5 },
     { publicId: 's12', degree: '硕士', school: '新加坡国立大学', timezone: 'UTC+8 (上海)', courseDirection: 'economics', courseType: 'pre-study', sessionDurationHours: 2 },
 ];
-const buildSeedEmail = (publicId) => `seed_${publicId}@mentorx.local`;
+const buildSeedEmail = (publicId) => `seed_${publicId}@mentory.local`;
 async function main() {
     const host = requiredEnv('DB_HOST');
     const user = requiredEnv('DB_USER');

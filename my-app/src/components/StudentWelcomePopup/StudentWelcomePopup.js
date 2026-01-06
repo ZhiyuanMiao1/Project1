@@ -27,7 +27,7 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
         <button className="register-modal-close" onClick={handleClose}>&times;</button>
         <h2>注册</h2>
         <div className="register-modal-divider" />
-        <h3>欢迎来到MentorX！</h3>
+        <h3>欢迎来到Mentory！</h3>
 
         <div className="student-welcome-body">
           <p className="student-welcome-line">这是你的 StudentID: <span className="student-welcome-id">{publicId || '—'}</span></p>

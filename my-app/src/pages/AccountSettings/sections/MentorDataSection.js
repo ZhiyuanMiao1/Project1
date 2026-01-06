@@ -17,7 +17,7 @@ function MentorDataSection({
   onMentorAvatarChange,
   mentorIdValue,
   schoolValue,
-  mentorJoinedMentorXDaysDisplay,
+  mentorJoinedMentoryDaysDisplay,
   aboutMeReviews = MOCK_ABOUT_ME_REVIEWS,
 }) {
   const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
@@ -62,7 +62,7 @@ function MentorDataSection({
           ) : null}
           <div className="settings-mentor-main">
             <div className="settings-mentor-name">{mentorIdValue}</div>
-            <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 导师'}</div>
+            <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'Mentory 导师'}</div>
           </div>
         </div>
 
@@ -80,9 +80,9 @@ function MentorDataSection({
             </div>
           </div>
           <div className="settings-mentor-metric">
-            <div className="settings-mentor-metric-label">加入MentorX</div>
+            <div className="settings-mentor-metric-label">加入Mentory</div>
             <div className="settings-mentor-metric-value">
-              {mentorJoinedMentorXDaysDisplay}<span className="settings-mentor-metric-unit">天</span>
+              {mentorJoinedMentoryDaysDisplay}<span className="settings-mentor-metric-unit">天</span>
             </div>
           </div>
         </div>

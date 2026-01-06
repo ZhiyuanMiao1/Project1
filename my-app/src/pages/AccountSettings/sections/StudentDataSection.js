@@ -17,7 +17,7 @@ function StudentDataSection({
   studentAvatarInitial,
   studentIdValue,
   schoolValue,
-  joinedMentorXDaysDisplay,
+  joinedMentoryDaysDisplay,
   writtenReviews = MOCK_WRITTEN_REVIEWS,
 }) {
   const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
@@ -62,7 +62,7 @@ function StudentDataSection({
           ) : null}
           <div className="settings-student-main">
             <div className="settings-student-name">{studentIdValue}</div>
-            <div className="settings-student-subtitle">{schoolValue !== '未提供' ? schoolValue : 'MentorX 学生'}</div>
+            <div className="settings-student-subtitle">{schoolValue !== '未提供' ? schoolValue : 'Mentory 学生'}</div>
           </div>
         </div>
 
@@ -80,9 +80,9 @@ function StudentDataSection({
             </div>
           </div>
           <div className="settings-student-metric">
-            <div className="settings-student-metric-label">加入MentorX</div>
+            <div className="settings-student-metric-label">加入Mentory</div>
             <div className="settings-student-metric-value">
-              {joinedMentorXDaysDisplay}<span className="settings-student-metric-unit">天</span>
+              {joinedMentoryDaysDisplay}<span className="settings-student-metric-unit">天</span>
             </div>
           </div>
         </div>

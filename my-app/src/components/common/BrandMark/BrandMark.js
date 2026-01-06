@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import './BrandMark.css';
 
-function BrandMark({ className = '', to = '/student', label = 'MentorX' }) {
+function BrandMark({ className = '', to = '/student', label = 'Mentory' }) {
   const navigate = useNavigate();
 
   const handleClick = () => {

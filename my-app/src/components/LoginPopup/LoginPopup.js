@@ -110,7 +110,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
         </button>
         <h2>登录</h2>
         <div className="login-modal-divider"></div>
-        <h3>欢迎回来，MentorX用户</h3>
+        <h3>欢迎回来，Mentory用户</h3>
         <div className="login-input-area">
           <input
             ref={emailRef}

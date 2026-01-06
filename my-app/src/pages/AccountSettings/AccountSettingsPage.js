@@ -299,7 +299,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     return `已设置 ${availabilityDaysCount} 天`;
   }, [availabilityDaysCount, availabilityStatus, isLoggedIn]);
 
-  const joinedMentorXDays = useMemo(() => {
+  const joinedMentoryDays = useMemo(() => {
     const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;
     if (!rawCreatedAt) return null;
     const createdAt = new Date(rawCreatedAt).getTime();
@@ -308,9 +308,9 @@ function AccountSettingsPage({ mode = 'student' }) {
     return Math.floor(diffMs / (24 * 60 * 60 * 1000));
   }, [accountProfile.studentCreatedAt, accountProfile.mentorCreatedAt]);
 
-  const joinedMentorXDaysDisplay = idsStatus === 'loading' ? '...' : (joinedMentorXDays ?? '--');
+  const joinedMentoryDaysDisplay = idsStatus === 'loading' ? '...' : (joinedMentoryDays ?? '--');
 
-  const mentorJoinedMentorXDays = useMemo(() => {
+  const mentorJoinedMentoryDays = useMemo(() => {
     const rawCreatedAt = accountProfile.mentorCreatedAt;
     if (!rawCreatedAt) return null;
     const createdAt = new Date(rawCreatedAt).getTime();
@@ -319,7 +319,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     return Math.floor(diffMs / (24 * 60 * 60 * 1000));
   }, [accountProfile.mentorCreatedAt]);
 
-  const mentorJoinedMentorXDaysDisplay = idsStatus === 'loading' ? '...' : (mentorJoinedMentorXDays ?? '--');
+  const mentorJoinedMentoryDaysDisplay = idsStatus === 'loading' ? '...' : (mentorJoinedMentoryDays ?? '--');
   const studentAvatarInitial = (() => {
     const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
     return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
@@ -735,7 +735,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   studentAvatarInitial={studentAvatarInitial}
                   studentIdValue={studentIdValue}
                   schoolValue={schoolValue}
-                  joinedMentorXDaysDisplay={joinedMentorXDaysDisplay}
+                  joinedMentoryDaysDisplay={joinedMentoryDaysDisplay}
                 />
               )}
 
@@ -749,7 +749,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   onMentorAvatarChange={onMentorAvatarChange}
                   mentorIdValue={mentorIdValue}
                   schoolValue={schoolValue}
-                  mentorJoinedMentorXDaysDisplay={mentorJoinedMentorXDaysDisplay}
+                  mentorJoinedMentoryDaysDisplay={mentorJoinedMentoryDaysDisplay}
                 />
               )}
 
