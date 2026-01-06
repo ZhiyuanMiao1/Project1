@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { query } from '../db';
+import { ensureCourseEmbeddingsVectorColumn } from '../services/rdsVectorIndex';
 
 type CourseKind = 'direction' | 'course_type';
 
@@ -169,8 +170,27 @@ async function getExistingTextHash(kind: CourseKind, sourceId: string) {
   return row?.text_hash ? String(row.text_hash) : null;
 }
 
-async function upsertEmbedding(row: CourseRow, model: string, embedding: number[], textHash: string) {
+async function upsertEmbedding(row: CourseRow, model: string, embedding: number[], textHash: string, useVectorColumn: boolean) {
   const embeddingJson = JSON.stringify(embedding);
+  if (useVectorColumn) {
+    await query(
+      `
+        INSERT INTO course_embeddings (kind, source_id, label, model, embedding_dim, embedding, embedding_vec, text, text_hash)
+        VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), TO_VECTOR(?), ?, ?)
+        ON DUPLICATE KEY UPDATE
+          label = VALUES(label),
+          model = VALUES(model),
+          embedding_dim = VALUES(embedding_dim),
+          embedding = VALUES(embedding),
+          embedding_vec = VALUES(embedding_vec),
+          text = VALUES(text),
+          text_hash = VALUES(text_hash)
+      `,
+      [row.kind, row.sourceId, row.label, model, embedding.length, embeddingJson, embeddingJson, row.text, textHash]
+    );
+    return;
+  }
+
   await query(
     `
       INSERT INTO course_embeddings (kind, source_id, label, model, embedding_dim, embedding, text, text_hash)
@@ -207,9 +227,11 @@ async function main() {
   const rows = limit && Number.isFinite(limit) && limit > 0 ? rowsAll.slice(0, limit) : rowsAll;
 
   await ensureTable();
+  const useVectorColumn = await ensureCourseEmbeddingsVectorColumn();
 
   console.log(`[embed-course-mappings] source=${courseMappingsPath}`);
   console.log(`[embed-course-mappings] model=${model} dim=${dimension} url=${embeddingsUrl}`);
+  console.log(`[embed-course-mappings] vectorColumn=${useVectorColumn ? 'ON' : 'OFF'}`);
   console.log(`[embed-course-mappings] total=${rows.length} force=${force} dryRun=${dryRun}`);
 
   let embedded = 0;
@@ -230,7 +252,7 @@ async function main() {
     }
 
     const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl, dimension });
-    await upsertEmbedding(row, model, embedding, textHash);
+    await upsertEmbedding(row, model, embedding, textHash, useVectorColumn);
     embedded++;
 
     if (embedded % 5 === 0 || embedded === rows.length) {

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
+const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
 const router = (0, express_1.Router)();
 const hrNow = () => process.hrtime.bigint();
 const msSince = (start) => Number(hrNow() - start) / 1e6;
@@ -190,94 +191,177 @@ router.get('/approved', async (_req, res) => {
         });
         const tBuildCardsMs = timingEnabled ? msSince(tBuildCardsStart) : 0;
         if (directionId) {
-            const tTabEmbeddingStart = timingEnabled ? hrNow() : 0n;
-            const queryEmbeddingInfo = await loadDirectionEmbeddingById(directionId);
-            const tTabEmbeddingMs = timingEnabled ? msSince(tTabEmbeddingStart) : 0;
-            if (queryEmbeddingInfo) {
-                const q = queryEmbeddingInfo.embedding;
-                const tNormStart = timingEnabled ? hrNow() : 0n;
-                const qNorm = l2Norm(q);
-                const tNormMs = timingEnabled ? msSince(tNormStart) : 0;
-                const userIds = mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n));
-                if (userIds.length > 0) {
-                    const tEmbeddingsQueryStart = timingEnabled ? hrNow() : 0n;
-                    const placeholders = userIds.map(() => '?').join(',');
-                    let courseRows = [];
-                    try {
-                        courseRows = await (0, db_1.query)(`SELECT user_id, course_text, embedding FROM mentor_course_embeddings WHERE user_id IN (${placeholders})`, userIds);
-                    }
-                    catch (e) {
-                        const code = String(e?.code || '');
-                        const msg = String(e?.message || '');
-                        if (!(code === 'ER_NO_SUCH_TABLE' || msg.includes("doesn't exist")))
-                            throw e;
-                        courseRows = [];
-                    }
-                    const tEmbeddingsQueryMs = timingEnabled ? msSince(tEmbeddingsQueryStart) : 0;
-                    const tParseAndGroupStart = timingEnabled ? hrNow() : 0n;
-                    let embeddingRawChars = 0;
-                    const byUser = new Map();
-                    for (const r of courseRows || []) {
-                        const uid = Number(r?.user_id);
-                        if (!Number.isFinite(uid))
-                            continue;
-                        if (timingEnabled) {
-                            if (typeof r?.embedding === 'string')
-                                embeddingRawChars += r.embedding.length;
-                            else {
-                                try {
-                                    embeddingRawChars += JSON.stringify(r?.embedding ?? null).length;
-                                }
-                                catch { }
+            let vectorRanked = false;
+            const vectorUserIds = Array.from(new Set(mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n))));
+            if (vectorUserIds.length > 0) {
+                const tVectorEnsureStart = timingEnabled ? hrNow() : 0n;
+                let vectorReady = false;
+                try {
+                    vectorReady = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
+                }
+                catch {
+                    vectorReady = false;
+                }
+                const tVectorEnsureMs = timingEnabled ? msSince(tVectorEnsureStart) : 0;
+                if (vectorReady) {
+                    const dirRows = await (0, db_1.query)("SELECT 1 AS ok FROM course_embeddings WHERE kind = 'direction' AND source_id = ? LIMIT 1", [directionId]);
+                    const directionEmbeddingExists = Boolean(dirRows?.[0]);
+                    if (directionEmbeddingExists) {
+                        const tVectorQueryStart = timingEnabled ? hrNow() : 0n;
+                        const placeholders = vectorUserIds.map(() => '?').join(',');
+                        let matchRows = [];
+                        try {
+                            matchRows = await (0, db_1.query)(`
+                SELECT user_id, course_text, score
+                FROM (
+                  SELECT
+                    mce.user_id,
+                    mce.course_text,
+                    (1 - VEC_DISTANCE(mce.embedding_vec, q.q_vec)) AS score,
+                    ROW_NUMBER() OVER (PARTITION BY mce.user_id ORDER BY VEC_DISTANCE(mce.embedding_vec, q.q_vec) ASC) AS rn
+                  FROM mentor_course_embeddings mce
+                  JOIN (
+                    SELECT TO_VECTOR(CAST(embedding AS CHAR)) AS q_vec
+                    FROM course_embeddings
+                    WHERE kind = 'direction' AND source_id = ?
+                    LIMIT 1
+                  ) q
+                  WHERE mce.user_id IN (${placeholders})
+                ) ranked
+                WHERE rn = 1
+                ORDER BY score DESC, user_id ASC
+                `, [directionId, ...vectorUserIds]);
+                            vectorRanked = true;
+                        }
+                        catch (e) {
+                            const code = String(e?.code || '');
+                            const msg = String(e?.message || '');
+                            if (timingEnabled) {
+                                console.warn(`[mentors/approved timing ${reqId}] vector ranking skipped (${code}): ${msg}`);
                             }
                         }
-                        const emb = parseEmbedding(r?.embedding);
-                        if (!emb || emb.length !== q.length)
-                            continue;
-                        const list = byUser.get(uid) || [];
-                        list.push({ courseText: String(r?.course_text || ''), embedding: emb, norm: l2Norm(emb) });
-                        byUser.set(uid, list);
-                    }
-                    const tParseAndGroupMs = timingEnabled ? msSince(tParseAndGroupStart) : 0;
-                    const tScoreStart = timingEnabled ? hrNow() : 0n;
-                    mentors = mentors
-                        .map((m) => {
-                        const uid = Number(m._userId);
-                        const list = byUser.get(uid) || [];
-                        let bestScore = 0;
-                        let bestCourse = '';
-                        for (const item of list) {
-                            const score = cosineSimilarity(q, qNorm, item.embedding, item.norm);
-                            if (score > bestScore) {
-                                bestScore = score;
-                                bestCourse = item.courseText;
+                        const tVectorQueryMs = timingEnabled ? msSince(tVectorQueryStart) : 0;
+                        if (vectorRanked) {
+                            const byUser = new Map();
+                            for (const r of matchRows || []) {
+                                const uid = Number(r?.user_id);
+                                if (!Number.isFinite(uid))
+                                    continue;
+                                const score = typeof r?.score === 'number' ? r.score : Number.parseFloat(String(r?.score ?? '0'));
+                                byUser.set(uid, { score: Number.isFinite(score) ? score : 0, courseText: String(r?.course_text || '') });
+                            }
+                            mentors = mentors
+                                .map((m) => {
+                                const hit = byUser.get(Number(m._userId));
+                                return hit ? { ...m, relevanceScore: hit.score, relevanceCourse: hit.courseText } : m;
+                            })
+                                .sort((a, b) => {
+                                const sa = typeof a.relevanceScore === 'number' ? a.relevanceScore : 0;
+                                const sb = typeof b.relevanceScore === 'number' ? b.relevanceScore : 0;
+                                if (sb !== sa)
+                                    return sb - sa;
+                                return String(a.id).localeCompare(String(b.id));
+                            });
+                            if (timingEnabled) {
+                                const totalMs = msSince(t0);
+                                console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${vectorUserIds.length} | ` +
+                                    `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms ` +
+                                    `vecEnsure=${tVectorEnsureMs.toFixed(1)}ms vecQuery=${tVectorQueryMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms`);
                             }
                         }
-                        return { ...m, relevanceScore: bestScore, relevanceCourse: bestCourse };
-                    })
-                        .sort((a, b) => {
-                        const sa = typeof a.relevanceScore === 'number' ? a.relevanceScore : 0;
-                        const sb = typeof b.relevanceScore === 'number' ? b.relevanceScore : 0;
-                        if (sb !== sa)
-                            return sb - sa;
-                        return String(a.id).localeCompare(String(b.id));
-                    });
-                    const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
-                    if (timingEnabled) {
-                        const totalMs = msSince(t0);
-                        console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${userIds.length} ` +
-                            `courseRows=${courseRows.length} embChars≈${embeddingRawChars} dim=${q.length} | ` +
-                            `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms ` +
-                            `tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms norm=${tNormMs.toFixed(1)}ms ` +
-                            `embSQL=${tEmbeddingsQueryMs.toFixed(1)}ms parseGroup=${tParseAndGroupMs.toFixed(1)}ms scoreSort=${tScoreMs.toFixed(1)}ms ` +
-                            `TOTAL=${totalMs.toFixed(1)}ms`);
                     }
                 }
             }
-            else if (timingEnabled) {
-                const totalMs = msSince(t0);
-                console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} ` +
-                    `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms (no tab embedding found)`);
+            if (!vectorRanked) {
+                const tTabEmbeddingStart = timingEnabled ? hrNow() : 0n;
+                const queryEmbeddingInfo = await loadDirectionEmbeddingById(directionId);
+                const tTabEmbeddingMs = timingEnabled ? msSince(tTabEmbeddingStart) : 0;
+                if (queryEmbeddingInfo) {
+                    const q = queryEmbeddingInfo.embedding;
+                    const tNormStart = timingEnabled ? hrNow() : 0n;
+                    const qNorm = l2Norm(q);
+                    const tNormMs = timingEnabled ? msSince(tNormStart) : 0;
+                    const userIds = mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n));
+                    if (userIds.length > 0) {
+                        const tEmbeddingsQueryStart = timingEnabled ? hrNow() : 0n;
+                        const placeholders = userIds.map(() => '?').join(',');
+                        let courseRows = [];
+                        try {
+                            courseRows = await (0, db_1.query)(`SELECT user_id, course_text, embedding FROM mentor_course_embeddings WHERE user_id IN (${placeholders})`, userIds);
+                        }
+                        catch (e) {
+                            const code = String(e?.code || '');
+                            const msg = String(e?.message || '');
+                            if (!(code === 'ER_NO_SUCH_TABLE' || msg.includes("doesn't exist")))
+                                throw e;
+                            courseRows = [];
+                        }
+                        const tEmbeddingsQueryMs = timingEnabled ? msSince(tEmbeddingsQueryStart) : 0;
+                        const tParseAndGroupStart = timingEnabled ? hrNow() : 0n;
+                        let embeddingRawChars = 0;
+                        const byUser = new Map();
+                        for (const r of courseRows || []) {
+                            const uid = Number(r?.user_id);
+                            if (!Number.isFinite(uid))
+                                continue;
+                            if (timingEnabled) {
+                                if (typeof r?.embedding === 'string')
+                                    embeddingRawChars += r.embedding.length;
+                                else {
+                                    try {
+                                        embeddingRawChars += JSON.stringify(r?.embedding ?? null).length;
+                                    }
+                                    catch { }
+                                }
+                            }
+                            const emb = parseEmbedding(r?.embedding);
+                            if (!emb || emb.length !== q.length)
+                                continue;
+                            const list = byUser.get(uid) || [];
+                            list.push({ courseText: String(r?.course_text || ''), embedding: emb, norm: l2Norm(emb) });
+                            byUser.set(uid, list);
+                        }
+                        const tParseAndGroupMs = timingEnabled ? msSince(tParseAndGroupStart) : 0;
+                        const tScoreStart = timingEnabled ? hrNow() : 0n;
+                        mentors = mentors
+                            .map((m) => {
+                            const uid = Number(m._userId);
+                            const list = byUser.get(uid) || [];
+                            let bestScore = 0;
+                            let bestCourse = '';
+                            for (const item of list) {
+                                const score = cosineSimilarity(q, qNorm, item.embedding, item.norm);
+                                if (score > bestScore) {
+                                    bestScore = score;
+                                    bestCourse = item.courseText;
+                                }
+                            }
+                            return { ...m, relevanceScore: bestScore, relevanceCourse: bestCourse };
+                        })
+                            .sort((a, b) => {
+                            const sa = typeof a.relevanceScore === 'number' ? a.relevanceScore : 0;
+                            const sb = typeof b.relevanceScore === 'number' ? b.relevanceScore : 0;
+                            if (sb !== sa)
+                                return sb - sa;
+                            return String(a.id).localeCompare(String(b.id));
+                        });
+                        const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
+                        if (timingEnabled) {
+                            const totalMs = msSince(t0);
+                            console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${userIds.length} ` +
+                                `courseRows=${courseRows.length} embChars≈${embeddingRawChars} dim=${q.length} | ` +
+                                `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms ` +
+                                `tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms norm=${tNormMs.toFixed(1)}ms ` +
+                                `embSQL=${tEmbeddingsQueryMs.toFixed(1)}ms parseGroup=${tParseAndGroupMs.toFixed(1)}ms scoreSort=${tScoreMs.toFixed(1)}ms ` +
+                                `TOTAL=${totalMs.toFixed(1)}ms`);
+                        }
+                    }
+                }
+                else if (timingEnabled) {
+                    const totalMs = msSince(t0);
+                    console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} ` +
+                        `mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms tabEmbSQL=${tTabEmbeddingMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms (no tab embedding found)`);
+                }
             }
         }
         else if (timingEnabled) {

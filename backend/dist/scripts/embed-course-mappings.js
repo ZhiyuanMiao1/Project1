@@ -7,6 +7,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const db_1 = require("../db");
+const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
 const DEFAULT_MODEL = 'text-embedding-v4';
 const DEFAULT_DIMENSION = 256;
 const DEFAULT_EMBEDDINGS_URL = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding';
@@ -147,8 +148,23 @@ async function getExistingTextHash(kind, sourceId) {
     const row = rows?.[0];
     return row?.text_hash ? String(row.text_hash) : null;
 }
-async function upsertEmbedding(row, model, embedding, textHash) {
+async function upsertEmbedding(row, model, embedding, textHash, useVectorColumn) {
     const embeddingJson = JSON.stringify(embedding);
+    if (useVectorColumn) {
+        await (0, db_1.query)(`
+        INSERT INTO course_embeddings (kind, source_id, label, model, embedding_dim, embedding, embedding_vec, text, text_hash)
+        VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), TO_VECTOR(?), ?, ?)
+        ON DUPLICATE KEY UPDATE
+          label = VALUES(label),
+          model = VALUES(model),
+          embedding_dim = VALUES(embedding_dim),
+          embedding = VALUES(embedding),
+          embedding_vec = VALUES(embedding_vec),
+          text = VALUES(text),
+          text_hash = VALUES(text_hash)
+      `, [row.kind, row.sourceId, row.label, model, embedding.length, embeddingJson, embeddingJson, row.text, textHash]);
+        return;
+    }
     await (0, db_1.query)(`
       INSERT INTO course_embeddings (kind, source_id, label, model, embedding_dim, embedding, text, text_hash)
       VALUES (?, ?, ?, ?, ?, CAST(? AS JSON), ?, ?)
@@ -175,8 +191,10 @@ async function main() {
     const rowsAll = loadCourseRows(courseMappingsPath);
     const rows = limit && Number.isFinite(limit) && limit > 0 ? rowsAll.slice(0, limit) : rowsAll;
     await ensureTable();
+    const useVectorColumn = await (0, rdsVectorIndex_1.ensureCourseEmbeddingsVectorColumn)();
     console.log(`[embed-course-mappings] source=${courseMappingsPath}`);
     console.log(`[embed-course-mappings] model=${model} dim=${dimension} url=${embeddingsUrl}`);
+    console.log(`[embed-course-mappings] vectorColumn=${useVectorColumn ? 'ON' : 'OFF'}`);
     console.log(`[embed-course-mappings] total=${rows.length} force=${force} dryRun=${dryRun}`);
     let embedded = 0;
     let skipped = 0;
@@ -193,7 +211,7 @@ async function main() {
             continue;
         }
         const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl, dimension });
-        await upsertEmbedding(row, model, embedding, textHash);
+        await upsertEmbedding(row, model, embedding, textHash, useVectorColumn);
         embedded++;
         if (embedded % 5 === 0 || embedded === rows.length) {
             console.log(`[embed-course-mappings] progress embedded=${embedded} skipped=${skipped}/${rows.length}`);

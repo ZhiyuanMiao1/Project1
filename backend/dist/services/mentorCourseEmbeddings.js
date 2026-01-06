@@ -10,8 +10,10 @@ exports.applyMentorCourseEmbeddings = applyMentorCourseEmbeddings;
 const crypto_1 = __importDefault(require("crypto"));
 const dashscopeEmbeddings_1 = require("./dashscopeEmbeddings");
 const db_1 = require("../db");
+const rdsVectorIndex_1 = require("./rdsVectorIndex");
 const DEFAULT_MODEL = 'text-embedding-v4';
 const DEFAULT_DIMENSION = 256;
+let mentorCourseVectorReady = null;
 const sha256Hex = (input) => crypto_1.default.createHash('sha256').update(input).digest('hex');
 const normalizeCourseText = (input) => {
     const s = String(input ?? '').trim();
@@ -63,6 +65,15 @@ async function ensureMentorCourseEmbeddingsTable() {
       CONSTRAINT \`fk_mentor_course_embeddings_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+    if (mentorCourseVectorReady === null) {
+        try {
+            mentorCourseVectorReady = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
+        }
+        catch (e) {
+            mentorCourseVectorReady = false;
+            console.warn('[mentor_course_embeddings] ensure vector index skipped:', e);
+        }
+    }
 }
 const parseEmbeddingDimension = (raw, fallback = DEFAULT_DIMENSION) => {
     const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
@@ -179,6 +190,7 @@ async function prepareMentorCourseEmbeddings(params) {
 async function applyMentorCourseEmbeddings(params) {
     await ensureMentorCourseEmbeddingsTable();
     const exec = params.exec;
+    const useVectorColumn = mentorCourseVectorReady === true;
     if (params.keepKeys.length === 0) {
         await exec('DELETE FROM mentor_course_embeddings WHERE user_id = ?', [params.userId]);
     }
@@ -191,18 +203,36 @@ async function applyMentorCourseEmbeddings(params) {
     }
     for (const r of params.upserts) {
         const embeddingJson = JSON.stringify(r.embedding);
-        await exec(`
-      INSERT INTO mentor_course_embeddings
-        (user_id, course_text, course_text_norm, course_key, model, embedding_dim, embedding, text_hash)
-      VALUES
-        (?, ?, ?, ?, ?, ?, CAST(? AS JSON), ?)
-      ON DUPLICATE KEY UPDATE
-        course_text = VALUES(course_text),
-        course_text_norm = VALUES(course_text_norm),
-        model = VALUES(model),
-        embedding_dim = VALUES(embedding_dim),
-        embedding = VALUES(embedding),
-        text_hash = VALUES(text_hash)
-    `, [params.userId, r.courseText, r.courseTextNorm, r.courseKey, r.model, r.embeddingDim, embeddingJson, r.textHash]);
+        if (useVectorColumn) {
+            await exec(`
+        INSERT INTO mentor_course_embeddings
+          (user_id, course_text, course_text_norm, course_key, model, embedding_dim, embedding, embedding_vec, text_hash)
+        VALUES
+          (?, ?, ?, ?, ?, ?, CAST(? AS JSON), TO_VECTOR(?), ?)
+        ON DUPLICATE KEY UPDATE
+          course_text = VALUES(course_text),
+          course_text_norm = VALUES(course_text_norm),
+          model = VALUES(model),
+          embedding_dim = VALUES(embedding_dim),
+          embedding = VALUES(embedding),
+          embedding_vec = VALUES(embedding_vec),
+          text_hash = VALUES(text_hash)
+      `, [params.userId, r.courseText, r.courseTextNorm, r.courseKey, r.model, r.embeddingDim, embeddingJson, embeddingJson, r.textHash]);
+        }
+        else {
+            await exec(`
+        INSERT INTO mentor_course_embeddings
+          (user_id, course_text, course_text_norm, course_key, model, embedding_dim, embedding, text_hash)
+        VALUES
+          (?, ?, ?, ?, ?, ?, CAST(? AS JSON), ?)
+        ON DUPLICATE KEY UPDATE
+          course_text = VALUES(course_text),
+          course_text_norm = VALUES(course_text_norm),
+          model = VALUES(model),
+          embedding_dim = VALUES(embedding_dim),
+          embedding = VALUES(embedding),
+          text_hash = VALUES(text_hash)
+      `, [params.userId, r.courseText, r.courseTextNorm, r.courseKey, r.model, r.embeddingDim, embeddingJson, r.textHash]);
+        }
     }
 }
