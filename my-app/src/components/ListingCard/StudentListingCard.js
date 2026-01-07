@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
@@ -84,7 +83,6 @@ function StudentListingCard({
   initialFavorited = false,
   onFavoriteChange,
 }) {
-  const navigate = useNavigate();
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
@@ -94,6 +92,7 @@ function StudentListingCard({
 
   const toggleFavorite = async (event) => {
     event?.stopPropagation?.();
+    event?.preventDefault?.(); // 防止点击爱心时触发卡片跳转（a[target=_blank]）
     if (!favoriteRole || !favoriteItemType) {
       setIsFavorited((v) => !v);
       return;
@@ -160,39 +159,16 @@ function StudentListingCard({
     ? languagesRaw.split(',').map((lang) => lang.trim()).filter(Boolean)
     : [];
 
-  const handleOpenProfile = () => {
-    const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
-    if (!id) return;
-    const path = `/student/mentors/${encodeURIComponent(id)}`;
-    const url = (() => {
-      try {
-        return new URL(path, window.location.origin).toString();
-      } catch {
-        return path;
-      }
-    })();
-
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!opened) {
-      navigate(path, { state: { mentor: data } });
-    }
-  };
-
-  const handleCardKeyDown = (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      handleOpenProfile();
-    }
-  };
+  const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
+  const profileHref = id ? `/student/mentors/${encodeURIComponent(id)}` : '';
 
   return (
-    <div
+    <a
       ref={revealRef}
       className={`listing-card reveal ${visible ? 'is-visible' : ''}`}
-      role="button"
-      tabIndex={0}
-      onClick={handleOpenProfile}
-      onKeyDown={handleCardKeyDown}
+      href={profileHref || undefined}
+      target={profileHref ? '_blank' : undefined}
+      rel={profileHref ? 'noopener noreferrer' : undefined}
       aria-label={`在新页面打开导师主页：${data?.name || data?.id || ''}`}
     >
       {/* 右上角的爱心图标 */}
@@ -254,7 +230,7 @@ function StudentListingCard({
         </div>
       </div>
       {coursesLabel ? <p className="listing-courses">{coursesLabel}</p> : null}
-    </div>
+    </a>
   );
 }
 
