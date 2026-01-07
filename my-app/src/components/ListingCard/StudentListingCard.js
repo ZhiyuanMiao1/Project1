@@ -163,7 +163,19 @@ function StudentListingCard({
   const handleOpenProfile = () => {
     const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
     if (!id) return;
-    navigate(`/student/mentors/${encodeURIComponent(id)}`, { state: { mentor: data } });
+    const path = `/student/mentors/${encodeURIComponent(id)}`;
+    const url = (() => {
+      try {
+        return new URL(path, window.location.origin).toString();
+      } catch {
+        return path;
+      }
+    })();
+
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      navigate(path, { state: { mentor: data } });
+    }
   };
 
   const handleCardKeyDown = (event) => {
@@ -181,7 +193,7 @@ function StudentListingCard({
       tabIndex={0}
       onClick={handleOpenProfile}
       onKeyDown={handleCardKeyDown}
-      aria-label={`查看导师主页：${data?.name || data?.id || ''}`}
+      aria-label={`在新页面打开导师主页：${data?.name || data?.id || ''}`}
     >
       {/* 右上角的爱心图标 */}
       <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
