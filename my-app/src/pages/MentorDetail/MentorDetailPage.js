@@ -238,7 +238,7 @@ function MentorDetailPage() {
             ref={menuAnchorRef}
             onClick={() => setShowStudentAuth(true)}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
