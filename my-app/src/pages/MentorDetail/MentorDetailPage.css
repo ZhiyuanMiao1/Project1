@@ -10,9 +10,14 @@
   padding: 22px 0 8px;
 }
 
+.mentor-detail-header .nav-logo-text {
+  transform: translateY(1.5px);
+}
+
 .mentor-detail-menu {
   border: none;
   padding: 0;
+  transform: translateY(1.5px);
 }
 
 .mentor-detail-content {
