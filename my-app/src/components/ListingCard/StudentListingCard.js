@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
@@ -83,6 +84,7 @@ function StudentListingCard({
   initialFavorited = false,
   onFavoriteChange,
 }) {
+  const navigate = useNavigate();
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
@@ -158,8 +160,29 @@ function StudentListingCard({
     ? languagesRaw.split(',').map((lang) => lang.trim()).filter(Boolean)
     : [];
 
+  const handleOpenProfile = () => {
+    const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
+    if (!id) return;
+    navigate(`/student/mentors/${encodeURIComponent(id)}`, { state: { mentor: data } });
+  };
+
+  const handleCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleOpenProfile();
+    }
+  };
+
   return (
-    <div ref={revealRef} className={`listing-card reveal ${visible ? 'is-visible' : ''}`}>
+    <div
+      ref={revealRef}
+      className={`listing-card reveal ${visible ? 'is-visible' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={handleOpenProfile}
+      onKeyDown={handleCardKeyDown}
+      aria-label={`查看导师主页：${data?.name || data?.id || ''}`}
+    >
       {/* 右上角的爱心图标 */}
       <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
         <svg

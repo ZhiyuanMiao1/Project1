@@ -12,6 +12,7 @@ import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
 import MessagesPage from './pages/Messages/MessagesPage';
 import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
 import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
+import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 
 function App() {
   return (
@@ -22,6 +23,9 @@ function App() {
 
         {/* 学生页面 */}
         <Route path="/student" element={<StudentPage />} />
+
+        {/* 学生查看导师主页 */}
+        <Route path="/student/mentors/:mentorId" element={<MentorDetailPage />} />
 
         {/* 发布课程需求页面 */}
         <Route path="/student/course-request" element={<StudentCourseRequestPage />} />
