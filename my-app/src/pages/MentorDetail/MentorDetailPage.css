@@ -10,25 +10,13 @@
   padding: 22px 0 8px;
 }
 
+.mentor-detail-menu {
+  border: none;
+  padding: 0;
+}
+
 .mentor-detail-content {
   padding: 8px 0 56px;
-}
-
-.mentor-detail-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid #eee;
-  background: #fff;
-  cursor: pointer;
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.mentor-detail-back:hover {
-  background: rgba(0, 0, 0, 0.04);
 }
 
 .mentor-detail-loading,
@@ -400,4 +388,3 @@
     grid-template-columns: 1fr;
   }
 }
-

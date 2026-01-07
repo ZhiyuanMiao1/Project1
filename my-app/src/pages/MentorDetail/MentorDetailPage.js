@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { FiChevronLeft } from 'react-icons/fi';
+import { useLocation, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import { fetchApprovedMentors } from '../../api/mentors';
@@ -125,7 +124,6 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
 
 function MentorDetailPage() {
   const menuAnchorRef = useRef(null);
-  const navigate = useNavigate();
   const location = useLocation();
   const params = useParams();
   const mentorId = safeDecode(typeof params?.mentorId === 'string' ? params.mentorId : '');
@@ -249,18 +247,6 @@ function MentorDetailPage() {
         </header>
 
         <main className="mentor-detail-content">
-          <button
-            type="button"
-            className="mentor-detail-back"
-            onClick={() => {
-              if (window.history.length > 1) navigate(-1);
-              else navigate('/student');
-            }}
-          >
-            <FiChevronLeft size={18} />
-            返回
-          </button>
-
           {loading ? (
             <div className="mentor-detail-loading" aria-live="polite">加载中…</div>
           ) : errorMessage ? (
@@ -410,4 +396,3 @@ function MentorDetailPage() {
 }
 
 export default MentorDetailPage;
-
