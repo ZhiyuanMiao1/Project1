@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import { fetchApprovedMentors } from '../../api/mentors';
-import defaultAvatar from '../../assets/images/default-avatar.jpg';
+import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import './MentorDetailPage.css';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -125,6 +125,7 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
 function MentorDetailPage() {
   const menuAnchorRef = useRef(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const params = useParams();
   const mentorId = safeDecode(typeof params?.mentorId === 'string' ? params.mentorId : '');
 
@@ -217,14 +218,35 @@ function MentorDetailPage() {
     return buildMockReviewSummary({ seedKey, rating: ratingValue, reviewCount });
   }, [mentor?.id, mentorId, ratingValue, reviewCount]);
 
-  const languageTokens = useMemo(() => {
-    const raw = typeof mentor?.languages === 'string' ? mentor.languages : '';
-    return raw
-      .split(/[,，]/g)
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .slice(0, 6);
-  }, [mentor?.languages]);
+  const previewCardData = useMemo(() => {
+    const courses = Array.isArray(mentor?.courses)
+      ? mentor.courses
+      : (typeof mentor?.courses === 'string'
+        ? mentor.courses.split(/[,，]/g).map((x) => x.trim()).filter(Boolean)
+        : []);
+
+    return {
+      name: mentor?.name || '导师',
+      gender: mentor?.gender || '',
+      degree: mentor?.degree || '',
+      school: (mentor?.school || '').trim(),
+      rating: ratingValue,
+      reviewCount,
+      timezone: mentor?.timezone || '',
+      languages: mentor?.languages || '',
+      courses,
+      imageUrl: mentor?.imageUrl || mentor?.avatarUrl || null,
+    };
+  }, [mentor, ratingValue, reviewCount]);
+
+  const handleBook = () => {
+    if (!mentor) return;
+    if (!isLoggedIn) {
+      setShowStudentAuth(true);
+      return;
+    }
+    navigate('/student/course-request', { state: { mentorId: mentor?.id || mentorId, mentor } });
+  };
 
   return (
     <div className="mentor-detail-page">
@@ -253,59 +275,28 @@ function MentorDetailPage() {
             <div className="mentor-detail-error" role="alert">{errorMessage}</div>
           ) : mentor ? (
             <>
-              <section className="mentor-profile-card" aria-label="导师基本信息">
-                <div className="mentor-profile-avatar-wrap">
-                  <img
-                    className="mentor-profile-avatar"
-                    src={mentor?.imageUrl ? mentor.imageUrl : defaultAvatar}
-                    alt={mentor?.name || '导师头像'}
-                  />
-                </div>
-                <div className="mentor-profile-main">
-                  <div className="mentor-profile-name-row">
-                    <h1 className="mentor-profile-name">{mentor?.name || '导师'}</h1>
-                    <div className="mentor-profile-tags" aria-label="导师标签">
-                      {mentor?.degree ? <span className="mentor-profile-tag">{mentor.degree}</span> : null}
-                      {mentor?.school ? <span className="mentor-profile-tag">{mentor.school}</span> : null}
-                      {mentor?.id ? <span className="mentor-profile-tag subtle">MentorID: {mentor.id}</span> : null}
-                    </div>
+              <section className="mentor-detail-top" aria-label="导师信息与预约">
+                <div className="mentor-detail-preview" aria-label="导师预览卡片">
+                  <div className="preview-wrap">
+                    <StudentListingCard data={previewCardData} />
                   </div>
-
-                  <div className="mentor-profile-stats" aria-label="导师评分">
-                    <div className="mentor-profile-stat">
-                      <span className="mentor-profile-stat-label">评分</span>
-                      <span className="mentor-profile-stat-value">{ratingValue > 0 ? ratingValue.toFixed(1) : '—'}</span>
-                    </div>
-                    <div className="mentor-profile-stat">
-                      <span className="mentor-profile-stat-label">评价</span>
-                      <span className="mentor-profile-stat-value">{formatReviewCount(reviewCount)}</span>
-                    </div>
-                    {mentor?.timezone ? (
-                      <div className="mentor-profile-stat">
-                        <span className="mentor-profile-stat-label">时区</span>
-                        <span className="mentor-profile-stat-value">{mentor.timezone}</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {Array.isArray(mentor?.courses) && mentor.courses.length ? (
-                    <div className="mentor-profile-courses" aria-label="导师擅长方向">
-                      {(mentor.courses || []).slice(0, 10).map((c, idx) => (
-                        <span className="mentor-profile-chip" key={`${mentor.id}-course-${idx}`}>
-                          {String(c ?? '').trim()}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {languageTokens.length ? (
-                    <div className="mentor-profile-languages" aria-label="授课语言">
-                      {languageTokens.map((lang) => (
-                        <span className="mentor-profile-chip subtle" key={`lang-${lang}`}>{lang}</span>
-                      ))}
-                    </div>
-                  ) : null}
                 </div>
+                <aside className="mentor-detail-booking" aria-label="预约上课">
+                  <div className="mentor-booking-card">
+                    <div className="mentor-booking-title">预约上课</div>
+                    <div className="mentor-booking-subtitle">选择时间，提交学习需求，由导师与你确认</div>
+                    <button
+                      type="button"
+                      className="mentor-booking-button"
+                      onClick={handleBook}
+                    >预约这个导师</button>
+                    {!isLoggedIn ? (
+                      <div className="mentor-booking-hint">需要先登录学生账号</div>
+                    ) : (
+                      <div className="mentor-booking-hint">提交后可在“我的课程”查看进度</div>
+                    )}
+                  </div>
+                </aside>
               </section>
 
               <section className="mentor-rating-card" aria-label="评分与评价">

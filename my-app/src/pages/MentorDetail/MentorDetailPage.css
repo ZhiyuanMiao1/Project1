@@ -40,117 +40,166 @@
   background: rgba(239, 68, 68, 0.06);
 }
 
-.mentor-profile-card {
+.mentor-detail-top {
+  --mentor-detail-preview-width: 320px;
+  --mentor-detail-preview-height: 380px;
   margin-top: 18px;
+  display: grid;
+  grid-template-columns: var(--mentor-detail-preview-width) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.mentor-detail-preview {
+  --preview-card-width: var(--mentor-detail-preview-width);
+  --preview-card-height: var(--mentor-detail-preview-height);
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Reuse the preview glow style from MentorProfileEditor preview */
+.mentor-detail-preview .preview-wrap {
+  width: var(--preview-card-width);
+  height: var(--preview-card-height);
+  flex: 0 0 var(--preview-card-width);
+  display: flex;
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+  --mx-preview-card-radius: 12px;
+  --mx-preview-glow-outset: 3px;
+  --mx-preview-border-width: 3px;
+  --mx-preview-glow-blur: 8px;
+  --mx-preview-glow-opacity: 0.85;
+}
+
+.mentor-detail-preview .preview-wrap::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--mx-preview-glow-outset));
+  border-radius: calc(var(--mx-preview-card-radius) + var(--mx-preview-glow-outset));
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--mx-preview-glow-opacity);
+  filter: blur(var(--mx-preview-glow-blur)) saturate(2.2) brightness(1.12);
+  background: conic-gradient(
+    from 180deg at 50% 50%,
+    rgba(34, 211, 238, 1),
+    rgba(20, 184, 166, 1),
+    rgba(59, 130, 246, 1),
+    rgba(168, 85, 247, 1),
+    rgba(249, 115, 22, 1),
+    rgba(245, 158, 11, 1),
+    rgba(34, 211, 238, 1)
+  );
+  transform: translateZ(0);
+}
+
+.mentor-detail-preview .preview-wrap::after {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--mx-preview-border-width));
+  padding: var(--mx-preview-border-width);
+  border-radius: calc(var(--mx-preview-card-radius) + var(--mx-preview-border-width));
+  pointer-events: none;
+  z-index: 3;
+  opacity: 1;
+  filter:
+    drop-shadow(0 0 2px rgba(255,255,255,0.98))
+    drop-shadow(0 0 10px rgba(255,255,255,0.85))
+    drop-shadow(0 0 18px rgba(255,255,255,0.45));
+  background: rgba(255,255,255,1);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.mentor-detail-preview .listing-card {
+  width: 100%;
+  height: var(--preview-card-height);
+  margin: 0;
+  max-width: 100%;
+  min-height: var(--preview-card-height);
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+  border-radius: var(--mx-preview-card-radius);
+  border: 0;
+  overflow: hidden;
+  box-shadow:
+    0 24px 60px -16px rgba(17,24,39,0.24),
+    0 12px 32px -12px rgba(17,24,39,0.16),
+    0 2px 8px -2px rgba(17,24,39,0.08);
+  transition: transform 0.3s ease, box-shadow 0.35s ease;
+}
+
+.mentor-detail-preview .listing-card::before { content: none; }
+.mentor-detail-preview .listing-card::after { border-radius: inherit; }
+
+.mentor-detail-preview .listing-card:hover {
+  box-shadow:
+    0 28px 80px -12px rgba(17,24,39,0.30),
+    0 16px 48px -12px rgba(17,24,39,0.22),
+    0 4px 12px -2px rgba(17,24,39,0.12);
+}
+
+.mentor-detail-booking {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mentor-booking-card {
+  width: 100%;
+  max-width: 420px;
   padding: 22px;
   border-radius: 18px;
   border: 1px solid #eee;
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 22px;
   background: #fff;
 }
 
-.mentor-profile-avatar-wrap {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-}
-
-.mentor-profile-avatar {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid rgba(2, 6, 23, 0.06);
-}
-
-.mentor-profile-name-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-.mentor-profile-name {
-  font-size: 28px;
-  letter-spacing: -0.4px;
+.mentor-booking-title {
+  font-size: 18px;
+  font-weight: 650;
   color: #0f172a;
 }
 
-.mentor-profile-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.mentor-profile-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 13px;
-}
-
-.mentor-profile-tag.subtle {
-  background: rgba(15, 23, 42, 0.05);
-  color: #475569;
-}
-
-.mentor-profile-stats {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.mentor-profile-stat {
-  padding: 12px 12px;
-  border-radius: 14px;
-  background: rgba(2, 6, 23, 0.03);
-  border: 1px solid rgba(2, 6, 23, 0.06);
-  min-width: 0;
-}
-
-.mentor-profile-stat-label {
-  display: block;
-  font-size: 12px;
-  color: #64748b;
-}
-
-.mentor-profile-stat-value {
-  margin-top: 4px;
-  display: block;
+.mentor-booking-subtitle {
+  margin-top: 6px;
   font-size: 14px;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: #64748b;
+  line-height: 1.5;
 }
 
-.mentor-profile-courses,
-.mentor-profile-languages {
+.mentor-booking-button {
   margin-top: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
-.mentor-profile-chip {
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fff;
-  color: #334155;
+.mentor-booking-button:hover {
+  filter: brightness(0.96);
+}
+
+.mentor-booking-button:active {
+  transform: translateY(0.5px);
+}
+
+.mentor-booking-hint {
+  margin-top: 10px;
   font-size: 13px;
-}
-
-.mentor-profile-chip.subtle {
-  background: rgba(15, 23, 42, 0.03);
-  color: #475569;
+  color: #64748b;
 }
 
 .mentor-rating-card {
@@ -368,17 +417,17 @@
 }
 
 @media (max-width: 900px) {
-  .mentor-profile-card {
+  .mentor-detail-top {
+    --mentor-detail-preview-width: min(420px, 100%);
     grid-template-columns: 1fr;
   }
 
-  .mentor-profile-avatar {
-    width: 120px;
-    height: 120px;
+  .mentor-detail-preview {
+    justify-content: center;
   }
 
-  .mentor-profile-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .mentor-detail-booking {
+    justify-content: center;
   }
 
   .mentor-rating-grid {
