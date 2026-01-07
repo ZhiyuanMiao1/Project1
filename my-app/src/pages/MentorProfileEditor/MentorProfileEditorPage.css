@@ -376,9 +376,9 @@
   overflow: visible;   /* allow outer glow to spill */
   isolation: isolate;  /* keep pseudo layers contained */
   --mx-preview-card-radius: 12px;
-  --mx-preview-glow-outset: 6px;
+  --mx-preview-glow-outset: 3px;
   --mx-preview-border-width: 3px;
-  --mx-preview-glow-blur: 16px;
+  --mx-preview-glow-blur: 8px;
   --mx-preview-glow-opacity: 0.85;
 }
 
