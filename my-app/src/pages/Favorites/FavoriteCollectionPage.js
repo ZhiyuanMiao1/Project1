@@ -12,6 +12,7 @@ import {
   fetchFavoriteItems,
   moveFavoriteItems,
 } from '../../api/favorites';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import '../RecentVisits/RecentVisitsPage.css';
 import './FavoriteCollectionPage.css';
 
@@ -25,11 +26,7 @@ function FavoriteCollectionPage() {
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedEntryIds, setSelectedEntryIds] = useState(() => new Set());
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try {
-      return !!localStorage.getItem('authToken');
-    } catch {
-      return false;
-    }
+    return !!getAuthToken();
   });
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -50,11 +47,7 @@ function FavoriteCollectionPage() {
       if (typeof event?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!event.detail.isLoggedIn);
       } else {
-        try {
-          setIsLoggedIn(!!localStorage.getItem('authToken'));
-        } catch {
-          setIsLoggedIn(false);
-        }
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);
@@ -96,13 +89,8 @@ function FavoriteCollectionPage() {
       const lastRole = sessionStorage.getItem('favorites:lastRole');
       if (lastRole === 'mentor' || lastRole === 'student') return lastRole;
     } catch {}
-    try {
-      const raw = localStorage.getItem('authUser');
-      const user = raw ? JSON.parse(raw) : {};
-      return user?.role === 'mentor' ? 'mentor' : 'student';
-    } catch {
-      return 'student';
-    }
+    const user = getAuthUser() || {};
+    return user?.role === 'mentor' ? 'mentor' : 'student';
   }, [location.search, location.state]);
 
   const numericCollectionId = useMemo(() => {

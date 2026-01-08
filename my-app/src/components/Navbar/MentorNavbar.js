@@ -11,6 +11,7 @@ import BrandMark from '../common/BrandMark/BrandMark';
 import { courseTypeToCnLabel } from '../../constants/courseMappings';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
+import { getAuthToken } from '../../utils/authStorage';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -67,16 +68,14 @@ function MentorNavbar() {
   // 登录状态：登录后显示三条横线（与学生页一致）
   useEffect(() => {
     ensureFreshAuth(api);
-    try {
-      setIsLoggedIn(!!localStorage.getItem('authToken'));
-    } catch {}
+    setIsLoggedIn(!!getAuthToken());
 
     const onAuthChanged = (e) => {
-      const next = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
+      const next = !!(e?.detail?.isLoggedIn ?? getAuthToken());
       setIsLoggedIn(next);
     };
     const onStorage = (ev) => {
-      if (ev.key === 'authToken') setIsLoggedIn(!!ev.newValue);
+      if (ev.key === 'authToken') setIsLoggedIn(!!getAuthToken());
     };
     window.addEventListener('auth:changed', onAuthChanged);
     window.addEventListener('storage', onStorage);

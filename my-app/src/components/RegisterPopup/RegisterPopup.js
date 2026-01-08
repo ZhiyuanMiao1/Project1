@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import api from '../../api/client';
+import { setAuthToken, setAuthUser } from '../../utils/authStorage';
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -59,10 +60,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           const loginRes = await api.post('/api/login', { email, password, role: 'student' });
           const { token, user } = loginRes.data || {};
           if (token) {
-            try {
-              localStorage.setItem('authToken', token);
-              localStorage.setItem('authUser', JSON.stringify(user || {}));
-            } catch {}
+            setAuthToken(token);
+            setAuthUser(user || {});
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             try {
               // 通知全局（含当前标签页）登录状态已变化
@@ -98,10 +97,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           const loginRes = await api.post('/api/login', { email, password, role: 'mentor' });
           const { token, user } = loginRes.data || {};
           if (token) {
-            try {
-              localStorage.setItem('authToken', token);
-              localStorage.setItem('authUser', JSON.stringify(user || {}));
-            } catch {}
+            setAuthToken(token);
+            setAuthUser(user || {});
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             try {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));

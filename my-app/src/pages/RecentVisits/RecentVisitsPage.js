@@ -10,6 +10,7 @@ import tutor3 from '../../assets/images/tutor3.jpg';
 import tutor4 from '../../assets/images/tutor4.jpg';
 import tutor5 from '../../assets/images/tutor5.jpg';
 import tutor6 from '../../assets/images/tutor6.jpg';
+import { getAuthToken } from '../../utils/authStorage';
 import './RecentVisitsPage.css';
 
 const RECENT_SECTIONS = [
@@ -149,11 +150,7 @@ function RecentVisitsPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try {
-      return !!localStorage.getItem('authToken');
-    } catch {
-      return false;
-    }
+    return !!getAuthToken();
   });
 
   useEffect(() => {
@@ -161,11 +158,7 @@ function RecentVisitsPage() {
       if (typeof event?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!event.detail.isLoggedIn);
       } else {
-        try {
-          setIsLoggedIn(!!localStorage.getItem('authToken'));
-        } catch {
-          setIsLoggedIn(false);
-        }
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

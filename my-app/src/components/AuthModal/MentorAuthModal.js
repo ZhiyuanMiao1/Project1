@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
+import { clearAuth } from '../../utils/auth';
+import { getAuthToken } from '../../utils/authStorage';
 import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹窗组件
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
@@ -14,10 +16,26 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 审核中/非导师
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const sync = (e) => {
+      const next = !!(e?.detail?.isLoggedIn ?? getAuthToken());
+      setIsLoggedIn(next);
+    };
+    window.addEventListener('auth:changed', sync);
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken') setIsLoggedIn(!!(ev.newValue || getAuthToken()));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:changed', sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   // 锚定到触发图标下方 10px
   useLayoutEffect(() => {
@@ -131,13 +149,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         checkEditPermission();
         return;
       case 'logout':
-        try {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('authUser');
-        } catch {}
-        try { delete api.defaults.headers.common['Authorization']; } catch {}
-        try { window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } })); } catch {}
-        setIsLoggedIn(false);
+        clearAuth(api);
         onClose && onClose();
         try { navigate('/student'); } catch {}
         return;

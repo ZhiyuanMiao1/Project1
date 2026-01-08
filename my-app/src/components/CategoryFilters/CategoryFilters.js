@@ -4,6 +4,7 @@ import { IoIosArrowBack, IoIosArrowForward } from 'react-icons/io';
 import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP } from '../../constants/courseMappings';
 import { fetchHomeCourseOrder, saveHomeCourseOrder } from '../../api/account';
 import { HOME_COURSE_ORDER_EVENT, normalizeHomeCourseOrderIds } from '../../utils/homeCourseOrder';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 
 const DEFAULT_HOME_COURSE_ORDER_IDS = DIRECTION_OPTIONS.map((opt) => opt.id);
 const DIRECTION_OPTION_BY_ID = new Map(DIRECTION_OPTIONS.map((opt) => [opt.id, opt]));
@@ -21,10 +22,7 @@ function CategoryFilters({ eventName = STUDENT_LISTINGS_CATEGORY_EVENT } = {}) {
     let alive = true;
 
     const loadFromServer = async () => {
-      let token = null;
-      try {
-        token = localStorage.getItem('authToken');
-      } catch {}
+      const token = getAuthToken();
 
       if (!token) {
         if (alive) setHomeCourseOrderIds([...DEFAULT_HOME_COURSE_ORDER_IDS]);
@@ -41,13 +39,8 @@ function CategoryFilters({ eventName = STUDENT_LISTINGS_CATEGORY_EVENT } = {}) {
         }
 
         const getAuthEmail = () => {
-          try {
-            const raw = localStorage.getItem('authUser');
-            const user = raw ? JSON.parse(raw) : {};
-            return typeof user?.email === 'string' ? user.email : '';
-          } catch {
-            return '';
-          }
+          const user = getAuthUser() || {};
+          return typeof user?.email === 'string' ? user.email : '';
         };
 
         const tryReadLegacyOrder = (key) => {

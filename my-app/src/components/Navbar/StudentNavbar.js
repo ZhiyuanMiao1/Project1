@@ -9,6 +9,7 @@ import StudentAuthModal from '../AuthModal/StudentAuthModal';
 import BrandMark from '../common/BrandMark/BrandMark';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 
@@ -46,26 +47,19 @@ function StudentNavbar() {
   // 初始化登录状态与监听登录变化
   useEffect(() => {
     const computeIsMentor = () => {
-      try {
-        const raw = localStorage.getItem('authUser');
-        const user = raw ? JSON.parse(raw) : {};
-        const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
-        return role === 'mentor';
-      } catch {
-        return false;
-      }
+      const user = getAuthUser() || {};
+      const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
+      return role === 'mentor';
     };
 
     ensureFreshAuth(api);
 
-    try {
-      setIsLoggedIn(!!localStorage.getItem('authToken'));
-    } catch {}
+    setIsLoggedIn(!!getAuthToken());
 
     setIsMentorRegistered(computeIsMentor());
 
     const onAuthChanged = (e) => {
-      const next = !!(e?.detail?.isLoggedIn ?? localStorage.getItem('authToken'));
+      const next = !!(e?.detail?.isLoggedIn ?? getAuthToken());
       setIsLoggedIn(next);
       // 若登录状态或角色变化，刷新导师注册态
       if (e?.detail?.user || typeof e?.detail?.role !== 'undefined') {
@@ -82,7 +76,7 @@ function StudentNavbar() {
     window.addEventListener('auth:changed', onAuthChanged);
 
     const onStorage = (ev) => {
-      if (ev.key === 'authToken') setIsLoggedIn(!!ev.newValue);
+      if (ev.key === 'authToken') setIsLoggedIn(!!getAuthToken());
       if (ev.key === 'authUser' || ev.key === 'authToken') {
         setIsMentorRegistered(computeIsMentor());
       }

@@ -3,6 +3,7 @@ import './StudentListingCard.css';
 import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { toggleFavoriteItem } from '../../api/favorites';
+import { getAuthToken } from '../../utils/authStorage';
 
 // 统一时区城市显示（与时区下拉一致）
 const TZ_CITY_MAP = {
@@ -104,10 +105,7 @@ function StudentListingCard({
       return;
     }
 
-    let token = null;
-    try {
-      token = localStorage.getItem('authToken');
-    } catch {}
+    const token = getAuthToken();
 
     if (!token) {
       try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/student' } })); } catch {}

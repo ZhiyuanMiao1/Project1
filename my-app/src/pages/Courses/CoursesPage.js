@@ -8,6 +8,7 @@ import {
   COURSE_TYPE_LABEL_ICON_MAP,
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
+import { getAuthToken } from '../../utils/authStorage';
 import './CoursesPage.css';
 
 const MOCK_COURSES = [
@@ -52,7 +53,7 @@ function CoursesPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -61,7 +62,7 @@ function CoursesPage() {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

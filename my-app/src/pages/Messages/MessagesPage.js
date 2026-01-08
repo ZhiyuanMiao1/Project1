@@ -5,6 +5,7 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
@@ -32,14 +33,9 @@ const getThreadCounterpartDisplayName = (thread) => {
 };
 
 const getAuthedRole = () => {
-  try {
-    const raw = localStorage.getItem('authUser');
-    const user = raw ? JSON.parse(raw) : {};
-    const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
-    return role === 'mentor' ? 'mentor' : 'student';
-  } catch {
-    return 'student';
-  }
+  const user = getAuthUser() || {};
+  const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
+  return role === 'mentor' ? 'mentor' : 'student';
 };
 
 const getThreadMyRole = (thread) => {
@@ -589,11 +585,7 @@ const buildMockAvailability = (date, role) => {
 function MessagesPage() {
   const location = useLocation();
   const isMentorView = useMemo(() => {
-    try {
-      if (localStorage.getItem('authToken')) {
-        return getAuthedRole() === 'mentor';
-      }
-    } catch {}
+    if (getAuthToken()) return getAuthedRole() === 'mentor';
     return location.pathname.startsWith('/mentor');
   }, [location.pathname]);
 
@@ -607,7 +599,7 @@ function MessagesPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [scheduleDecision, setScheduleDecision] = useState(null);
@@ -623,7 +615,7 @@ function MessagesPage() {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

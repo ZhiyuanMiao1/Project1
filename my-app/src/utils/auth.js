@@ -1,3 +1,5 @@
+import { clearAuthStorage, getAuthToken } from './authStorage';
+
 const safeAtob = (value) => {
   try {
     return atob(value);
@@ -33,10 +35,7 @@ export const isTokenExpired = (token, skewSeconds = 30) => {
 };
 
 export const clearAuth = (client) => {
-  try {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-  } catch {}
+  clearAuthStorage();
   if (client?.defaults?.headers?.common) {
     try {
       delete client.defaults.headers.common['Authorization'];
@@ -48,10 +47,7 @@ export const clearAuth = (client) => {
 };
 
 export const ensureFreshAuth = (client) => {
-  let token = null;
-  try {
-    token = localStorage.getItem('authToken');
-  } catch {}
+  const token = getAuthToken();
 
   if (!token) {
     clearAuth(client);

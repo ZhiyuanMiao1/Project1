@@ -4,6 +4,7 @@ import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
 import { toggleFavoriteItem } from '../../api/favorites';
+import { getAuthToken } from '../../utils/authStorage';
 
 // 时区城市映射，与时区选择下拉一致
 const TZ_CITY_MAP = {
@@ -114,8 +115,7 @@ function MentorListingCard({
       return;
     }
 
-    let token = null;
-    try { token = localStorage.getItem('authToken'); } catch {}
+    const token = getAuthToken();
     if (!token) {
       try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/mentor' } })); } catch {}
       return;

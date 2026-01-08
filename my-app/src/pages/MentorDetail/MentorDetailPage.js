@@ -4,6 +4,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import { fetchApprovedMentors } from '../../api/mentors';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
+import { getAuthToken } from '../../utils/authStorage';
 import './MentorDetailPage.css';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -131,11 +132,7 @@ function MentorDetailPage() {
 
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try {
-      return !!localStorage.getItem('authToken');
-    } catch {
-      return false;
-    }
+    return !!getAuthToken();
   });
 
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
@@ -147,15 +144,18 @@ function MentorDetailPage() {
       if (typeof event?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!event.detail.isLoggedIn);
       } else {
-        try {
-          setIsLoggedIn(!!localStorage.getItem('authToken'));
-        } catch {
-          setIsLoggedIn(false);
-        }
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);
-    return () => window.removeEventListener('auth:changed', handler);
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken') setIsLoggedIn(!!(ev.newValue || getAuthToken()));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:changed', handler);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import RegisterPopup from '../RegisterPopup/RegisterPopup';
 import LoginPopup from '../LoginPopup/LoginPopup';
 import api from '../../api/client';
+import { clearAuth } from '../../utils/auth';
 import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
@@ -86,14 +87,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         navigate('/student/course-request');
         return;
       case 'logout':
-        try {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('authUser');
-        } catch {}
-        try { delete api.defaults.headers.common['Authorization']; } catch {}
-        try {
-          window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
-        } catch {}
+        clearAuth(api);
         onClose && onClose();
         navigate('/student');
         return;

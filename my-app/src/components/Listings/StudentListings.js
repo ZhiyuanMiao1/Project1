@@ -4,6 +4,7 @@ import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchAccountProfile } from '../../api/account';
+import { getAuthToken } from '../../utils/authStorage';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
@@ -124,7 +125,7 @@ const isDebugTimingEnabled = () => {
 function StudentListings() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [currentMentorId, setCurrentMentorId] = useState('');
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
@@ -297,7 +298,7 @@ function StudentListings() {
       if (typeof event?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!event.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch { setIsLoggedIn(false); }
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

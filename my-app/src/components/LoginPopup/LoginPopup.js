@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './LoginPopup.css';
 import api from '../../api/client';
+import { setAuthToken, setAuthUser } from '../../utils/authStorage';
 
 const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '', onGoRegister }) => {
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
@@ -54,10 +55,8 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       const res = await api.post('/api/login', { email, password });
       const { token, user } = res.data || {};
       if (token) {
-        try {
-          localStorage.setItem('authToken', token);
-          localStorage.setItem('authUser', JSON.stringify(user || {}));
-        } catch {}
+        setAuthToken(token);
+        setAuthUser(user || {});
         try { api.defaults.headers.common['Authorization'] = `Bearer ${token}`; } catch {}
         try { window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: user?.role, user } })); } catch {}
       }

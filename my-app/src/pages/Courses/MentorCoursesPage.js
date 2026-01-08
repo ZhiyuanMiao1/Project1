@@ -4,6 +4,7 @@ import { FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
+import { getAuthToken } from '../../utils/authStorage';
 import {
   DIRECTION_LABEL_ICON_MAP,
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -53,7 +54,7 @@ function MentorCoursesPage() {
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [errorMessage, setErrorMessage] = useState('');
@@ -63,7 +64,7 @@ function MentorCoursesPage() {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

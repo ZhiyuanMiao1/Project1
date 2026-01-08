@@ -6,6 +6,7 @@ import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGra
 import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
 import UploadStep from './steps/UploadStep';
@@ -114,23 +115,18 @@ const buildAvailabilityFingerprint = ({ timeZone, sessionDurationHours, daySelec
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [accountProfileStatus, setAccountProfileStatus] = useState('idle'); // idle | loading | loaded | error
   const [accountProfile, setAccountProfile] = useState(() => {
-    try {
-      const raw = localStorage.getItem('authUser');
-      const user = raw ? JSON.parse(raw) : {};
-      const role = user?.role;
-      const publicId = user?.public_id;
-      return {
-        studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
-        degree: '',
-        school: '',
-      };
-    } catch {
-      return { studentId: '', degree: '', school: '' };
-    }
+    const user = getAuthUser() || {};
+    const role = user?.role;
+    const publicId = user?.public_id;
+    return {
+      studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
+      degree: '',
+      school: '',
+    };
   });
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -162,7 +158,7 @@ function StudentCourseRequestPage() {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

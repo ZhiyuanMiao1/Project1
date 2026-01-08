@@ -17,6 +17,7 @@ import {
   broadcastHomeCourseOrderChanged,
   normalizeHomeCourseOrderIds,
 } from '../../utils/homeCourseOrder';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import ProfileSection from './sections/ProfileSection';
 import StudentDataSection from './sections/StudentDataSection';
@@ -77,7 +78,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const [studentAvatarUrl, setStudentAvatarUrl] = useState(null);
   const [mentorAvatarUrl, setMentorAvatarUrl] = useState(null);
@@ -86,23 +87,18 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [mentorAvatarUploading, setMentorAvatarUploading] = useState(false);
   const [mentorAvatarUploadError, setMentorAvatarUploadError] = useState('');
   const [accountProfile, setAccountProfile] = useState(() => {
-    try {
-      const raw = localStorage.getItem('authUser');
-      const user = raw ? JSON.parse(raw) : {};
-      const role = user?.role;
-      const publicId = user?.public_id;
-      return {
-        email: typeof user?.email === 'string' ? user.email : '',
-        studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
-        mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
-        degree: '',
-        school: '',
-        studentCreatedAt: null,
-        mentorCreatedAt: null,
-      };
-    } catch {
-      return { email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null };
-    }
+    const user = getAuthUser() || {};
+    const role = user?.role;
+    const publicId = user?.public_id;
+    return {
+      email: typeof user?.email === 'string' ? user.email : '',
+      studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
+      mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
+      degree: '',
+      school: '',
+      studentCreatedAt: null,
+      mentorCreatedAt: null,
+    };
   });
   const [homeCourseOrderIds, setHomeCourseOrderIds] = useState(() => [...DEFAULT_HOME_COURSE_ORDER_IDS]);
   const [savingHomeCourseOrder, setSavingHomeCourseOrder] = useState(false);
@@ -126,7 +122,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);

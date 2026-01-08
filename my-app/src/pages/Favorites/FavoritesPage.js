@@ -12,6 +12,7 @@ import tutor4 from '../../assets/images/tutor4.jpg';
 import tutor5 from '../../assets/images/tutor5.jpg';
 import tutor6 from '../../assets/images/tutor6.jpg';
 import defaultAvatar from '../../assets/images/default-avatar.jpg';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import './FavoritesPage.css';
 
 const COVER_POOL = [tutor1, tutor2, tutor3, tutor4, tutor5, tutor6];
@@ -68,7 +69,7 @@ function FavoritesPage() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    try { return !!localStorage.getItem('authToken'); } catch { return false; }
+    return !!getAuthToken();
   });
   const menuAnchorRef = useRef(null);
   const loadSeqRef = useRef(0);
@@ -87,13 +88,8 @@ function FavoritesPage() {
     const fromState = location.state?.from;
     if (fromState === 'mentor' || fromState === 'student') return fromState;
 
-    try {
-      const raw = localStorage.getItem('authUser');
-      const user = raw ? JSON.parse(raw) : {};
-      return user?.role === 'mentor' ? 'mentor' : 'student';
-    } catch {
-      return 'student';
-    }
+    const user = getAuthUser() || {};
+    return user?.role === 'mentor' ? 'mentor' : 'student';
   }, [location.search, location.state]);
 
   useEffect(() => {
@@ -108,7 +104,7 @@ function FavoritesPage() {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
         setIsLoggedIn(!!e.detail.isLoggedIn);
       } else {
-        try { setIsLoggedIn(!!localStorage.getItem('authToken')); } catch {}
+        setIsLoggedIn(!!getAuthToken());
       }
     };
     window.addEventListener('auth:changed', handler);
