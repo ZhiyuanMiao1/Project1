@@ -1,4 +1,4 @@
-import { clearAuthStorage, getAuthToken } from './authStorage';
+import { broadcastAuthLogout, clearAuthStorage, getAuthToken } from './authStorage';
 
 const safeAtob = (value) => {
   try {
@@ -41,6 +41,7 @@ export const clearAuth = (client) => {
       delete client.defaults.headers.common['Authorization'];
     } catch {}
   }
+  broadcastAuthLogout();
   try {
     window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
   } catch {}

@@ -1,6 +1,11 @@
 const AUTH_TOKEN_KEY = 'authToken';
 const AUTH_USER_KEY = 'authUser';
 
+const CHANNEL_NAME = 'mx-auth';
+const SOURCE_ID = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+let authChannel = null;
+let authSyncInited = false;
+
 const getLocalStorage = () => {
   if (typeof window === 'undefined') return null;
   try {
@@ -84,4 +89,72 @@ export const hasAuthToken = () => !!getAuthToken();
 export const AUTH_STORAGE_KEYS = {
   token: AUTH_TOKEN_KEY,
   user: AUTH_USER_KEY,
+};
+
+const ensureChannel = () => {
+  if (typeof window === 'undefined') return null;
+  if (typeof window.BroadcastChannel === 'undefined') return null;
+  try {
+    if (!authChannel) authChannel = new window.BroadcastChannel(CHANNEL_NAME);
+    return authChannel;
+  } catch {
+    return null;
+  }
+};
+
+export const broadcastAuthLogin = ({ token, user } = {}) => {
+  const t = String(token ?? '');
+  if (!t) return;
+  const channel = ensureChannel();
+  if (!channel) return;
+  try {
+    channel.postMessage({ type: 'login', token: t, user: user || null, sourceId: SOURCE_ID, ts: Date.now() });
+  } catch {}
+};
+
+export const broadcastAuthLogout = () => {
+  const channel = ensureChannel();
+  if (!channel) return;
+  try {
+    channel.postMessage({ type: 'logout', sourceId: SOURCE_ID, ts: Date.now() });
+  } catch {}
+};
+
+export const initAuthSync = (client) => {
+  if (authSyncInited) return;
+  authSyncInited = true;
+
+  const channel = ensureChannel();
+  if (!channel) return;
+
+  channel.onmessage = (event) => {
+    const msg = event?.data || {};
+    if (!msg || msg.sourceId === SOURCE_ID) return;
+
+    if (msg.type === 'login') {
+      if (msg.token) setAuthToken(msg.token);
+      if (typeof msg.user !== 'undefined') setAuthUser(msg.user || {});
+      try {
+        if (client?.defaults?.headers?.common && msg.token) {
+          client.defaults.headers.common['Authorization'] = `Bearer ${String(msg.token)}`;
+        }
+      } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: msg?.user?.role, user: msg.user } }));
+      } catch {}
+      return;
+    }
+
+    if (msg.type === 'logout') {
+      clearAuthStorage();
+      try {
+        if (client?.defaults?.headers?.common) {
+          delete client.defaults.headers.common['Authorization'];
+        }
+      } catch {}
+      try {
+        window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: false } }));
+      } catch {}
+    }
+  };
 };

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import api from '../../api/client';
-import { setAuthToken, setAuthUser } from '../../utils/authStorage';
+import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -62,6 +62,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           if (token) {
             setAuthToken(token);
             setAuthUser(user || {});
+            broadcastAuthLogin({ token, user });
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             try {
               // 通知全局（含当前标签页）登录状态已变化
@@ -99,6 +100,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           if (token) {
             setAuthToken(token);
             setAuthUser(user || {});
+            broadcastAuthLogin({ token, user });
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             try {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));
