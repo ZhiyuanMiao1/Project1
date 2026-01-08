@@ -154,6 +154,127 @@
     0 4px 12px -2px rgba(17,24,39,0.12);
 }
 
+.mentor-detail-schedule {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mentor-detail-schedule-meta {
+  font-size: 13px;
+  color: #6b7280;
+  padding: 0 4px;
+}
+
+.mentor-detail-schedule-body {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 14px;
+  align-items: start;
+}
+
+.mentor-detail-times-placeholder {
+  height: 520px;
+  border-left: 1px solid #e5e7eb;
+}
+
+.mentor-detail-schedule .calendar-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 12px 12px 16px;
+}
+
+.mentor-detail-schedule .calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 14px;
+}
+
+.mentor-detail-schedule .calendar-header .month-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.mentor-detail-schedule .calendar-nav { display: flex; gap: 8px; }
+
+.mentor-detail-schedule .nav-btn {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: #000000;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mentor-detail-schedule .nav-btn:hover:not(:disabled) { background: #f3f4f6; }
+.mentor-detail-schedule .nav-btn:disabled { color: #9ca3af; cursor: not-allowed; background: transparent; }
+
+.mentor-detail-schedule .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10px 8px;
+}
+
+.mentor-detail-schedule .calendar-grid .day-name {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.mentor-detail-schedule .date-cell {
+  height: 54px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 0;
+  position: relative;
+  cursor: default;
+  transition: none;
+}
+
+.mentor-detail-schedule .date-cell:not(.past):not(.outside) { cursor: pointer; }
+.mentor-detail-schedule .date-cell:hover { box-shadow: none; }
+.mentor-detail-schedule .date-cell.outside { background: transparent; color: inherit; pointer-events: none; }
+
+.mentor-detail-schedule .date-cell:not(.past):not(.outside):hover {
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+.mentor-detail-schedule .date-cell.selected { background: #111827; color: #fff; border-color: #111827; }
+.mentor-detail-schedule .date-cell.past { pointer-events: none; cursor: default; }
+
+.mentor-detail-schedule .date-number { font-weight: 700; font-size: 14px; color: #111827; }
+.mentor-detail-schedule .date-cell.past .date-number { color: #9ca3af; }
+.mentor-detail-schedule .date-cell.selected .date-number { color: #ffffff; }
+
+.mentor-detail-schedule .date-marker {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e531c7;
+  pointer-events: none;
+}
+
+.mentor-detail-schedule .date-cell.selected .date-marker { background: #ffffff; }
+
 .mentor-detail-booking {
   display: flex;
   justify-content: flex-end;
@@ -438,6 +559,14 @@
 
   .mentor-detail-booking {
     justify-content: center;
+  }
+
+  .mentor-detail-schedule-body {
+    grid-template-columns: 1fr;
+  }
+
+  .mentor-detail-times-placeholder {
+    display: none;
   }
 
   .mentor-rating-grid {

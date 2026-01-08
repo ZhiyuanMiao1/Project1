@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import api from '../../api/client';
 import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchFavoriteItems } from '../../api/favorites';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
+import { buildShortUTC, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './MentorDetailPage.css';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -39,6 +41,51 @@ const safeDecode = (value) => {
     return value;
   }
 };
+
+const toNoonDate = (dateLike) => {
+  if (!dateLike) return dateLike;
+  const d = new Date(dateLike);
+  d.setHours(12, 0, 0, 0);
+  return d;
+};
+
+const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const buildCalendarGrid = (viewMonth) => {
+  const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+  const startIdx = first.getDay(); // 0=Sun
+  const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+  const prevMonthDays = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 0).getDate();
+
+  const cells = [];
+  for (let i = startIdx - 1; i >= 0; i--) {
+    const dayNum = prevMonthDays - i;
+    const date = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, dayNum);
+    cells.push({ date, outside: true });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ date: new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d), outside: false });
+  }
+  while (cells.length % 7 !== 0) {
+    const last = cells[cells.length - 1].date;
+    const next = new Date(last);
+    next.setDate(last.getDate() + 1);
+    cells.push({ date: next, outside: true });
+  }
+  while (cells.length < 42) {
+    const last = cells[cells.length - 1].date;
+    const next = new Date(last);
+    next.setDate(last.getDate() + 1);
+    cells.push({ date: next, outside: next.getMonth() !== viewMonth.getMonth() });
+  }
+  return cells;
+};
+
+const isSameDay = (a, b) => (
+  a.getFullYear() === b.getFullYear()
+  && a.getMonth() === b.getMonth()
+  && a.getDate() === b.getDate()
+);
 
 const normalizeNumber = (value, fallback = 0) => {
   const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
@@ -127,7 +174,6 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
 function MentorDetailPage() {
   const menuAnchorRef = useRef(null);
   const location = useLocation();
-  const navigate = useNavigate();
   const params = useParams();
   const mentorId = safeDecode(typeof params?.mentorId === 'string' ? params.mentorId : '');
 
@@ -140,6 +186,14 @@ function MentorDetailPage() {
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
+  const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  const [selectedDate, setSelectedDate] = useState(() => toNoonDate(new Date()));
+  const [viewMonth, setViewMonth] = useState(() => {
+    const parts = getZonedParts(getDefaultTimeZone(), new Date());
+    const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
+    return new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1);
+  });
 
   useEffect(() => {
     const handler = (event) => {
@@ -167,6 +221,39 @@ function MentorDetailPage() {
     window.addEventListener('auth:login-required', onLoginRequired);
     return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setSelectedTimeZone(getDefaultTimeZone());
+      return () => { alive = false; };
+    }
+
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        const tz = typeof res?.data?.availability?.timeZone === 'string' ? res.data.availability.timeZone.trim() : '';
+        setSelectedTimeZone(tz || getDefaultTimeZone());
+      })
+      .catch(() => {
+        if (!alive) return;
+        setSelectedTimeZone(getDefaultTimeZone());
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    const parts = getZonedParts(selectedTimeZone, new Date());
+    const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
+    setSelectedDate(todayNoon);
+    setViewMonth(new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1));
+  }, [selectedTimeZone]);
 
   useEffect(() => {
     let alive = true;
@@ -273,14 +360,28 @@ function MentorDetailPage() {
   const favoriteTargetId = mentor?.id ?? mentorId;
   const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
 
-  const handleBook = () => {
-    if (!mentor) return;
-    if (!isLoggedIn) {
-      setShowStudentAuth(true);
-      return;
-    }
-    navigate('/student/course-request', { state: { mentorId: mentor?.id || mentorId, mentor } });
-  };
+  const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
+  const monthLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    return fmt.format(viewMonth);
+  }, [viewMonth]);
+  const calendarGrid = useMemo(() => buildCalendarGrid(viewMonth), [viewMonth]);
+  const nowParts = useMemo(
+    () => getZonedParts(selectedTimeZone, new Date(nowTick)),
+    [nowTick, selectedTimeZone],
+  );
+  const todayStart = useMemo(() => {
+    const d = new Date(nowParts.year, nowParts.month - 1, nowParts.day);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [nowParts.day, nowParts.month, nowParts.year]);
+  const todayKey = useMemo(() => ymdKey(todayStart), [todayStart]);
+  const canGoPrevMonth = useMemo(() => {
+    const base = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+    return viewMonth.getTime() > base.getTime();
+  }, [todayStart, viewMonth]);
+  const onPrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
+  const onNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
 
   return (
     <div className="mentor-detail-page">
@@ -329,20 +430,62 @@ function MentorDetailPage() {
                     />
                   </div>
                 </div>
-                <aside className="mentor-detail-booking" aria-label="预约上课">
-                  <div className="mentor-booking-card">
-                    <div className="mentor-booking-title">预约上课</div>
-                    <div className="mentor-booking-subtitle">选择时间，提交学习需求，由导师与你确认</div>
-                    <button
-                      type="button"
-                      className="mentor-booking-button"
-                      onClick={handleBook}
-                    >预约这个导师</button>
-                    {!isLoggedIn ? (
-                      <div className="mentor-booking-hint">需要先登录学生账号</div>
-                    ) : (
-                      <div className="mentor-booking-hint">提交后可在“我的课程”查看进度</div>
-                    )}
+                <aside className="mentor-detail-schedule" aria-label="导师可约时间">
+                  <div className="mentor-detail-schedule-meta">
+                    <span>时区：{buildShortUTC(selectedTimeZone)} {selectedTimeZone}</span>
+                  </div>
+                  <div className="mentor-detail-schedule-body" aria-label="选择日期">
+                    <div className="calendar-card" aria-label="可约日期日历">
+                      <div className="calendar-header">
+                        <div className="month-label">{monthLabel}</div>
+                        <div className="calendar-nav">
+                          <button
+                            type="button"
+                            className="nav-btn"
+                            aria-label="Prev month"
+                            disabled={!canGoPrevMonth}
+                            onClick={onPrevMonth}
+                          >
+                            &lsaquo;
+                          </button>
+                          <button type="button" className="nav-btn" aria-label="Next month" onClick={onNextMonth}>
+                            &rsaquo;
+                          </button>
+                        </div>
+                      </div>
+                      <div className="calendar-grid">
+                        {zhDays.map((d) => (
+                          <div key={d} className="day-name">{d}</div>
+                        ))}
+                        {calendarGrid.map(({ date, outside }) => {
+                          if (outside) {
+                            return <div key={date.toISOString()} className="date-cell outside" aria-hidden />;
+                          }
+                          const isToday = isSameDay(date, todayStart);
+                          const selected = isSameDay(date, selectedDate);
+                          const key = ymdKey(date);
+                          const isPast = key < todayKey;
+                          const cls = [
+                            'date-cell',
+                            isToday ? 'today' : '',
+                            selected ? 'selected' : '',
+                            isPast ? 'past' : '',
+                          ].filter(Boolean).join(' ');
+                          return (
+                            <button
+                              key={date.toISOString()}
+                              type="button"
+                              className={cls}
+                              disabled={isPast}
+                              onClick={() => setSelectedDate(toNoonDate(date))}
+                            >
+                              <span className="date-number">{date.getDate()}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="mentor-detail-times-placeholder" aria-hidden="true" />
                   </div>
                 </aside>
               </section>
