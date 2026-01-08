@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import { fetchApprovedMentors } from '../../api/mentors';
+import { fetchFavoriteItems } from '../../api/favorites';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import './MentorDetailPage.css';
@@ -138,6 +139,7 @@ function MentorDetailPage() {
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set());
 
   useEffect(() => {
     const handler = (event) => {
@@ -156,6 +158,14 @@ function MentorDetailPage() {
       window.removeEventListener('auth:changed', handler);
       window.removeEventListener('storage', onStorage);
     };
+  }, []);
+
+  useEffect(() => {
+    const onLoginRequired = () => {
+      setShowStudentAuth(true);
+    };
+    window.addEventListener('auth:login-required', onLoginRequired);
+    return () => window.removeEventListener('auth:login-required', onLoginRequired);
   }, []);
 
   useEffect(() => {
@@ -211,6 +221,27 @@ function MentorDetailPage() {
     };
   }, [location?.state?.mentor, mentorId]);
 
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setFavoriteIds(new Set());
+      return () => { alive = false; };
+    }
+
+    fetchFavoriteItems({ role: 'student', itemType: 'tutor', idsOnly: true })
+      .then((res) => {
+        if (!alive) return;
+        const ids = Array.isArray(res?.data?.ids) ? res.data.ids : [];
+        setFavoriteIds(new Set(ids.map(String)));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setFavoriteIds(new Set());
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
   const ratingValue = normalizeNumber(mentor?.rating, 0);
   const reviewCount = Number.parseInt(String(mentor?.reviewCount ?? 0), 10) || 0;
   const summary = useMemo(() => {
@@ -238,6 +269,9 @@ function MentorDetailPage() {
       imageUrl: mentor?.imageUrl || mentor?.avatarUrl || null,
     };
   }, [mentor, ratingValue, reviewCount]);
+
+  const favoriteTargetId = mentor?.id ?? mentorId;
+  const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
 
   const handleBook = () => {
     if (!mentor) return;
@@ -278,7 +312,21 @@ function MentorDetailPage() {
               <section className="mentor-detail-top" aria-label="导师信息与预约">
                 <div className="mentor-detail-preview" aria-label="导师预览卡片">
                   <div className="preview-wrap">
-                    <StudentListingCard data={previewCardData} />
+                    <StudentListingCard
+                      data={previewCardData}
+                      favoriteRole="student"
+                      favoriteItemType="tutor"
+                      favoriteItemId={favoriteTargetId}
+                      initialFavorited={isFavorite}
+                      onFavoriteChange={(itemId, favorited) => {
+                        setFavoriteIds((prev) => {
+                          const next = new Set(prev);
+                          if (favorited) next.add(String(itemId));
+                          else next.delete(String(itemId));
+                          return next;
+                        });
+                      }}
+                    />
                   </div>
                 </div>
                 <aside className="mentor-detail-booking" aria-label="预约上课">
