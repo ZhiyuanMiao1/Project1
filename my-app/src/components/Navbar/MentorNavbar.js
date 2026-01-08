@@ -12,6 +12,7 @@ import { courseTypeToCnLabel } from '../../constants/courseMappings';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken } from '../../utils/authStorage';
+import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -105,7 +106,22 @@ function MentorNavbar() {
 
   // 监听全局登录需求事件，直接弹出登录框
   useEffect(() => {
-    const onLoginRequired = () => {
+    const onLoginRequired = (event) => {
+      const detail = event?.detail || {};
+      const from = typeof detail.from === 'string' ? detail.from.trim() : '';
+      const requiredRole = typeof detail.requiredRole === 'string' && detail.requiredRole.trim()
+        ? detail.requiredRole.trim()
+        : inferRequiredRoleFromPath(from);
+
+      if (from) {
+        setPostLoginRedirect(from, requiredRole);
+      } else {
+        try {
+          const { pathname, search, hash } = window.location;
+          const current = `${pathname}${search || ''}${hash || ''}`;
+          setPostLoginRedirect(current, inferRequiredRoleFromPath(current));
+        } catch {}
+      }
       setForceLogin(true);
       setShowAuthModal(true);
     };
@@ -145,6 +161,7 @@ function MentorNavbar() {
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
       if (status === 401) {
+        setPostLoginRedirect('/mentor/profile-editor', 'mentor');
         setForceLogin(true);
         setShowAuthModal(true);
         return;

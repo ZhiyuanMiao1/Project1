@@ -8,6 +8,7 @@ import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
+import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
 const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false, forceLogin = false, align = 'left', alignOffset = 0 }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
@@ -76,10 +77,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
         return;
       case 'publish':
         if (!isLoggedIn) {
-          try {
-            sessionStorage.setItem('postLoginRedirect', '/student/course-request');
-            sessionStorage.setItem('requiredRole', 'student');
-          } catch {}
+          setPostLoginRedirect('/student/course-request', 'student');
           setShowLoginPopup(true);
           return;
         }
@@ -228,20 +226,12 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             onClose && onClose();
             const nextRole = payload?.user?.role;
-            let redirected = false;
-            try {
-              const want = sessionStorage.getItem('postLoginRedirect');
-              const required = sessionStorage.getItem('requiredRole');
-              if (want && (!required || required === nextRole)) {
-                sessionStorage.removeItem('postLoginRedirect');
-                sessionStorage.removeItem('requiredRole');
-                window.location.assign(want);
-                redirected = true;
-              }
-            } catch {}
-            if (!redirected) {
-              try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            const want = consumePostLoginRedirect();
+            if (want) {
+              try { navigate(want, { replace: true }); } catch {}
+              return;
             }
+            try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
           }}
         />
       )}

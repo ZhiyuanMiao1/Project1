@@ -4,6 +4,7 @@ import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
+import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -111,7 +112,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           setTimeout(() => {
             try { onClose && onClose(); } catch {}
             try { onSuccess && onSuccess({ autoLoggedIn: true, role: 'mentor' }); } catch {}
-            try { navigate('/mentor'); } catch {}
+            const target = consumePostLoginRedirect() || '/mentor';
+            try { navigate(target, { replace: true }); } catch {}
           }, 2000);
           return;
         } catch (loginErr) {
@@ -387,8 +389,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
             }
             try { onClose && onClose(); } catch {}
-            try { navigate('/student'); } catch {}
-            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+            const target = consumePostLoginRedirect() || '/student';
+            try { navigate(target, { replace: true }); } catch {}
+            if (target === '/student') {
+              try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+            }
           }}
           onClose={() => {
             // 行为同“我知道了”
@@ -397,8 +402,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
             }
             try { onClose && onClose(); } catch {}
-            try { navigate('/student'); } catch {}
-            try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+            const target = consumePostLoginRedirect() || '/student';
+            try { navigate(target, { replace: true }); } catch {}
+            if (target === '/student') {
+              try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+            }
           }}
         />
       )}

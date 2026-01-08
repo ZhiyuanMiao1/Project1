@@ -10,6 +10,7 @@ import BrandMark from '../common/BrandMark/BrandMark';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 
@@ -91,7 +92,22 @@ function StudentNavbar() {
 
   // 监听全局登录需求事件，直接弹出登录框
   useEffect(() => {
-    const onLoginRequired = () => {
+    const onLoginRequired = (event) => {
+      const detail = event?.detail || {};
+      const from = typeof detail.from === 'string' ? detail.from.trim() : '';
+      const requiredRole = typeof detail.requiredRole === 'string' && detail.requiredRole.trim()
+        ? detail.requiredRole.trim()
+        : inferRequiredRoleFromPath(from);
+
+      if (from) {
+        setPostLoginRedirect(from, requiredRole);
+      } else {
+        try {
+          const { pathname, search, hash } = window.location;
+          const current = `${pathname}${search || ''}${hash || ''}`;
+          setPostLoginRedirect(current, inferRequiredRoleFromPath(current));
+        } catch {}
+      }
       setForceLogin(true);
       setShowAuthModal(true);
     };
@@ -210,10 +226,7 @@ function StudentNavbar() {
               if (isLoggedIn) {
                 navigate('/student/course-request');
               } else {
-                try {
-                  sessionStorage.setItem('postLoginRedirect', '/student/course-request');
-                  sessionStorage.setItem('requiredRole', 'student');
-                } catch {}
+                setPostLoginRedirect('/student/course-request', 'student');
                 setForceLogin(true);
                 setShowAuthModal(true);
               }

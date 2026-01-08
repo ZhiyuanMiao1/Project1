@@ -9,6 +9,7 @@ import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
+import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
 const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0 }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
@@ -102,6 +103,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
       if (status === 401) {
+        setPostLoginRedirect('/mentor/profile-editor', 'mentor');
         setShowLoginPopup(true);
         return;
       }
@@ -295,20 +297,12 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
             onClose && onClose();
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             const nextRole = payload?.user?.role;
-            let redirected = false;
-            try {
-              const want = sessionStorage.getItem('postLoginRedirect');
-              const required = sessionStorage.getItem('requiredRole');
-              if (want && (!required || required === nextRole)) {
-                sessionStorage.removeItem('postLoginRedirect');
-                sessionStorage.removeItem('requiredRole');
-                window.location.assign(want);
-                redirected = true;
-              }
-            } catch {}
-            if (!redirected) {
-              try { window.location.pathname = (nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
+            const want = consumePostLoginRedirect();
+            if (want) {
+              try { navigate(want, { replace: true }); } catch {}
+              return;
             }
+            try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
           }}
         />
       )}
