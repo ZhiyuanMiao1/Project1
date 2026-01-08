@@ -161,6 +161,7 @@
   align-self: center;   /* 新增：自己在这一行里垂直居中 */
   --preview-card-width: 280px;
   --preview-card-height: 380px;
+  --mx-editor-preview-scale: 1.3;
 }
 /* 保证左右与容器边缘对齐 */
 .mx-editor-grid > .mx-editor-form { justify-self: start; }
@@ -370,7 +371,7 @@
   height: var(--preview-card-height);
   flex: 0 0 var(--preview-card-width);
   display: flex;       /* lock preview footprint */
-  transform: translateY(-160px) scale(1.3);
+  transform: translateY(-160px) scale(var(--mx-editor-preview-scale));
   transform-origin: center right;
   position: relative;  /* for preview overlay */
   overflow: visible;   /* allow outer glow to spill */

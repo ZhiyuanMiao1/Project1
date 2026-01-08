@@ -210,6 +210,7 @@
   position: absolute;
   top: 10px;
   left: 10px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
   font-size: 22px;       /* 稍大，提升可读性 */
   font-weight: 1000;      /* 加粗 */
   line-height: 1;
