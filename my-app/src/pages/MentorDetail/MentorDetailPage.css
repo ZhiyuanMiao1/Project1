@@ -41,8 +41,8 @@
 }
 
 .mentor-detail-top {
-  --mentor-detail-preview-width: 320px;
-  --mentor-detail-preview-height: 380px;
+  --mentor-detail-preview-width: 360px;
+  --mentor-detail-preview-height: 420px;
   margin-top: 18px;
   display: grid;
   grid-template-columns: var(--mentor-detail-preview-width) minmax(0, 1fr);
@@ -148,6 +148,15 @@
     0 4px 12px -2px rgba(17,24,39,0.12);
 }
 
+.mentor-detail-preview .listing-avatar {
+  width: 180px;
+  height: 180px;
+}
+
+.mentor-detail-preview .listing-name {
+  font-size: 22px;
+}
+
 .mentor-detail-booking {
   display: flex;
   justify-content: flex-end;
@@ -203,7 +212,7 @@
 }
 
 .mentor-rating-card {
-  margin-top: 18px;
+  margin-top: 34px;
   padding: 26px;
   border-radius: 18px;
   border: 1px solid #eee;
