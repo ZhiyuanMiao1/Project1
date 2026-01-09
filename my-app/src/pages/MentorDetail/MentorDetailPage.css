@@ -477,7 +477,7 @@
 .mentor-rating-distribution {
   grid-column: 1 / span 1;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   padding: 10px 18px 14px 0;
 }
 
@@ -486,7 +486,6 @@
   font-weight: 650;
   color: #0f172a;
   letter-spacing: -0.1px;
-  margin-bottom: 2px;
 }
 
 .dist-row {
@@ -504,6 +503,9 @@
 }
 
 .dist-bar {
+  justify-self: start;
+  width: 100%;
+  max-width: 140px;
   height: 6px;
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.14);
