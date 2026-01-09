@@ -60,6 +60,41 @@ const formatFullDate = (date) => {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
 };
 
+const parseYmdKey = (key) => {
+  if (!key) return null;
+  const parts = String(key).split('-');
+  if (parts.length !== 3) return null;
+  const [yRaw, mRaw, dRaw] = parts;
+  const year = Number.parseInt(yRaw, 10);
+  const month = Number.parseInt(mRaw, 10);
+  const day = Number.parseInt(dRaw, 10);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+};
+
+const formatRangeTitleFromKeys = (keys) => {
+  const normalized = Array.isArray(keys) ? keys.filter(Boolean) : [];
+  if (!normalized.length) return '';
+  const sorted = [...normalized].sort();
+  const startParts = parseYmdKey(sorted[0]);
+  const endParts = parseYmdKey(sorted[sorted.length - 1]);
+  if (!startParts || !endParts) return '';
+
+  const sameYear = startParts.year === endParts.year;
+  const sameMonth = sameYear && startParts.month === endParts.month;
+
+  if (sameMonth) {
+    if (startParts.day === endParts.day) return `${startParts.year}年${startParts.month}月${startParts.day}日`;
+    return `${startParts.year}年${startParts.month}月${startParts.day}-${endParts.day}日`;
+  }
+
+  if (sameYear) {
+    return `${startParts.year}年${startParts.month}月${startParts.day}日-${endParts.month}月${endParts.day}日`;
+  }
+
+  return `${startParts.year}年${startParts.month}月${startParts.day}日-${endParts.year}年${endParts.month}月${endParts.day}日`;
+};
+
 const minutesToTimeLabel = (minutes) => {
   if (typeof minutes !== 'number' || Number.isNaN(minutes)) return '';
   const normalized = Math.max(0, minutes);
@@ -225,6 +260,7 @@ function MentorDetailPage() {
 
   const scheduleScrollRef = useRef(null);
   const scheduleResizeRef = useRef(null);
+  const didDragRef = useRef(false);
 
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -238,6 +274,11 @@ function MentorDetailPage() {
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [selectedDate, setSelectedDate] = useState(() => toNoonDate(new Date()));
+  const [selectedRangeKeys, setSelectedRangeKeys] = useState(() => [ymdKey(toNoonDate(new Date()))]);
+  const [dragStartKey, setDragStartKey] = useState(null);
+  const [dragEndKey, setDragEndKey] = useState(null);
+  const [isDraggingRange, setIsDraggingRange] = useState(false);
+  const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
   const [scheduleSelection, setScheduleSelection] = useState(null);
   const [viewMonth, setViewMonth] = useState(() => {
     const parts = getZonedParts(getDefaultTimeZone(), new Date());
@@ -303,6 +344,11 @@ function MentorDetailPage() {
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
     setSelectedDate(todayNoon);
     setViewMonth(new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1));
+    setSelectedRangeKeys([ymdKey(todayNoon)]);
+    setDragStartKey(null);
+    setDragEndKey(null);
+    setDragPreviewKeys(new Set());
+    setIsDraggingRange(false);
   }, [selectedTimeZone]);
 
   useEffect(() => {
@@ -433,6 +479,62 @@ function MentorDetailPage() {
   const onPrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
   const onNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
 
+  const keyToDateStrict = useMemo(() => {
+    return (key) => {
+      const parsed = parseYmdKey(key);
+      if (!parsed) return null;
+      return new Date(parsed.year, parsed.month - 1, parsed.day);
+    };
+  }, []);
+
+  const enumerateKeysInclusive = useMemo(() => {
+    return (aKey, bKey) => {
+      const a = keyToDateStrict(aKey);
+      const b = keyToDateStrict(bKey);
+      if (!a || !b) return [];
+      const start = a.getTime() <= b.getTime() ? a : b;
+      const end = a.getTime() <= b.getTime() ? b : a;
+      const res = [];
+      const cur = new Date(start);
+      cur.setHours(0, 0, 0, 0);
+      const endTs = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime();
+      while (cur.getTime() <= endTs) {
+        const t = new Date(cur);
+        const key = ymdKey(t);
+        if (key >= todayKey) res.push(key);
+        cur.setDate(cur.getDate() + 1);
+      }
+      return res;
+    };
+  }, [keyToDateStrict, todayKey]);
+
+  const endDragSelection = useMemo(() => {
+    return () => {
+      if (!isDraggingRange || !dragStartKey || !dragEndKey) {
+        setIsDraggingRange(false);
+        setDragPreviewKeys(new Set());
+        return;
+      }
+      const keys = enumerateKeysInclusive(dragStartKey, dragEndKey);
+      setSelectedRangeKeys(keys);
+      const endDate = keyToDateStrict(dragEndKey);
+      if (endDate) setSelectedDate(toNoonDate(endDate));
+      setIsDraggingRange(false);
+      setDragPreviewKeys(new Set());
+    };
+  }, [dragEndKey, dragStartKey, enumerateKeysInclusive, isDraggingRange, keyToDateStrict]);
+
+  useEffect(() => {
+    const onUp = () => {
+      if (isDraggingRange) {
+        endDragSelection();
+        didDragRef.current = true;
+      }
+    };
+    window.addEventListener('mouseup', onUp);
+    return () => window.removeEventListener('mouseup', onUp);
+  }, [endDragSelection, isDraggingRange]);
+
   const scheduleGmtLabel = useMemo(() => {
     const utcLabel = buildShortUTC(selectedTimeZone);
     const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
@@ -487,7 +589,9 @@ function MentorDetailPage() {
       const today = toNoonDate(todayStart);
       const next = toNoonDate(prev);
       next.setDate(next.getDate() + deltaDays);
-      return next < today ? today : next;
+      const clamped = next < today ? today : next;
+      setSelectedRangeKeys([ymdKey(clamped)]);
+      return clamped;
     });
   };
 
@@ -505,6 +609,10 @@ function MentorDetailPage() {
 
   const scheduleMinDate = toNoonDate(todayStart);
   const isPrevDayDisabled = toNoonDate(selectedDate).getTime() <= scheduleMinDate.getTime();
+  const scheduleTitle = useMemo(() => {
+    if (Array.isArray(selectedRangeKeys) && selectedRangeKeys.length > 1) return formatRangeTitleFromKeys(selectedRangeKeys);
+    return formatFullDate(selectedDate);
+  }, [selectedDate, selectedRangeKeys]);
 
   const handleTimelineClick = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -692,19 +800,51 @@ function MentorDetailPage() {
                           const selected = isSameDay(date, selectedDate);
                           const key = ymdKey(date);
                           const isPast = key < todayKey;
+                          const inMultiSelected = (selectedRangeKeys || []).includes(key);
+                          const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
+                            ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
+                            : false;
                           const cls = [
                             'date-cell',
                             isToday ? 'today' : '',
                             selected ? 'selected' : '',
                             isPast ? 'past' : '',
+                            inMultiSelected ? 'multi-selected' : '',
+                            inPreview ? 'range-preview' : '',
                           ].filter(Boolean).join(' ');
                           return (
                             <button
                               key={date.toISOString()}
                               type="button"
                               className={cls}
-                              disabled={isPast}
-                              onClick={() => setSelectedDate(toNoonDate(date))}
+                              onMouseDown={() => {
+                                if (isPast) return;
+                                setIsDraggingRange(true);
+                                setDragStartKey(key);
+                                setDragEndKey(key);
+                                setDragPreviewKeys(new Set([key]));
+                                didDragRef.current = false;
+                              }}
+                              onMouseEnter={() => {
+                                if (!isDraggingRange) return;
+                                if (isPast) return;
+                                setDragEndKey(key);
+                                const keys = enumerateKeysInclusive(dragStartKey || key, key);
+                                setDragPreviewKeys(new Set(keys));
+                                if (dragStartKey && dragStartKey !== key) didDragRef.current = true;
+                              }}
+                              onMouseUp={() => {
+                                if (isDraggingRange) endDragSelection();
+                              }}
+                              onClick={() => {
+                                if (didDragRef.current) { didDragRef.current = false; return; }
+                                if (isPast) return;
+                                setSelectedDate(toNoonDate(date));
+                                setSelectedRangeKeys([key]);
+                                if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
+                                  setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+                                }
+                              }}
                             >
                               <span className="date-number">{date.getDate()}</span>
                             </button>
@@ -733,7 +873,7 @@ function MentorDetailPage() {
                             >
                               <FiChevronRight size={18} aria-hidden="true" />
                             </button>
-                            <div className="reschedule-date-title">{formatFullDate(selectedDate)}</div>
+                            <div className="reschedule-date-title">{scheduleTitle}</div>
                           </div>
                           <button
                             type="button"

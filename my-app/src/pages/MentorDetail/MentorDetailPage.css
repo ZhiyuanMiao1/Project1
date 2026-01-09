@@ -339,11 +339,25 @@
 }
 
 .mentor-detail-schedule .date-cell.selected { background: #111827; color: #fff; border-color: #111827; }
+/* Multi-day selected style should match single selected */
+.mentor-detail-schedule .date-cell.multi-selected { background: #111827; color: #ffffff; }
+.mentor-detail-schedule .date-cell.multi-selected .date-number { color: #ffffff; }
+
+/* Preview frame while dragging across selectable dates */
+.mentor-detail-schedule .date-cell.range-preview:not(.past):not(.outside) {
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
 .mentor-detail-schedule .date-cell.past { pointer-events: none; cursor: default; }
 
 .mentor-detail-schedule .date-number { font-weight: 700; font-size: 14px; color: #111827; }
 .mentor-detail-schedule .date-cell.past .date-number { color: #9ca3af; }
 .mentor-detail-schedule .date-cell.selected .date-number { color: #ffffff; }
+.mentor-detail-schedule .date-cell.range-preview .date-number { color: #111827; }
+.mentor-detail-schedule .date-cell.selected.range-preview .date-number,
+.mentor-detail-schedule .date-cell.multi-selected.range-preview .date-number { color: #ffffff; }
 
 .mentor-detail-schedule .date-marker {
   position: absolute;
@@ -357,6 +371,7 @@
 }
 
 .mentor-detail-schedule .date-cell.selected .date-marker { background: #ffffff; }
+.mentor-detail-schedule .date-cell.multi-selected .date-marker { background: #ffffff; }
 
 .mentor-detail-booking {
   display: flex;
