@@ -1028,6 +1028,7 @@ function MentorDetailPage() {
 
                 <div className="mentor-rating-grid">
                   <div className="mentor-rating-distribution" aria-label="评分分布">
+                    <div className="dist-title">总体评分</div>
                     {summary.distribution.map((row) => {
                       const pct = reviewCount > 0 ? row.count / reviewCount : 0;
                       return (
