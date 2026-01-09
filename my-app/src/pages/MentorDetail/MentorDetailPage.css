@@ -431,8 +431,9 @@
   margin-top: 34px;
   padding: 26px;
   border-radius: 18px;
-  border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #fff;
+  border: none;
+  border-radius: 0;
+  background: transparent;
 }
 
 .mentor-rating-top {
@@ -524,7 +525,7 @@
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  border-left: none;
 }
 
 .cat-item {
