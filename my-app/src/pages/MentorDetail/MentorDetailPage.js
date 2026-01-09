@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
+import {
+  FiAward,
+  FiBookOpen,
+  FiChevronLeft,
+  FiChevronRight,
+  FiClipboard,
+  FiClock,
+  FiMessageCircle,
+  FiX,
+} from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import api from '../../api/client';
@@ -13,6 +22,14 @@ import './MentorDetailPage.css';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const round1 = (value) => Math.round(value * 10) / 10;
+
+const RATING_CATEGORY_SPECS = [
+  { key: 'clarity', label: '讲解清晰', Icon: FiBookOpen },
+  { key: 'communication', label: '沟通顺畅', Icon: FiMessageCircle },
+  { key: 'preparation', label: '备课充分', Icon: FiClipboard },
+  { key: 'expertise', label: '知识专业', Icon: FiAward },
+  { key: 'punctuality', label: '上课守时', Icon: FiClock },
+];
 
 const hashString = (input) => {
   const text = String(input ?? '');
@@ -184,20 +201,15 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
   const base = clamp(rating > 0 ? rating : 4.8, 1, 5);
   const count = Number.isFinite(reviewCount) && reviewCount > 0 ? reviewCount : 0;
 
-  const categories = [
-    '讲解清晰',
-    '专业度',
-    '沟通顺畅',
-    '备课充分',
-    '守时',
-    '性价比',
-  ].map((label) => ({
+  const categories = RATING_CATEGORY_SPECS.map(({ key, label, Icon }) => ({
+    key,
     label,
+    Icon,
     score: round1(clamp(base + (rng() - 0.5) * 0.4, 0, 5)),
   }));
 
   const distribution = (() => {
-    if (!count) return null;
+    if (!count) return [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 }));
     const mean = clamp(base, 1, 5);
     const w5 = clamp(0.55 + (mean - 4.5) * 0.7, 0.12, 0.88);
     const w4 = clamp(0.28 - (mean - 4.5) * 0.35, 0.06, 0.6);
@@ -1016,31 +1028,34 @@ function MentorDetailPage() {
 
                 <div className="mentor-rating-grid">
                   <div className="mentor-rating-distribution" aria-label="评分分布">
-                    {summary.distribution ? (
-                      summary.distribution.map((row) => {
-                        const pct = reviewCount > 0 ? row.count / reviewCount : 0;
-                        return (
-                          <div className="dist-row" key={`dist-${row.stars}`}>
-                            <span className="dist-label">{row.stars}</span>
-                            <div className="dist-bar" aria-hidden="true">
-                              <div className="dist-fill" style={{ width: `${Math.round(pct * 100)}%` }} />
-                            </div>
-                            <span className="dist-count">{row.count}</span>
+                    {summary.distribution.map((row) => {
+                      const pct = reviewCount > 0 ? row.count / reviewCount : 0;
+                      return (
+                        <div className="dist-row" key={`dist-${row.stars}`}>
+                          <span className="dist-label">{row.stars}</span>
+                          <div className="dist-bar" aria-hidden="true">
+                            <div className="dist-fill" style={{ width: `${Math.round(pct * 100)}%` }} />
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="dist-empty">暂无分布</div>
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
 
                   <div className="mentor-rating-categories" aria-label="评分维度">
-                    {summary.categories.map((item) => (
-                      <div className="cat-item" key={`cat-${item.label}`}>
-                        <div className="cat-label">{item.label}</div>
-                        <div className="cat-score">{item.score.toFixed(1)}</div>
-                      </div>
-                    ))}
+                    {summary.categories.map((item) => {
+                      const Icon = item.Icon;
+                      return (
+                        <div className="cat-item" key={`cat-${item.key || item.label}`}>
+                          <div className="cat-label">{item.label}</div>
+                          <div className="cat-score">{item.score.toFixed(1)}</div>
+                          {Icon ? (
+                            <div className="cat-icon" aria-hidden="true">
+                              <Icon />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </section>
