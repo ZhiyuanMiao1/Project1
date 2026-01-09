@@ -224,6 +224,8 @@
 
 .mentor-detail-times-panel .reschedule-person {
   font-size: 14px;
+  text-align: center;
+  justify-self: center;
 }
 
 .mentor-detail-times-panel .reschedule-slot {
