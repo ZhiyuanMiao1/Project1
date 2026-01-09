@@ -470,7 +470,7 @@
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
   align-items: start;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-top: none;
   margin-left: -26px;
   margin-right: -26px;
 }
