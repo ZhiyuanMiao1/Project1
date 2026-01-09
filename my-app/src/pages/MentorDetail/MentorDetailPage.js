@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
+import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import api from '../../api/client';
@@ -50,6 +51,51 @@ const toNoonDate = (dateLike) => {
 };
 
 const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const formatFullDate = (date) => {
+  if (!(date instanceof Date)) return '';
+  const label = weekdayLabels[date.getDay()] || '';
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
+};
+
+const minutesToTimeLabel = (minutes) => {
+  if (typeof minutes !== 'number' || Number.isNaN(minutes)) return '';
+  const normalized = Math.max(0, minutes);
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const buildMockAvailability = (date, role) => {
+  const day = date?.getDay?.() ?? 1;
+  const isWeekend = day === 0 || day === 6;
+
+  if (role === 'student') {
+    return isWeekend
+      ? [
+        { startMinutes: 13 * 60, endMinutes: 16 * 60 },
+        { startMinutes: 19 * 60, endMinutes: 21 * 60 },
+      ]
+      : [
+        { startMinutes: 12 * 60, endMinutes: 13 * 60 + 30 },
+        { startMinutes: 14 * 60, endMinutes: 15 * 60 + 30 },
+        { startMinutes: 20 * 60, endMinutes: 21 * 60 + 30 },
+      ];
+  }
+
+  return isWeekend
+    ? [
+      { startMinutes: 15 * 60, endMinutes: 17 * 60 + 30 },
+      { startMinutes: 20 * 60, endMinutes: 21 * 60 },
+    ]
+    : [
+      { startMinutes: 11 * 60 + 30, endMinutes: 12 * 60 + 30 },
+      { startMinutes: 14 * 60 + 30, endMinutes: 17 * 60 },
+      { startMinutes: 19 * 60, endMinutes: 20 * 60 + 30 },
+    ];
+};
 
 const buildCalendarGrid = (viewMonth) => {
   const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
@@ -177,6 +223,9 @@ function MentorDetailPage() {
   const params = useParams();
   const mentorId = safeDecode(typeof params?.mentorId === 'string' ? params.mentorId : '');
 
+  const scheduleScrollRef = useRef(null);
+  const scheduleResizeRef = useRef(null);
+
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
@@ -189,6 +238,7 @@ function MentorDetailPage() {
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
   const [selectedDate, setSelectedDate] = useState(() => toNoonDate(new Date()));
+  const [scheduleSelection, setScheduleSelection] = useState(null);
   const [viewMonth, setViewMonth] = useState(() => {
     const parts = getZonedParts(getDefaultTimeZone(), new Date());
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
@@ -383,6 +433,183 @@ function MentorDetailPage() {
   const onPrevMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
   const onNextMonth = () => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
 
+  const scheduleGmtLabel = useMemo(() => {
+    const utcLabel = buildShortUTC(selectedTimeZone);
+    const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
+    if (!match) {
+      if (utcLabel === 'UTC±0') return 'GMT+00';
+      return utcLabel.replace(/^UTC/, 'GMT');
+    }
+    const [, sign, hoursRaw, minutesRaw] = match;
+    const hours = String(hoursRaw).padStart(2, '0');
+    const minutes = minutesRaw ? `:${minutesRaw}` : '';
+    return `GMT${sign}${hours}${minutes}`;
+  }, [selectedTimeZone]);
+
+  const timelineConfig = useMemo(() => ({
+    startHour: 0,
+    endHour: 24,
+    rowHeight: 44,
+    timeColumnWidth: 60,
+    bodyPaddingTop: 0,
+    timezoneLabel: scheduleGmtLabel,
+  }), [scheduleGmtLabel]);
+
+  const displayHours = useMemo(
+    () => Array.from({ length: timelineConfig.endHour - timelineConfig.startHour }, (_, index) => timelineConfig.startHour + index),
+    [timelineConfig.endHour, timelineConfig.startHour],
+  );
+
+  const participantLabels = useMemo(() => {
+    return {
+      left: '我',
+      right: previewCardData.name || '导师',
+    };
+  }, [previewCardData.name]);
+
+  const mentorSlots = useMemo(() => buildMockAvailability(selectedDate, 'mentor'), [selectedDate]);
+  const columns = useMemo(() => ({ mySlots: [], counterpartSlots: mentorSlots }), [mentorSlots]);
+
+  useEffect(() => {
+    setScheduleSelection(null);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const scrollEl = scheduleScrollRef.current;
+    if (!scrollEl) return;
+    const targetMinutes = 11 * 60;
+    const top = (targetMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60);
+    scrollEl.scrollTop = Math.max(0, top);
+  }, [selectedDate, timelineConfig.rowHeight, timelineConfig.startHour]);
+
+  const shiftSelectedDate = (deltaDays) => {
+    setSelectedDate((prev) => {
+      const today = toNoonDate(todayStart);
+      const next = toNoonDate(prev);
+      next.setDate(next.getDate() + deltaDays);
+      return next < today ? today : next;
+    });
+  };
+
+  useEffect(() => {
+    setViewMonth((current) => {
+      if (
+        current.getFullYear() === selectedDate.getFullYear()
+        && current.getMonth() === selectedDate.getMonth()
+      ) {
+        return current;
+      }
+      return new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    });
+  }, [selectedDate]);
+
+  const scheduleMinDate = toNoonDate(todayStart);
+  const isPrevDayDisabled = toNoonDate(selectedDate).getTime() <= scheduleMinDate.getTime();
+
+  const handleTimelineClick = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const rawMinutes = timelineConfig.startHour * 60 + offsetY / pixelsPerMinute;
+    const snappedStart = Math.round(rawMinutes / 15) * 15;
+    const minStart = timelineConfig.startHour * 60;
+    const maxStart = timelineConfig.endHour * 60 - 60;
+    const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
+    setScheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+  };
+
+  const clearResizeState = () => {
+    const state = scheduleResizeRef.current;
+    if (!state) return;
+    document.body.style.userSelect = state.previousUserSelect ?? '';
+    document.body.classList.remove('reschedule-resizing');
+    scheduleResizeRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      const state = scheduleResizeRef.current;
+      if (!state) return;
+      document.body.style.userSelect = state.previousUserSelect ?? '';
+      document.body.classList.remove('reschedule-resizing');
+      scheduleResizeRef.current = null;
+    };
+  }, []);
+
+  const handleSelectionResizePointerMove = (event) => {
+    const state = scheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
+    const snappedDelta = Math.round(deltaMinutes / 15) * 15;
+    const minStart = timelineConfig.startHour * 60;
+    const maxEnd = timelineConfig.endHour * 60;
+    const minDuration = 15;
+
+    if (state.edge === 'start') {
+      const startMinutes = Math.max(
+        minStart,
+        Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
+      );
+      setScheduleSelection({ startMinutes, endMinutes: state.endMinutes });
+      return;
+    }
+
+    const endMinutes = Math.max(
+      state.startMinutes + minDuration,
+      Math.min(maxEnd, state.endMinutes + snappedDelta),
+    );
+    setScheduleSelection({ startMinutes: state.startMinutes, endMinutes });
+  };
+
+  const handleSelectionResizePointerUp = (event) => {
+    const state = scheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+    event.preventDefault();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+    clearResizeState();
+  };
+
+  const handleSelectionResizePointerDown = (edge) => (event) => {
+    if (!scheduleSelection) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    clearResizeState();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {}
+
+    scheduleResizeRef.current = {
+      edge,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startMinutes: scheduleSelection.startMinutes,
+      endMinutes: scheduleSelection.endMinutes,
+      previousUserSelect: document.body.style.userSelect,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('reschedule-resizing');
+  };
+
+  const handleSendAppointment = () => {
+    if (!scheduleSelection) return;
+    if (!isLoggedIn) {
+      setShowStudentAuth(true);
+      return;
+    }
+    const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
+    console.log('[mentor-detail] send appointment', {
+      date: ymdKey(selectedDate),
+      windowLabel,
+      timeZone: selectedTimeZone,
+    });
+  };
+
   return (
     <div className="mentor-detail-page">
       <div className="container">
@@ -485,7 +712,157 @@ function MentorDetailPage() {
                         })}
                       </div>
                     </div>
-                    <div className="mentor-detail-times-placeholder" aria-hidden="true" />
+                    <div className="mentor-detail-times-panel" aria-label="选择时间">
+                      <aside className="reschedule-drawer mentor-detail-reschedule-embed" aria-label="发送预约">
+                        <div className="reschedule-header">
+                          <div className="reschedule-header-left">
+                            <button
+                              type="button"
+                              className="reschedule-header-btn icon"
+                              aria-label="前一天"
+                              disabled={isPrevDayDisabled}
+                              onClick={() => shiftSelectedDate(-1)}
+                            >
+                              <FiChevronLeft size={18} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className="reschedule-header-btn icon"
+                              aria-label="后一天"
+                              onClick={() => shiftSelectedDate(1)}
+                            >
+                              <FiChevronRight size={18} aria-hidden="true" />
+                            </button>
+                            <div className="reschedule-date-title">{formatFullDate(selectedDate)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            className="reschedule-header-btn icon close"
+                            aria-label="清空选择"
+                            onClick={() => setScheduleSelection(null)}
+                          >
+                            <FiX size={18} aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        <div className="reschedule-timeline">
+                          <div
+                            className="reschedule-timeline-head"
+                            style={{ '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px` }}
+                          >
+                            <div className="reschedule-tz">{timelineConfig.timezoneLabel}</div>
+                            <div className="reschedule-person">{participantLabels.left}</div>
+                            <div className="reschedule-person">{participantLabels.right}</div>
+                          </div>
+
+                          <div className="reschedule-timeline-scroll" ref={scheduleScrollRef}>
+                            <div
+                              className="reschedule-timeline-body"
+                              style={{
+                                '--rs-row-height': `${timelineConfig.rowHeight}px`,
+                                '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px`,
+                                '--rs-body-padding-top': `${timelineConfig.bodyPaddingTop}px`,
+                                '--rs-timeline-height': `${timelineConfig.rowHeight * (timelineConfig.endHour - timelineConfig.startHour)}px`,
+                              }}
+                            >
+                              <div
+                                className="reschedule-time-col"
+                                aria-hidden="true"
+                                onClick={handleTimelineClick}
+                              >
+                                {displayHours.map((hour) => (
+                                  <div key={hour} className="reschedule-time-label">
+                                    {hour === 0 ? null : (
+                                      <span className="reschedule-time-text">{`${String(hour).padStart(2, '0')}:00`}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div
+                                className="reschedule-column left"
+                                aria-label="我的空闲时间"
+                                onClick={handleTimelineClick}
+                              >
+                                {columns.mySlots.map((slot, index) => (
+                                  <div
+                                    key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                    className="reschedule-slot availability"
+                                    style={{
+                                      top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                      height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                    }}
+                                  >
+                                    {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div
+                                className="reschedule-column right"
+                                aria-label="导师空闲时间"
+                                onClick={handleTimelineClick}
+                              >
+                                {columns.counterpartSlots.map((slot, index) => (
+                                  <div
+                                    key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                    className="reschedule-slot availability"
+                                    style={{
+                                      top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                      height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                    }}
+                                  >
+                                    {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {scheduleSelection && (
+                                <div className="reschedule-selection-layer" aria-hidden="true">
+                                  <div
+                                    className="reschedule-slot selection"
+                                    style={{
+                                      top: `${(scheduleSelection.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                      height: `${(scheduleSelection.endMinutes - scheduleSelection.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                    }}
+                                  >
+                                    <div
+                                      className="reschedule-selection-handle top"
+                                      role="presentation"
+                                      onPointerDown={handleSelectionResizePointerDown('start')}
+                                      onPointerMove={handleSelectionResizePointerMove}
+                                      onPointerUp={handleSelectionResizePointerUp}
+                                      onPointerCancel={handleSelectionResizePointerUp}
+                                    />
+                                    <div
+                                      className="reschedule-selection-handle bottom"
+                                      role="presentation"
+                                      onPointerDown={handleSelectionResizePointerDown('end')}
+                                      onPointerMove={handleSelectionResizePointerMove}
+                                      onPointerUp={handleSelectionResizePointerUp}
+                                      onPointerCancel={handleSelectionResizePointerUp}
+                                    />
+                                    {minutesToTimeLabel(scheduleSelection.startMinutes)} - {minutesToTimeLabel(scheduleSelection.endMinutes)}
+                                  </div>
+                                </div>
+                              )}
+
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="reschedule-footer">
+                          <button
+                            type="button"
+                            className="reschedule-send-btn"
+                            onClick={handleSendAppointment}
+                            disabled={!scheduleSelection}
+                          >
+                            发送预约
+                          </button>
+                        </div>
+                      </aside>
+                    </div>
                   </div>
                 </aside>
               </section>

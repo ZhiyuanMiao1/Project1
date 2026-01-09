@@ -177,10 +177,62 @@
   align-items: start;
 }
 
-.mentor-detail-times-placeholder {
+.mentor-detail-times-panel {
   height: 520px;
-  border-left: 1px solid #e5e7eb;
-  padding-left: 16px;
+  display: flex;
+  align-items: stretch;
+}
+
+.mentor-detail-reschedule-embed.reschedule-drawer {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  border-left: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
+}
+
+.mentor-detail-times-panel .reschedule-header {
+  padding: 12px 12px;
+}
+
+.mentor-detail-times-panel .reschedule-date-title {
+  font-size: 15px;
+}
+
+.mentor-detail-times-panel .reschedule-timeline {
+  padding: 10px 12px 0;
+}
+
+.mentor-detail-times-panel .reschedule-tz {
+  font-size: 13px;
+}
+
+.mentor-detail-times-panel .reschedule-person {
+  font-size: 14px;
+}
+
+.mentor-detail-times-panel .reschedule-slot {
+  padding: 10px 10px;
+  font-size: 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mentor-detail-times-panel .reschedule-slot.selection {
+  padding: 6px 8px;
+}
+
+.mentor-detail-times-panel .reschedule-footer {
+  padding: 10px 12px 12px;
+}
+
+.mentor-detail-times-panel .reschedule-send-btn {
+  min-width: 120px;
+  padding: 10px 14px;
 }
 
 .mentor-detail-schedule .calendar-card {
@@ -568,8 +620,8 @@
     grid-template-columns: 1fr;
   }
 
-  .mentor-detail-times-placeholder {
-    display: none;
+  .mentor-detail-times-panel {
+    height: min(520px, 72vh);
   }
 
   .mentor-rating-grid {
