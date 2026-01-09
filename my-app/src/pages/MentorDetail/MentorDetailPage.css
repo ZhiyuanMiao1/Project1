@@ -50,7 +50,7 @@
   display: grid;
   grid-template-columns: var(--mentor-detail-preview-width) minmax(0, 1fr);
   row-gap: 22px;
-  column-gap: 64px;
+  column-gap: 72px;
   align-items: start;
 }
 
@@ -156,8 +156,8 @@
 }
 
 .mentor-detail-schedule {
-  width: 100%;
-  max-width: 735px;
+  width: min(780px, 100%);
+  justify-self: end;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -172,7 +172,7 @@
 .mentor-detail-schedule-body {
   margin-top: 12px;
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
+  grid-template-columns: 1.1fr 0.9fr;
   gap: 14px;
   align-items: start;
 }
