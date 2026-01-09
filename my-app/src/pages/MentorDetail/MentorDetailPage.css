@@ -446,14 +446,14 @@
 .mentor-rating-number {
   font-size: 56px;
   line-height: 1;
-  font-weight: 720;
+  font-weight: 650;
   letter-spacing: -1px;
   color: #0f172a;
 }
 
 .mentor-rating-title {
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 550;
   color: #0f172a;
 }
 
@@ -483,7 +483,7 @@
 
 .dist-title {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 550;
   color: #0f172a;
   letter-spacing: -0.1px;
 }
@@ -497,7 +497,7 @@
 
 .dist-label {
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 550;
   color: #0f172a;
   text-align: left;
 }
@@ -542,7 +542,7 @@
 
 .cat-label {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 500;
   color: #0f172a;
   letter-spacing: -0.1px;
 }
@@ -550,7 +550,7 @@
 .cat-score {
   margin-top: 8px;
   font-size: 22px;
-  font-weight: 720;
+  font-weight: 500;
   color: #0f172a;
 }
 
