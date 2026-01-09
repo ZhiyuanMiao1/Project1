@@ -1321,6 +1321,8 @@
   font-weight: 750;
   letter-spacing: -0.01em;
   color: #0f172a;
+  text-align: center;
+  justify-self: center;
 }
 
 .reschedule-timeline-scroll {
