@@ -332,6 +332,7 @@ function MentorDetailPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeReview, setActiveReview] = useState(null);
   const [visibleReviewCount, setVisibleReviewCount] = useState(6);
+  const [revealStartIndex, setRevealStartIndex] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -640,6 +641,7 @@ function MentorDetailPage() {
   useEffect(() => {
     setVisibleReviewCount(6);
     setActiveReview(null);
+    setRevealStartIndex(null);
   }, [mentor?.id, mentorId, summary.reviews.length]);
 
   const previewCardData = useMemo(() => {
@@ -1260,8 +1262,14 @@ function MentorDetailPage() {
 
               <section className="mentor-reviews" aria-label="学员评价列表">
                 <div className="mentor-reviews-grid">
-                  {summary.reviews.slice(0, visibleReviewCount).map((review) => (
-                    <article className="mentor-review-card" key={review.id}>
+                  {summary.reviews.slice(0, visibleReviewCount).map((review, index) => (
+                    <article
+                      className={`mentor-review-card${(revealStartIndex !== null && index >= revealStartIndex) ? ' mentor-review-card--reveal' : ''}`}
+                      key={review.id}
+                      style={(revealStartIndex !== null && index >= revealStartIndex)
+                        ? { '--mentor-review-reveal-delay': `${Math.min(5, index - revealStartIndex) * 28}ms` }
+                        : undefined}
+                    >
                       <div className="review-head">
                         <div className="review-avatar" aria-hidden="true">
                           {String(normalizeStudentIdLabel(review.author) || 'S').slice(0, 1).toUpperCase()}
@@ -1286,6 +1294,7 @@ function MentorDetailPage() {
                     type="button"
                     className="mentor-reviews-more"
                     onClick={() => {
+                      setRevealStartIndex(visibleReviewCount);
                       setVisibleReviewCount((count) => Math.min(count + 6, summary.reviews.length));
                     }}
                   >
