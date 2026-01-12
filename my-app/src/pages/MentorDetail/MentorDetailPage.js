@@ -1139,8 +1139,13 @@ function MentorDetailPage() {
                               <span className="date-number">{date.getDate()}</span>
                               {(hasMyAvailability || hasMentorAvailability) ? (
                                 <span className="availability-dots" aria-hidden="true">
-                                  {hasMyAvailability ? <span className="availability-dot me" /> : null}
-                                  {hasMentorAvailability ? <span className="availability-dot mentor" /> : null}
+                                  {(hasMyAvailability && hasMentorAvailability) ? (
+                                    <span className="availability-dot both" />
+                                  ) : hasMyAvailability ? (
+                                    <span className="availability-dot me" />
+                                  ) : (
+                                    <span className="availability-dot mentor" />
+                                  )}
                                 </span>
                               ) : null}
                             </button>

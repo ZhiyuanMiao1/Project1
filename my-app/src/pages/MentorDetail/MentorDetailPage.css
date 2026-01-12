@@ -379,6 +379,9 @@
 
 .mentor-detail-schedule .availability-dot.me { background: #e531c7; }
 .mentor-detail-schedule .availability-dot.mentor { background: #3b82f6; }
+.mentor-detail-schedule .availability-dot.both {
+  background: #8b5cf6;
+}
 
 .mentor-detail-schedule .date-cell.selected .availability-dot,
 .mentor-detail-schedule .date-cell.multi-selected .availability-dot {
