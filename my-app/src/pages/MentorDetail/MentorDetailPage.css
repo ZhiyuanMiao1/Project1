@@ -430,7 +430,6 @@
 .mentor-rating-card {
   margin-top: 34px;
   padding: 50px 26px 26px;
-  border-radius: 18px;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -580,12 +579,6 @@
   gap: 12px;
 }
 
-.mentor-reviews-title {
-  font-size: 20px;
-  color: #0f172a;
-  letter-spacing: -0.3px;
-}
-
 .mentor-reviews-count {
   font-size: 14px;
   color: #64748b;
@@ -605,7 +598,7 @@
 .mentor-review-card {
   padding: 16px;
   border-radius: 16px;
-  border: 1px solid rgba(2, 6, 23, 0.08);
+  border: none;
   background: #fff;
 }
 
