@@ -136,8 +136,9 @@ const cosineSimilarity = (a: number[], aNorm: number, b: number[], bNorm: number
 };
 
 const RELEVANCE_TOP_RELATIVE_DELTA = 0.2;
+const RELEVANCE_ABS_MIN = 0.35;
 
-const applyTopRelativeCutoff = <T extends { relevanceScore?: number }>(items: T[], delta: number) => {
+const applyTopRelativeCutoff = <T extends { relevanceScore?: number }>(items: T[], delta: number, absMin: number) => {
   if (!Array.isArray(items) || items.length === 0) return items;
   let maxScore = -Infinity;
   for (const item of items) {
@@ -145,7 +146,7 @@ const applyTopRelativeCutoff = <T extends { relevanceScore?: number }>(items: T[
     if (s > maxScore) maxScore = s;
   }
   if (!Number.isFinite(maxScore)) return items;
-  const threshold = maxScore - delta;
+  const threshold = Math.max(maxScore - delta, absMin);
   return items.filter((item) => {
     const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
     return s >= threshold;
@@ -338,7 +339,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
                   return String(a.id).localeCompare(String(b.id));
                 });
 
-              mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
+              mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
 
               if (timingEnabled) {
                 const totalMs = msSince(t0);
@@ -426,7 +427,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
               return String(a.id).localeCompare(String(b.id));
             });
 
-          mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
+          mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
           const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
 
           if (timingEnabled) {

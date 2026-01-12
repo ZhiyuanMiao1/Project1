@@ -96,7 +96,8 @@ const cosineSimilarity = (a, aNorm, b, bNorm) => {
     return dot / (aNorm * bNorm);
 };
 const RELEVANCE_TOP_RELATIVE_DELTA = 0.18;
-const applyTopRelativeCutoff = (items, delta) => {
+const RELEVANCE_ABS_MIN = 0.35;
+const applyTopRelativeCutoff = (items, delta, absMin) => {
     if (!Array.isArray(items) || items.length === 0)
         return items;
     let maxScore = -Infinity;
@@ -107,7 +108,7 @@ const applyTopRelativeCutoff = (items, delta) => {
     }
     if (!Number.isFinite(maxScore))
         return items;
-    const threshold = maxScore - delta;
+    const threshold = Math.max(maxScore - delta, absMin);
     return items.filter((item) => {
         const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
         return s >= threshold;
@@ -280,7 +281,7 @@ router.get('/approved', async (_req, res) => {
                                     return sb - sa;
                                 return String(a.id).localeCompare(String(b.id));
                             });
-                            mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
+                            mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
                             if (timingEnabled) {
                                 const totalMs = msSince(t0);
                                 console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${vectorUserIds.length} | ` +
@@ -364,7 +365,7 @@ router.get('/approved', async (_req, res) => {
                                 return sb - sa;
                             return String(a.id).localeCompare(String(b.id));
                         });
-                        mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
+                        mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
                         const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
                         if (timingEnabled) {
                             const totalMs = msSince(t0);
