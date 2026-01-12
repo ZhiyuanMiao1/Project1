@@ -620,8 +620,8 @@
 }
 
 .review-avatar {
-  width: 48px;
-  height: 48px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: rgba(15, 23, 42, 0.08);
   display: inline-flex;
@@ -629,21 +629,22 @@
   justify-content: center;
   color: #0f172a;
   font-weight: 700;
-  font-size: 18px;
+  font-size: 19px;
   overflow: hidden;
 }
 
 .review-author {
   grid-column: 2;
   grid-row: 1;
-  font-weight: 650;
+  font-weight: 600;
+  font-size: 18px;
   color: #0f172a;
 }
 
 .review-sub {
   grid-column: 1 / -1;
   grid-row: 2;
-  font-size: 12px;
+  font-size: 13px;
   color: #64748b;
   display: inline-flex;
   align-items: center;

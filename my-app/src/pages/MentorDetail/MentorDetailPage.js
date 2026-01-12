@@ -163,6 +163,13 @@ const formatReviewMonthLabel = (value, now = new Date()) => {
   return format(d);
 };
 
+const normalizeStudentIdLabel = (value) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  const match = raw.match(/^S0+(\d+)$/i);
+  if (!match) return value;
+  return `S${Number(match[1])}`;
+};
+
 const buildMockAvailability = (date, role) => {
   const day = date?.getDay?.() ?? 1;
   const isWeekend = day === 0 || day === 6;
@@ -283,7 +290,7 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
       '专业度很强，给到的学习路径很具体，效率提升明显。',
       '反馈及时，代码走查细致，指出了很多容易忽略的问题。',
     ];
-    const names = ['Yoriko', 'Andrea', 'S12', 'S08', 'S19', 'S03'];
+    const names = ['Yoriko', 'Andrea', 'S12', 'S8', 'S19', 'S3'];
     const times = ['4 天前', '2 周前', '1 个月前', '3 天前', '5 天前'];
     const take = Math.max(2, Math.min(4, Math.round(2 + rng() * 2)));
     return Array.from({ length: take }).map((_, i) => {
@@ -1105,9 +1112,9 @@ function MentorDetailPage() {
                     <article className="mentor-review-card" key={review.id}>
                       <div className="review-head">
                         <div className="review-avatar" aria-hidden="true">
-                          {String(review.author || 'S').slice(0, 1).toUpperCase()}
+                          {String(normalizeStudentIdLabel(review.author) || 'S').slice(0, 1).toUpperCase()}
                         </div>
-                        <div className="review-author">{review.author}</div>
+                        <div className="review-author">{normalizeStudentIdLabel(review.author)}</div>
                         <div className="review-sub">
                           <span className="review-score">
                             <span className="review-star" aria-hidden="true">★</span>
