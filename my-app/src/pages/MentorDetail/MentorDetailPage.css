@@ -629,6 +629,8 @@
   justify-content: center;
   color: #0f172a;
   font-weight: 700;
+  font-size: 18px;
+  overflow: hidden;
 }
 
 .review-author {

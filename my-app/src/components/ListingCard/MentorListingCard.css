@@ -112,7 +112,7 @@
 
 .mentor-preview-card .card-header { display: flex; align-items: center; gap: 12px; }
 .mentor-preview-card .avatar {
-  width: 64px; height: 64px; border-radius: 999px; background: #0f172a; color: #fff;
+  width: 64px; height: 64px; border-radius: 999px; background: rgba(15, 23, 42, 0.08); color: #0f172a;
   display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px;
   overflow: hidden;
 }

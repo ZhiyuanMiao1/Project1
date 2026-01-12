@@ -39,14 +39,22 @@
   border-radius: 50%;
   border: 0;
   padding: 0;
-  background: #0f172a;
-  color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
   cursor: pointer;
   overflow: hidden;
+}
+
+.settings-student-avatar-btn {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+.settings-mentor-avatar-btn {
+  background: #0f172a;
+  color: #ffffff;
 }
 
 .settings-student-avatar-btn:hover,
@@ -269,4 +277,3 @@
 .settings-data-section {
   padding: 18px;
 }
-
