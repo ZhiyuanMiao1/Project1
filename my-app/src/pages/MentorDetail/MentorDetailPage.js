@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import {
   FiAward,
@@ -291,6 +291,7 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
       '反馈及时，代码走查细致，指出了很多容易忽略的问题。',
       '课程节奏把控得很好，讲解时会先给出整体框架再逐步拆解细节；遇到我卡住的点会换一种说法举例说明，直到我能自己复述并写出来。课后还给了我一份复盘清单和练习路线，照着做提升非常明显。',
       '沟通非常顺畅，时间安排也很灵活；每次都会先快速定位薄弱环节，然后用针对性的题目把思路练熟。尤其在代码走查上很细，能指出很多容易忽略的边界情况和写法习惯，建议也都很可落地。',
+      '这是一条更长的测试评价，用来确保文本在当前卡片宽度下能够稳定超过四行：导师会先帮我梳理目标与优先级，然后把知识点拆成可执行的小步骤；每次课后都有明确的作业与检查点，下一次会先复盘上次的错误，再迭代我的解题思路。过程中不仅讲“怎么做”，还讲“为什么这样做”，并会补充常见坑、边界情况和更优雅的写法。整体体验非常高效，帮助我快速建立信心并持续提升。',
     ];
     const names = ['Yoriko', 'Andrea', 'S12', 'S8', 'S19', 'S3'];
     const times = ['4 天前', '2 周前', '1 个月前', '3 天前', '5 天前'];
@@ -302,9 +303,7 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
         author: names[Math.floor(rng() * names.length)],
         time: times[Math.floor(rng() * times.length)],
         rating: score,
-        content: (i === 0
-          ? templates[templates.length - 1 - (Math.floor(rng() * 2) % 2)]
-          : templates[Math.floor(rng() * templates.length)]),
+        content: (i === 0 ? templates[templates.length - 1] : templates[Math.floor(rng() * templates.length)]),
       };
     });
   })();
@@ -347,16 +346,54 @@ function MentorDetailPage() {
     return new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1);
   });
 
-  const renderReviewContent = (review) => {
+  const ReviewContent = ({ review }) => {
     const contentText = String(review?.content ?? '');
-    const shouldClamp = contentText.length >= 80;
     const isExpanded = expandedReviewIds.has(review.id);
-    const isClamped = shouldClamp && !isExpanded;
+    const [needsMore, setNeedsMore] = useState(false);
+    const clampedRef = useRef(null);
+    const measureRef = useRef(null);
+
+    const recalc = () => {
+      const clampedEl = clampedRef.current;
+      const measureEl = measureRef.current;
+      if (!clampedEl || !measureEl) return;
+      const clampedHeight = clampedEl.getBoundingClientRect().height;
+      const fullHeight = measureEl.getBoundingClientRect().height;
+      setNeedsMore(fullHeight - clampedHeight > 1);
+    };
+
+    useLayoutEffect(() => {
+      if (isExpanded) return undefined;
+      const raf = window.requestAnimationFrame(recalc);
+      return () => window.cancelAnimationFrame(raf);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [contentText, isExpanded]);
+
+    useEffect(() => {
+      if (isExpanded) return undefined;
+      if (typeof ResizeObserver === 'undefined') return undefined;
+      const observer = new ResizeObserver(() => recalc());
+      if (clampedRef.current) observer.observe(clampedRef.current);
+      return () => observer.disconnect();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [contentText, isExpanded]);
 
     return (
       <div className="review-content">
-        <p className={`review-content-text${isClamped ? ' is-clamped' : ''}`}>{contentText}</p>
-        {isClamped ? (
+        <p
+          ref={clampedRef}
+          className={`review-content-text${isExpanded ? '' : ' is-clamped'}`}
+        >
+          {contentText}
+        </p>
+        <p
+          ref={measureRef}
+          className="review-content-text review-content-measure"
+          aria-hidden="true"
+        >
+          {contentText}
+        </p>
+        {needsMore && !isExpanded ? (
           <button
             type="button"
             className="review-content-more"
@@ -1157,7 +1194,7 @@ function MentorDetailPage() {
                           <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
                         </div>
                       </div>
-                      {renderReviewContent(review)}
+                      <ReviewContent review={review} />
                     </article>
                   ))}
                 </div>

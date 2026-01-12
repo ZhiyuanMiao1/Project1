@@ -685,6 +685,7 @@
   line-height: 1.6;
   min-height: 6.4em;
   color: #0f172a;
+  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -701,6 +702,21 @@
   -webkit-line-clamp: 3;
   line-clamp: 3;
   overflow: hidden;
+}
+
+.review-content-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 
 .review-content-more {
