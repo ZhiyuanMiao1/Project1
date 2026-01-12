@@ -593,10 +593,6 @@
   margin-right: -26px;
 }
 
-.mentor-reviews-head + .mentor-reviews-grid {
-  margin-top: 18px;
-}
-
 .mentor-review-card {
   grid-column: span 3;
   padding: 16px;

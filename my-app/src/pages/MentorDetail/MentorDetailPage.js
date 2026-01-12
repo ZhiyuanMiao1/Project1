@@ -198,12 +198,6 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const formatReviewCount = (value) => {
-  const n = Number.parseInt(String(value ?? '0'), 10);
-  if (!Number.isFinite(n) || n <= 0) return '';
-  return `${n} 条`;
-};
-
 const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
   const rng = mulberry32(hashString(seedKey));
   const base = clamp(rating > 0 ? rating : 4.8, 1, 5);
@@ -1071,12 +1065,6 @@ function MentorDetailPage() {
               </section>
 
               <section className="mentor-reviews" aria-label="学员评价列表">
-                {formatReviewCount(reviewCount) ? (
-                  <div className="mentor-reviews-head">
-                    <div className="mentor-reviews-count">{formatReviewCount(reviewCount)}</div>
-                  </div>
-                ) : null}
-
                 <div className="mentor-reviews-grid">
                   {summary.reviews.map((review) => (
                     <article className="mentor-review-card" key={review.id}>
