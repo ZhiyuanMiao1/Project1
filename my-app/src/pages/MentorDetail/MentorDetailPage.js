@@ -18,7 +18,7 @@ import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchFavoriteItems } from '../../api/favorites';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
-import { buildShortUTC, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './MentorDetailPage.css';
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -171,33 +171,39 @@ const normalizeStudentIdLabel = (value) => {
   return `S${Number(match[1])}`;
 };
 
-const buildMockAvailability = (date, role) => {
-  const day = date?.getDay?.() ?? 1;
-  const isWeekend = day === 0 || day === 6;
+const SLOT_MINUTES = 15;
 
-  if (role === 'student') {
-    return isWeekend
-      ? [
-        { startMinutes: 13 * 60, endMinutes: 16 * 60 },
-        { startMinutes: 19 * 60, endMinutes: 21 * 60 },
-      ]
-      : [
-        { startMinutes: 12 * 60, endMinutes: 13 * 60 + 30 },
-        { startMinutes: 14 * 60, endMinutes: 15 * 60 + 30 },
-        { startMinutes: 20 * 60, endMinutes: 21 * 60 + 30 },
-      ];
+const normalizeAvailabilityPayload = (raw) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const timeZone = typeof raw.timeZone === 'string' ? raw.timeZone.trim() : '';
+  const sessionDurationRaw = typeof raw.sessionDurationHours === 'number'
+    ? raw.sessionDurationHours
+    : Number.parseFloat(String(raw.sessionDurationHours ?? '2'));
+  const sessionDurationHours = Number.isFinite(sessionDurationRaw) ? sessionDurationRaw : 2;
+  const daySelectionsRaw = raw.daySelections;
+  const daySelections =
+    (daySelectionsRaw && typeof daySelectionsRaw === 'object' && !Array.isArray(daySelectionsRaw)) ? daySelectionsRaw : {};
+  return {
+    timeZone: timeZone || getDefaultTimeZone(),
+    sessionDurationHours,
+    daySelections,
+  };
+};
+
+const blocksToMinuteSlots = (blocks) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) return [];
+  const slots = [];
+  for (const block of blocks) {
+    const startIdx = Number(block?.start);
+    const endIdx = Number(block?.end);
+    if (!Number.isFinite(startIdx) || !Number.isFinite(endIdx)) continue;
+    const s = Math.max(0, Math.min(95, Math.floor(Math.min(startIdx, endIdx))));
+    const e = Math.max(0, Math.min(95, Math.floor(Math.max(startIdx, endIdx))));
+    const startMinutes = s * SLOT_MINUTES;
+    const endMinutes = (e + 1) * SLOT_MINUTES;
+    if (endMinutes > startMinutes) slots.push({ startMinutes, endMinutes });
   }
-
-  return isWeekend
-    ? [
-      { startMinutes: 15 * 60, endMinutes: 17 * 60 + 30 },
-      { startMinutes: 20 * 60, endMinutes: 21 * 60 },
-    ]
-    : [
-      { startMinutes: 11 * 60 + 30, endMinutes: 12 * 60 + 30 },
-      { startMinutes: 14 * 60 + 30, endMinutes: 17 * 60 },
-      { startMinutes: 19 * 60, endMinutes: 20 * 60 + 30 },
-    ];
+  return slots;
 };
 
 const buildCalendarGrid = (viewMonth) => {
@@ -326,6 +332,8 @@ function MentorDetailPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
+  const [myAvailability, setMyAvailability] = useState(null);
+  const [mentorAvailability, setMentorAvailability] = useState(null);
 
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
@@ -526,18 +534,22 @@ function MentorDetailPage() {
     let alive = true;
     if (!isLoggedIn) {
       setSelectedTimeZone(getDefaultTimeZone());
+      setMyAvailability(null);
       return () => { alive = false; };
     }
 
     api.get('/api/account/availability')
       .then((res) => {
         if (!alive) return;
-        const tz = typeof res?.data?.availability?.timeZone === 'string' ? res.data.availability.timeZone.trim() : '';
+        const availability = normalizeAvailabilityPayload(res?.data?.availability);
+        setMyAvailability(availability);
+        const tz = typeof availability?.timeZone === 'string' ? availability.timeZone.trim() : '';
         setSelectedTimeZone(tz || getDefaultTimeZone());
       })
       .catch(() => {
         if (!alive) return;
         setSelectedTimeZone(getDefaultTimeZone());
+        setMyAvailability(null);
       });
 
     return () => { alive = false; };
@@ -607,6 +619,26 @@ function MentorDetailPage() {
       alive = false;
     };
   }, [location?.state?.mentor, mentorId]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!mentorId) {
+      setMentorAvailability(null);
+      return () => { alive = false; };
+    }
+
+    api.get(`/api/mentors/${encodeURIComponent(mentorId)}/availability`)
+      .then((res) => {
+        if (!alive) return;
+        setMentorAvailability(normalizeAvailabilityPayload(res?.data?.availability));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMentorAvailability(null);
+      });
+
+    return () => { alive = false; };
+  }, [mentorId]);
 
   useEffect(() => {
     let alive = true;
@@ -781,8 +813,52 @@ function MentorDetailPage() {
     };
   }, [previewCardData.name]);
 
-  const mentorSlots = useMemo(() => buildMockAvailability(selectedDate, 'mentor'), [selectedDate]);
-  const columns = useMemo(() => ({ mySlots: [], counterpartSlots: mentorSlots }), [mentorSlots]);
+  const mySelectionsInViewTz = useMemo(() => {
+    const payload = myAvailability;
+    if (!payload) return {};
+    const fromTz = typeof payload.timeZone === 'string' && payload.timeZone.trim() ? payload.timeZone.trim() : selectedTimeZone;
+    const daySelections = payload.daySelections || {};
+    return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
+  }, [myAvailability, selectedTimeZone]);
+
+  const mentorSelectionsInViewTz = useMemo(() => {
+    const payload = mentorAvailability;
+    if (!payload) return {};
+    const fromTz = typeof payload.timeZone === 'string' && payload.timeZone.trim() ? payload.timeZone.trim() : selectedTimeZone;
+    const daySelections = payload.daySelections || {};
+    return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
+  }, [mentorAvailability, selectedTimeZone]);
+
+  const myAvailabilityDays = useMemo(() => {
+    const keys = Object.keys(mySelectionsInViewTz || {});
+    const set = new Set();
+    for (const key of keys) {
+      const blocks = mySelectionsInViewTz[key];
+      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
+    }
+    return set;
+  }, [mySelectionsInViewTz]);
+
+  const mentorAvailabilityDays = useMemo(() => {
+    const keys = Object.keys(mentorSelectionsInViewTz || {});
+    const set = new Set();
+    for (const key of keys) {
+      const blocks = mentorSelectionsInViewTz[key];
+      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
+    }
+    return set;
+  }, [mentorSelectionsInViewTz]);
+
+  const selectedDayKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
+  const mySlots = useMemo(
+    () => blocksToMinuteSlots(mySelectionsInViewTz?.[selectedDayKey]),
+    [mySelectionsInViewTz, selectedDayKey]
+  );
+  const mentorSlots = useMemo(
+    () => blocksToMinuteSlots(mentorSelectionsInViewTz?.[selectedDayKey]),
+    [mentorSelectionsInViewTz, selectedDayKey]
+  );
+  const columns = useMemo(() => ({ mySlots, counterpartSlots: mentorSlots }), [mentorSlots, mySlots]);
 
   useEffect(() => {
     setScheduleSelection(null);
@@ -1012,6 +1088,8 @@ function MentorDetailPage() {
                           const selected = isSameDay(date, selectedDate);
                           const key = ymdKey(date);
                           const isPast = key < todayKey;
+                          const hasMyAvailability = myAvailabilityDays.has(key);
+                          const hasMentorAvailability = mentorAvailabilityDays.has(key);
                           const inMultiSelected = (selectedRangeKeys || []).includes(key);
                           const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
                             ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
@@ -1059,6 +1137,12 @@ function MentorDetailPage() {
                               }}
                             >
                               <span className="date-number">{date.getDate()}</span>
+                              {(hasMyAvailability || hasMentorAvailability) ? (
+                                <span className="availability-dots" aria-hidden="true">
+                                  {hasMyAvailability ? <span className="availability-dot me" /> : null}
+                                  {hasMentorAvailability ? <span className="availability-dot mentor" /> : null}
+                                </span>
+                              ) : null}
                             </button>
                           );
                         })}

@@ -19,6 +19,93 @@ const getTimingFlag = (req: Request) => {
   return raw === '1' || raw.toLowerCase() === 'true' || process.env.DEBUG_MENTOR_RANKING_TIMING === '1';
 };
 
+type AvailabilityBlock = { start: number; end: number };
+type AvailabilityPayload = {
+  timeZone: string;
+  sessionDurationHours: number;
+  daySelections: Record<string, AvailabilityBlock[]>;
+};
+
+const isMissingAvailabilityColumnError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('availability_json');
+};
+
+const mergeAvailabilityBlocks = (blocks: AvailabilityBlock[]) => {
+  if (!Array.isArray(blocks) || blocks.length === 0) return [];
+  const sorted = blocks
+    .map((b) => ({ start: Math.min(b.start, b.end), end: Math.max(b.start, b.end) }))
+    .sort((a, b) => a.start - b.start);
+  const merged: AvailabilityBlock[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i += 1) {
+    const prev = merged[merged.length - 1];
+    const cur = sorted[i];
+    if (cur.start <= prev.end + 1) {
+      prev.end = Math.max(prev.end, cur.end);
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+};
+
+const isValidDayKey = (key: string) => {
+  if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+  const [yRaw, mRaw, dRaw] = key.split('-');
+  const y = Number.parseInt(yRaw, 10);
+  const m = Number.parseInt(mRaw, 10);
+  const d = Number.parseInt(dRaw, 10);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return false;
+  if (m < 1 || m > 12) return false;
+  if (d < 1 || d > 31) return false;
+  const dt = new Date(y, m - 1, d);
+  if (!Number.isFinite(dt.getTime())) return false;
+  const normalized = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  return normalized === key;
+};
+
+const sanitizeDaySelections = (raw: any) => {
+  const out: Record<string, AvailabilityBlock[]> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  const entries = Object.entries(raw);
+  for (const [key, value] of entries) {
+    if (!isValidDayKey(key)) continue;
+    if (!Array.isArray(value)) continue;
+    const blocks: AvailabilityBlock[] = [];
+    for (const item of value) {
+      const start = Number((item as any)?.start);
+      const end = Number((item as any)?.end);
+      if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+      const s = Math.max(0, Math.min(95, Math.floor(start)));
+      const e = Math.max(0, Math.min(95, Math.floor(end)));
+      blocks.push({ start: Math.min(s, e), end: Math.max(s, e) });
+      if (blocks.length >= 64) break;
+    }
+    const merged = mergeAvailabilityBlocks(blocks);
+    if (merged.length) out[key] = merged;
+    if (Object.keys(out).length >= 730) break;
+  }
+  return out;
+};
+
+const parseAvailability = (value: any): AvailabilityPayload | null => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed = JSON.parse(value);
+    const timeZoneRaw = typeof parsed?.timeZone === 'string' ? parsed.timeZone.trim() : '';
+    const timeZone = timeZoneRaw && timeZoneRaw.length <= 64 ? timeZoneRaw : 'Asia/Shanghai';
+    const sessionDurationRaw = typeof parsed?.sessionDurationHours === 'number'
+      ? parsed.sessionDurationHours
+      : Number.parseFloat(String(parsed?.sessionDurationHours ?? '2'));
+    const sessionDurationHours = Number.isFinite(sessionDurationRaw) ? Math.max(0.25, Math.min(10, sessionDurationRaw)) : 2;
+    const daySelections = sanitizeDaySelections(parsed?.daySelections);
+    return { timeZone, sessionDurationHours, daySelections };
+  } catch {
+    return null;
+  }
+};
+
 type ApprovedMentorRow = {
   user_id: number;
   public_id: string;
@@ -459,9 +546,42 @@ router.get('/approved', async (_req: Request, res: Response) => {
 
     const publicMentors: ApprovedMentorCard[] = mentors.map(({ _userId, ...rest }) => rest);
 
-    return res.json({ mentors: publicMentors });
+  return res.json({ mentors: publicMentors });
   } catch (e) {
     console.error('Fetch approved mentors error:', e);
+    return res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// GET /api/mentors/:mentorId/availability
+// Public: return availability payload for an approved mentor (used by student booking UI).
+router.get('/:mentorId/availability', async (req: Request, res: Response) => {
+  const mentorId = typeof req.params?.mentorId === 'string' ? req.params.mentorId.trim().toLowerCase() : '';
+  if (!mentorId) return res.status(400).json({ error: 'missing_mentor_id' });
+
+  try {
+    const rows = await query<any[]>(
+      "SELECT user_id FROM user_roles WHERE role = 'mentor' AND mentor_approved = 1 AND public_id = ? LIMIT 1",
+      [mentorId]
+    );
+    const userId = Number(rows?.[0]?.user_id);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(404).json({ availability: null });
+
+    let settingsRows: any[] = [];
+    try {
+      settingsRows = await query<any[]>(
+        'SELECT availability_json FROM account_settings WHERE user_id = ? LIMIT 1',
+        [userId]
+      );
+    } catch (e: any) {
+      if (isMissingAvailabilityColumnError(e)) return res.json({ availability: null });
+      throw e;
+    }
+
+    const availability = parseAvailability(settingsRows?.[0]?.availability_json);
+    return res.json({ availability });
+  } catch (e) {
+    console.error('Fetch mentor availability error:', e);
     return res.status(500).json({ error: 'server_error' });
   }
 });

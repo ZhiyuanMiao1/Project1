@@ -7,8 +7,14 @@ export const fetchApprovedMentors = (params = {}) => {
   });
 };
 
+export const fetchMentorAvailability = (mentorId) => {
+  const id = typeof mentorId === 'string' ? mentorId.trim() : '';
+  return client.get(`/api/mentors/${encodeURIComponent(id)}/availability`);
+};
+
 const mentorsApi = {
   fetchApprovedMentors,
+  fetchMentorAvailability,
 };
 
 export default mentorsApi;

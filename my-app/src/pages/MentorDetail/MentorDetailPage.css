@@ -359,19 +359,31 @@
 .mentor-detail-schedule .date-cell.selected.range-preview .date-number,
 .mentor-detail-schedule .date-cell.multi-selected.range-preview .date-number { color: #ffffff; }
 
-.mentor-detail-schedule .date-marker {
+.mentor-detail-schedule .availability-dots {
   position: absolute;
   top: 6px;
   right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #e531c7;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   pointer-events: none;
 }
 
-.mentor-detail-schedule .date-cell.selected .date-marker { background: #ffffff; }
-.mentor-detail-schedule .date-cell.multi-selected .date-marker { background: #ffffff; }
+.mentor-detail-schedule .availability-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.mentor-detail-schedule .availability-dot.me { background: #e531c7; }
+.mentor-detail-schedule .availability-dot.mentor { background: #3b82f6; }
+
+.mentor-detail-schedule .date-cell.selected .availability-dot,
+.mentor-detail-schedule .date-cell.multi-selected .availability-dot {
+  box-shadow: none;
+}
 
 .mentor-detail-booking {
   display: flex;
