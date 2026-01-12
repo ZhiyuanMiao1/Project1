@@ -1413,6 +1413,9 @@
     rgba(226, 232, 240, 0.9) calc(var(--rs-row-height) - 1px),
     rgba(226, 232, 240, 0.9) var(--rs-row-height)
   );
+  box-sizing: border-box;
+  padding-bottom: 1px;
+  background-clip: content-box;
   border-radius: 0;
   overflow: hidden;
   cursor: pointer;
