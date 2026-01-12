@@ -1375,7 +1375,7 @@
   grid-template-columns: var(--rs-time-col-width) 1fr 1fr;
   column-gap: 0;
   padding-top: var(--rs-body-padding-top, 0px);
-  min-height: calc(var(--rs-timeline-height) + 18px);
+  min-height: calc(var(--rs-timeline-height) + var(--rs-body-padding-top, 0px));
 }
 
 .reschedule-time-col {
