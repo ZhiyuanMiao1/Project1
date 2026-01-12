@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
-import { buildShortUTC, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } from '../StudentCourseRequest/steps/timezoneUtils';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -46,6 +46,43 @@ const isSameDay = (a, b) => (
   && a.getMonth() === b.getMonth()
   && a.getDate() === b.getDate()
 );
+
+const normalizeBlocksForIntersect = (rawBlocks) => {
+  if (!Array.isArray(rawBlocks) || rawBlocks.length === 0) return [];
+  const cleaned = rawBlocks
+    .map((b) => ({ start: Number(b?.start), end: Number(b?.end) }))
+    .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end))
+    .map((b) => ({
+      start: Math.max(0, Math.min(95, Math.floor(Math.min(b.start, b.end)))),
+      end: Math.max(0, Math.min(95, Math.floor(Math.max(b.start, b.end)))),
+    }));
+  return mergeBlocksList(cleaned);
+};
+
+const intersectAvailabilityBlocks = (a, b) => {
+  const listA = normalizeBlocksForIntersect(a);
+  const listB = normalizeBlocksForIntersect(b);
+  if (listA.length === 0 || listB.length === 0) return [];
+
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < listA.length && j < listB.length) {
+    const aStart = listA[i].start;
+    const aEnd = listA[i].end;
+    const bStart = listB[j].start;
+    const bEnd = listB[j].end;
+
+    const start = Math.max(aStart, bStart);
+    const end = Math.min(aEnd, bEnd);
+    if (start <= end) out.push({ start, end });
+
+    if (aEnd < bEnd) i += 1;
+    else j += 1;
+  }
+
+  return mergeBlocksList(out);
+};
 
 function AvailabilityEditor({
   value,
@@ -124,7 +161,31 @@ function AvailabilityEditor({
   const todayKey = useMemo(() => ymdKey(todayStart), [todayStart]);
   const selectedKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
 
-  const selectedBlocks = safeValue.daySelections[selectedKey] || [];
+  const selectedBlocks = useMemo(
+    () => safeValue.daySelections[selectedKey] || [],
+    [safeValue.daySelections, selectedKey]
+  );
+  const selectedKeys = useMemo(() => {
+    if (!Array.isArray(selectedRangeKeys)) return [selectedKey];
+    const keys = selectedRangeKeys.filter((k) => typeof k === 'string' && k);
+    return keys.length ? keys : [selectedKey];
+  }, [selectedKey, selectedRangeKeys]);
+
+  const multiDayCommonBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    let common = null;
+    for (const key of selectedKeys) {
+      const blocks = safeValue.daySelections[key] || [];
+      common = common == null ? normalizeBlocksForIntersect(blocks) : intersectAvailabilityBlocks(common, blocks);
+      if (!common || common.length === 0) return [];
+    }
+    return common || [];
+  }, [safeValue.daySelections, selectedKeys]);
+
+  const displayedBlocks = useMemo(() => {
+    if (selectedKeys.length > 1) return multiDayCommonBlocks;
+    return selectedBlocks;
+  }, [multiDayCommonBlocks, selectedBlocks, selectedKeys.length]);
 
   const keyToDateStrict = useCallback((key) => {
     if (!key) return null;
@@ -347,7 +408,7 @@ function AvailabilityEditor({
           value={safeValue.sessionDurationHours}
           onChange={(next) => onChange((prev) => ({ ...normalizeAvailability(prev), sessionDurationHours: next }))}
           listRef={timesListRef}
-          blocks={selectedBlocks}
+          blocks={displayedBlocks}
           onBlocksChange={handleBlocksChange}
           dayKey={selectedKey}
           getDayBlocks={getDayBlocks}
