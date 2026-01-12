@@ -128,6 +128,41 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
+const formatReviewMonthLabel = (value, now = new Date()) => {
+  if (!value) return '';
+  const format = (d) => `${d.getFullYear()}年${d.getMonth() + 1}月`;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return format(value);
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return format(d);
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return '';
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return format(parsed);
+
+  const normalized = raw.replace(/\s+/g, '');
+  const d = new Date(now);
+
+  const dayMatch = normalized.match(/^(\d+)天前$/);
+  const weekMatch = normalized.match(/^(\d+)周前$/);
+  const monthMatch = normalized.match(/^(\d+)个月前$/);
+  const yearMatch = normalized.match(/^(\d+)年前$/);
+
+  if (normalized === '昨天') d.setDate(d.getDate() - 1);
+  else if (normalized === '前天') d.setDate(d.getDate() - 2);
+  else if (dayMatch) d.setDate(d.getDate() - Number(dayMatch[1]));
+  else if (weekMatch) d.setDate(d.getDate() - Number(weekMatch[1]) * 7);
+  else if (monthMatch) d.setMonth(d.getMonth() - Number(monthMatch[1]));
+  else if (yearMatch) d.setFullYear(d.getFullYear() - Number(yearMatch[1]));
+  else return raw;
+
+  return format(d);
+};
+
 const buildMockAvailability = (date, role) => {
   const day = date?.getDay?.() ?? 1;
   const isWeekend = day === 0 || day === 6;
@@ -1072,13 +1107,14 @@ function MentorDetailPage() {
                         <div className="review-avatar" aria-hidden="true">
                           {String(review.author || 'S').slice(0, 1).toUpperCase()}
                         </div>
-                        <div className="review-meta">
-                          <div className="review-author">{review.author}</div>
-                          <div className="review-sub">
+                        <div className="review-author">{review.author}</div>
+                        <div className="review-sub">
+                          <span className="review-score">
+                            <span className="review-star" aria-hidden="true">★</span>
                             <span className="review-rating">{review.rating.toFixed(1)}</span>
-                            <span className="review-dot">·</span>
-                            <span className="review-time">{review.time}</span>
-                          </div>
+                          </span>
+                          <span className="review-dot">·</span>
+                          <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
                         </div>
                       </div>
                       <p className="review-content">{review.content}</p>
