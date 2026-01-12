@@ -289,6 +289,8 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
       '很有耐心，解释到我完全理解为止，节奏把控得很好。',
       '专业度很强，给到的学习路径很具体，效率提升明显。',
       '反馈及时，代码走查细致，指出了很多容易忽略的问题。',
+      '课程节奏把控得很好，讲解时会先给出整体框架再逐步拆解细节；遇到我卡住的点会换一种说法举例说明，直到我能自己复述并写出来。课后还给了我一份复盘清单和练习路线，照着做提升非常明显。',
+      '沟通非常顺畅，时间安排也很灵活；每次都会先快速定位薄弱环节，然后用针对性的题目把思路练熟。尤其在代码走查上很细，能指出很多容易忽略的边界情况和写法习惯，建议也都很可落地。',
     ];
     const names = ['Yoriko', 'Andrea', 'S12', 'S8', 'S19', 'S3'];
     const times = ['4 天前', '2 周前', '1 个月前', '3 天前', '5 天前'];
@@ -300,7 +302,9 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
         author: names[Math.floor(rng() * names.length)],
         time: times[Math.floor(rng() * times.length)],
         rating: score,
-        content: templates[Math.floor(rng() * templates.length)],
+        content: (i === 0
+          ? templates[templates.length - 1 - (Math.floor(rng() * 2) % 2)]
+          : templates[Math.floor(rng() * templates.length)]),
       };
     });
   })();
@@ -326,6 +330,7 @@ function MentorDetailPage() {
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
+  const [expandedReviewIds, setExpandedReviewIds] = useState(() => new Set());
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -341,6 +346,34 @@ function MentorDetailPage() {
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
     return new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1);
   });
+
+  const renderReviewContent = (review) => {
+    const contentText = String(review?.content ?? '');
+    const shouldClamp = contentText.length >= 80;
+    const isExpanded = expandedReviewIds.has(review.id);
+    const isClamped = shouldClamp && !isExpanded;
+
+    return (
+      <div className="review-content">
+        <p className={`review-content-text${isClamped ? ' is-clamped' : ''}`}>{contentText}</p>
+        {isClamped ? (
+          <button
+            type="button"
+            className="review-content-more"
+            onClick={() => {
+              setExpandedReviewIds((prev) => {
+                const next = new Set(prev);
+                next.add(review.id);
+                return next;
+              });
+            }}
+          >
+            显示更多
+          </button>
+        ) : null}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const handler = (event) => {
@@ -1124,7 +1157,7 @@ function MentorDetailPage() {
                           <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
                         </div>
                       </div>
-                      <p className="review-content">{review.content}</p>
+                      {renderReviewContent(review)}
                     </article>
                   ))}
                 </div>

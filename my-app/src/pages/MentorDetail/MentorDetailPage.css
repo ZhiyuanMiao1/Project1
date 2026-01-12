@@ -685,6 +685,36 @@
   line-height: 1.6;
   min-height: 6.4em;
   color: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-content-text {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.review-content-text.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.review-content-more {
+  align-self: flex-start;
+  margin-top: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  width: fit-content;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.6;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .mentor-reviews-more {
