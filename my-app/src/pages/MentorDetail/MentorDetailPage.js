@@ -1171,8 +1171,9 @@ function MentorDetailPage() {
                               key={date.toISOString()}
                               type="button"
                               className={cls}
-                              onMouseDown={() => {
+                              onMouseDown={(event) => {
                                 if (isPast) return;
+                                if (event?.metaKey || event?.ctrlKey) return;
                                 setIsDraggingRange(true);
                                 setDragStartKey(key);
                                 setDragEndKey(key);
@@ -1190,11 +1191,27 @@ function MentorDetailPage() {
                               onMouseUp={() => {
                                 if (isDraggingRange) endDragSelection();
                               }}
-                              onClick={() => {
+                              onClick={(event) => {
                                 if (didDragRef.current) { didDragRef.current = false; return; }
                                 if (isPast) return;
+                                const wantsMultiSelect = !!(event?.metaKey || event?.ctrlKey);
                                 setSelectedDate(toNoonDate(date));
-                                setSelectedRangeKeys([key]);
+                                if (wantsMultiSelect) {
+                                  setSelectedRangeKeys((prev) => {
+                                    const list = Array.isArray(prev) ? prev : [];
+                                    const set = new Set(list);
+                                    const alreadySelected = set.has(key);
+                                    if (alreadySelected) {
+                                      if (set.size <= 1) return [key];
+                                      set.delete(key);
+                                    } else {
+                                      set.add(key);
+                                    }
+                                    return Array.from(set).sort();
+                                  });
+                                } else {
+                                  setSelectedRangeKeys([key]);
+                                }
                                 if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
                                   setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
                                 }
