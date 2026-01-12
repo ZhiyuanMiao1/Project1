@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useParams } from 'react-router-dom';
 import {
   FiAward,
@@ -329,7 +330,7 @@ function MentorDetailPage() {
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
-  const [expandedReviewIds, setExpandedReviewIds] = useState(() => new Set());
+  const [activeReview, setActiveReview] = useState(null);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -348,7 +349,6 @@ function MentorDetailPage() {
 
   const ReviewContent = ({ review }) => {
     const contentText = String(review?.content ?? '');
-    const isExpanded = expandedReviewIds.has(review.id);
     const [needsMore, setNeedsMore] = useState(false);
     const clampedRef = useRef(null);
     const measureRef = useRef(null);
@@ -363,26 +363,24 @@ function MentorDetailPage() {
     };
 
     useLayoutEffect(() => {
-      if (isExpanded) return undefined;
       const raf = window.requestAnimationFrame(recalc);
       return () => window.cancelAnimationFrame(raf);
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [contentText, isExpanded]);
+    }, [contentText]);
 
     useEffect(() => {
-      if (isExpanded) return undefined;
       if (typeof ResizeObserver === 'undefined') return undefined;
       const observer = new ResizeObserver(() => recalc());
       if (clampedRef.current) observer.observe(clampedRef.current);
       return () => observer.disconnect();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [contentText, isExpanded]);
+    }, [contentText]);
 
     return (
       <div className="review-content">
         <p
           ref={clampedRef}
-          className={`review-content-text${isExpanded ? '' : ' is-clamped'}`}
+          className="review-content-text is-clamped"
         >
           {contentText}
         </p>
@@ -393,16 +391,12 @@ function MentorDetailPage() {
         >
           {contentText}
         </p>
-        {needsMore && !isExpanded ? (
+        {needsMore ? (
           <button
             type="button"
             className="review-content-more"
             onClick={() => {
-              setExpandedReviewIds((prev) => {
-                const next = new Set(prev);
-                next.add(review.id);
-                return next;
-              });
+              setActiveReview(review);
             }}
           >
             显示更多
@@ -410,6 +404,77 @@ function MentorDetailPage() {
         ) : null}
       </div>
     );
+  };
+
+  const ReviewModal = ({ review, onClose }) => {
+    const closeButtonRef = useRef(null);
+    const authorLabel = normalizeStudentIdLabel(review?.author);
+
+    useEffect(() => {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }, []);
+
+    useEffect(() => {
+      closeButtonRef.current?.focus?.();
+    }, []);
+
+    useEffect(() => {
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }, [onClose]);
+
+    const modal = (
+      <div
+        className="review-modal-overlay"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="review-modal" onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="review-modal-close"
+            onClick={onClose}
+            aria-label="关闭"
+            ref={closeButtonRef}
+          >
+            <FiX aria-hidden="true" />
+          </button>
+
+          <article className="review-modal-card">
+            <div className="review-head">
+              <div className="review-avatar" aria-hidden="true">
+                {String(authorLabel || 'S').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="review-author">{authorLabel}</div>
+              <div className="review-sub">
+                <span className="review-score">
+                  <span className="review-star" aria-hidden="true">★</span>
+                  <span className="review-rating">{Number(review?.rating ?? 0).toFixed(1)}</span>
+                </span>
+                <span className="review-dot">·</span>
+                <span className="review-time">{formatReviewMonthLabel(review?.time)}</span>
+              </div>
+            </div>
+
+            <div className="review-content review-content--modal">
+              <p className="review-content-text">{String(review?.content ?? '')}</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    );
+
+    return createPortal(modal, document.body);
   };
 
   useEffect(() => {
@@ -1205,6 +1270,13 @@ function MentorDetailPage() {
           ) : null}
         </main>
       </div>
+
+      {activeReview ? (
+        <ReviewModal
+          review={activeReview}
+          onClose={() => setActiveReview(null)}
+        />
+      ) : null}
 
       {showStudentAuth && (
         <StudentAuthModal
