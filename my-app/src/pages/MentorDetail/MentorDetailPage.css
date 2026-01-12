@@ -684,6 +684,8 @@
   font-size: 16px;
   line-height: 1.6;
   min-height: 6.4em;
+  max-width: 500px;
+  margin-right: auto;
   color: #0f172a;
   position: relative;
   display: flex;
