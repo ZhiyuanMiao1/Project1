@@ -675,6 +675,10 @@
   color: inherit;
 }
 
+.review-time {
+  font-weight: 600;
+}
+
 .review-content {
   margin-top: 12px;
   font-size: 14px;
