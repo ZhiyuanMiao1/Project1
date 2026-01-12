@@ -84,6 +84,43 @@ const intersectAvailabilityBlocks = (a, b) => {
   return mergeBlocksList(out);
 };
 
+const unionAvailabilityBlocks = (a, b) => {
+  const listA = normalizeBlocksForIntersect(a);
+  const listB = normalizeBlocksForIntersect(b);
+  return mergeBlocksList([...listA, ...listB]);
+};
+
+const subtractAvailabilityBlocks = (base, remove) => {
+  const baseList = normalizeBlocksForIntersect(base);
+  const removeList = normalizeBlocksForIntersect(remove);
+  if (baseList.length === 0) return [];
+  if (removeList.length === 0) return baseList;
+
+  const out = [];
+  let j = 0;
+  for (const seg of baseList) {
+    let curStart = seg.start;
+    const curEnd = seg.end;
+
+    while (j < removeList.length && removeList[j].end < curStart) j += 1;
+
+    let k = j;
+    while (k < removeList.length && removeList[k].start <= curEnd) {
+      const r = removeList[k];
+      if (r.start > curStart) {
+        out.push({ start: curStart, end: Math.min(curEnd, r.start - 1) });
+      }
+      curStart = Math.max(curStart, r.end + 1);
+      if (curStart > curEnd) break;
+      k += 1;
+    }
+
+    if (curStart <= curEnd) out.push({ start: curStart, end: curEnd });
+  }
+
+  return mergeBlocksList(out);
+};
+
 function AvailabilityEditor({
   value,
   disabled = false,
@@ -277,17 +314,33 @@ function AvailabilityEditor({
   const getDayBlocks = useCallback((key) => safeValue.daySelections[key] || [], [safeValue.daySelections]);
 
   const handleBlocksChange = useCallback((nextBlocks) => {
-    const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [selectedKey];
+    const targets = selectedKeys;
     onChange((prev) => {
       const prevSafe = normalizeAvailability(prev);
       const nextDaySelections = { ...(prevSafe.daySelections || {}) };
-      for (const k of targets) {
+
+      if (targets.length > 1) {
+        const nextCommon = normalizeBlocksForIntersect(nextBlocks);
+        const commonBefore = normalizeBlocksForIntersect(multiDayCommonBlocks);
+        const added = subtractAvailabilityBlocks(nextCommon, commonBefore);
+        const removed = subtractAvailabilityBlocks(commonBefore, nextCommon);
+
+        for (const k of targets) {
+          const existing = prevSafe.daySelections?.[k] || [];
+          let nextForDay = normalizeBlocksForIntersect(existing);
+          if (added.length) nextForDay = unionAvailabilityBlocks(nextForDay, added);
+          if (removed.length) nextForDay = subtractAvailabilityBlocks(nextForDay, removed);
+          if (nextForDay.length) nextDaySelections[k] = nextForDay;
+          else delete nextDaySelections[k];
+        }
+      } else {
+        const k = targets[0] || selectedKey;
         if (Array.isArray(nextBlocks) && nextBlocks.length) nextDaySelections[k] = nextBlocks;
         else delete nextDaySelections[k];
       }
       return { ...prevSafe, daySelections: nextDaySelections };
     });
-  }, [normalizeAvailability, onChange, selectedKey, selectedRangeKeys]);
+  }, [multiDayCommonBlocks, normalizeAvailability, onChange, selectedKey, selectedKeys]);
 
   if (loading) {
     return <div className="settings-availability-hint">加载中...</div>;
