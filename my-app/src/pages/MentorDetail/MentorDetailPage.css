@@ -566,10 +566,11 @@
 
 .mentor-reviews {
   margin-top: 18px;
-  padding: 26px;
-  border-radius: 18px;
-  border: 1px solid #eee;
-  background: #fff;
+  padding: 34px 26px 26px;
+  border: none;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 0;
+  background: transparent;
 }
 
 .mentor-reviews-head {
