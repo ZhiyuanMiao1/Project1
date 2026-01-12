@@ -772,7 +772,7 @@
   height: 38px;
   border: none;
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.06);
+  background: #ffffff;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
@@ -781,7 +781,7 @@
 }
 
 .review-modal-close:hover {
-  background: rgba(15, 23, 42, 0.1);
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .review-modal-close svg {
