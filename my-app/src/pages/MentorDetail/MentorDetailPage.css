@@ -365,7 +365,7 @@
   right: 6px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0px;
   pointer-events: none;
 }
 
@@ -382,7 +382,17 @@
 
 .mentor-detail-schedule .date-cell.selected .availability-dot,
 .mentor-detail-schedule .date-cell.multi-selected .availability-dot {
-  box-shadow: none;
+  display: none;
+}
+
+.mentor-detail-schedule .date-cell.selected .availability-dots::before,
+.mentor-detail-schedule .date-cell.multi-selected .availability-dots::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ffffff;
+  display: block;
 }
 
 .mentor-detail-booking {
