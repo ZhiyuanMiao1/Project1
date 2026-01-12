@@ -206,6 +206,42 @@ const blocksToMinuteSlots = (blocks) => {
   return slots;
 };
 
+const intersectAvailabilityBlocks = (a, b) => {
+  const listA = Array.isArray(a) ? a : [];
+  const listB = Array.isArray(b) ? b : [];
+  if (listA.length === 0 || listB.length === 0) return [];
+
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < listA.length && j < listB.length) {
+    const aStart = Number(listA[i]?.start);
+    const aEnd = Number(listA[i]?.end);
+    const bStart = Number(listB[j]?.start);
+    const bEnd = Number(listB[j]?.end);
+    if (![aStart, aEnd, bStart, bEnd].every((n) => Number.isFinite(n))) {
+      if (!Number.isFinite(aStart) || !Number.isFinite(aEnd)) i += 1;
+      if (!Number.isFinite(bStart) || !Number.isFinite(bEnd)) j += 1;
+      continue;
+    }
+    const start = Math.max(Math.min(aStart, aEnd), Math.min(bStart, bEnd));
+    const end = Math.min(Math.max(aStart, aEnd), Math.max(bStart, bEnd));
+    if (start <= end) out.push({ start, end });
+    if (Math.max(aStart, aEnd) < Math.max(bStart, bEnd)) i += 1;
+    else j += 1;
+  }
+
+  if (out.length <= 1) return out;
+  const merged = [out[0]];
+  for (let k = 1; k < out.length; k += 1) {
+    const prev = merged[merged.length - 1];
+    const cur = out[k];
+    if (cur.start <= prev.end + 1) prev.end = Math.max(prev.end, cur.end);
+    else merged.push(cur);
+  }
+  return merged;
+};
+
 const buildCalendarGrid = (viewMonth) => {
   const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
   const startIdx = first.getDay(); // 0=Sun
@@ -849,15 +885,43 @@ function MentorDetailPage() {
     return set;
   }, [mentorSelectionsInViewTz]);
 
+  const selectedKeys = useMemo(() => {
+    if (!Array.isArray(selectedRangeKeys)) return [];
+    return selectedRangeKeys.filter((k) => typeof k === 'string' && k);
+  }, [selectedRangeKeys]);
+
+  const multiDayMyBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    let common = null;
+    for (const key of selectedKeys) {
+      const blocks = mySelectionsInViewTz?.[key] || [];
+      common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
+      if (!common || common.length === 0) return [];
+    }
+    return common || [];
+  }, [mySelectionsInViewTz, selectedKeys]);
+
+  const multiDayMentorBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    let common = null;
+    for (const key of selectedKeys) {
+      const blocks = mentorSelectionsInViewTz?.[key] || [];
+      common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
+      if (!common || common.length === 0) return [];
+    }
+    return common || [];
+  }, [mentorSelectionsInViewTz, selectedKeys]);
+
   const selectedDayKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
-  const mySlots = useMemo(
-    () => blocksToMinuteSlots(mySelectionsInViewTz?.[selectedDayKey]),
-    [mySelectionsInViewTz, selectedDayKey]
-  );
-  const mentorSlots = useMemo(
-    () => blocksToMinuteSlots(mentorSelectionsInViewTz?.[selectedDayKey]),
-    [mentorSelectionsInViewTz, selectedDayKey]
-  );
+  const mySlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMyBlocks);
+    return blocksToMinuteSlots(mySelectionsInViewTz?.[selectedDayKey]);
+  }, [multiDayMyBlocks, mySelectionsInViewTz, selectedDayKey, selectedKeys.length]);
+
+  const mentorSlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMentorBlocks);
+    return blocksToMinuteSlots(mentorSelectionsInViewTz?.[selectedDayKey]);
+  }, [mentorSelectionsInViewTz, multiDayMentorBlocks, selectedDayKey, selectedKeys.length]);
   const columns = useMemo(() => ({ mySlots, counterpartSlots: mentorSlots }), [mentorSlots, mySlots]);
 
   useEffect(() => {
