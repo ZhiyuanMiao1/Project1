@@ -1022,7 +1022,6 @@ function MentorDetailPage() {
               <section className="mentor-rating-card" aria-label="评分与评价">
                 <div className="mentor-rating-top">
                   <div className="mentor-rating-number">{ratingValue > 0 ? ratingValue.toFixed(2) : '—'}</div>
-                  <div className="mentor-rating-title">学员推荐</div>
                   <div className="mentor-rating-subtitle">{reviewCount > 0 ? `基于 ${reviewCount} 条评价` : '暂无评价数据'}</div>
                 </div>
 
