@@ -592,10 +592,14 @@
 }
 
 .mentor-reviews-grid {
-  margin-top: 18px;
+  margin-top: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+}
+
+.mentor-reviews-head + .mentor-reviews-grid {
+  margin-top: 18px;
 }
 
 .mentor-review-card {

@@ -192,8 +192,8 @@ const normalizeNumber = (value, fallback = 0) => {
 
 const formatReviewCount = (value) => {
   const n = Number.parseInt(String(value ?? '0'), 10);
-  if (!Number.isFinite(n) || n <= 0) return '暂无评价';
-  return `${n} 条评价`;
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return `${n} 条`;
 };
 
 const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
@@ -1061,10 +1061,11 @@ function MentorDetailPage() {
               </section>
 
               <section className="mentor-reviews" aria-label="学员评价列表">
-                <div className="mentor-reviews-head">
-                  <h2 className="mentor-reviews-title">评价</h2>
-                  <div className="mentor-reviews-count">{formatReviewCount(reviewCount)}</div>
-                </div>
+                {formatReviewCount(reviewCount) ? (
+                  <div className="mentor-reviews-head">
+                    <div className="mentor-reviews-count">{formatReviewCount(reviewCount)}</div>
+                  </div>
+                ) : null}
 
                 <div className="mentor-reviews-grid">
                   {summary.reviews.map((review) => (
