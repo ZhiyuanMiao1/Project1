@@ -95,6 +95,24 @@ const cosineSimilarity = (a, aNorm, b, bNorm) => {
         dot += a[i] * b[i];
     return dot / (aNorm * bNorm);
 };
+const RELEVANCE_TOP_RELATIVE_DELTA = 0.18;
+const applyTopRelativeCutoff = (items, delta) => {
+    if (!Array.isArray(items) || items.length === 0)
+        return items;
+    let maxScore = -Infinity;
+    for (const item of items) {
+        const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
+        if (s > maxScore)
+            maxScore = s;
+    }
+    if (!Number.isFinite(maxScore))
+        return items;
+    const threshold = maxScore - delta;
+    return items.filter((item) => {
+        const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
+        return s >= threshold;
+    });
+};
 async function loadDirectionEmbeddingById(directionId) {
     const rows = await (0, db_1.query)('SELECT embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id = ? LIMIT 1', ['direction', directionId]);
     const row = rows?.[0];
@@ -262,6 +280,7 @@ router.get('/approved', async (_req, res) => {
                                     return sb - sa;
                                 return String(a.id).localeCompare(String(b.id));
                             });
+                            mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
                             if (timingEnabled) {
                                 const totalMs = msSince(t0);
                                 console.log(`[mentors/approved timing ${reqId}] directionId=${directionId} mentors=${mentors.length} userIds=${vectorUserIds.length} | ` +
@@ -345,6 +364,7 @@ router.get('/approved', async (_req, res) => {
                                 return sb - sa;
                             return String(a.id).localeCompare(String(b.id));
                         });
+                        mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
                         const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
                         if (timingEnabled) {
                             const totalMs = msSince(t0);

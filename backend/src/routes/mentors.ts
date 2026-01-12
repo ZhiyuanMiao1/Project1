@@ -135,6 +135,23 @@ const cosineSimilarity = (a: number[], aNorm: number, b: number[], bNorm: number
   return dot / (aNorm * bNorm);
 };
 
+const RELEVANCE_TOP_RELATIVE_DELTA = 0.2;
+
+const applyTopRelativeCutoff = <T extends { relevanceScore?: number }>(items: T[], delta: number) => {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  let maxScore = -Infinity;
+  for (const item of items) {
+    const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
+    if (s > maxScore) maxScore = s;
+  }
+  if (!Number.isFinite(maxScore)) return items;
+  const threshold = maxScore - delta;
+  return items.filter((item) => {
+    const s = typeof item?.relevanceScore === 'number' && Number.isFinite(item.relevanceScore) ? item.relevanceScore : 0;
+    return s >= threshold;
+  });
+};
+
 type MentorCourseEmbeddingRow = { user_id: number; course_text: string; embedding: any };
 
 async function loadDirectionEmbeddingById(directionId: string) {
@@ -321,6 +338,8 @@ router.get('/approved', async (_req: Request, res: Response) => {
                   return String(a.id).localeCompare(String(b.id));
                 });
 
+              mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
+
               if (timingEnabled) {
                 const totalMs = msSince(t0);
                 console.log(
@@ -406,6 +425,8 @@ router.get('/approved', async (_req: Request, res: Response) => {
               if (sb !== sa) return sb - sa;
               return String(a.id).localeCompare(String(b.id));
             });
+
+          mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA);
           const tScoreMs = timingEnabled ? msSince(tScoreStart) : 0;
 
           if (timingEnabled) {
