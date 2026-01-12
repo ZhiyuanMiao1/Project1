@@ -644,8 +644,8 @@
 .review-sub {
   grid-column: 1 / -1;
   grid-row: 2;
-  font-size: 13px;
-  color: #64748b;
+  font-size: 15px;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -660,8 +660,8 @@
 }
 
 .review-star {
-  color: #f59e0b;
-  font-size: 13px;
+  color: inherit;
+  font-size: 15px;
   line-height: 1;
   transform: translateY(-0.5px);
 }
@@ -672,7 +672,7 @@
 }
 
 .review-dot {
-  color: #cbd5e1;
+  color: inherit;
 }
 
 .review-content {
