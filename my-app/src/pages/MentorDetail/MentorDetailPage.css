@@ -795,13 +795,18 @@
 
 .mentor-reviews-more {
   margin-top: 18px;
-  width: 100%;
+  width: fit-content;
+  min-width: 240px;
+  padding: 0 28px;
+  margin-left: auto;
+  margin-right: auto;
   height: 44px;
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.12);
   background: #fff;
   cursor: pointer;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 500;
   color: #0f172a;
 }
 
