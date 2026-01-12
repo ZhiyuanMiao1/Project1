@@ -296,7 +296,7 @@ const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
     ];
     const names = ['Yoriko', 'Andrea', 'S12', 'S8', 'S19', 'S3'];
     const times = ['4 天前', '2 周前', '1 个月前', '3 天前', '5 天前'];
-    const take = Math.max(2, Math.min(4, Math.round(2 + rng() * 2)));
+    const take = Math.max(2, Math.min(18, Number.isFinite(reviewCount) ? reviewCount : 0));
     return Array.from({ length: take }).map((_, i) => {
       const score = round1(clamp(base + (rng() - 0.5) * 0.6, 1, 5));
       return {
@@ -331,6 +331,7 @@ function MentorDetailPage() {
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
   const [activeReview, setActiveReview] = useState(null);
+  const [visibleReviewCount, setVisibleReviewCount] = useState(6);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [selectedTimeZone, setSelectedTimeZone] = useState(() => getDefaultTimeZone());
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -635,6 +636,11 @@ function MentorDetailPage() {
     const seedKey = mentor?.id || mentorId || 'mentor';
     return buildMockReviewSummary({ seedKey, rating: ratingValue, reviewCount });
   }, [mentor?.id, mentorId, ratingValue, reviewCount]);
+
+  useEffect(() => {
+    setVisibleReviewCount(6);
+    setActiveReview(null);
+  }, [mentor?.id, mentorId, summary.reviews.length]);
 
   const previewCardData = useMemo(() => {
     const courses = Array.isArray(mentor?.courses)
@@ -1254,7 +1260,7 @@ function MentorDetailPage() {
 
               <section className="mentor-reviews" aria-label="学员评价列表">
                 <div className="mentor-reviews-grid">
-                  {summary.reviews.map((review) => (
+                  {summary.reviews.slice(0, visibleReviewCount).map((review) => (
                     <article className="mentor-review-card" key={review.id}>
                       <div className="review-head">
                         <div className="review-avatar" aria-hidden="true">
@@ -1275,7 +1281,17 @@ function MentorDetailPage() {
                   ))}
                 </div>
 
-                <button type="button" className="mentor-reviews-more">显示更多</button>
+                {summary.reviews.length > visibleReviewCount ? (
+                  <button
+                    type="button"
+                    className="mentor-reviews-more"
+                    onClick={() => {
+                      setVisibleReviewCount((count) => Math.min(count + 6, summary.reviews.length));
+                    }}
+                  >
+                    显示更多
+                  </button>
+                ) : null}
               </section>
             </>
           ) : null}
