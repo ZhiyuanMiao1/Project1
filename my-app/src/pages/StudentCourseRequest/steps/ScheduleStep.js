@@ -2,6 +2,83 @@ import React, { useEffect, useMemo } from 'react';
 import ScheduleTimesPanel from './ScheduleTimesPanel';
 import TimeZoneSelect from './TimeZoneSelect';
 
+const normalizeBlocksForIntersect = (rawBlocks) => {
+  if (!Array.isArray(rawBlocks) || rawBlocks.length === 0) return [];
+  const cleaned = rawBlocks
+    .map((b) => ({ start: Number(b?.start), end: Number(b?.end) }))
+    .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end))
+    .map((b) => ({
+      start: Math.max(0, Math.min(95, Math.floor(Math.min(b.start, b.end)))),
+      end: Math.max(0, Math.min(95, Math.floor(Math.max(b.start, b.end)))),
+    }));
+  if (cleaned.length <= 1) return cleaned;
+  const sorted = [...cleaned].sort((a, b) => a.start - b.start);
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i += 1) {
+    const prev = merged[merged.length - 1];
+    const cur = sorted[i];
+    if (cur.start <= prev.end + 1) prev.end = Math.max(prev.end, cur.end);
+    else merged.push({ ...cur });
+  }
+  return merged;
+};
+
+const intersectAvailabilityBlocks = (a, b) => {
+  const listA = normalizeBlocksForIntersect(a);
+  const listB = normalizeBlocksForIntersect(b);
+  if (listA.length === 0 || listB.length === 0) return [];
+
+  const out = [];
+  let i = 0;
+  let j = 0;
+  while (i < listA.length && j < listB.length) {
+    const aStart = listA[i].start;
+    const aEnd = listA[i].end;
+    const bStart = listB[j].start;
+    const bEnd = listB[j].end;
+
+    const start = Math.max(aStart, bStart);
+    const end = Math.min(aEnd, bEnd);
+    if (start <= end) out.push({ start, end });
+
+    if (aEnd < bEnd) i += 1;
+    else j += 1;
+  }
+
+  return normalizeBlocksForIntersect(out);
+};
+
+const unionAvailabilityBlocks = (a, b) => normalizeBlocksForIntersect([...normalizeBlocksForIntersect(a), ...normalizeBlocksForIntersect(b)]);
+
+const subtractAvailabilityBlocks = (base, remove) => {
+  const baseList = normalizeBlocksForIntersect(base);
+  const removeList = normalizeBlocksForIntersect(remove);
+  if (baseList.length === 0) return [];
+  if (removeList.length === 0) return baseList;
+
+  const out = [];
+  let j = 0;
+  for (const seg of baseList) {
+    let curStart = seg.start;
+    const curEnd = seg.end;
+
+    while (j < removeList.length && removeList[j].end < curStart) j += 1;
+
+    let k = j;
+    while (k < removeList.length && removeList[k].start <= curEnd) {
+      const r = removeList[k];
+      if (r.start > curStart) out.push({ start: curStart, end: Math.min(curEnd, r.start - 1) });
+      curStart = Math.max(curStart, r.end + 1);
+      if (curStart > curEnd) break;
+      k += 1;
+    }
+
+    if (curStart <= curEnd) out.push({ start: curStart, end: curEnd });
+  }
+
+  return normalizeBlocksForIntersect(out);
+};
+
 function ScheduleStepContent({
   availability,
   onAvailabilityChange,
@@ -139,7 +216,31 @@ function ScheduleStepSidebar({
   // interpreting the Date as an absolute instant in another timezone.
   const selectedDateKeyInTz = selectedDateKeyLocal;
 
-  const blocks = (selectedDateKeyLocal && daySelections[selectedDateKeyLocal]) || [];
+  const selectedDayBlocks = useMemo(
+    () => (selectedDateKeyLocal && daySelections[selectedDateKeyLocal]) || [],
+    [daySelections, selectedDateKeyLocal]
+  );
+  const selectedKeys = useMemo(() => {
+    const keys = Array.isArray(selectedRangeKeys) ? selectedRangeKeys.filter((k) => typeof k === 'string' && k) : [];
+    if (keys.length) return keys;
+    return selectedDateKeyLocal ? [selectedDateKeyLocal] : [];
+  }, [selectedDateKeyLocal, selectedRangeKeys]);
+
+  const multiDayCommonBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    let common = null;
+    for (const key of selectedKeys) {
+      const dayBlocks = daySelections?.[key] || [];
+      common = common == null ? normalizeBlocksForIntersect(dayBlocks) : intersectAvailabilityBlocks(common, dayBlocks);
+      if (!common || common.length === 0) return [];
+    }
+    return common || [];
+  }, [daySelections, selectedKeys]);
+
+  const displayedBlocks = useMemo(() => {
+    if (selectedKeys.length > 1) return multiDayCommonBlocks;
+    return selectedDayBlocks;
+  }, [multiDayCommonBlocks, selectedDayBlocks, selectedKeys.length]);
   const SLOT_MINUTES = 15;
   const isTodaySelected = !!selectedDateKeyInTz && selectedDateKeyInTz === zonedTodayKey;
   const isPastDay = useMemo(() => {
@@ -233,8 +334,9 @@ function ScheduleStepSidebar({
                 key={date.toISOString()}
                 type="button"
                 className={cls}
-                onMouseDown={() => {
+                onMouseDown={(event) => {
                   if (isPast) return;
+                  if (event?.metaKey || event?.ctrlKey) return;
                   const k = ymdKey(date);
                   setIsDraggingRange(true);
                   setDragStartKey(k);
@@ -254,11 +356,28 @@ function ScheduleStepSidebar({
                 onMouseUp={() => {
                   if (isDraggingRange) endDragSelection();
                 }}
-                onClick={() => {
+                onClick={(event) => {
                   if (didDragRef.current) { didDragRef.current = false; return; }
+                  if (isPast) return;
                   setSelectedDate(date);
                   const k = ymdKey(date);
-                  setSelectedRangeKeys([k]);
+                  const wantsMultiSelect = !!(event?.metaKey || event?.ctrlKey);
+                  if (wantsMultiSelect) {
+                    setSelectedRangeKeys((prev) => {
+                      const list = Array.isArray(prev) ? prev : [];
+                      const set = new Set(list);
+                      const alreadySelected = set.has(k);
+                      if (alreadySelected) {
+                        if (set.size <= 1) return [k];
+                        set.delete(k);
+                      } else {
+                        set.add(k);
+                      }
+                      return Array.from(set).sort();
+                    });
+                  } else {
+                    setSelectedRangeKeys([k]);
+                  }
                   if (date.getMonth() !== viewMonth.getMonth() || date.getFullYear() !== viewMonth.getFullYear()) {
                     setViewMonth(new Date(date.getFullYear(), date.getMonth(), 1));
                   }
@@ -274,10 +393,38 @@ function ScheduleStepSidebar({
       {(() => {
         const key = selectedDateKeyLocal;
         const handleBlocksChange = (next) => {
-          const targets = (selectedRangeKeys && selectedRangeKeys.length) ? selectedRangeKeys : [key];
+          const targets = selectedKeys.length ? selectedKeys : [key];
           setDaySelections((prev) => {
             const patch = { ...prev };
-            for (const k of targets) patch[k] = next;
+            if (targets.length > 1) {
+              const nextCommon = normalizeBlocksForIntersect(next);
+              let commonBefore = null;
+              for (const k of targets) {
+                const dayBlocks = prev?.[k] || [];
+                commonBefore = commonBefore == null ? normalizeBlocksForIntersect(dayBlocks) : intersectAvailabilityBlocks(commonBefore, dayBlocks);
+                if (!commonBefore || commonBefore.length === 0) {
+                  commonBefore = [];
+                  break;
+                }
+              }
+              const commonList = commonBefore || [];
+              const added = subtractAvailabilityBlocks(nextCommon, commonList);
+              const removed = subtractAvailabilityBlocks(commonList, nextCommon);
+
+              for (const k of targets) {
+                const existing = prev?.[k] || [];
+                let nextForDay = normalizeBlocksForIntersect(existing);
+                if (added.length) nextForDay = unionAvailabilityBlocks(nextForDay, added);
+                if (removed.length) nextForDay = subtractAvailabilityBlocks(nextForDay, removed);
+                if (nextForDay.length) patch[k] = nextForDay;
+                else delete patch[k];
+              }
+              return patch;
+            }
+
+            const singleKey = targets[0] || key;
+            if (Array.isArray(next) && next.length) patch[singleKey] = next;
+            else delete patch[singleKey];
             return patch;
           });
         };
@@ -286,7 +433,7 @@ function ScheduleStepSidebar({
             value={sessionDurationHours}
             onChange={(next) => setFormData((prev) => ({ ...prev, sessionDurationHours: next }))}
             listRef={timesListRef}
-            blocks={blocks}
+            blocks={displayedBlocks}
             onBlocksChange={handleBlocksChange}
             dayKey={key}
             getDayBlocks={getDayBlocks}
