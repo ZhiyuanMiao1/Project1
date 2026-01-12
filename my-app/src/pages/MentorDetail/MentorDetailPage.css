@@ -600,9 +600,18 @@
 .mentor-review-card {
   grid-column: span 3;
   padding: 16px;
+  padding-left: 0;
   border-radius: 16px;
   border: none;
   background: #fff;
+}
+
+.mentor-reviews-grid > .mentor-review-card:nth-child(odd) {
+  grid-column: 1 / span 3;
+}
+
+.mentor-reviews-grid > .mentor-review-card:nth-child(even) {
+  grid-column: 4 / span 3;
 }
 
 .review-head {
