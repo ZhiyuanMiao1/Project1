@@ -222,7 +222,7 @@
 
 .course-onboarding-confirm {
   margin-top: auto;
-  width: min(160px, 100%);
+  width: min(150px, 100%);
   height: 48px;
   border-radius: 14px;
   border: 1px solid rgba(15, 23, 42, 0.14);
