@@ -8,6 +8,7 @@ function CourseOnboardingModal({
   mentorName = '',
   courseName = '',
   appointment = null,
+  onConfirm,
   onCreateCourse,
   onClose,
 }) {
@@ -146,6 +147,14 @@ function CourseOnboardingModal({
               </span>
             </button>
           </div>
+
+          <button
+            type="button"
+            className="course-onboarding-confirm"
+            onClick={() => (onConfirm || onClose)?.()}
+          >
+            确认
+          </button>
         </div>
       </div>
     </div>
