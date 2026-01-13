@@ -111,7 +111,11 @@ function CourseOnboardingModal({
                         >
                           <TitleIcon size={20} />
                         </span>
-                        <span className="course-onboarding-course-title-text">{normalizedCourseLabel}</span>
+                        <span
+                          className={`course-onboarding-course-title-text${isOtherDirection ? ' course-onboarding-course-title-text--big' : ''}`}
+                        >
+                          {normalizedCourseLabel}
+                        </span>
                       </div>
                       <div className="course-onboarding-course-type-row">
                         <span className="course-onboarding-course-type-icon" aria-hidden="true">

@@ -141,6 +141,10 @@
   text-overflow: ellipsis;
 }
 
+.course-onboarding-course-title-text--big {
+  font-size: 22px;
+}
+
 .course-onboarding-course-type-row {
   display: inline-flex;
   align-items: center;
@@ -347,6 +351,10 @@
 
   .course-onboarding-course-title-text {
     font-size: 16px;
+  }
+
+  .course-onboarding-course-title-text--big {
+    font-size: 20px;
   }
 
   .course-onboarding-course-type-row {
