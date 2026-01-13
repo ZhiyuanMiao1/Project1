@@ -100,7 +100,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .course-onboarding-course-title-row {
@@ -151,8 +151,9 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #475569;
+  color: #0f172a;
   padding-left: 12px;
+  margin-top: -2px;
 }
 
 .course-onboarding-course-type-icon {
