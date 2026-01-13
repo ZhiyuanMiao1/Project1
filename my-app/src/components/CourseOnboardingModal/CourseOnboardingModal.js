@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { FiBookOpen, FiChevronRight, FiClock, FiPlus, FiX } from 'react-icons/fi';
+import { FiBookOpen, FiChevronRight, FiPlus, FiX } from 'react-icons/fi';
 import { FaEllipsisH } from 'react-icons/fa';
 import {
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -15,7 +15,6 @@ function CourseOnboardingModal({
   mentorName = '',
   courseName = '',
   courseType = '作业项目',
-  appointment = null,
   onConfirm,
   onCreateCourse,
   onClose,
@@ -69,19 +68,6 @@ function CourseOnboardingModal({
     if (!raw) return '作业项目';
     return courseTypeToCnLabel(raw) || raw;
   }, [courseType]);
-
-  const appointmentDateLabel = useMemo(() => {
-    if (!appointment?.date) return '';
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-    return fmt.format(appointment.date);
-  }, [appointment?.date]);
-
-  const appointmentTimeLabel = useMemo(() => {
-    if (!appointment?.windowLabel) return '';
-    const tzLabel = String(appointment?.timeZoneLabel || '').trim();
-    if (!tzLabel) return String(appointment.windowLabel);
-    return `${appointment.windowLabel}（${tzLabel}）`;
-  }, [appointment?.timeZoneLabel, appointment?.windowLabel]);
 
   const modal = (
     <div
@@ -137,25 +123,6 @@ function CourseOnboardingModal({
                   </div>
                 );
               })()}
-
-              {appointment ? (
-                <div className="course-onboarding-card">
-                  <div className="course-onboarding-card-icon" aria-hidden="true">
-                    <FiClock />
-                  </div>
-                  <div className="course-onboarding-card-body">
-                    <div className="course-onboarding-card-title">已选择的预约时间</div>
-                    <div className="course-onboarding-card-subtitle">
-                      {appointmentDateLabel}
-                      {appointmentTimeLabel ? <span className="course-onboarding-card-dot">·</span> : null}
-                      {appointmentTimeLabel}
-                    </div>
-                  </div>
-                  <div className="course-onboarding-card-chevron" aria-hidden="true">
-                    <FiChevronRight />
-                  </div>
-                </div>
-              ) : null}
             </div>
           </div>
         </div>
