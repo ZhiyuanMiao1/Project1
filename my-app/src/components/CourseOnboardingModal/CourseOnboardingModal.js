@@ -1,12 +1,20 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FiBookOpen, FiChevronRight, FiClock, FiPlus, FiX } from 'react-icons/fi';
+import { FaEllipsisH } from 'react-icons/fa';
+import {
+  COURSE_TYPE_LABEL_ICON_MAP,
+  DIRECTION_LABEL_ICON_MAP,
+  courseTypeToCnLabel,
+  normalizeCourseLabel,
+} from '../../constants/courseMappings';
 import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
   title = '完善课程资料',
   mentorName = '',
   courseName = '',
+  courseType = '作业项目',
   appointment = null,
   onConfirm,
   onCreateCourse,
@@ -50,6 +58,18 @@ function CourseOnboardingModal({
     return fmt.format(new Date());
   }, []);
 
+  const normalizedCourseLabel = useMemo(() => {
+    const raw = String(courseName || '').trim();
+    if (!raw) return '课程';
+    return normalizeCourseLabel(raw) || raw;
+  }, [courseName]);
+
+  const normalizedCourseTypeLabel = useMemo(() => {
+    const raw = String(courseType || '').trim();
+    if (!raw) return '作业项目';
+    return courseTypeToCnLabel(raw) || raw;
+  }, [courseType]);
+
   const appointmentDateLabel = useMemo(() => {
     if (!appointment?.date) return '';
     const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -86,45 +106,57 @@ function CourseOnboardingModal({
 
         <div className="course-onboarding-body">
           <div className="course-onboarding-content">
-          <h2 className="course-onboarding-title">{title}</h2>
+            <h2 className="course-onboarding-title">{title}</h2>
 
-          <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
-            <div className="course-onboarding-card">
-              <div className="course-onboarding-card-icon" aria-hidden="true">
-                <FiBookOpen />
-              </div>
-              <div className="course-onboarding-card-body">
-                <div className="course-onboarding-card-title">你的课程，创建于 {createdDateLabel}</div>
-                <div className="course-onboarding-card-subtitle">
-                  {courseName || '课程'}
-                  {mentorName ? <span className="course-onboarding-card-dot">·</span> : null}
-                  {mentorName || null}
-                </div>
-              </div>
-              <div className="course-onboarding-card-chevron" aria-hidden="true">
-                <FiChevronRight />
-              </div>
-            </div>
+            <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
+              {(() => {
+                const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedCourseLabel] || FiBookOpen;
+                const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[normalizedCourseTypeLabel] || FaEllipsisH;
+                return (
+                  <div className="course-onboarding-card course-onboarding-course-card">
+                    <div className="course-onboarding-course-left">
+                      <div className="course-onboarding-course-title-row">
+                        <span className="course-onboarding-course-title-icon" aria-hidden="true">
+                          <TitleIcon size={20} />
+                        </span>
+                        <span className="course-onboarding-course-title-text">{normalizedCourseLabel}</span>
+                      </div>
+                      <div className="course-onboarding-course-type-row">
+                        <span className="course-onboarding-course-type-icon" aria-hidden="true">
+                          <TypeIcon size={14} />
+                        </span>
+                        <span className="course-onboarding-course-type-text">{normalizedCourseTypeLabel}</span>
+                      </div>
+                    </div>
+                    <div className="course-onboarding-course-right">
+                      <span className="course-onboarding-course-created">创建于{createdDateLabel}</span>
+                      <span className="course-onboarding-card-chevron" aria-hidden="true">
+                        <FiChevronRight />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
 
-            {appointment ? (
-              <div className="course-onboarding-card">
-                <div className="course-onboarding-card-icon" aria-hidden="true">
-                  <FiClock />
-                </div>
-                <div className="course-onboarding-card-body">
-                  <div className="course-onboarding-card-title">已选择的预约时间</div>
-                  <div className="course-onboarding-card-subtitle">
-                    {appointmentDateLabel}
-                    {appointmentTimeLabel ? <span className="course-onboarding-card-dot">·</span> : null}
-                    {appointmentTimeLabel}
+              {appointment ? (
+                <div className="course-onboarding-card">
+                  <div className="course-onboarding-card-icon" aria-hidden="true">
+                    <FiClock />
+                  </div>
+                  <div className="course-onboarding-card-body">
+                    <div className="course-onboarding-card-title">已选择的预约时间</div>
+                    <div className="course-onboarding-card-subtitle">
+                      {appointmentDateLabel}
+                      {appointmentTimeLabel ? <span className="course-onboarding-card-dot">·</span> : null}
+                      {appointmentTimeLabel}
+                    </div>
+                  </div>
+                  <div className="course-onboarding-card-chevron" aria-hidden="true">
+                    <FiChevronRight />
                   </div>
                 </div>
-                <div className="course-onboarding-card-chevron" aria-hidden="true">
-                  <FiChevronRight />
-                </div>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
