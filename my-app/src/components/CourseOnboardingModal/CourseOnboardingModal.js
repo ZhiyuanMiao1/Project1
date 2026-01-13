@@ -102,7 +102,9 @@ function CourseOnboardingModal({
                 return (
                   <div className="course-onboarding-card course-onboarding-course-card">
                     <div className="course-onboarding-course-left">
-                      <div className="course-onboarding-course-title-row">
+                      <div
+                        className={`course-onboarding-course-title-row${isOtherDirection ? ' course-onboarding-course-title-row--tight' : ''}`}
+                      >
                         <span
                           className={`course-onboarding-course-title-icon${isOtherDirection ? ' course-onboarding-course-title-icon--plain' : ''}`}
                           aria-hidden="true"

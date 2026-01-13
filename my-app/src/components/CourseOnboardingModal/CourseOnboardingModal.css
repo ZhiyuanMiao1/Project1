@@ -110,6 +110,10 @@
   min-width: 0;
 }
 
+.course-onboarding-course-title-row--tight {
+  gap: 0px;
+}
+
 .course-onboarding-course-title-icon {
   width: 44px;
   height: 44px;
