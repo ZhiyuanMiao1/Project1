@@ -10,8 +10,8 @@
 }
 
 .course-onboarding-modal {
-  width: min(920px, 96vw);
-  max-height: 88vh;
+  width: 720px;
+  height: 88vh;
   overflow: auto;
   background: #ffffff;
   border-radius: 22px;
@@ -226,4 +226,3 @@
     padding: 16px 14px;
   }
 }
-
