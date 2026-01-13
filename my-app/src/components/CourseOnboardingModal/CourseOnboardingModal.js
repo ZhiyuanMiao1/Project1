@@ -126,9 +126,6 @@ function CourseOnboardingModal({
                     </div>
                     <div className="course-onboarding-course-right">
                       <span className="course-onboarding-course-created">创建于{createdDateLabel}</span>
-                      <span className="course-onboarding-card-chevron" aria-hidden="true">
-                        <FiChevronRight />
-                      </span>
                     </div>
                   </div>
                 );
