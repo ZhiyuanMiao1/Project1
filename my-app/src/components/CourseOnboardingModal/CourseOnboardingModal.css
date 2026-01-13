@@ -148,7 +148,7 @@
   font-size: 13px;
   font-weight: 600;
   color: #475569;
-  padding-left: 54px;
+  padding-left: 12px;
 }
 
 .course-onboarding-course-type-icon {
@@ -350,7 +350,7 @@
   }
 
   .course-onboarding-course-type-row {
-    padding-left: 50px;
+    padding-left: 12px;
   }
 
   .course-onboarding-action-row {
