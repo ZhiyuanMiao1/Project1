@@ -98,11 +98,15 @@ function CourseOnboardingModal({
               {(() => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedCourseLabel] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[normalizedCourseTypeLabel] || FaEllipsisH;
+                const isOtherDirection = normalizedCourseLabel === '其它课程方向';
                 return (
                   <div className="course-onboarding-card course-onboarding-course-card">
                     <div className="course-onboarding-course-left">
                       <div className="course-onboarding-course-title-row">
-                        <span className="course-onboarding-course-title-icon" aria-hidden="true">
+                        <span
+                          className={`course-onboarding-course-title-icon${isOtherDirection ? ' course-onboarding-course-title-icon--plain' : ''}`}
+                          aria-hidden="true"
+                        >
                           <TitleIcon size={20} />
                         </span>
                         <span className="course-onboarding-course-title-text">{normalizedCourseLabel}</span>

@@ -122,6 +122,10 @@
   flex: 0 0 auto;
 }
 
+.course-onboarding-course-title-icon--plain {
+  background: transparent;
+}
+
 .course-onboarding-course-title-text {
   font-size: 18px;
   font-weight: 700;
