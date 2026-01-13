@@ -10,9 +10,11 @@
 }
 
 .course-onboarding-modal {
-  width: 720px;
+  width: min(720px, 92vw);
   height: 88vh;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: #ffffff;
   border-radius: 22px;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
@@ -44,8 +46,21 @@
   height: 18px;
 }
 
+.course-onboarding-body {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
 .course-onboarding-content {
-  padding: 44px 44px 40px;
+  padding: 44px 44px 18px;
+}
+
+.course-onboarding-footer {
+  flex: 0 0 auto;
+  padding: 16px 44px 28px;
+  background: #ffffff;
+  border-top: 1px solid rgba(15, 23, 42, 0.10);
+  box-shadow: 0 -10px 26px rgba(15, 23, 42, 0.06);
 }
 
 .course-onboarding-title {
@@ -133,7 +148,7 @@
 }
 
 .course-onboarding-section-title {
-  margin: 34px 0 14px;
+  margin: 0 0 14px;
   font-size: 22px;
   font-weight: 550;
   color: #0f172a;
@@ -210,11 +225,15 @@
   }
 
   .course-onboarding-content {
-    padding: 34px 18px 22px;
+    padding: 34px 18px 16px;
   }
 
   .course-onboarding-title {
     font-size: 22px;
+  }
+
+  .course-onboarding-footer {
+    padding: 14px 18px 18px;
   }
 
   .course-onboarding-card {

@@ -83,7 +83,8 @@ function CourseOnboardingModal({
           <FiX aria-hidden="true" />
         </button>
 
-        <div className="course-onboarding-content">
+        <div className="course-onboarding-body">
+          <div className="course-onboarding-content">
           <h2 className="course-onboarding-title">{title}</h2>
 
           <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
@@ -123,9 +124,12 @@ function CourseOnboardingModal({
               </div>
             ) : null}
           </div>
+          </div>
+        </div>
 
+        <div className="course-onboarding-footer" aria-label="创建课程入口">
           <h3 className="course-onboarding-section-title">开始创建新课程</h3>
-          <div className="course-onboarding-action-list" aria-label="创建课程入口">
+          <div className="course-onboarding-action-list">
             <button
               type="button"
               className="course-onboarding-action-row"
@@ -151,4 +155,3 @@ function CourseOnboardingModal({
 }
 
 export default CourseOnboardingModal;
-
