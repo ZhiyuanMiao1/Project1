@@ -116,6 +116,29 @@
 .course-onboarding-course-card {
   align-items: flex-start;
   gap: 18px;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+}
+
+.course-onboarding-course-card--selectable {
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.course-onboarding-course-card--selectable:hover {
+  border-color: rgba(15, 23, 42, 0.18);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.course-onboarding-course-card--selectable:focus-visible {
+  outline: 2px solid rgba(15, 23, 42, 0.6);
+  outline-offset: 2px;
+}
+
+.course-onboarding-course-card--selected {
+  border-color: #0f172a;
+  background: #ffffff;
 }
 
 .course-onboarding-course-left {

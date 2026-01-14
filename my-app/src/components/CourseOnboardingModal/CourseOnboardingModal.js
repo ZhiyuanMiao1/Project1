@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiBookOpen, FiChevronRight, FiPlus, FiX } from 'react-icons/fi';
 import { FaEllipsisH } from 'react-icons/fa';
@@ -91,6 +91,37 @@ function CourseOnboardingModal({
     return [primary, ...samples.slice(0, want)];
   }, [normalizedCourseLabel, normalizedCourseTypeLabel, sampleCoursesCount]);
 
+  const courseButtonRefs = useRef([]);
+  const [selectedCourseIndex, setSelectedCourseIndex] = useState(0);
+
+  useEffect(() => {
+    setSelectedCourseIndex((prev) => Math.min(Math.max(0, prev), Math.max(0, courseCards.length - 1)));
+  }, [courseCards.length]);
+
+  const selectedCourse = courseCards[selectedCourseIndex] || null;
+
+  const focusCourseAt = (index) => {
+    const el = courseButtonRefs.current[index];
+    el?.focus?.();
+  };
+
+  const onCourseKeyDown = (event, index) => {
+    const key = event.key;
+    const lastIndex = courseCards.length - 1;
+    if (lastIndex < 0) return;
+
+    let nextIndex = null;
+    if (key === 'ArrowDown' || key === 'ArrowRight') nextIndex = Math.min(index + 1, lastIndex);
+    else if (key === 'ArrowUp' || key === 'ArrowLeft') nextIndex = Math.max(index - 1, 0);
+    else if (key === 'Home') nextIndex = 0;
+    else if (key === 'End') nextIndex = lastIndex;
+
+    if (nextIndex === null) return;
+    event.preventDefault();
+    setSelectedCourseIndex(nextIndex);
+    requestAnimationFrame(() => focusCourseAt(nextIndex));
+  };
+
   const modal = (
     <div
       className="course-onboarding-overlay"
@@ -118,12 +149,25 @@ function CourseOnboardingModal({
 
         <div className="course-onboarding-body">
           <div className="course-onboarding-content">
-            <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
+            <div className="course-onboarding-card-stack" role="radiogroup" aria-label="选择课程">
               {courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
+                const isSelected = idx === selectedCourseIndex;
                 return (
-                  <div className="course-onboarding-card course-onboarding-course-card" key={`${item.label}-${item.type}-${idx}`}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={isSelected ? 0 : -1}
+                    className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
+                    key={`${item.label}-${item.type}-${idx}`}
+                    onClick={() => setSelectedCourseIndex(idx)}
+                    onKeyDown={(e) => onCourseKeyDown(e, idx)}
+                    ref={(el) => {
+                      if (el) courseButtonRefs.current[idx] = el;
+                    }}
+                  >
                     <div className="course-onboarding-course-left">
                       <div className="course-onboarding-course-title-row">
                         <span
@@ -146,7 +190,7 @@ function CourseOnboardingModal({
                     <div className="course-onboarding-course-right">
                       <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -176,7 +220,10 @@ function CourseOnboardingModal({
           <button
             type="button"
             className="course-onboarding-confirm"
-            onClick={() => (onConfirm || onClose)?.()}
+            onClick={() => {
+              if (onConfirm) onConfirm(selectedCourse);
+              else onClose?.();
+            }}
           >
             确认
           </button>
