@@ -76,14 +76,14 @@
 .course-onboarding-card-stack {
   margin-top: 22px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .course-onboarding-card {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 16px 18px;
+  padding: 12px 16px;
   border-radius: 18px;
   border: 1px solid rgba(15, 23, 42, 0.10);
   background: #ffffff;
@@ -115,8 +115,8 @@
 }
 
 .course-onboarding-course-title-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.04);
   color: #0f172a;
@@ -173,7 +173,7 @@
 }
 
 .course-onboarding-course-created {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
   color: #0f172a;
   white-space: nowrap;
