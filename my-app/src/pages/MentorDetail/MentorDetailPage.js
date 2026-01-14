@@ -367,6 +367,7 @@ function MentorDetailPage() {
   const didDragRef = useRef(false);
 
   const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [forceLoginForAppointment, setForceLoginForAppointment] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
@@ -558,6 +559,7 @@ function MentorDetailPage() {
 
   useEffect(() => {
     const onLoginRequired = () => {
+      setForceLoginForAppointment(false);
       setShowStudentAuth(true);
     };
     window.addEventListener('auth:login-required', onLoginRequired);
@@ -1062,6 +1064,7 @@ function MentorDetailPage() {
   const handleSendAppointment = () => {
     if (!scheduleSelection) return;
     if (!isLoggedIn) {
+      setForceLoginForAppointment(true);
       setShowStudentAuth(true);
       return;
     }
@@ -1078,7 +1081,10 @@ function MentorDetailPage() {
             className="icon-circle mentor-detail-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => setShowStudentAuth(true)}
+            onClick={() => {
+              setForceLoginForAppointment(false);
+              setShowStudentAuth(true);
+            }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -1484,11 +1490,20 @@ function MentorDetailPage() {
 
       {showStudentAuth && (
         <StudentAuthModal
-          onClose={() => setShowStudentAuth(false)}
+          onClose={() => {
+            setShowStudentAuth(false);
+            setForceLoginForAppointment(false);
+          }}
           anchorRef={menuAnchorRef}
           leftAlignRef={menuAnchorRef}
-          forceLogin={false}
+          forceLogin={forceLoginForAppointment}
           isLoggedIn={isLoggedIn}
+          onLoginSuccess={() => {
+            if (!forceLoginForAppointment) return false;
+            setForceLoginForAppointment(false);
+            setShowCourseOnboarding(true);
+            return true;
+          }}
           align="right"
           alignOffset={23}
         />

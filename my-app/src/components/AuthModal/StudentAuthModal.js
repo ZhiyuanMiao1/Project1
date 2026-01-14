@@ -10,7 +10,16 @@ import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
-const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false, forceLogin = false, align = 'left', alignOffset = 0 }) => {
+const StudentAuthModal = ({
+  onClose,
+  onLoginSuccess,
+  anchorRef,
+  leftAlignRef,
+  isLoggedIn = false,
+  forceLogin = false,
+  align = 'left',
+  alignOffset = 0,
+}) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -117,6 +126,15 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
   }, [onClose, showRegisterPopup, showLoginPopup]);
 
   const isPopupOpen = (showRegisterPopup || showLoginPopup);
+  const closeLoginPopup = () => {
+    setShowLoginPopup(false);
+    if (forceLogin) onClose && onClose();
+  };
+
+  const closeRegisterPopup = () => {
+    setShowRegisterPopup(false);
+    if (forceLogin) onClose && onClose();
+  };
 
   return (
     <div className="auth-modal-overlay" style={{ pointerEvents: isPopupOpen ? 'auto' : 'none' }}>
@@ -210,7 +228,7 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
 
       {showRegisterPopup && (
         <RegisterPopup
-          onClose={() => setShowRegisterPopup(false)}
+          onClose={closeRegisterPopup}
           onSuccess={(payload) => {
             // RegisterPopup 内部负责导航与动画；此处仅收口关闭外层菜单
             onClose && onClose();
@@ -220,17 +238,24 @@ const StudentAuthModal = ({ onClose, anchorRef, leftAlignRef, isLoggedIn = false
 
       {showLoginPopup && (
         <LoginPopup
-          onClose={() => setShowLoginPopup(false)}
+          onClose={closeLoginPopup}
           onGoRegister={() => { setShowLoginPopup(false); setShowRegisterPopup(true); }}
           onSuccess={(payload) => {
             try { window.dispatchEvent(new Event('home:enter')); } catch {}
             onClose && onClose();
             const nextRole = payload?.user?.role;
             const want = consumePostLoginRedirect();
-            if (want) {
+            let handled = false;
+            try {
+              handled = onLoginSuccess?.(payload) === true;
+            } catch {
+              handled = false;
+            }
+            if (!handled && want) {
               try { navigate(want, { replace: true }); } catch {}
               return;
             }
+            if (handled) return;
             try { navigate(nextRole === 'mentor' ? '/mentor' : '/student'); } catch {}
           }}
         />
