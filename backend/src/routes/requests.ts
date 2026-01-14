@@ -403,19 +403,11 @@ router.post(
         }
         requestId = row.id;
       } else {
-        const [rows] = await conn.execute<any[]>(
-          "SELECT id FROM course_requests WHERE user_id = ? AND status = 'draft' ORDER BY updated_at DESC LIMIT 1",
+        const [ins] = await conn.execute<any>(
+          "INSERT INTO course_requests (user_id, status) VALUES (?, 'draft')",
           [userId]
         );
-        if (rows?.[0]?.id) {
-          requestId = rows[0].id;
-        } else {
-          const [ins] = await conn.execute<any>(
-            "INSERT INTO course_requests (user_id, status) VALUES (?, 'draft')",
-            [userId]
-          );
-          requestId = Number(ins?.insertId);
-        }
+        requestId = Number(ins?.insertId);
       }
 
       await applyUpdate(conn, requestId, userId, update);
@@ -504,19 +496,11 @@ router.post(
         }
         requestId = row.id;
       } else {
-        const [rows] = await conn.execute<any[]>(
-          "SELECT id FROM course_requests WHERE user_id = ? AND status = 'draft' ORDER BY updated_at DESC LIMIT 1",
+        const [ins] = await conn.execute<any>(
+          "INSERT INTO course_requests (user_id, status) VALUES (?, 'draft')",
           [userId]
         );
-        if (rows?.[0]?.id) {
-          requestId = rows[0].id;
-        } else {
-          const [ins] = await conn.execute<any>(
-            "INSERT INTO course_requests (user_id, status) VALUES (?, 'draft')",
-            [userId]
-          );
-          requestId = Number(ins?.insertId);
-        }
+        requestId = Number(ins?.insertId);
       }
 
       await applyUpdate(conn, requestId, userId, update);
