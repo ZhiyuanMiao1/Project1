@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -19,6 +19,7 @@ import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchFavoriteItems } from '../../api/favorites';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
+import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './MentorDetailPage.css';
 
@@ -362,6 +363,21 @@ function MentorDetailPage() {
   const params = useParams();
   const mentorId = safeDecode(typeof params?.mentorId === 'string' ? params.mentorId : '');
 
+  const currentPath = useMemo(() => {
+    try {
+      const { pathname, search, hash } = window.location;
+      return `${pathname}${search || ''}${hash || ''}`;
+    } catch {
+      return location?.pathname || '/student';
+    }
+  }, [location]);
+
+  const rememberPostLoginRedirect = useCallback((from) => {
+    const candidate = typeof from === 'string' ? from.trim() : '';
+    const target = candidate || currentPath;
+    setPostLoginRedirect(target, inferRequiredRoleFromPath(target) || 'student');
+  }, [currentPath]);
+
   const scheduleScrollRef = useRef(null);
   const scheduleResizeRef = useRef(null);
   const didDragRef = useRef(false);
@@ -558,13 +574,14 @@ function MentorDetailPage() {
   }, []);
 
   useEffect(() => {
-    const onLoginRequired = () => {
+    const onLoginRequired = (event) => {
+      rememberPostLoginRedirect(event?.detail?.from);
       setForceLoginForAppointment(false);
       setShowStudentAuth(true);
     };
     window.addEventListener('auth:login-required', onLoginRequired);
     return () => window.removeEventListener('auth:login-required', onLoginRequired);
-  }, []);
+  }, [rememberPostLoginRedirect]);
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(Date.now()), 60 * 1000);
@@ -1064,6 +1081,7 @@ function MentorDetailPage() {
   const handleSendAppointment = () => {
     if (!scheduleSelection) return;
     if (!isLoggedIn) {
+      rememberPostLoginRedirect();
       setForceLoginForAppointment(true);
       setShowStudentAuth(true);
       return;
@@ -1082,6 +1100,7 @@ function MentorDetailPage() {
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={() => {
+              rememberPostLoginRedirect();
               setForceLoginForAppointment(false);
               setShowStudentAuth(true);
             }}
