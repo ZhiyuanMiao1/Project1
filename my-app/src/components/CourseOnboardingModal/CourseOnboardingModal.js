@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FiBookOpen, FiChevronRight, FiPlus, FiX } from 'react-icons/fi';
+import { FiBookOpen, FiChevronRight, FiPlus, FiTrash2, FiX } from 'react-icons/fi';
 import { FaEllipsisH } from 'react-icons/fa';
 import {
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -20,6 +20,7 @@ function CourseOnboardingModal({
   const closeButtonRef = useRef(null);
   const [draftCards, setDraftCards] = useState([]);
   const [draftLoading, setDraftLoading] = useState(true);
+  const [deletingIds, setDeletingIds] = useState(() => new Set());
 
   useLayoutEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -124,6 +125,44 @@ function CourseOnboardingModal({
 
   const selectedCourse = typeof selectedCourseIndex === 'number' ? (courseCards[selectedCourseIndex] || null) : null;
 
+  const deleteDraft = async (requestId) => {
+    const id = Number(requestId);
+    if (!Number.isFinite(id) || id < 1) return;
+    if (deletingIds.has(id)) return;
+
+    const ok = window.confirm('确认删除该课程草稿吗？');
+    if (!ok) return;
+
+    const deletingIndex = courseCards.findIndex((c) => Number(c?.requestId) === id);
+
+    setDeletingIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+
+    try {
+      await api.delete(`/api/requests/drafts/${id}`);
+      setDraftCards((prev) => (Array.isArray(prev) ? prev.filter((d) => Number(d?.id) !== id) : []));
+      setSelectedCourseIndex((prev) => {
+        if (typeof prev !== 'number') return prev;
+        if (deletingIndex === -1) return prev;
+        if (prev === deletingIndex) return null;
+        if (prev > deletingIndex) return prev - 1;
+        return prev;
+      });
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '删除失败，请稍后再试';
+      alert(msg);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
   const focusCourseAt = (index) => {
     const el = courseButtonRefs.current[index];
     el?.focus?.();
@@ -187,40 +226,61 @@ function CourseOnboardingModal({
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
                 const isSelected = selectedCourseIndex === idx;
                 const isTabbable = isSelected || (selectedCourseIndex === null && idx === 0);
+                const canDelete = Number.isFinite(Number(item.requestId)) && Number(item.requestId) > 0;
+                const isDeleting = canDelete && deletingIds.has(Number(item.requestId));
                 return (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    tabIndex={isTabbable ? 0 : -1}
+                  <div
                     className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
                     key={`${item.requestId || 'draft'}-${idx}`}
-                    onClick={() => setSelectedCourseIndex(idx)}
-                    onKeyDown={(e) => onCourseKeyDown(e, idx)}
-                    ref={(el) => {
-                      if (el) courseButtonRefs.current[idx] = el;
-                    }}
                   >
-                    <div className="course-onboarding-course-left">
-                      <div className="course-onboarding-course-title-row">
-                        <span className="course-onboarding-course-title-icon" aria-hidden="true">
-                          <TitleIcon size={20} />
-                        </span>
-                        <span className="course-onboarding-course-title-text">
-                          {item.label}
-                        </span>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      tabIndex={isTabbable ? 0 : -1}
+                      className="course-onboarding-course-main"
+                      onClick={() => setSelectedCourseIndex(idx)}
+                      onKeyDown={(e) => onCourseKeyDown(e, idx)}
+                      ref={(el) => {
+                        if (el) courseButtonRefs.current[idx] = el;
+                      }}
+                    >
+                      <div className="course-onboarding-course-left">
+                        <div className="course-onboarding-course-title-row">
+                          <span className="course-onboarding-course-title-icon" aria-hidden="true">
+                            <TitleIcon size={20} />
+                          </span>
+                          <span className="course-onboarding-course-title-text">
+                            {item.label}
+                          </span>
+                        </div>
+                        <div className="course-onboarding-course-type-row">
+                          <span className="course-onboarding-course-type-icon" aria-hidden="true">
+                            <TypeIcon size={14} />
+                          </span>
+                          <span className="course-onboarding-course-type-text">{item.type}</span>
+                        </div>
                       </div>
-                      <div className="course-onboarding-course-type-row">
-                        <span className="course-onboarding-course-type-icon" aria-hidden="true">
-                          <TypeIcon size={14} />
-                        </span>
-                        <span className="course-onboarding-course-type-text">{item.type}</span>
+                      <div className="course-onboarding-course-right">
+                        <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
                       </div>
-                    </div>
-                    <div className="course-onboarding-course-right">
-                      <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
-                    </div>
-                  </button>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="course-onboarding-course-delete"
+                      aria-label="删除草稿"
+                      title="删除"
+                      disabled={!canDelete || isDeleting}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteDraft(item.requestId);
+                      }}
+                    >
+                      <FiTrash2 aria-hidden="true" />
+                    </button>
+                  </div>
                 );
               })}
             </div>

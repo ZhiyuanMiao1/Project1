@@ -349,6 +349,43 @@ router.get('/drafts', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.delete('/drafts/:id', requireAuth, async (req: Request, res: Response) => {
+  if (!ensureAuthed(req, res)) return;
+
+  const rawId = typeof req.params?.id === 'string' ? req.params.id : '';
+  const parsedId = Number(rawId);
+  const requestId = Number.isFinite(parsedId) ? Math.floor(parsedId) : 0;
+  if (!requestId || requestId < 1) {
+    return res.status(400).json({ error: '参数错误' });
+  }
+
+  try {
+    const [rows] = await pool.execute<any[]>(
+      'SELECT id, status FROM course_requests WHERE id = ? AND user_id = ? LIMIT 1',
+      [requestId, req.user!.id]
+    );
+    const row = rows?.[0];
+    if (!row) return res.status(404).json({ error: '未找到需求' });
+    if (row.status !== 'draft') return res.status(409).json({ error: '该需求不可删除' });
+
+    const [result] = await pool.execute<any>(
+      "DELETE FROM course_requests WHERE id = ? AND user_id = ? AND status = 'draft'",
+      [requestId, req.user!.id]
+    );
+
+    const affected = Number(result?.affectedRows || 0);
+    if (!affected) return res.status(404).json({ error: '未找到需求' });
+    return res.json({ ok: true });
+  } catch (e: any) {
+    const message = typeof e?.message === 'string' ? e.message : '';
+    if (message.includes('course_requests') || message.includes('course_request_attachments')) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Delete request draft error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.post(
   '/save',
   requireAuth,
