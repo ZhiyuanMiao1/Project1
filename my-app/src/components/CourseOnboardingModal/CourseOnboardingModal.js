@@ -239,7 +239,9 @@ function CourseOnboardingModal({
                       aria-checked={isSelected}
                       tabIndex={isTabbable ? 0 : -1}
                       className="course-onboarding-course-main"
-                      onClick={() => setSelectedCourseIndex(idx)}
+                      onClick={() => {
+                        setSelectedCourseIndex((prev) => (prev === idx ? null : idx));
+                      }}
                       onKeyDown={(e) => onCourseKeyDown(e, idx)}
                       ref={(el) => {
                         if (el) courseButtonRefs.current[idx] = el;
