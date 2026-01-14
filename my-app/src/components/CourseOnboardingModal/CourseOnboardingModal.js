@@ -251,26 +251,28 @@ function CourseOnboardingModal({
                       }}
                     >
                       <div className="course-onboarding-course-left">
-                        <div className="course-onboarding-course-title-row">
-                          <span className="course-onboarding-course-title-icon" aria-hidden="true">
-                            <TitleIcon size={20} />
-                          </span>
-                          <span className="course-onboarding-course-title-text">
-                            {item.label}
-                          </span>
+                        <div className="course-onboarding-course-info">
+                          <div className="course-onboarding-course-title-row">
+                            <span className="course-onboarding-course-title-icon" aria-hidden="true">
+                              <TitleIcon size={20} />
+                            </span>
+                            <span className="course-onboarding-course-title-text">
+                              {item.label}
+                            </span>
+                          </div>
+                          <div className="course-onboarding-course-type-row">
+                            <span className="course-onboarding-course-type-icon" aria-hidden="true">
+                              <TypeIcon size={14} />
+                            </span>
+                            <span className="course-onboarding-course-type-text">{item.type}</span>
+                          </div>
                         </div>
-                        <div className="course-onboarding-course-type-row">
-                          <span className="course-onboarding-course-type-icon" aria-hidden="true">
-                            <TypeIcon size={14} />
+                        {status === 'draft' ? (
+                          <span className="course-onboarding-course-badge course-onboarding-course-status-badge">
+                            未发布
                           </span>
-                          <span className="course-onboarding-course-type-text">{item.type}</span>
-                        </div>
+                        ) : null}
                       </div>
-                      {status === 'draft' ? (
-                        <span className="course-onboarding-course-badge course-onboarding-course-status-badge">
-                          未发布
-                        </span>
-                      ) : null}
                     </button>
 
                     <div className="course-onboarding-course-meta" aria-hidden="true">
