@@ -55,8 +55,19 @@
   flex: 1 1 auto;
   overflow: auto;
   margin-bottom: 24px;
+  position: relative;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.course-onboarding-body::before {
+  content: '';
+  display: block;
+  height: 18px;
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 1;
 }
 
 .course-onboarding-body::-webkit-scrollbar {
@@ -65,7 +76,7 @@
 }
 
 .course-onboarding-content {
-  padding: 22px 44px 18px;
+  padding: 0 44px 18px;
 }
 
 .course-onboarding-footer {
@@ -342,8 +353,12 @@
     margin-bottom: 18px;
   }
 
+  .course-onboarding-body::before {
+    height: 14px;
+  }
+
   .course-onboarding-content {
-    padding: 18px 18px 16px;
+    padding: 0 18px 16px;
   }
 
   .course-onboarding-title {
