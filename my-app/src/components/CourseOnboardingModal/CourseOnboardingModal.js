@@ -92,13 +92,17 @@ function CourseOnboardingModal({
   }, [normalizedCourseLabel, normalizedCourseTypeLabel, sampleCoursesCount]);
 
   const courseButtonRefs = useRef([]);
-  const [selectedCourseIndex, setSelectedCourseIndex] = useState(0);
+  const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
 
   useEffect(() => {
-    setSelectedCourseIndex((prev) => Math.min(Math.max(0, prev), Math.max(0, courseCards.length - 1)));
+    setSelectedCourseIndex((prev) => {
+      if (prev === null || typeof prev === 'undefined') return null;
+      const lastIndex = Math.max(0, courseCards.length - 1);
+      return Math.min(Math.max(0, prev), lastIndex);
+    });
   }, [courseCards.length]);
 
-  const selectedCourse = courseCards[selectedCourseIndex] || null;
+  const selectedCourse = typeof selectedCourseIndex === 'number' ? (courseCards[selectedCourseIndex] || null) : null;
 
   const focusCourseAt = (index) => {
     const el = courseButtonRefs.current[index];
@@ -153,13 +157,14 @@ function CourseOnboardingModal({
               {courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
-                const isSelected = idx === selectedCourseIndex;
+                const isSelected = selectedCourseIndex === idx;
+                const isTabbable = isSelected || (selectedCourseIndex === null && idx === 0);
                 return (
                   <button
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
-                    tabIndex={isSelected ? 0 : -1}
+                    tabIndex={isTabbable ? 0 : -1}
                     className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
                     key={`${item.label}-${item.type}-${idx}`}
                     onClick={() => setSelectedCourseIndex(idx)}
