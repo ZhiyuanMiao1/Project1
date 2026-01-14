@@ -150,6 +150,7 @@ function StudentCourseRequestPage() {
   const [uploadValidationMessage, setUploadValidationMessage] = useState('');
   const [requestId, setRequestId] = useState(null);
   const loadedDraftIdRef = useRef(null);
+  const draftLoadSeqRef = useRef(0);
   const uploadedAttachmentsRef = useRef(new Map());
   const [requestBusy, setRequestBusy] = useState(false);
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
@@ -286,15 +287,16 @@ function StudentCourseRequestPage() {
     if (!resumeRequestId) return;
     if (!isLoggedIn) return;
     if (loadedDraftIdRef.current === resumeRequestId) return;
-    loadedDraftIdRef.current = resumeRequestId;
 
-    let alive = true;
+    // NOTE: React 18 StrictMode runs effects twice on mount (setup->cleanup->setup).
+    // Use a sequence token so a stale run can't "lock" the UI in `requestBusy=true`.
+    const seq = (draftLoadSeqRef.current += 1);
     (async () => {
       setRequestBusy(true);
       try {
         const res = await api.get(`/api/requests/drafts/${encodeURIComponent(String(resumeRequestId))}`);
         const draft = res?.data?.draft || null;
-        if (!alive) return;
+        if (draftLoadSeqRef.current !== seq) return;
         if (!draft) return;
 
         const safeText = (value) => (typeof value === 'string' ? value : '');
@@ -391,19 +393,17 @@ function StudentCourseRequestPage() {
           setIsDirectionSelection(true);
           setIsCourseTypeSelection(true);
         }
+
+        loadedDraftIdRef.current = resumeRequestId;
       } catch (err) {
-        if (!alive) return;
+        if (draftLoadSeqRef.current !== seq) return;
         const msg = err?.response?.data?.error || err?.message || '加载草稿失败，请稍后再试';
         alert(msg);
       } finally {
-        if (!alive) return;
+        if (draftLoadSeqRef.current !== seq) return;
         setRequestBusy(false);
       }
     })();
-
-    return () => {
-      alive = false;
-    };
   }, [buildKey, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon]);
 
 
