@@ -49,6 +49,7 @@
 .course-onboarding-body {
   flex: 1 1 auto;
   overflow: auto;
+  margin-bottom: 24px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -90,7 +91,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 8px 16px;
   border-radius: 18px;
   border: 1px solid rgba(15, 23, 42, 0.10);
   background: #ffffff;
@@ -327,6 +328,10 @@
 @media (max-width: 600px) {
   .course-onboarding-overlay {
     padding: 14px;
+  }
+
+  .course-onboarding-body {
+    margin-bottom: 18px;
   }
 
   .course-onboarding-content {
