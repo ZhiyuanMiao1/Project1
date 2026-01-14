@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { FiBookOpen, FiChevronRight, FiPlus, FiTrash2, FiX } from 'react-icons/fi';
 import { FaEllipsisH } from 'react-icons/fa';
 import {
@@ -17,6 +18,7 @@ function CourseOnboardingModal({
   onCreateCourse,
   onClose,
 }) {
+  const navigate = useNavigate();
   const closeButtonRef = useRef(null);
   const [draftCards, setDraftCards] = useState([]);
   const [draftLoading, setDraftLoading] = useState(true);
@@ -243,6 +245,13 @@ function CourseOnboardingModal({
                       tabIndex={isTabbable ? 0 : -1}
                       className="course-onboarding-course-main"
                       onClick={() => {
+                        if (status === 'draft' && item?.requestId) {
+                          onClose?.();
+                          try {
+                            navigate(`/student/course-request?requestId=${encodeURIComponent(String(item.requestId))}`);
+                          } catch {}
+                          return;
+                        }
                         setSelectedCourseIndex((prev) => (prev === idx ? null : idx));
                       }}
                       onKeyDown={(e) => onCourseKeyDown(e, idx)}

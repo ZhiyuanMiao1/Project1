@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallback, useLayoutEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
@@ -114,6 +114,17 @@ const buildAvailabilityFingerprint = ({ timeZone, sessionDurationHours, daySelec
 
 function StudentCourseRequestPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const resumeRequestId = useMemo(() => {
+    try {
+      const params = new URLSearchParams(location?.search || '');
+      const raw = params.get('requestId') || params.get('draftId') || '';
+      const parsed = raw ? Number(raw) : NaN;
+      return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+    } catch {
+      return null;
+    }
+  }, [location?.search]);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
@@ -138,6 +149,7 @@ function StudentCourseRequestPage() {
   const isMountedRef = useRef(true);
   const [uploadValidationMessage, setUploadValidationMessage] = useState('');
   const [requestId, setRequestId] = useState(null);
+  const loadedDraftIdRef = useRef(null);
   const uploadedAttachmentsRef = useRef(new Map());
   const [requestBusy, setRequestBusy] = useState(false);
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
@@ -269,6 +281,130 @@ function StudentCourseRequestPage() {
     if (!y||!m||!d) return null;
     return new Date(y, m-1, d);
   }, []);
+
+  useEffect(() => {
+    if (!resumeRequestId) return;
+    if (!isLoggedIn) return;
+    if (loadedDraftIdRef.current === resumeRequestId) return;
+    loadedDraftIdRef.current = resumeRequestId;
+
+    let alive = true;
+    (async () => {
+      setRequestBusy(true);
+      try {
+        const res = await api.get(`/api/requests/drafts/${encodeURIComponent(String(resumeRequestId))}`);
+        const draft = res?.data?.draft || null;
+        if (!alive) return;
+        if (!draft) return;
+
+        const safeText = (value) => (typeof value === 'string' ? value : '');
+        const tz = safeText(draft?.timeZone).trim() || DEFAULT_TIME_ZONE;
+
+        // Prevent automatic account-availability hydration from overriding draft schedule.
+        hasEditedAvailabilityRef.current = true;
+        availabilityHydratingRef.current = false;
+        previousTimeZoneRef.current = tz;
+        setPendingAccountAvailability(null);
+        setAvailabilityReady(true);
+
+        const rawCourseTypes = Array.isArray(draft?.courseTypes) ? draft.courseTypes : [];
+        const normalizedCourseTypes = rawCourseTypes.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
+        const courseTypeFromSingle = safeText(draft?.courseType).trim();
+        const courseTypes = normalizedCourseTypes.length
+          ? normalizedCourseTypes
+          : (courseTypeFromSingle ? [courseTypeFromSingle] : []);
+        const courseType = courseTypeFromSingle || courseTypes[0] || '';
+
+        const totalCourseHours =
+          (typeof draft?.totalCourseHours === 'number' && Number.isFinite(draft.totalCourseHours))
+            ? String(draft.totalCourseHours)
+            : (typeof draft?.totalCourseHours === 'string' && draft.totalCourseHours.trim() ? draft.totalCourseHours.trim() : '');
+        const sessionDurationHours =
+          (typeof draft?.sessionDurationHours === 'number' && Number.isFinite(draft.sessionDurationHours))
+            ? draft.sessionDurationHours
+            : (typeof draft?.sessionDurationHours === 'string' && draft.sessionDurationHours.trim()
+              ? Number(draft.sessionDurationHours)
+              : 2);
+
+        const nextDaySelections = (draft?.daySelections && typeof draft.daySelections === 'object' && !Array.isArray(draft.daySelections))
+          ? draft.daySelections
+          : {};
+        setDaySelections(nextDaySelections);
+
+        const candidateDayKeys = Object.keys(nextDaySelections)
+          .filter((k) => Array.isArray(nextDaySelections?.[k]) && nextDaySelections[k].length > 0)
+          .sort();
+        const firstKey = candidateDayKeys[0] || '';
+        const firstDate = firstKey ? keyToDateStrict(firstKey) : null;
+        const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(tz));
+        const nextSelectedDate = toNoonDate(firstDate || fallbackDate);
+        setSelectedDateNoon(nextSelectedDate);
+        setViewMonth(new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1));
+        const selectedKey = buildKey(nextSelectedDate);
+        setSelectedRangeKeys(selectedKey ? [selectedKey] : []);
+        setDragStartKey(null);
+        setDragEndKey(null);
+        setIsDraggingRange(false);
+        setDragPreviewKeys(new Set());
+        didDragRef.current = false;
+
+        setIsCompleted(false);
+        setUploadValidationMessage('');
+        setRequestId(draft?.id || resumeRequestId);
+        uploadedAttachmentsRef.current.clear();
+
+        setFormData((prev) => ({
+          ...prev,
+          learningGoal: safeText(draft?.learningGoal) || prev.learningGoal,
+          courseDirection: safeText(draft?.courseDirection),
+          courseType,
+          courseTypes,
+          courseFocus: safeText(draft?.courseFocus),
+          format: safeText(draft?.format) || prev.format,
+          milestone: safeText(draft?.milestone),
+          totalCourseHours,
+          availability: tz,
+          sessionDurationHours: (Number.isFinite(sessionDurationHours) ? sessionDurationHours : prev.sessionDurationHours),
+          contactName: safeText(draft?.contactName),
+          contactMethod: safeText(draft?.contactMethod) || prev.contactMethod,
+          contactValue: safeText(draft?.contactValue),
+          attachments: Array.isArray(draft?.attachments) ? draft.attachments : [],
+        }));
+
+        const rawStep = draft?.draftStep;
+        const stepNum = Number(rawStep);
+        const step = Number.isFinite(stepNum) ? Math.max(0, Math.min(50, Math.floor(stepNum))) : 0;
+        if (step <= 2) {
+          setCurrentStepIndex(0);
+          setIsDirectionSelection(step >= 1);
+          setIsCourseTypeSelection(step >= 2);
+        } else if (step === 3) {
+          setCurrentStepIndex(1);
+          setIsDirectionSelection(true);
+          setIsCourseTypeSelection(true);
+        } else if (step === 4) {
+          setCurrentStepIndex(2);
+          setIsDirectionSelection(true);
+          setIsCourseTypeSelection(true);
+        } else {
+          setCurrentStepIndex(3);
+          setIsDirectionSelection(true);
+          setIsCourseTypeSelection(true);
+        }
+      } catch (err) {
+        if (!alive) return;
+        const msg = err?.response?.data?.error || err?.message || '加载草稿失败，请稍后再试';
+        alert(msg);
+      } finally {
+        if (!alive) return;
+        setRequestBusy(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [buildKey, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon]);
 
 
 
@@ -622,12 +758,13 @@ function StudentCourseRequestPage() {
     setUploadValidationMessage('');
   };
 
-  const buildRequestPayload = (nextRequestId, attachmentsPayload) => {
+  const buildRequestPayload = (nextRequestId, attachmentsPayload, draftStep) => {
     const courseTypes = Array.isArray(formData.courseTypes) && formData.courseTypes.length
       ? formData.courseTypes
       : (formData.courseType ? [formData.courseType] : []);
     const payload = {
       ...(nextRequestId ? { requestId: nextRequestId } : {}),
+      ...(Number.isFinite(Number(draftStep)) ? { draftStep: Math.floor(Number(draftStep)) } : {}),
       learningGoal: formData.learningGoal,
       courseDirection: formData.courseDirection,
       courseType: formData.courseType,
@@ -663,6 +800,21 @@ function StudentCourseRequestPage() {
     const out = [];
 
     for (const file of files) {
+      // When resuming a draft, attachments are stored as server-side metadata instead of File objects.
+      if (file && typeof file === 'object' && typeof file.fileId === 'string' && typeof file.ossKey === 'string') {
+        const sizeBytes = typeof file.sizeBytes === 'number' ? file.sizeBytes : Number(file.sizeBytes);
+        out.push({
+          fileId: file.fileId,
+          fileName: file.fileName || '',
+          ext: file.ext || '',
+          contentType: file.contentType || null,
+          sizeBytes: Number.isFinite(sizeBytes) ? Math.floor(sizeBytes) : 0,
+          ossKey: file.ossKey,
+          fileUrl: file.fileUrl || '',
+        });
+        continue;
+      }
+
       const localKey = buildAttachmentLocalKey(file);
       const cached = uploadedAttachmentsRef.current.get(localKey);
       if (cached) {
@@ -710,7 +862,7 @@ function StudentCourseRequestPage() {
     return out;
   };
 
-  const saveRequestDraft = async ({ includeAttachments } = {}) => {
+  const saveRequestDraft = async ({ includeAttachments, draftStep } = {}) => {
     if (!isLoggedIn) {
       alert('请先登录');
       return null;
@@ -732,7 +884,7 @@ function StudentCourseRequestPage() {
         }
       }
 
-      const payload = buildRequestPayload(nextRequestId, attachmentsPayload);
+      const payload = buildRequestPayload(nextRequestId, attachmentsPayload, draftStep);
       const res = await api.post('/api/requests/save', payload);
       const savedId = res?.data?.requestId;
       if (savedId) setRequestId(savedId);
@@ -1141,14 +1293,23 @@ function StudentCourseRequestPage() {
                 className="ghost-button"
                 disabled={requestBusy || transitionStage !== 'idle'}
                 onClick={async () => {
-                  const canPersistDraft = currentStep.id !== 'direction' || (isDirectionSelection && isCourseTypeSelection);
-                  if (!canPersistDraft) {
+                  if (!isLoggedIn) {
                     navigate('/student');
                     return;
                   }
-
                   flushAvailabilitySave();
-                  const savedId = await saveRequestDraft({ includeAttachments: true });
+                  const draftStep = (() => {
+                    if (currentStep.id === 'direction') {
+                      if (!isDirectionSelection) return 0;
+                      if (!isCourseTypeSelection) return 1;
+                      return 2;
+                    }
+                    if (currentStep.id === 'details') return 3;
+                    if (currentStep.id === 'schedule') return 4;
+                    if (currentStep.id === 'upload') return 5;
+                    return 0;
+                  })();
+                  const savedId = await saveRequestDraft({ includeAttachments: true, draftStep });
                   if (savedId) navigate('/student');
                 }}
               >

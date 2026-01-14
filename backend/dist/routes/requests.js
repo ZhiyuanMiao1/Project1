@@ -151,6 +151,10 @@ const sanitizeAttachments = (raw, requestId) => {
 };
 const buildUpdate = (body) => {
     const update = {};
+    if (hasOwn(body, 'draftStep')) {
+        const n = parseFiniteNumber(body.draftStep);
+        update.draftStep = n == null ? null : Math.max(0, Math.min(50, Math.floor(n)));
+    }
     if (hasOwn(body, 'learningGoal'))
         update.learningGoal = sanitizeString(body.learningGoal, 200);
     if (hasOwn(body, 'courseDirection'))
@@ -196,6 +200,8 @@ const applyUpdate = async (conn, requestId, userId, update) => {
         sets.push(`${col} = ?`);
         args.push(value);
     };
+    if (hasOwn(update, 'draftStep'))
+        add('draft_step', update.draftStep);
     if (hasOwn(update, 'learningGoal'))
         add('learning_goal', update.learningGoal);
     if (hasOwn(update, 'courseDirection'))
@@ -272,6 +278,7 @@ router.get('/draft', auth_1.requireAuth, async (req, res) => {
                 format: draft.format,
                 milestone: draft.milestone,
                 totalCourseHours: draft.total_course_hours,
+                draftStep: draft.draft_step,
                 timeZone: draft.time_zone,
                 sessionDurationHours: draft.session_duration_hours,
                 daySelections,
@@ -294,6 +301,10 @@ router.get('/draft', auth_1.requireAuth, async (req, res) => {
         });
     }
     catch (e) {
+        const message = typeof e?.message === 'string' ? e.message : '';
+        if (message.includes('course_requests') || message.includes('draft_step')) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
         console.error('Fetch request draft error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
@@ -307,7 +318,7 @@ router.get('/drafts', auth_1.requireAuth, async (req, res) => {
         ? Math.max(1, Math.min(50, Math.floor(parsedLimit)))
         : 20;
     try {
-        const [rows] = await db_1.pool.execute(`SELECT id, status, course_direction, course_type, course_types_json, created_at, updated_at
+        const [rows] = await db_1.pool.execute(`SELECT id, status, draft_step, course_direction, course_type, course_types_json, created_at, updated_at
        FROM course_requests
        WHERE user_id = ? AND status IN ('draft', 'submitted')
        ORDER BY updated_at DESC
@@ -323,6 +334,7 @@ router.get('/drafts', auth_1.requireAuth, async (req, res) => {
             return {
                 id: r.id,
                 status: r.status,
+                draftStep: r.draft_step,
                 courseDirection: r.course_direction,
                 courseType: r.course_type,
                 courseTypes,
@@ -334,10 +346,82 @@ router.get('/drafts', auth_1.requireAuth, async (req, res) => {
     }
     catch (e) {
         const message = typeof e?.message === 'string' ? e.message : '';
-        if (message.includes('course_requests')) {
+        if (message.includes('course_requests') || message.includes('draft_step')) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Fetch request drafts error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/drafts/:id', auth_1.requireAuth, async (req, res) => {
+    if (!ensureAuthed(req, res))
+        return;
+    const rawId = typeof req.params?.id === 'string' ? req.params.id : '';
+    const parsedId = Number(rawId);
+    const requestId = Number.isFinite(parsedId) ? Math.floor(parsedId) : 0;
+    if (!requestId || requestId < 1) {
+        return res.status(400).json({ error: '参数错误' });
+    }
+    try {
+        const [rows] = await db_1.pool.execute("SELECT * FROM course_requests WHERE id = ? AND user_id = ? AND status IN ('draft', 'submitted') LIMIT 1", [requestId, req.user.id]);
+        const draft = rows?.[0];
+        if (!draft)
+            return res.status(404).json({ error: '未找到需求' });
+        const [attRows] = await db_1.pool.execute('SELECT file_id, original_file_name, ext, content_type, size_bytes, oss_key, file_url, created_at FROM course_request_attachments WHERE request_id = ? ORDER BY id ASC', [draft.id]);
+        let courseTypes = [];
+        try {
+            courseTypes = draft.course_types_json ? JSON.parse(draft.course_types_json) : [];
+        }
+        catch {
+            courseTypes = [];
+        }
+        let daySelections = {};
+        try {
+            daySelections = draft.schedule_json ? JSON.parse(draft.schedule_json) : {};
+        }
+        catch {
+            daySelections = {};
+        }
+        return res.json({
+            draft: {
+                id: draft.id,
+                status: draft.status,
+                learningGoal: draft.learning_goal,
+                courseDirection: draft.course_direction,
+                courseType: draft.course_type,
+                courseTypes,
+                courseFocus: draft.course_focus,
+                format: draft.format,
+                milestone: draft.milestone,
+                totalCourseHours: draft.total_course_hours,
+                draftStep: draft.draft_step,
+                timeZone: draft.time_zone,
+                sessionDurationHours: draft.session_duration_hours,
+                daySelections,
+                contactName: draft.contact_name,
+                contactMethod: draft.contact_method,
+                contactValue: draft.contact_value,
+                attachments: (attRows || []).map((r) => ({
+                    fileId: r.file_id,
+                    fileName: r.original_file_name,
+                    ext: r.ext,
+                    contentType: r.content_type,
+                    sizeBytes: r.size_bytes,
+                    ossKey: r.oss_key,
+                    fileUrl: r.file_url,
+                    createdAt: r.created_at,
+                })),
+                createdAt: draft.created_at,
+                updatedAt: draft.updated_at,
+            },
+        });
+    }
+    catch (e) {
+        const message = typeof e?.message === 'string' ? e.message : '';
+        if (message.includes('course_requests') || message.includes('draft_step')) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Fetch request draft by id error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
@@ -375,6 +459,7 @@ router.delete('/drafts/:id', auth_1.requireAuth, async (req, res) => {
 });
 router.post('/save', auth_1.requireAuth, [
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
+    (0, express_validator_1.body)('draftStep').optional().isInt({ min: 0, max: 50 }),
     (0, express_validator_1.body)('learningGoal').optional().isString().isLength({ max: 200 }),
     (0, express_validator_1.body)('courseDirection').optional().isString().isLength({ max: 64 }),
     (0, express_validator_1.body)('courseType').optional().isString().isLength({ max: 64 }),
@@ -444,7 +529,7 @@ router.post('/save', auth_1.requireAuth, [
         }
         catch { }
         const message = typeof e?.message === 'string' ? e.message : '';
-        if (message.includes('course_requests') || message.includes('course_request_attachments')) {
+        if (message.includes('course_requests') || message.includes('course_request_attachments') || message.includes('draft_step')) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Save request error:', e);
@@ -456,6 +541,7 @@ router.post('/save', auth_1.requireAuth, [
 });
 router.post('/submit', auth_1.requireAuth, [
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
+    (0, express_validator_1.body)('draftStep').optional().isInt({ min: 0, max: 50 }),
     (0, express_validator_1.body)('learningGoal').optional().isString().isLength({ max: 200 }),
     (0, express_validator_1.body)('courseDirection').optional().isString().isLength({ max: 64 }),
     (0, express_validator_1.body)('courseType').optional().isString().isLength({ max: 64 }),
@@ -526,7 +612,7 @@ router.post('/submit', auth_1.requireAuth, [
         }
         catch { }
         const message = typeof e?.message === 'string' ? e.message : '';
-        if (message.includes('course_requests') || message.includes('course_request_attachments')) {
+        if (message.includes('course_requests') || message.includes('course_request_attachments') || message.includes('draft_step')) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Submit request error:', e);

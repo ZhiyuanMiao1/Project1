@@ -53,8 +53,8 @@ function UploadStep({
           {attachments.map((f, idx) => (
             <div key={idx} className="file-item">
               <div className="meta">
-                <span className="name">{f.name}</span>
-                <span className="size">{(f.size / 1024 / 1024).toFixed(2)} MB</span>
+                <span className="name">{f?.name || f?.fileName || ''}</span>
+                <span className="size">{(((typeof f?.size === 'number' ? f.size : Number(f?.sizeBytes)) || 0) / 1024 / 1024).toFixed(2)} MB</span>
               </div>
               <button
                 type="button"

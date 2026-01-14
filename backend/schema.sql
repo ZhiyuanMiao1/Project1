@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS `course_requests` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
   `status` ENUM('draft','submitted','paired') NOT NULL DEFAULT 'draft',
+  `draft_step` TINYINT UNSIGNED NOT NULL DEFAULT 0,
   `learning_goal` VARCHAR(200) NULL,
   `course_direction` VARCHAR(64) NULL,
   `course_type` VARCHAR(64) NULL,
@@ -195,6 +196,10 @@ CREATE TABLE IF NOT EXISTS `course_requests` (
 -- If you upgraded from an older schema, ensure the ENUM includes 'paired'.
 ALTER TABLE `course_requests`
   MODIFY COLUMN `status` ENUM('draft','submitted','paired') NOT NULL DEFAULT 'draft';
+
+-- Persist the last step index when saving "draft + exit" from the frontend.
+ALTER TABLE `course_requests`
+  ADD COLUMN IF NOT EXISTS `draft_step` TINYINT UNSIGNED NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS `course_request_attachments` (
   `id` INT NOT NULL AUTO_INCREMENT,
