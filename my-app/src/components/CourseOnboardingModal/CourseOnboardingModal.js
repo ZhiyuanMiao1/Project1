@@ -186,7 +186,7 @@ function CourseOnboardingModal({
                 </div>
               ) : courseCards.length === 0 ? (
                 <div className="course-onboarding-empty" role="note">
-                  暂无未发布课程
+                  暂无未发布的课程草稿
                 </div>
               ) : courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
