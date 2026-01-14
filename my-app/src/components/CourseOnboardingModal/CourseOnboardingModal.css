@@ -113,12 +113,8 @@
 .course-onboarding-course-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   min-width: 0;
-}
-
-.course-onboarding-course-title-row--tight {
-  gap: 0px;
 }
 
 .course-onboarding-course-title-icon {
@@ -133,10 +129,6 @@
   flex: 0 0 auto;
 }
 
-.course-onboarding-course-title-icon--plain {
-  background: transparent;
-}
-
 .course-onboarding-course-title-text {
   font-size: 18px;
   font-weight: 700;
@@ -146,10 +138,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.course-onboarding-course-title-text--big {
-  font-size: 22px;
 }
 
 .course-onboarding-course-type-row {
@@ -361,10 +349,6 @@
 
   .course-onboarding-course-title-text {
     font-size: 16px;
-  }
-
-  .course-onboarding-course-title-text--big {
-    font-size: 20px;
   }
 
   .course-onboarding-course-type-row {

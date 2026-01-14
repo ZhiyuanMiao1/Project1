@@ -120,22 +120,17 @@ function CourseOnboardingModal({
               {courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
-                const isOtherDirection = item.label === '其它课程方向';
                 return (
                   <div className="course-onboarding-card course-onboarding-course-card" key={`${item.label}-${item.type}-${idx}`}>
                     <div className="course-onboarding-course-left">
-                      <div
-                        className={`course-onboarding-course-title-row${isOtherDirection ? ' course-onboarding-course-title-row--tight' : ''}`}
-                      >
+                      <div className="course-onboarding-course-title-row">
                         <span
-                          className={`course-onboarding-course-title-icon${isOtherDirection ? ' course-onboarding-course-title-icon--plain' : ''}`}
+                          className="course-onboarding-course-title-icon"
                           aria-hidden="true"
                         >
                           <TitleIcon size={20} />
                         </span>
-                        <span
-                          className={`course-onboarding-course-title-text${isOtherDirection ? ' course-onboarding-course-title-text--big' : ''}`}
-                        >
+                        <span className="course-onboarding-course-title-text">
                           {item.label}
                         </span>
                       </div>
