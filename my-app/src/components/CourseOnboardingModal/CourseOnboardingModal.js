@@ -130,9 +130,6 @@ function CourseOnboardingModal({
     if (!Number.isFinite(id) || id < 1) return;
     if (deletingIds.has(id)) return;
 
-    const ok = window.confirm('确认删除该课程草稿吗？');
-    if (!ok) return;
-
     const deletingIndex = courseCards.findIndex((c) => Number(c?.requestId) === id);
 
     setDeletingIds((prev) => {
