@@ -307,9 +307,9 @@ router.get('/drafts', auth_1.requireAuth, async (req, res) => {
         ? Math.max(1, Math.min(50, Math.floor(parsedLimit)))
         : 20;
     try {
-        const [rows] = await db_1.pool.execute(`SELECT id, course_direction, course_type, course_types_json, created_at, updated_at
+        const [rows] = await db_1.pool.execute(`SELECT id, status, course_direction, course_type, course_types_json, created_at, updated_at
        FROM course_requests
-       WHERE user_id = ? AND status = 'draft'
+       WHERE user_id = ? AND status IN ('draft', 'submitted')
        ORDER BY updated_at DESC
        LIMIT ${limit}`, [req.user.id]);
         const drafts = (rows || []).map((r) => {
@@ -322,6 +322,7 @@ router.get('/drafts', auth_1.requireAuth, async (req, res) => {
             }
             return {
                 id: r.id,
+                status: r.status,
                 courseDirection: r.course_direction,
                 courseType: r.course_type,
                 courseTypes,
@@ -409,9 +410,12 @@ router.post('/save', auth_1.requireAuth, [
                 await conn.rollback();
                 return res.status(404).json({ error: '未找到需求' });
             }
-            if (row.status === 'submitted') {
+            if (row.status !== 'draft') {
                 await conn.rollback();
-                return res.status(409).json({ error: '该需求已提交，无法再保存为草稿' });
+                if (row.status === 'submitted') {
+                    return res.status(409).json({ error: '该需求已提交，无法再保存为草稿' });
+                }
+                return res.status(409).json({ error: '该需求已配对，无法再保存为草稿' });
             }
             requestId = row.id;
         }
@@ -487,9 +491,12 @@ router.post('/submit', auth_1.requireAuth, [
                 await conn.rollback();
                 return res.status(404).json({ error: '未找到需求' });
             }
-            if (row.status === 'submitted') {
+            if (row.status !== 'draft') {
                 await conn.rollback();
-                return res.status(409).json({ error: '该需求已提交' });
+                if (row.status === 'submitted') {
+                    return res.status(409).json({ error: '该需求已提交' });
+                }
+                return res.status(409).json({ error: '该需求已配对' });
             }
             requestId = row.id;
         }

@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS `mentor_course_embeddings` (
 CREATE TABLE IF NOT EXISTS `course_requests` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `status` ENUM('draft','submitted') NOT NULL DEFAULT 'draft',
+  `status` ENUM('draft','submitted','paired') NOT NULL DEFAULT 'draft',
   `learning_goal` VARCHAR(200) NULL,
   `course_direction` VARCHAR(64) NULL,
   `course_type` VARCHAR(64) NULL,
@@ -191,6 +191,10 @@ CREATE TABLE IF NOT EXISTS `course_requests` (
   KEY `idx_course_requests_created_at` (`created_at`),
   CONSTRAINT `fk_course_requests_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- If you upgraded from an older schema, ensure the ENUM includes 'paired'.
+ALTER TABLE `course_requests`
+  MODIFY COLUMN `status` ENUM('draft','submitted','paired') NOT NULL DEFAULT 'draft';
 
 CREATE TABLE IF NOT EXISTS `course_request_attachments` (
   `id` INT NOT NULL AUTO_INCREMENT,

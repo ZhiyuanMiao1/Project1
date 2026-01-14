@@ -89,6 +89,7 @@ function CourseOnboardingModal({
     if (!Array.isArray(draftCards) || draftCards.length === 0) return [];
 
     return draftCards.map((draft) => {
+      const status = String(draft?.status || 'draft');
       const rawDirection = String(draft?.courseDirection || '').trim();
       const label = normalizeCourseLabel(rawDirection) || rawDirection || '其它课程方向';
 
@@ -108,7 +109,7 @@ function CourseOnboardingModal({
         }
       })();
 
-      return { requestId: draft?.id, label, type, createdLabel };
+      return { requestId: draft?.id, status, label, type, createdLabel };
     });
   }, [createdDateLabel, draftCards]);
 
@@ -216,14 +217,17 @@ function CourseOnboardingModal({
                 </div>
               ) : courseCards.length === 0 ? (
                 <div className="course-onboarding-empty" role="note">
-                  暂无未发布的课程草稿
+                  暂无课程
                 </div>
               ) : courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
                 const isSelected = selectedCourseIndex === idx;
                 const isTabbable = isSelected || (selectedCourseIndex === null && idx === 0);
-                const canDelete = Number.isFinite(Number(item.requestId)) && Number(item.requestId) > 0;
+                const canDelete =
+                  item?.status === 'draft'
+                  && Number.isFinite(Number(item.requestId))
+                  && Number(item.requestId) > 0;
                 const isDeleting = canDelete && deletingIds.has(Number(item.requestId));
                 return (
                   <div
@@ -252,32 +256,40 @@ function CourseOnboardingModal({
                           <span className="course-onboarding-course-title-text">
                             {item.label}
                           </span>
+                          {item?.status === 'draft' ? (
+                            <span className="course-onboarding-course-badge">未发布</span>
+                          ) : null}
                         </div>
                         <div className="course-onboarding-course-type-row">
                           <span className="course-onboarding-course-type-icon" aria-hidden="true">
                             <TypeIcon size={14} />
                           </span>
                           <span className="course-onboarding-course-type-text">{item.type}</span>
+                          {item?.status === 'draft' ? (
+                            <span className="course-onboarding-course-badge">未发布</span>
+                          ) : null}
                         </div>
                       </div>
                     </button>
 
                     <div className="course-onboarding-course-meta" aria-hidden="true">
                       <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
-                      <button
-                        type="button"
-                        className="course-onboarding-course-delete"
-                        aria-label="删除草稿"
-                        title="删除"
-                        disabled={!canDelete || isDeleting}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteDraft(item.requestId);
-                        }}
-                      >
-                        <FiTrash2 aria-hidden="true" />
-                      </button>
+                      {canDelete ? (
+                        <button
+                          type="button"
+                          className="course-onboarding-course-delete"
+                          aria-label="删除草稿"
+                          title="删除"
+                          disabled={isDeleting}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteDraft(item.requestId);
+                          }}
+                        >
+                          <FiTrash2 aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );

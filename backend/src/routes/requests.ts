@@ -313,9 +313,9 @@ router.get('/drafts', requireAuth, async (req: Request, res: Response) => {
 
   try {
     const [rows] = await pool.execute<any[]>(
-      `SELECT id, course_direction, course_type, course_types_json, created_at, updated_at
+      `SELECT id, status, course_direction, course_type, course_types_json, created_at, updated_at
        FROM course_requests
-       WHERE user_id = ? AND status = 'draft'
+       WHERE user_id = ? AND status IN ('draft', 'submitted')
        ORDER BY updated_at DESC
        LIMIT ${limit}`,
       [req.user!.id]
@@ -330,6 +330,7 @@ router.get('/drafts', requireAuth, async (req: Request, res: Response) => {
       }
       return {
         id: r.id,
+        status: r.status,
         courseDirection: r.course_direction,
         courseType: r.course_type,
         courseTypes,
@@ -434,9 +435,12 @@ router.post(
           await conn.rollback();
           return res.status(404).json({ error: '未找到需求' });
         }
-        if (row.status === 'submitted') {
+        if (row.status !== 'draft') {
           await conn.rollback();
-          return res.status(409).json({ error: '该需求已提交，无法再保存为草稿' });
+          if (row.status === 'submitted') {
+            return res.status(409).json({ error: '该需求已提交，无法再保存为草稿' });
+          }
+          return res.status(409).json({ error: '该需求已配对，无法再保存为草稿' });
         }
         requestId = row.id;
       } else {
@@ -527,9 +531,12 @@ router.post(
           await conn.rollback();
           return res.status(404).json({ error: '未找到需求' });
         }
-        if (row.status === 'submitted') {
+        if (row.status !== 'draft') {
           await conn.rollback();
-          return res.status(409).json({ error: '该需求已提交' });
+          if (row.status === 'submitted') {
+            return res.status(409).json({ error: '该需求已提交' });
+          }
+          return res.status(409).json({ error: '该需求已配对' });
         }
         requestId = row.id;
       } else {
