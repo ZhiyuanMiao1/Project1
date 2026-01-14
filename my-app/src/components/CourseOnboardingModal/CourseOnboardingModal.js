@@ -15,6 +15,7 @@ function CourseOnboardingModal({
   mentorName = '',
   courseName = '',
   courseType = '作业项目',
+  sampleCoursesCount = 0,
   onConfirm,
   onCreateCourse,
   onClose,
@@ -69,6 +70,27 @@ function CourseOnboardingModal({
     return courseTypeToCnLabel(raw) || raw;
   }, [courseType]);
 
+  const courseCards = useMemo(() => {
+    const today = new Date();
+    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const withDate = (label, type, daysAgo) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (Number.isFinite(daysAgo) ? daysAgo : 0));
+      return { label, type, createdLabel: fmt.format(d) };
+    };
+
+    const primary = withDate(normalizedCourseLabel, normalizedCourseTypeLabel, 0);
+    const samples = [
+      withDate('编程基础', '课前预习', 2),
+      withDate('数据结构与算法', '期末复习', 6),
+      withDate('机器学习', '作业项目', 12),
+      withDate('求职辅导', '选课指导', 20),
+    ];
+
+    const want = Math.max(0, Math.min(20, Number(sampleCoursesCount) || 0));
+    return [primary, ...samples.slice(0, want)];
+  }, [normalizedCourseLabel, normalizedCourseTypeLabel, sampleCoursesCount]);
+
   const modal = (
     <div
       className="course-onboarding-overlay"
@@ -95,12 +117,12 @@ function CourseOnboardingModal({
             <h2 className="course-onboarding-title">{title}</h2>
 
             <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
-              {(() => {
-                const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedCourseLabel] || FiBookOpen;
-                const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[normalizedCourseTypeLabel] || FaEllipsisH;
-                const isOtherDirection = normalizedCourseLabel === '其它课程方向';
+              {courseCards.map((item, idx) => {
+                const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
+                const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
+                const isOtherDirection = item.label === '其它课程方向';
                 return (
-                  <div className="course-onboarding-card course-onboarding-course-card">
+                  <div className="course-onboarding-card course-onboarding-course-card" key={`${item.label}-${item.type}-${idx}`}>
                     <div className="course-onboarding-course-left">
                       <div
                         className={`course-onboarding-course-title-row${isOtherDirection ? ' course-onboarding-course-title-row--tight' : ''}`}
@@ -114,22 +136,22 @@ function CourseOnboardingModal({
                         <span
                           className={`course-onboarding-course-title-text${isOtherDirection ? ' course-onboarding-course-title-text--big' : ''}`}
                         >
-                          {normalizedCourseLabel}
+                          {item.label}
                         </span>
                       </div>
                       <div className="course-onboarding-course-type-row">
                         <span className="course-onboarding-course-type-icon" aria-hidden="true">
                           <TypeIcon size={14} />
                         </span>
-                        <span className="course-onboarding-course-type-text">{normalizedCourseTypeLabel}</span>
+                        <span className="course-onboarding-course-type-text">{item.type}</span>
                       </div>
                     </div>
                     <div className="course-onboarding-course-right">
-                      <span className="course-onboarding-course-created">创建于{createdDateLabel}</span>
+                      <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
                     </div>
                   </div>
                 );
-              })()}
+              })}
             </div>
           </div>
         </div>

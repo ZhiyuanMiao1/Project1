@@ -1513,6 +1513,7 @@ function MentorDetailPage() {
         <CourseOnboardingModal
           mentorName={previewCardData?.name || ''}
           courseName={Array.isArray(previewCardData?.courses) ? previewCardData.courses[0] : ''}
+          sampleCoursesCount={process.env.NODE_ENV === 'production' ? 0 : 4}
           appointment={scheduleSelection ? {
             date: selectedDate,
             windowLabel: `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`,
