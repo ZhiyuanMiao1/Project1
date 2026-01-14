@@ -258,20 +258,19 @@ function CourseOnboardingModal({
                           <span className="course-onboarding-course-title-text">
                             {item.label}
                           </span>
-                          {item?.status === 'draft' ? (
-                            <span className="course-onboarding-course-badge">未发布</span>
-                          ) : null}
                         </div>
                         <div className="course-onboarding-course-type-row">
                           <span className="course-onboarding-course-type-icon" aria-hidden="true">
                             <TypeIcon size={14} />
                           </span>
                           <span className="course-onboarding-course-type-text">{item.type}</span>
-                          {item?.status === 'draft' ? (
-                            <span className="course-onboarding-course-badge">未发布</span>
-                          ) : null}
                         </div>
                       </div>
+                      {status === 'draft' ? (
+                        <span className="course-onboarding-course-badge course-onboarding-course-status-badge">
+                          未发布
+                        </span>
+                      ) : null}
                     </button>
 
                     <div className="course-onboarding-course-meta" aria-hidden="true">
