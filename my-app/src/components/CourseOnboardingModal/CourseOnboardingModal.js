@@ -115,12 +115,6 @@ function CourseOnboardingModal({
   const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
 
   useEffect(() => {
-    if (selectedCourseIndex !== null) return;
-    if (courseCards.length === 0) return;
-    setSelectedCourseIndex(0);
-  }, [courseCards.length, selectedCourseIndex]);
-
-  useEffect(() => {
     setSelectedCourseIndex((prev) => {
       if (prev === null || typeof prev === 'undefined') return null;
       const lastIndex = Math.max(0, courseCards.length - 1);
