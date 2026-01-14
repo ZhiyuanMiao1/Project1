@@ -355,9 +355,10 @@ router.delete('/drafts/:id', auth_1.requireAuth, async (req, res) => {
         const row = rows?.[0];
         if (!row)
             return res.status(404).json({ error: '未找到需求' });
-        if (row.status !== 'draft')
+        if (!['draft', 'submitted'].includes(String(row.status))) {
             return res.status(409).json({ error: '该需求不可删除' });
-        const [result] = await db_1.pool.execute("DELETE FROM course_requests WHERE id = ? AND user_id = ? AND status = 'draft'", [requestId, req.user.id]);
+        }
+        const [result] = await db_1.pool.execute("DELETE FROM course_requests WHERE id = ? AND user_id = ? AND status IN ('draft', 'submitted')", [requestId, req.user.id]);
         const affected = Number(result?.affectedRows || 0);
         if (!affected)
             return res.status(404).json({ error: '未找到需求' });

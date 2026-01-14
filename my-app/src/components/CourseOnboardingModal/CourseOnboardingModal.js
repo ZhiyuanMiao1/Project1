@@ -224,11 +224,13 @@ function CourseOnboardingModal({
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
                 const isSelected = selectedCourseIndex === idx;
                 const isTabbable = isSelected || (selectedCourseIndex === null && idx === 0);
+                const status = String(item?.status || '');
                 const canDelete =
-                  item?.status === 'draft'
+                  (status === 'draft' || status === 'submitted')
                   && Number.isFinite(Number(item.requestId))
                   && Number(item.requestId) > 0;
                 const isDeleting = canDelete && deletingIds.has(Number(item.requestId));
+                const deleteAriaLabel = status === 'draft' ? '删除草稿' : '删除已提交需求';
                 return (
                   <div
                     className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
@@ -278,7 +280,7 @@ function CourseOnboardingModal({
                         <button
                           type="button"
                           className="course-onboarding-course-delete"
-                          aria-label="删除草稿"
+                          aria-label={deleteAriaLabel}
                           title="删除"
                           disabled={isDeleting}
                           onClick={(e) => {
