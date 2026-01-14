@@ -1141,6 +1141,12 @@ function StudentCourseRequestPage() {
                 className="ghost-button"
                 disabled={requestBusy || transitionStage !== 'idle'}
                 onClick={async () => {
+                  const canPersistDraft = currentStep.id !== 'direction' || (isDirectionSelection && isCourseTypeSelection);
+                  if (!canPersistDraft) {
+                    navigate('/student');
+                    return;
+                  }
+
                   flushAvailabilitySave();
                   const savedId = await saveRequestDraft({ includeAttachments: true });
                   if (savedId) navigate('/student');
