@@ -49,6 +49,13 @@
 .course-onboarding-body {
   flex: 1 1 auto;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.course-onboarding-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .course-onboarding-content {
@@ -118,7 +125,7 @@
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.04);
+  background: transparent;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
