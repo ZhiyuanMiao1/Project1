@@ -260,25 +260,25 @@ function CourseOnboardingModal({
                           <span className="course-onboarding-course-type-text">{item.type}</span>
                         </div>
                       </div>
-                      <div className="course-onboarding-course-right">
-                        <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
-                      </div>
                     </button>
 
-                    <button
-                      type="button"
-                      className="course-onboarding-course-delete"
-                      aria-label="删除草稿"
-                      title="删除"
-                      disabled={!canDelete || isDeleting}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        deleteDraft(item.requestId);
-                      }}
-                    >
-                      <FiTrash2 aria-hidden="true" />
-                    </button>
+                    <div className="course-onboarding-course-meta" aria-hidden="true">
+                      <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
+                      <button
+                        type="button"
+                        className="course-onboarding-course-delete"
+                        aria-label="删除草稿"
+                        title="删除"
+                        disabled={!canDelete || isDeleting}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteDraft(item.requestId);
+                        }}
+                      >
+                        <FiTrash2 aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
