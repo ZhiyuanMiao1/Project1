@@ -112,10 +112,12 @@ function CourseOnboardingModal({
           <FiX aria-hidden="true" />
         </button>
 
+        <div className="course-onboarding-header">
+          <h2 className="course-onboarding-title">{title}</h2>
+        </div>
+
         <div className="course-onboarding-body">
           <div className="course-onboarding-content">
-            <h2 className="course-onboarding-title">{title}</h2>
-
             <div className="course-onboarding-card-stack" aria-label="课程与预约信息">
               {courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;

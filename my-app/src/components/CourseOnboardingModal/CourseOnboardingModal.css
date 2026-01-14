@@ -46,6 +46,11 @@
   height: 18px;
 }
 
+.course-onboarding-header {
+  flex: 0 0 auto;
+  padding: 44px 44px 0;
+}
+
 .course-onboarding-body {
   flex: 1 1 auto;
   overflow: auto;
@@ -60,7 +65,7 @@
 }
 
 .course-onboarding-content {
-  padding: 44px 44px 18px;
+  padding: 22px 44px 18px;
 }
 
 .course-onboarding-footer {
@@ -82,7 +87,6 @@
 }
 
 .course-onboarding-card-stack {
-  margin-top: 22px;
   display: grid;
   gap: 12px;
 }
@@ -330,12 +334,16 @@
     padding: 14px;
   }
 
+  .course-onboarding-header {
+    padding: 34px 18px 0;
+  }
+
   .course-onboarding-body {
     margin-bottom: 18px;
   }
 
   .course-onboarding-content {
-    padding: 34px 18px 16px;
+    padding: 18px 18px 16px;
   }
 
   .course-onboarding-title {
