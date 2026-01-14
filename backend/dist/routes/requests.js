@@ -298,6 +298,48 @@ router.get('/draft', auth_1.requireAuth, async (req, res) => {
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
+router.get('/drafts', auth_1.requireAuth, async (req, res) => {
+    if (!ensureAuthed(req, res))
+        return;
+    const rawLimit = typeof req.query?.limit === 'string' ? req.query.limit : '';
+    const parsedLimit = rawLimit ? Number(rawLimit) : 20;
+    const limit = Number.isFinite(parsedLimit)
+        ? Math.max(1, Math.min(50, Math.floor(parsedLimit)))
+        : 20;
+    try {
+        const [rows] = await db_1.pool.execute(`SELECT id, course_direction, course_type, course_types_json, created_at, updated_at
+       FROM course_requests
+       WHERE user_id = ? AND status = 'draft'
+       ORDER BY updated_at DESC
+       LIMIT ${limit}`, [req.user.id]);
+        const drafts = (rows || []).map((r) => {
+            let courseTypes = [];
+            try {
+                courseTypes = r.course_types_json ? JSON.parse(r.course_types_json) : [];
+            }
+            catch {
+                courseTypes = [];
+            }
+            return {
+                id: r.id,
+                courseDirection: r.course_direction,
+                courseType: r.course_type,
+                courseTypes,
+                createdAt: r.created_at,
+                updatedAt: r.updated_at,
+            };
+        });
+        return res.json({ drafts });
+    }
+    catch (e) {
+        const message = typeof e?.message === 'string' ? e.message : '';
+        if (message.includes('course_requests')) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Fetch request drafts error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
 router.post('/save', auth_1.requireAuth, [
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
     (0, express_validator_1.body)('learningGoal').optional().isString().isLength({ max: 200 }),

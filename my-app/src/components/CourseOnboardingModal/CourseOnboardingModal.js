@@ -8,19 +8,18 @@ import {
   courseTypeToCnLabel,
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
+import api from '../../api/client';
 import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
   title = '完善课程资料',
-  mentorName = '',
-  courseName = '',
-  courseType = '作业项目',
-  sampleCoursesCount = 0,
   onConfirm,
   onCreateCourse,
   onClose,
 }) {
   const closeButtonRef = useRef(null);
+  const [draftCards, setDraftCards] = useState([]);
+  const [draftLoading, setDraftLoading] = useState(true);
 
   useLayoutEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -46,6 +45,31 @@ function CourseOnboardingModal({
   }, []);
 
   useEffect(() => {
+    let alive = true;
+
+    const fetchDrafts = async () => {
+      try {
+        setDraftLoading(true);
+        const res = await api.get('/api/requests/drafts', { params: { limit: 20 } });
+        const rows = Array.isArray(res?.data?.drafts) ? res.data.drafts : [];
+        if (!alive) return;
+        setDraftCards(rows);
+      } catch {
+        if (!alive) return;
+        setDraftCards([]);
+      } finally {
+        if (!alive) return;
+        setDraftLoading(false);
+      }
+    };
+
+    fetchDrafts();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') onClose?.();
     };
@@ -58,41 +82,43 @@ function CourseOnboardingModal({
     return fmt.format(new Date());
   }, []);
 
-  const normalizedCourseLabel = useMemo(() => {
-    const raw = String(courseName || '').trim();
-    if (!raw) return '课程';
-    return normalizeCourseLabel(raw) || raw;
-  }, [courseName]);
-
-  const normalizedCourseTypeLabel = useMemo(() => {
-    const raw = String(courseType || '').trim();
-    if (!raw) return '作业项目';
-    return courseTypeToCnLabel(raw) || raw;
-  }, [courseType]);
-
   const courseCards = useMemo(() => {
-    const today = new Date();
     const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
-    const withDate = (label, type, daysAgo) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (Number.isFinite(daysAgo) ? daysAgo : 0));
-      return { label, type, createdLabel: fmt.format(d) };
-    };
 
-    const primary = withDate(normalizedCourseLabel, normalizedCourseTypeLabel, 0);
-    const samples = [
-      withDate('编程基础', '课前预习', 2),
-      withDate('数据结构与算法', '期末复习', 6),
-      withDate('机器学习', '作业项目', 12),
-      withDate('求职辅导', '选课指导', 20),
-    ];
+    if (!Array.isArray(draftCards) || draftCards.length === 0) return [];
 
-    const want = Math.max(0, Math.min(20, Number(sampleCoursesCount) || 0));
-    return [primary, ...samples.slice(0, want)];
-  }, [normalizedCourseLabel, normalizedCourseTypeLabel, sampleCoursesCount]);
+    return draftCards.map((draft) => {
+      const rawDirection = String(draft?.courseDirection || '').trim();
+      const label = normalizeCourseLabel(rawDirection) || rawDirection || '其它课程方向';
+
+      const rawType = String(draft?.courseType || '').trim();
+      const typeFromSingle = rawType ? (courseTypeToCnLabel(rawType) || rawType) : '';
+      const courseTypes = Array.isArray(draft?.courseTypes) ? draft.courseTypes : [];
+      const firstMulti = courseTypes.find((t) => typeof t === 'string' && t.trim());
+      const typeFromMulti = firstMulti ? (courseTypeToCnLabel(firstMulti) || firstMulti) : '';
+      const type = typeFromSingle || typeFromMulti || '未知类型';
+
+      const dt = draft?.createdAt || draft?.updatedAt || Date.now();
+      const createdLabel = (() => {
+        try {
+          return fmt.format(new Date(dt));
+        } catch {
+          return createdDateLabel;
+        }
+      })();
+
+      return { requestId: draft?.id, label, type, createdLabel };
+    });
+  }, [createdDateLabel, draftCards]);
 
   const courseButtonRefs = useRef([]);
   const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
+
+  useEffect(() => {
+    if (selectedCourseIndex !== null) return;
+    if (courseCards.length === 0) return;
+    setSelectedCourseIndex(0);
+  }, [courseCards.length, selectedCourseIndex]);
 
   useEffect(() => {
     setSelectedCourseIndex((prev) => {
@@ -154,7 +180,15 @@ function CourseOnboardingModal({
         <div className="course-onboarding-body">
           <div className="course-onboarding-content">
             <div className="course-onboarding-card-stack" role="radiogroup" aria-label="选择课程">
-              {courseCards.map((item, idx) => {
+              {draftLoading ? (
+                <div className="course-onboarding-empty" role="status" aria-live="polite">
+                  加载中…
+                </div>
+              ) : courseCards.length === 0 ? (
+                <div className="course-onboarding-empty" role="note">
+                  暂无未发布课程
+                </div>
+              ) : courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
                 const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
                 const isSelected = selectedCourseIndex === idx;
@@ -166,7 +200,7 @@ function CourseOnboardingModal({
                     aria-checked={isSelected}
                     tabIndex={isTabbable ? 0 : -1}
                     className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
-                    key={`${item.label}-${item.type}-${idx}`}
+                    key={`${item.requestId || 'draft'}-${idx}`}
                     onClick={() => setSelectedCourseIndex(idx)}
                     onKeyDown={(e) => onCourseKeyDown(e, idx)}
                     ref={(el) => {
@@ -175,10 +209,7 @@ function CourseOnboardingModal({
                   >
                     <div className="course-onboarding-course-left">
                       <div className="course-onboarding-course-title-row">
-                        <span
-                          className="course-onboarding-course-title-icon"
-                          aria-hidden="true"
-                        >
+                        <span className="course-onboarding-course-title-icon" aria-hidden="true">
                           <TitleIcon size={20} />
                         </span>
                         <span className="course-onboarding-course-title-text">
