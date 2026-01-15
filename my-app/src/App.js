@@ -13,6 +13,7 @@ import MessagesPage from './pages/Messages/MessagesPage';
 import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
 import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
 import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
+import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
 
         {/* 导师课程时间轴页 */}
         <Route path="/mentor/courses" element={<MentorCoursesPage />} />
+        <Route path="/mentor/requests/:requestId" element={<CourseRequestDetailPage />} />
         <Route path="/mentor/messages" element={<MessagesPage />} />
         <Route path="/mentor/settings" element={<AccountSettingsPage mode="mentor" />} />
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
@@ -91,8 +92,10 @@ function MentorListingCard({
   favoriteItemId,
   initialFavorited = false,
   onFavoriteChange,
+  disableNavigation = false,
 }) {
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
+  const navigate = useNavigate();
   const { ref: revealRef, visible } = useRevealOnScroll();
 
   useEffect(() => {
@@ -101,6 +104,7 @@ function MentorListingCard({
 
   const toggleFavorite = async (event) => {
     event?.stopPropagation?.();
+    event?.preventDefault?.();
     if (!favoriteRole || !favoriteItemType) {
       setIsFavorited((v) => !v);
       return;
@@ -176,9 +180,35 @@ function MentorListingCard({
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
 
+  const handleOpenDetail = () => {
+    if (disableNavigation) return;
+    const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
+    if (!rawId) return;
+    navigate(`/mentor/requests/${encodeURIComponent(rawId)}`, { state: { request: data } });
+  };
+
+  const interactiveProps = disableNavigation
+    ? {}
+    : {
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `查看课程需求：${name}`,
+        onClick: handleOpenDetail,
+        onKeyDown: (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            handleOpenDetail();
+          }
+        },
+      };
+
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
-    <div ref={revealRef} className={`listing-card mentor-preview-card reveal ${visible ? 'is-visible' : ''}`}>
+    <div
+      ref={revealRef}
+      className={`listing-card mentor-preview-card${disableNavigation ? ' is-static' : ''} reveal ${visible ? 'is-visible' : ''}`}
+      {...interactiveProps}
+    >
       <button
         type="button"
         aria-label={isFavorited ? '取消收藏' : '收藏'}

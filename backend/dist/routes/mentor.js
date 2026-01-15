@@ -136,6 +136,117 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
     ];
     return res.json({ cards });
 });
+// GET /api/mentor/requests/:id — fetch one submitted course request
+router.get('/requests/:id', auth_1.requireAuth, async (req, res) => {
+    const role = req.user?.role;
+    if (role !== 'mentor') {
+        return res.status(403).json({ error: '仅导师可访问' });
+    }
+    // 审核 gating：仅审核通过的导师可查看需求详情
+    try {
+        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
+        const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
+        if (!approved) {
+            return res.status(403).json({ error: '导师审核中' });
+        }
+    }
+    catch (e) {
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+    const rawId = typeof req.params?.id === 'string' ? req.params.id : '';
+    const parsedId = Number(rawId);
+    const requestId = Number.isFinite(parsedId) ? Math.floor(parsedId) : 0;
+    if (!requestId || requestId < 1) {
+        return res.status(400).json({ error: '参数错误' });
+    }
+    try {
+        const rows = await (0, db_1.query)(`SELECT
+         r.id AS request_id,
+         r.user_id AS student_user_id,
+         r.status,
+         r.learning_goal,
+         r.course_direction,
+         r.course_type,
+         r.course_types_json,
+         r.course_focus,
+         r.format,
+         r.milestone,
+         r.total_course_hours,
+         r.time_zone,
+         r.session_duration_hours,
+         r.schedule_json,
+         r.submitted_at,
+         r.created_at,
+         r.updated_at,
+         ur.public_id AS student_public_id,
+         mp.degree AS student_degree,
+         mp.school AS student_school,
+         mp.timezone AS student_timezone,
+         s.student_avatar_url AS student_avatar_url
+       FROM course_requests r
+       JOIN user_roles ur
+         ON ur.user_id = r.user_id AND ur.role = 'student'
+       LEFT JOIN mentor_profiles mp
+         ON mp.user_id = r.user_id
+       LEFT JOIN account_settings s
+         ON s.user_id = r.user_id
+       WHERE r.id = ? AND r.status = 'submitted'
+       LIMIT 1`, [requestId]);
+        const row = rows?.[0];
+        if (!row)
+            return res.status(404).json({ error: '未找到需求' });
+        let courseTypes = [];
+        try {
+            courseTypes = row.course_types_json ? JSON.parse(row.course_types_json) : [];
+        }
+        catch {
+            courseTypes = [];
+        }
+        const courseType = (row.course_type || courseTypes?.[0] || '').toString();
+        if ((!Array.isArray(courseTypes) || courseTypes.length === 0) && courseType) {
+            courseTypes = [courseType];
+        }
+        let daySelections = {};
+        try {
+            daySelections = row.schedule_json ? JSON.parse(row.schedule_json) : {};
+        }
+        catch {
+            daySelections = {};
+        }
+        return res.json({
+            request: {
+                id: Number(row.request_id),
+                studentUserId: Number(row.student_user_id),
+                status: row.status,
+                learningGoal: row.learning_goal || '',
+                courseDirection: row.course_direction || '',
+                courseType: courseType || '',
+                courseTypes,
+                courseFocus: row.course_focus || '',
+                format: row.format || '',
+                milestone: row.milestone || '',
+                totalCourseHours: row.total_course_hours,
+                timeZone: row.time_zone || row.student_timezone || '',
+                sessionDurationHours: row.session_duration_hours,
+                daySelections,
+                student: {
+                    publicId: String(row.student_public_id || '').toUpperCase(),
+                    degree: row.student_degree || '',
+                    school: row.student_school || '',
+                    avatarUrl: row.student_avatar_url || null,
+                    timezone: row.time_zone || row.student_timezone || '',
+                },
+                submittedAt: row.submitted_at,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            },
+        });
+    }
+    catch (e) {
+        console.error('Fetch mentor request detail error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
 // ===== Mentor Profile: CRUD (create/update via upsert, get) =====
 // GET /api/mentor/profile
 router.get('/profile', auth_1.requireAuth, async (req, res) => {
