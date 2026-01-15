@@ -407,11 +407,29 @@ function MentorDetailPage() {
   const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
   const [scheduleSelection, setScheduleSelection] = useState(null);
   const [showCourseOnboarding, setShowCourseOnboarding] = useState(false);
+  const [courseOnboardingSelectedRequestId, setCourseOnboardingSelectedRequestId] = useState(null);
   const [viewMonth, setViewMonth] = useState(() => {
     const parts = getZonedParts(getDefaultTimeZone(), new Date());
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
     return new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1);
   });
+
+  useEffect(() => {
+    const onboarding = location?.state?.courseOnboarding;
+    if (!onboarding || onboarding.open !== true) return;
+
+    setShowCourseOnboarding(true);
+    const selectedId = Number(onboarding.selectedRequestId);
+    if (Number.isFinite(selectedId) && selectedId > 0) {
+      setCourseOnboardingSelectedRequestId(Math.floor(selectedId));
+    }
+
+    try {
+      const nextState = { ...(location?.state || {}) };
+      delete nextState.courseOnboarding;
+      navigate('.', { replace: true, state: nextState });
+    } catch {}
+  }, [location?.state, navigate]);
 
   const ReviewContent = ({ review }) => {
     const contentText = String(review?.content ?? '');
@@ -1533,6 +1551,9 @@ function MentorDetailPage() {
           mentorName={previewCardData?.name || ''}
           courseName={Array.isArray(previewCardData?.courses) ? previewCardData.courses[0] : ''}
           sampleCoursesCount={process.env.NODE_ENV === 'production' ? 0 : 4}
+          mentorId={mentorId}
+          returnTo={currentPath}
+          initialSelectedRequestId={courseOnboardingSelectedRequestId}
           appointment={scheduleSelection ? {
             date: selectedDate,
             windowLabel: `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`,

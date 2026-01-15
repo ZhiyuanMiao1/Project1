@@ -14,6 +14,9 @@ import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
   title = '完善课程资料',
+  mentorId,
+  returnTo,
+  initialSelectedRequestId,
   onConfirm,
   onCreateCourse,
   onClose,
@@ -117,6 +120,14 @@ function CourseOnboardingModal({
 
   const courseButtonRefs = useRef([]);
   const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
+
+  useEffect(() => {
+    const targetId = Number(initialSelectedRequestId);
+    if (!Number.isFinite(targetId) || targetId <= 0) return;
+    const idx = courseCards.findIndex((card) => Number(card?.requestId) === targetId);
+    if (idx < 0) return;
+    setSelectedCourseIndex(idx);
+  }, [courseCards, initialSelectedRequestId]);
 
   useEffect(() => {
     setSelectedCourseIndex((prev) => {
@@ -248,7 +259,13 @@ function CourseOnboardingModal({
                         if (status === 'draft' && item?.requestId) {
                           onClose?.();
                           try {
-                            navigate(`/student/course-request?requestId=${encodeURIComponent(String(item.requestId))}`);
+                            navigate(`/student/course-request?requestId=${encodeURIComponent(String(item.requestId))}`, {
+                              state: {
+                                origin: 'mentor-detail-onboarding',
+                                mentorId,
+                                returnTo,
+                              },
+                            });
                           } catch {}
                           return;
                         }

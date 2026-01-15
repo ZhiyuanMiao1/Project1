@@ -919,6 +919,21 @@ function StudentCourseRequestPage() {
       const res = await api.post('/api/requests/submit', payload);
       const submittedId = res?.data?.requestId;
       if (submittedId) setRequestId(submittedId);
+
+      const origin = location?.state?.origin;
+      const mentorId = location?.state?.mentorId;
+      const returnTo = location?.state?.returnTo;
+      if (origin === 'mentor-detail-onboarding' && mentorId) {
+        const target = (typeof returnTo === 'string' && returnTo.trim())
+          ? returnTo
+          : `/student/mentors/${encodeURIComponent(String(mentorId))}`;
+        navigate(target, {
+          replace: true,
+          state: { courseOnboarding: { open: true, selectedRequestId: submittedId || nextRequestId } },
+        });
+        return;
+      }
+
       setIsCompleted(true);
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || '提交失败，请稍后再试';
