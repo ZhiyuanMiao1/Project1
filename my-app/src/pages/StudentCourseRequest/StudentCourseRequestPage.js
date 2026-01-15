@@ -1261,7 +1261,7 @@ function StudentCourseRequestPage() {
       <div className="course-request-page">        <main className={completionClassName}>
           <div className="completion-card">
             <h2>提交成功！</h2>
-            <p>我们已经收到你的课程需求，学习顾问会在 24 小时内与你取得联系。</p>
+            <p>我们已经收到你的课程需求，若需要可在帮助中心联系学习顾问。</p>
             <div className="completion-actions">
               <button type="button" onClick={() => navigate('/student')}>
                 返回学生首页
