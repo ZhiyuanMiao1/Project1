@@ -6,13 +6,14 @@
   padding: 20px 10px 20px; /* 增加上下内边距 */
   text-align: left;
   transition: transform 0.3s ease;
-  min-height: 320px; /* 设置高度 */
+  height: 360px; /* 固定高度，保持卡片一致 */
   cursor: pointer; /* 鼠标悬停时显示为手型 */
   position: relative;
   box-sizing: border-box;
   width: 100%;
   text-decoration: none;
   color: inherit;
+  overflow: hidden;
 }
 
 .listing-card:hover {

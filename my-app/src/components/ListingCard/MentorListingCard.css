@@ -167,7 +167,7 @@
   display: block; /* 去除行内元素基线空隙 */
 }
 
-/* 覆盖通用卡片的固定最小高度，避免底部留白 */
-.listing-card.mentor-preview-card { min-height: unset; }
+/* 与学生端卡片保持一致的固定高度，避免因某一行缺失导致卡片收缩 */
+.listing-card.mentor-preview-card { height: 210px; }
 
 .listing-card.mentor-preview-card.is-static { cursor: default; }
