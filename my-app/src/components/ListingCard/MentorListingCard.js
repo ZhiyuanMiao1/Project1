@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
@@ -95,7 +94,6 @@ function MentorListingCard({
   disableNavigation = false,
 }) {
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
-  const navigate = useNavigate();
   const { ref: revealRef, visible } = useRevealOnScroll();
 
   useEffect(() => {
@@ -180,43 +178,41 @@ function MentorListingCard({
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
 
-  const handleOpenDetail = () => {
-    if (disableNavigation) return;
-    const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
-    if (!rawId) return;
-    navigate(`/mentor/requests/${encodeURIComponent(rawId)}`, { state: { request: data } });
-  };
-
-  const interactiveProps = disableNavigation
+  const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
+  const detailHref = rawId ? `/mentor/requests/${encodeURIComponent(rawId)}` : '';
+  const WrapperTag = disableNavigation ? 'div' : 'a';
+  const wrapperProps = disableNavigation
     ? {}
     : {
-        role: 'button',
-        tabIndex: 0,
-        'aria-label': `查看课程需求：${name}`,
-        onClick: handleOpenDetail,
-        onKeyDown: (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenDetail();
-          }
-        },
+        href: detailHref || undefined,
+        target: detailHref ? '_blank' : undefined,
+        rel: detailHref ? 'noopener noreferrer' : undefined,
+        'aria-label': `在新标签页查看课程需求：${name}`,
       };
 
   return (
     // 保持原有 .listing-card 尺寸规则，同时套用预览卡的视觉风格
-    <div
+    <WrapperTag
       ref={revealRef}
       className={`listing-card mentor-preview-card${disableNavigation ? ' is-static' : ''} reveal ${visible ? 'is-visible' : ''}`}
-      {...interactiveProps}
+      {...wrapperProps}
     >
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         aria-label={isFavorited ? '取消收藏' : '收藏'}
+        aria-pressed={isFavorited}
         className={`card-fav ${isFavorited ? 'favorited' : ''}`}
         onClick={toggleFavorite}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleFavorite(event);
+          }
+        }}
       >
         <FaHeart />
-      </button>
+      </div>
 
       <div className="card-header">
         <div className="avatar" aria-hidden="true">
@@ -263,7 +259,7 @@ function MentorListingCard({
           </div>
         )}
       </div>
-    </div>
+    </WrapperTag>
   );
 }
 
