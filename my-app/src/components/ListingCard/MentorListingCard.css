@@ -171,3 +171,14 @@
 .listing-card.mentor-preview-card { height: 210px; }
 
 .listing-card.mentor-preview-card.is-static { cursor: default; }
+
+/* Overrides: allow multi-line course focus/milestone and auto height */
+.mentor-preview-card .item { align-items: flex-start; }
+.mentor-preview-card .icon { margin-top: 2px; }
+.mentor-preview-card .item > span:last-child {
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  word-break: break-word;
+}
+.listing-card.mentor-preview-card { min-height: 210px; height: auto; }

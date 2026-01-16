@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './MentorListingCard.css';
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
-import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt } from 'react-icons/fa';
+import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt, FaLightbulb, FaTasks } from 'react-icons/fa';
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
 import { toggleFavoriteItem } from '../../api/favorites';
 import { getAuthToken } from '../../utils/authStorage';
@@ -184,6 +184,20 @@ function MentorListingCard({
     return '';
   })();
 
+  const courseFocusLabel = (() => {
+    const raw = data?.courseFocus;
+    if (typeof raw === 'string') return raw.trim();
+    if (raw === null || typeof raw === 'undefined') return '';
+    return String(raw).trim();
+  })();
+
+  const milestoneLabel = (() => {
+    const raw = data?.milestone;
+    if (typeof raw === 'string') return raw.trim();
+    if (raw === null || typeof raw === 'undefined') return '';
+    return String(raw).trim();
+  })();
+
   const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
   const detailHref = rawId ? `/mentor/requests/${encodeURIComponent(rawId)}` : '';
   const WrapperTag = disableNavigation ? 'div' : 'a';
@@ -256,6 +270,18 @@ function MentorListingCard({
           <div className="item" role="listitem">
             <span className="icon"><FaClock /></span>
             <span>{expectedDurationLabel}</span>
+          </div>
+        )}
+        {!!courseFocusLabel && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaLightbulb /></span>
+            <span>具体内容：{courseFocusLabel}</span>
+          </div>
+        )}
+        {!!milestoneLabel && (
+          <div className="item" role="listitem">
+            <span className="icon"><FaTasks /></span>
+            <span>学习目标：{milestoneLabel}</span>
           </div>
         )}
         {!!data?.requirements && (
