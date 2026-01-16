@@ -247,6 +247,7 @@
   color: #0f172a;
   padding-left: 12px;
   margin-top: -2px;
+  transform: translateY(-4px);
 }
 
 .course-onboarding-course-type-icon {
@@ -515,6 +516,7 @@
 
   .course-onboarding-course-type-row {
     padding-left: 12px;
+    transform: translateY(-3px);
   }
 
   .course-onboarding-action-row {
