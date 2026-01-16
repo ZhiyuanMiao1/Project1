@@ -867,6 +867,13 @@
   line-height: 1.6;
   resize: vertical;  /* 允许用户拉伸 */
   box-shadow: none;
+  overflow-y: auto;
+  scrollbar-width: none;    /* Firefox: hide scrollbar */
+  -ms-overflow-style: none; /* IE/Edge legacy: hide scrollbar */
+}
+.mx-editor-form > .form-row:nth-of-type(6) textarea::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 .mx-editor-form > .form-row:nth-of-type(6) textarea:focus {
   outline: none;
