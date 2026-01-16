@@ -177,6 +177,12 @@ function MentorListingCard({
 
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
+  const expectedDurationLabel = (() => {
+    const raw = data?.expectedDuration;
+    if (typeof raw === 'string') return raw.trim();
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return `${raw}小时`;
+    return '';
+  })();
 
   const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
   const detailHref = rawId ? `/mentor/requests/${encodeURIComponent(rawId)}` : '';
@@ -246,10 +252,10 @@ function MentorListingCard({
             <span>{courseTypeLabel}</span>
           </div>
         )}
-        {!!data?.expectedDuration && (
+        {!!expectedDurationLabel && (
           <div className="item" role="listitem">
             <span className="icon"><FaClock /></span>
-            <span>{data.expectedDuration}</span>
+            <span>{expectedDurationLabel}</span>
           </div>
         )}
         {!!data?.requirements && (

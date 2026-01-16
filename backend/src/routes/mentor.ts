@@ -73,6 +73,7 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
          r.course_direction,
          r.course_type,
          r.course_types_json,
+         r.total_course_hours,
          r.time_zone,
          r.session_duration_hours,
          r.schedule_json,
@@ -115,7 +116,7 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
         courses: r.course_direction ? [String(r.course_direction)] : [],
         courseTypes,
         courseType,
-        expectedDuration: formatDuration(r.session_duration_hours),
+        expectedDuration: formatDuration(r.total_course_hours),
         daySelections,
       };
     });
