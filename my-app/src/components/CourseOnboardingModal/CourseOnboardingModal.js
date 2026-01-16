@@ -99,11 +99,19 @@ function CourseOnboardingModal({
       const label = normalizeCourseLabel(rawDirection) || rawDirection || '其它课程方向';
 
       const rawType = String(draft?.courseType || '').trim();
-      const typeFromSingle = rawType ? (courseTypeToCnLabel(rawType) || rawType) : '';
       const courseTypes = Array.isArray(draft?.courseTypes) ? draft.courseTypes : [];
-      const firstMulti = courseTypes.find((t) => typeof t === 'string' && t.trim());
-      const typeFromMulti = firstMulti ? (courseTypeToCnLabel(firstMulti) || firstMulti) : '';
-      const type = typeFromSingle || typeFromMulti || '未知类型';
+      const normalizedTypeLabels = Array.from(new Set(
+        [
+          rawType,
+          ...courseTypes,
+        ]
+          .map((t) => (typeof t === 'string' ? t.trim() : ''))
+          .filter(Boolean)
+          .map((t) => courseTypeToCnLabel(t) || t)
+          .filter(Boolean)
+      ));
+      const type = normalizedTypeLabels.length ? normalizedTypeLabels.join('、') : '未知类型';
+      const typeIconKey = normalizedTypeLabels[0] || '未知类型';
 
       const dt = draft?.createdAt || draft?.updatedAt || Date.now();
       const createdLabel = (() => {
@@ -114,7 +122,7 @@ function CourseOnboardingModal({
         }
       })();
 
-      return { requestId: draft?.id, status, label, type, createdLabel };
+      return { requestId: draft?.id, status, label, type, typeIconKey, createdLabel };
     });
   }, [createdDateLabel, draftCards]);
 
@@ -234,7 +242,7 @@ function CourseOnboardingModal({
                 </div>
               ) : courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
-                const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.type] || FaEllipsisH;
+                const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[item.typeIconKey] || FaEllipsisH;
                 const isSelected = selectedCourseIndex === idx;
                 const isTabbable = isSelected || (selectedCourseIndex === null && idx === 0);
                 const status = String(item?.status || '');
