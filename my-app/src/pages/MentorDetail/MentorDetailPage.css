@@ -46,6 +46,7 @@
   --mentor-detail-preview-scale: 1.3;
   --mentor-detail-preview-width: calc(var(--mentor-detail-preview-base-width) * var(--mentor-detail-preview-scale));
   --mentor-detail-preview-height: calc(var(--mentor-detail-preview-base-height) * var(--mentor-detail-preview-scale));
+  --mentor-detail-preview-offset-y: 15px;
   margin-top: 34px;
   display: grid;
   grid-template-columns: var(--mentor-detail-preview-width) minmax(0, 1fr);
@@ -68,6 +69,7 @@
   height: var(--preview-card-height);
   flex: 0 0 var(--preview-card-width);
   display: flex;
+  margin-top: var(--mentor-detail-preview-offset-y);
   transform: scale(var(--mentor-detail-preview-scale));
   transform-origin: top left;
   position: relative;
@@ -869,6 +871,7 @@
     --mentor-detail-preview-base-height: 380px;
     --mentor-detail-preview-width: var(--mentor-detail-preview-base-width);
     --mentor-detail-preview-height: var(--mentor-detail-preview-base-height);
+    --mentor-detail-preview-offset-y: 0px;
     grid-template-columns: 1fr;
   }
 
