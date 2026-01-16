@@ -282,6 +282,25 @@ function StudentCourseRequestPage() {
     if (!y||!m||!d) return null;
     return new Date(y, m-1, d);
   }, []);
+  const prunePastDaySelections = useCallback((selections, todayDateLike) => {
+    const today = todayDateLike ? new Date(todayDateLike) : null;
+    if (!today) return (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
+
+    const todayStartTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const input = (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
+    const result = {};
+
+    for (const [key, blocks] of Object.entries(input)) {
+      if (!Array.isArray(blocks) || blocks.length === 0) continue;
+      const dt = keyToDateStrict(key);
+      if (!dt) continue;
+      const ts = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+      if (ts < todayStartTs) continue;
+      result[key] = blocks;
+    }
+
+    return result;
+  }, [keyToDateStrict]);
 
   useEffect(() => {
     if (!resumeRequestId) return;
@@ -328,9 +347,11 @@ function StudentCourseRequestPage() {
               ? Number(draft.sessionDurationHours)
               : 2);
 
-        const nextDaySelections = (draft?.daySelections && typeof draft.daySelections === 'object' && !Array.isArray(draft.daySelections))
+        const rawDaySelections = (draft?.daySelections && typeof draft.daySelections === 'object' && !Array.isArray(draft.daySelections))
           ? draft.daySelections
           : {};
+        const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(tz));
+        const nextDaySelections = prunePastDaySelections(rawDaySelections, fallbackDate);
         setDaySelections(nextDaySelections);
 
         const candidateDayKeys = Object.keys(nextDaySelections)
@@ -338,7 +359,6 @@ function StudentCourseRequestPage() {
           .sort();
         const firstKey = candidateDayKeys[0] || '';
         const firstDate = firstKey ? keyToDateStrict(firstKey) : null;
-        const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(tz));
         const nextSelectedDate = toNoonDate(firstDate || fallbackDate);
         setSelectedDateNoon(nextSelectedDate);
         setViewMonth(new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1));
@@ -404,7 +424,7 @@ function StudentCourseRequestPage() {
         setRequestBusy(false);
       }
     })();
-  }, [buildKey, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon]);
+  }, [buildKey, isLoggedIn, keyToDateStrict, prunePastDaySelections, resumeRequestId, setSelectedDateNoon]);
 
 
 
@@ -568,11 +588,12 @@ function StudentCourseRequestPage() {
     if (!pendingAccountAvailability) return;
     if (selectedTimeZone !== pendingAccountAvailability.timeZone) return;
 
-    setDaySelections(pendingAccountAvailability.daySelections || {});
+    const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone || DEFAULT_TIME_ZONE));
+    setDaySelections(prunePastDaySelections(pendingAccountAvailability.daySelections || {}, fallbackDate));
     availabilityHydratingRef.current = false;
     setPendingAccountAvailability(null);
     setAvailabilityReady(true);
-  }, [pendingAccountAvailability, selectedTimeZone]);
+  }, [pendingAccountAvailability, prunePastDaySelections, selectedTimeZone]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
