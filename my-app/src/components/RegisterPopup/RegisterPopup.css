@@ -42,8 +42,8 @@
     height: 30px; /* 设置按钮高度 */
     background: none;
     border: none;
-    margin-top: 23px;
-    margin-left: 26px;
+    top: 23px;
+    right: 26px;
     font-size: 30px;
     font-weight: 100;
     color: #000000; /* 叉号颜色 */
