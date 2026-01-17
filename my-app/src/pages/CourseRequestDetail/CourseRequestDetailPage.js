@@ -84,6 +84,20 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
+const formatBytes = (value) => {
+  const raw = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(raw) || raw <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let bytes = raw;
+  let unitIndex = 0;
+  while (bytes >= 1024 && unitIndex < units.length - 1) {
+    bytes /= 1024;
+    unitIndex += 1;
+  }
+  const label = unitIndex === 0 ? String(Math.round(bytes)) : String(Math.round(bytes * 10) / 10);
+  return `${label}${units[unitIndex]}`;
+};
+
 const SLOT_MINUTES = 15;
 
 const normalizeAvailabilityPayload = (raw) => {
@@ -464,6 +478,10 @@ function CourseRequestDetailPage() {
 
   const favoriteTargetId = previewCardData?.id ?? requestId;
   const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
+  const requestAttachments = useMemo(() => {
+    const raw = request && typeof request === 'object' && Array.isArray(request.attachments) ? request.attachments : [];
+    return raw.filter((item) => item && typeof item === 'object');
+  }, [request]);
 
   const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
   const monthLabel = useMemo(() => {
@@ -1138,6 +1156,54 @@ function CourseRequestDetailPage() {
                   </div>
                 </div>
               </aside>
+
+              <section className="mentor-detail-attachments" aria-label="学生上传附件">
+                <div className="mentor-detail-attachments-header">
+                  <div className="mentor-detail-attachments-title">学生附件</div>
+                  <div className="mentor-detail-attachments-sub">
+                    {requestAttachments.length ? `${requestAttachments.length} 个文件` : '暂无附件'}
+                  </div>
+                </div>
+
+                {requestAttachments.length ? (
+                  <ul className="mentor-attachments-list">
+                    {requestAttachments.map((att, index) => {
+                      const fileUrl = typeof att.fileUrl === 'string' && att.fileUrl.trim() ? att.fileUrl.trim() : '';
+                      const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
+                      const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
+                      const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
+                      const ext = typeof att.ext === 'string' && att.ext.trim() ? att.ext.trim().toUpperCase() : '';
+                      const sizeLabel = formatBytes(att.sizeBytes);
+                      const meta = [ext, sizeLabel].filter(Boolean).join(' · ');
+                      const key = (typeof att.fileId === 'string' && att.fileId) ? att.fileId : `${fileName}-${index}`;
+
+                      return (
+                        <li key={key} className="mentor-attachment-item">
+                          <div className="mentor-attachment-meta">
+                            <div className="mentor-attachment-name" title={fileName}>{fileName}</div>
+                            {!!meta && <div className="mentor-attachment-sub">{meta}</div>}
+                          </div>
+                          {fileUrl ? (
+                            <a
+                              className="mentor-attachment-action"
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={fileName}
+                            >
+                              下载
+                            </a>
+                          ) : (
+                            <span className="mentor-attachment-action disabled" aria-disabled="true">不可用</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="mentor-detail-attachments-empty">学生未上传附件</div>
+                )}
+              </section>
             </section>
           ) : null}
         </main>

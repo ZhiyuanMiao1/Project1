@@ -232,6 +232,41 @@ router.get('/requests/:id', requireAuth, async (req: Request, res: Response) => 
       daySelections = {};
     }
 
+    let attachments: Array<{
+      fileId: string;
+      fileName: string;
+      ext: string;
+      contentType: string | null;
+      sizeBytes: number;
+      ossKey: string;
+      fileUrl: string;
+      createdAt: any;
+    }> = [];
+
+    try {
+      const attRows = await query<any[]>(
+        'SELECT file_id, original_file_name, ext, content_type, size_bytes, oss_key, file_url, created_at FROM course_request_attachments WHERE request_id = ? ORDER BY id ASC',
+        [requestId]
+      );
+      attachments = (attRows || []).map((r) => ({
+        fileId: r.file_id,
+        fileName: r.original_file_name,
+        ext: r.ext,
+        contentType: r.content_type,
+        sizeBytes: r.size_bytes,
+        ossKey: r.oss_key,
+        fileUrl: r.file_url,
+        createdAt: r.created_at,
+      }));
+    } catch (e) {
+      const message = typeof (e as any)?.message === 'string' ? (e as any).message : '';
+      if (message.includes('course_request_attachments')) {
+        return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+      }
+      console.error('Fetch request attachments error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+
     return res.json({
       request: {
         id: Number(row.request_id),
@@ -255,6 +290,7 @@ router.get('/requests/:id', requireAuth, async (req: Request, res: Response) => 
           avatarUrl: row.student_avatar_url || null,
           timezone: row.time_zone || row.student_timezone || '',
         },
+        attachments,
         submittedAt: row.submitted_at,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
