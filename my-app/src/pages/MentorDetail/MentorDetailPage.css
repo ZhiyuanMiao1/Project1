@@ -142,11 +142,18 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox: hide scrollbar but keep scrolling */
+  -ms-overflow-style: none; /* IE/Edge Legacy: hide scrollbar */
   box-shadow:
     0 24px 60px -16px rgba(17,24,39,0.24),
     0 12px 32px -12px rgba(17,24,39,0.16),
     0 2px 8px -2px rgba(17,24,39,0.08);
   transition: transform 0.3s ease, box-shadow 0.35s ease;
+}
+
+.mentor-detail-preview .listing-card::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .mentor-detail-preview .listing-card::before { content: none; }
