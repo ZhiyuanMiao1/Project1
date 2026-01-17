@@ -205,13 +205,6 @@ const formatTotalHoursLabel = (totalCourseHours) => {
   return `预计时长：${hours}小时`;
 };
 
-const formatSessionDurationLabel = (sessionDurationHours) => {
-  const raw = typeof sessionDurationHours === 'number' ? sessionDurationHours : Number.parseFloat(String(sessionDurationHours ?? ''));
-  if (!Number.isFinite(raw) || raw <= 0) return '';
-  const hours = Number.isInteger(raw) ? String(raw) : String(Math.round(raw * 10) / 10);
-  return `${hours}小时`;
-};
-
 const normalizeRequestToCardData = (request) => {
   if (!request || typeof request !== 'object') return null;
   const student = request.student && typeof request.student === 'object' ? request.student : {};
@@ -225,8 +218,7 @@ const normalizeRequestToCardData = (request) => {
   const timeZone = request.timeZone ? String(request.timeZone).trim() : (student.timezone ? String(student.timezone).trim() : '');
   const earliestDay = buildEarliestSelectedDay(daySelections);
   const requirements = earliestDay ? `期望首课：${earliestDay}` : '';
-  const totalCourseHoursLabel = formatTotalHoursLabel(request.totalCourseHours);
-  const expectedDuration = totalCourseHoursLabel || formatSessionDurationLabel(request.sessionDurationHours) || '';
+  const expectedDuration = formatTotalHoursLabel(request.totalCourseHours);
 
   return {
     id: request.id,
