@@ -139,7 +139,9 @@
   z-index: 2;
   border-radius: var(--mx-preview-card-radius);
   border: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow:
     0 24px 60px -16px rgba(17,24,39,0.24),
     0 12px 32px -12px rgba(17,24,39,0.16),
