@@ -93,20 +93,20 @@
   list-style: none;
   padding: 0;
   margin: 12px 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
 }
 
 .mentor-attachment-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-radius: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(2, 6, 23, 0.02);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .mentor-attachment-meta {
@@ -131,25 +131,32 @@
   color: #6b7280;
 }
 
-.mentor-attachment-action {
+.mentor-attachment-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mentor-attachment-download {
   flex: 0 0 auto;
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
-  padding: 8px 12px;
+  width: 38px;
+  height: 34px;
   border-radius: 12px;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  background: #ffffff;
+  background: rgba(15, 23, 42, 0.02);
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   cursor: pointer;
   user-select: none;
 }
 
-.mentor-attachment-action:hover {
-  background: rgba(15, 23, 42, 0.04);
+.mentor-attachment-download:hover {
+  background: rgba(15, 23, 42, 0.06);
 }
 
-.mentor-attachment-action.disabled {
+.mentor-attachment-download.disabled {
   color: #9ca3af;
   border-color: rgba(15, 23, 42, 0.08);
   background: rgba(2, 6, 23, 0.02);

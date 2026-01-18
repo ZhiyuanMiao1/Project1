@@ -1180,19 +1180,47 @@ function CourseRequestDetailPage() {
                             <div className="mentor-attachment-name" title={fileName}>{fileName}</div>
                             {!!meta && <div className="mentor-attachment-sub">{meta}</div>}
                           </div>
-                          {fileUrl ? (
-                            <a
-                              className="mentor-attachment-action"
-                              href={fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download={fileName}
-                            >
-                              下载
-                            </a>
-                          ) : (
-                            <span className="mentor-attachment-action disabled" aria-disabled="true">不可用</span>
-                          )}
+                          <div className="mentor-attachment-footer">
+                            {fileUrl ? (
+                              <a
+                                className="mentor-attachment-download"
+                                href={fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download={fileName}
+                                aria-label={`下载 ${fileName}`}
+                                title="下载"
+                              >
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                                  <path
+                                    d="M12 3v10m0 0 4-4m-4 4-4-4M4 17v3h16v-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </a>
+                            ) : (
+                              <span
+                                className="mentor-attachment-download disabled"
+                                aria-disabled="true"
+                                title="不可用"
+                              >
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+                                  <path
+                                    d="M12 3v10m0 0 4-4m-4 4-4-4M4 17v3h16v-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
                         </li>
                       );
                     })}
