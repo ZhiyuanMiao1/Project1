@@ -133,7 +133,7 @@
 
 .mentor-attachment-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 }
 
 .mentor-attachment-download {
@@ -141,8 +141,8 @@
   width: 38px;
   height: 34px;
   border-radius: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(15, 23, 42, 0.02);
+  border: 0;
+  background: transparent;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
@@ -153,13 +153,13 @@
 }
 
 .mentor-attachment-download:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: transparent;
+  color: #111827;
 }
 
 .mentor-attachment-download.disabled {
   color: #9ca3af;
-  border-color: rgba(15, 23, 42, 0.08);
-  background: rgba(2, 6, 23, 0.02);
+  background: transparent;
   cursor: not-allowed;
 }
 
