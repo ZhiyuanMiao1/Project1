@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
@@ -445,6 +446,7 @@ function CourseRequestDetailPage() {
   const [isDraggingRange, setIsDraggingRange] = useState(false);
   const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
   const [scheduleSelection, setScheduleSelection] = useState(null);
+  const [showSendConfirm, setShowSendConfirm] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const parts = getZonedParts(getDefaultTimeZone(), new Date());
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
@@ -1030,12 +1032,7 @@ function CourseRequestDetailPage() {
       setShowMentorAuth(true);
       return;
     }
-
-    try {
-      const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
-      alert(`已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}\\n请前往消息页继续沟通`);
-    } catch {}
-    try { navigate('/mentor/messages'); } catch {}
+    setShowSendConfirm(true);
   };
 
   return (
@@ -1435,6 +1432,23 @@ function CourseRequestDetailPage() {
           alignOffset={23}
         />
       )}
+
+      <ConfirmModal
+        open={showSendConfirm}
+        title="确认发送预约？"
+        description={(() => {
+          if (!scheduleSelection) return '未选择预约时间';
+          const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
+          return `已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}\n确认发送后将跳转到消息页继续沟通。`;
+        })()}
+        cancelText="取消"
+        confirmText="确认发送"
+        onCancel={() => setShowSendConfirm(false)}
+        onConfirm={() => {
+          setShowSendConfirm(false);
+          try { navigate('/mentor/messages'); } catch {}
+        }}
+      />
     </div>
   );
 }
