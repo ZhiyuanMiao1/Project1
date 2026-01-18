@@ -561,6 +561,15 @@ function CourseRequestDetailPage() {
       return () => { alive = false; };
     }
 
+    if (!getAuthToken()) {
+      setRequest(null);
+      setLoading(false);
+      setErrorMessage('请用导师身份登录后查看');
+      rememberPostLoginRedirect();
+      setShowMentorAuth(true);
+      return () => { alive = false; };
+    }
+
     setLoading(true);
     setErrorMessage('');
 
@@ -603,7 +612,7 @@ function CourseRequestDetailPage() {
       });
 
     return () => { alive = false; };
-  }, [location?.state?.request, rememberPostLoginRedirect, requestId]);
+  }, [isLoggedIn, location?.state?.request, rememberPostLoginRedirect, requestId]);
 
   const previewCardData = useMemo(() => {
     const data = normalizeRequestToCardData(request);
