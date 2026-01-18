@@ -1198,7 +1198,7 @@ function CourseRequestDetailPage() {
                     })}
                   </ul>
                 ) : (
-                  <div className="mentor-detail-attachments-empty">学生未上传附件</div>
+                  <div className="mentor-detail-attachments-empty">未上传附件</div>
                 )}
               </section>
             </section>
