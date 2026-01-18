@@ -618,6 +618,31 @@ function CourseRequestDetailPage() {
     const raw = request && typeof request === 'object' && Array.isArray(request.attachments) ? request.attachments : [];
     return raw.filter((item) => item && typeof item === 'object');
   }, [request]);
+  const downloadableAttachments = useMemo(() => {
+    return requestAttachments
+      .map((att, index) => {
+        const fileUrl = typeof att.fileUrl === 'string' && att.fileUrl.trim() ? att.fileUrl.trim() : '';
+        if (!fileUrl) return null;
+        const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
+        const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
+        const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
+        return { fileUrl, fileName };
+      })
+      .filter(Boolean);
+  }, [requestAttachments]);
+  const handleDownloadAllAttachments = useCallback(() => {
+    if (!downloadableAttachments.length) return;
+    downloadableAttachments.forEach(({ fileUrl, fileName }) => {
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName || '';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  }, [downloadableAttachments]);
 
   const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
   const monthLabel = useMemo(() => {
@@ -1296,6 +1321,16 @@ function CourseRequestDetailPage() {
               <section className="mentor-detail-attachments" aria-label="学生上传附件">
                 <div className="mentor-detail-attachments-header">
                   <div className="mentor-detail-attachments-title">学生附件</div>
+                  {requestAttachments.length ? (
+                    <button
+                      type="button"
+                      className="mentor-detail-attachments-download-all"
+                      onClick={handleDownloadAllAttachments}
+                      disabled={!downloadableAttachments.length}
+                    >
+                      全部下载
+                    </button>
+                  ) : null}
                 </div>
 
                 {requestAttachments.length ? (

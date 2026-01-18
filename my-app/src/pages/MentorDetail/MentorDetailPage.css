@@ -75,6 +75,26 @@
   color: #111827;
 }
 
+.mentor-detail-attachments-download-all {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.mentor-detail-attachments-download-all:hover {
+  text-decoration: underline;
+}
+
+.mentor-detail-attachments-download-all:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
 .mentor-detail-attachments-sub {
   font-size: 13px;
   color: #6b7280;
