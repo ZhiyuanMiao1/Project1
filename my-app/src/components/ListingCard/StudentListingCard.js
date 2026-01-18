@@ -87,6 +87,16 @@ function StudentListingCard({
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
+  const getReturnPath = () => {
+    try {
+      const { pathname, search, hash } = window.location;
+      const path = `${pathname}${search || ''}${hash || ''}`;
+      return path || '/student';
+    } catch {
+      return '/student';
+    }
+  };
+
   useEffect(() => {
     setIsFavorited(!!initialFavorited);
   }, [initialFavorited]);
@@ -108,7 +118,7 @@ function StudentListingCard({
     const token = getAuthToken();
 
     if (!token) {
-      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/student' } })); } catch {}
+      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: getReturnPath() } })); } catch {}
       return;
     }
 
@@ -127,7 +137,7 @@ function StudentListingCard({
     } catch (e) {
       const status = e?.response?.status;
       if (status === 401) {
-        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/student' } })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: getReturnPath() } })); } catch {}
         return;
       }
       const msg = e?.response?.data?.error || '操作失败，请稍后再试';

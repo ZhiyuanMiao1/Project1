@@ -6,6 +6,7 @@ import MentorListings from '../Listings/MentorListings';
 import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { COURSE_TYPE_EN_TO_CN, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
+import { getAuthToken } from '../../utils/authStorage';
 import './MentorPage.css';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
@@ -178,6 +179,9 @@ function MentorPage() {
   const [appliedCourseType, setAppliedCourseType] = useState('');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedCategoryId, setAppliedCategoryId] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!getAuthToken();
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const askedLoginRef = useRef(false);
@@ -192,10 +196,44 @@ function MentorPage() {
   }, [location]);
 
   useEffect(() => {
+    const handler = (event) => {
+      if (typeof event?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(!!event.detail.isLoggedIn);
+      } else {
+        setIsLoggedIn(!!getAuthToken());
+      }
+    };
+    window.addEventListener('auth:changed', handler);
+    const onStorage = (ev) => {
+      if (ev.key === 'authToken') setIsLoggedIn(!!(ev.newValue || getAuthToken()));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:changed', handler);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  useEffect(() => {
     let alive = true;
 
     async function load() {
+      if (getAuthToken()) askedLoginRef.current = false;
+      if (!isLoggedIn || !getAuthToken()) {
+        if (!alive) return;
+        setStatus('unauthenticated');
+        try { sessionStorage.setItem('postLoginRedirect', currentPath); } catch {}
+        try { sessionStorage.setItem('requiredRole', 'mentor'); } catch {}
+        try { navigate('/mentor', { replace: true, state: { from: currentPath } }); } catch {}
+        if (!askedLoginRef.current) {
+          askedLoginRef.current = true;
+          try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: currentPath } })); } catch {}
+        }
+        return;
+      }
+
       try {
+        setStatus('loading');
         const res = await api.get('/api/mentor/cards');
         if (!alive) return;
         setCards(Array.isArray(res.data?.cards) ? res.data.cards : []);
@@ -232,7 +270,7 @@ function MentorPage() {
 
     load();
     return () => { alive = false; };
-  }, [currentPath, navigate]);
+  }, [currentPath, isLoggedIn, navigate]);
 
   useEffect(() => {
     const handler = (event) => {

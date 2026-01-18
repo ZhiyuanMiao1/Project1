@@ -69,7 +69,7 @@ function MentorCoursesPage() {
     };
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
-  }, [isLoggedIn]);
+  }, []);
 
   // 访问控制：导师且审核通过才能查看
   useEffect(() => {
@@ -85,6 +85,12 @@ function MentorCoursesPage() {
 
     (async () => {
       try {
+        if (!getAuthToken()) {
+          setStatus('unauthenticated');
+          setErrorMessage('请先登录导师账号');
+          askLogin();
+          return;
+        }
         const res = await api.get('/api/mentor/permissions');
         if (!alive) return;
         if (res?.data?.canEditProfile) {
@@ -119,7 +125,7 @@ function MentorCoursesPage() {
     })();
 
     return () => { alive = false; };
-  }, []);
+  }, [isLoggedIn]);
 
   const timelineData = useMemo(() => {
     const sorted = [...MOCK_MENTOR_COURSES].sort((a, b) => new Date(b.date) - new Date(a.date));

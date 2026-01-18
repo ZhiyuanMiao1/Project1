@@ -96,6 +96,16 @@ function MentorListingCard({
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
+  const getReturnPath = () => {
+    try {
+      const { pathname, search, hash } = window.location;
+      const path = `${pathname}${search || ''}${hash || ''}`;
+      return path || '/mentor';
+    } catch {
+      return '/mentor';
+    }
+  };
+
   useEffect(() => {
     setIsFavorited(!!initialFavorited);
   }, [initialFavorited]);
@@ -119,7 +129,7 @@ function MentorListingCard({
 
     const token = getAuthToken();
     if (!token) {
-      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/mentor' } })); } catch {}
+      try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: getReturnPath() } })); } catch {}
       return;
     }
 
@@ -138,7 +148,7 @@ function MentorListingCard({
     } catch (e) {
       const status = e?.response?.status;
       if (status === 401) {
-        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: window.location?.pathname || '/mentor' } })); } catch {}
+        try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: getReturnPath() } })); } catch {}
         return;
       }
       const msg = e?.response?.data?.error || '操作失败，请稍后再试';
