@@ -90,7 +90,7 @@
 }
 
 .mentor-attachments-list {
-  --mentor-attachment-card-width: 260px;
+  --mentor-attachment-card-width: 240px;
   list-style: none;
   padding: 0;
   margin: 12px 0 0;
@@ -112,6 +112,7 @@
   width: 100%;
   height: 140px;
   padding: 16px 16px 16px 14px;
+  box-sizing: border-box;
   border-radius: 18px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   background: #fff;
