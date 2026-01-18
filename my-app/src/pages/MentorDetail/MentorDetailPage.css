@@ -90,14 +90,13 @@
 }
 
 .mentor-attachments-list {
-  --mentor-attachment-card-width: 240px;
+  --mentor-attachment-gap: 12px;
   list-style: none;
   padding: 0;
   margin: 12px 0 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--mentor-attachment-card-width));
-  gap: 12px;
-  justify-content: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--mentor-attachment-gap);
 }
 
 .mentor-attachment-item {
