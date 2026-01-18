@@ -58,7 +58,6 @@
 .mentor-detail-attachments {
   grid-column: 1 / -1;
   background: #fff;
-  border: 1px solid #e5e7eb;
   border-radius: 18px;
   padding: 16px 16px 18px;
 }

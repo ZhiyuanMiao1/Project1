@@ -1160,9 +1160,6 @@ function CourseRequestDetailPage() {
               <section className="mentor-detail-attachments" aria-label="学生上传附件">
                 <div className="mentor-detail-attachments-header">
                   <div className="mentor-detail-attachments-title">学生附件</div>
-                  <div className="mentor-detail-attachments-sub">
-                    {requestAttachments.length ? `${requestAttachments.length} 个文件` : '暂无附件'}
-                  </div>
                 </div>
 
                 {requestAttachments.length ? (
