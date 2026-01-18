@@ -98,6 +98,142 @@ const formatBytes = (value) => {
   return `${label}${units[unitIndex]}`;
 };
 
+const normalizeFileExt = (value) => {
+  const cleaned = typeof value === 'string' ? value.trim().replace(/^\./, '') : '';
+  return cleaned ? cleaned.toLowerCase() : '';
+};
+
+const getFileExtFromName = (fileName) => {
+  if (typeof fileName !== 'string') return '';
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === fileName.length - 1) return '';
+  return normalizeFileExt(fileName.slice(lastDot + 1));
+};
+
+const getAttachmentTypeKey = ({ ext, fileName }) => {
+  const normalizedExt = normalizeFileExt(ext) || getFileExtFromName(fileName);
+  if (!normalizedExt) return 'file';
+
+  const imageExts = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tif', 'tiff', 'heic']);
+  if (imageExts.has(normalizedExt)) return 'image';
+  if (normalizedExt === 'pdf') return 'pdf';
+  if (['doc', 'docx', 'rtf'].includes(normalizedExt)) return 'doc';
+  if (['xls', 'xlsx', 'csv'].includes(normalizedExt)) return 'sheet';
+  if (['ppt', 'pptx', 'key'].includes(normalizedExt)) return 'slide';
+  if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(normalizedExt)) return 'archive';
+  if (['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'].includes(normalizedExt)) return 'audio';
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(normalizedExt)) return 'video';
+  if (['txt', 'md', 'log'].includes(normalizedExt)) return 'text';
+  if (['js', 'ts', 'tsx', 'jsx', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php', 'html', 'css', 'json', 'xml', 'yml', 'yaml'].includes(normalizedExt)) {
+    return 'code';
+  }
+
+  return 'file';
+};
+
+const getAttachmentBadge = ({ ext, fileName, typeKey }) => {
+  const normalizedExt = normalizeFileExt(ext) || getFileExtFromName(fileName);
+  if (typeKey === 'image') return 'IMG';
+  if (typeKey === 'pdf') return 'PDF';
+  if (typeKey === 'doc') return 'DOC';
+  if (typeKey === 'sheet') return 'XLS';
+  if (typeKey === 'slide') return 'PPT';
+  if (typeKey === 'archive') return 'ZIP';
+  if (typeKey === 'audio') return 'AUD';
+  if (typeKey === 'video') return 'VID';
+  if (typeKey === 'text') return 'TXT';
+  if (typeKey === 'code') return 'CODE';
+  if (!normalizedExt) return 'FILE';
+  return normalizedExt.slice(0, 4).toUpperCase();
+};
+
+const AttachmentTypeIcon = ({ typeKey }) => {
+  switch (typeKey) {
+    case 'image':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M6 7h12a2 2 0 0 1 2 2v10H4V9a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M7 16l3-3 2 2 3-3 2 2v3H7v-1Z" fill="currentColor" opacity="0.28" />
+          <circle cx="9" cy="10" r="1.2" fill="currentColor" opacity="0.55" />
+        </svg>
+      );
+    case 'pdf':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M7 3h7l3 3v15H7V3Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M14 3v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M8 15c1.8-3.1 3.1-5.1 4-6 1.2-1.2 1.6 1.2-.3 3.2 1.4.8 2.5 1.6 3.3 2.3 1.6 1.5-1 1.7-3.4.5-1.7 1.2-3.2 1.8-4.3 1.8-1.7 0-.6-1.4.7-1.8Z" fill="currentColor" opacity="0.25" />
+        </svg>
+      );
+    case 'doc':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M7 3h7l3 3v15H7V3Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M14 3v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9 10h7M9 13h7M9 16h6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'sheet':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M7 3h7l3 3v15H7V3Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M14 3v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9 10h8M9 14h8M12 9v8M15 9v8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />
+        </svg>
+      );
+    case 'slide':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M6 6h12a2 2 0 0 1 2 2v9H4V8a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M10 10l5 2.5L10 15v-5Z" fill="currentColor" opacity="0.35" />
+        </svg>
+      );
+    case 'archive':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M6 7h12a2 2 0 0 1 2 2v10H4V9a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M12 9v9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeDasharray="1.5 2.2" opacity="0.9" />
+          <path d="M10 12h4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
+        </svg>
+      );
+    case 'audio':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M8 9v8a2 2 0 1 0 0-4V9l10-2v6a2 2 0 1 0 0-4V7" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'video':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M6 7h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M11 10l4 2-4 2v-4Z" fill="currentColor" opacity="0.35" />
+        </svg>
+      );
+    case 'text':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M7 3h7l3 3v15H7V3Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M14 3v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M9 11h7M9 14h7M9 17h5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
+        </svg>
+      );
+    case 'code':
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M8.5 9.5 6 12l2.5 2.5M15.5 9.5 18 12l-2.5 2.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M13 8 11 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    default:
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" className="mentor-attachment-icon-svg">
+          <path d="M7 3h7l3 3v15H7V3Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M14 3v4h4" fill="none" stroke="currentColor" strokeWidth="1.8" />
+        </svg>
+      );
+  }
+};
+
 const SLOT_MINUTES = 15;
 
 const normalizeAvailabilityPayload = (raw) => {
@@ -1169,58 +1305,33 @@ function CourseRequestDetailPage() {
                       const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
                       const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
                       const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
-                      const ext = typeof att.ext === 'string' && att.ext.trim() ? att.ext.trim().toUpperCase() : '';
                       const sizeLabel = formatBytes(att.sizeBytes);
-                      const meta = [ext, sizeLabel].filter(Boolean).join(' · ');
+                      const typeKey = getAttachmentTypeKey({ ext: att.ext, fileName });
+                      const badge = getAttachmentBadge({ ext: att.ext, fileName, typeKey });
+                      const meta = sizeLabel;
                       const key = (typeof att.fileId === 'string' && att.fileId) ? att.fileId : `${fileName}-${index}`;
+                      const Wrapper = fileUrl ? 'a' : 'div';
 
                       return (
                         <li key={key} className="mentor-attachment-item">
-                          <div className="mentor-attachment-meta">
-                            <div className="mentor-attachment-name" title={fileName}>{fileName}</div>
-                            {!!meta && <div className="mentor-attachment-sub">{meta}</div>}
-                          </div>
-                          <div className="mentor-attachment-footer">
-                            {fileUrl ? (
-                              <a
-                                className="mentor-attachment-download"
-                                href={fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={fileName}
-                                aria-label={`下载 ${fileName}`}
-                                title="下载"
-                              >
-                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                                  <path
-                                    d="M12 3v10m0 0 4-4m-4 4-4-4M4 17v3h16v-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </a>
-                            ) : (
-                              <span
-                                className="mentor-attachment-download disabled"
-                                aria-disabled="true"
-                                title="不可用"
-                              >
-                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-                                  <path
-                                    d="M12 3v10m0 0 4-4m-4 4-4-4M4 17v3h16v-3"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </span>
-                            )}
-                          </div>
+                          <Wrapper
+                            className={`mentor-attachment-card${fileUrl ? '' : ' disabled'}`}
+                            href={fileUrl || undefined}
+                            target={fileUrl ? '_blank' : undefined}
+                            rel={fileUrl ? 'noopener noreferrer' : undefined}
+                            download={fileUrl ? fileName : undefined}
+                            aria-disabled={fileUrl ? undefined : 'true'}
+                            title={fileUrl ? `下载 ${fileName}` : '不可用'}
+                          >
+                            <div className={`mentor-attachment-icon type-${typeKey}`} aria-hidden="true">
+                              <AttachmentTypeIcon typeKey={typeKey} />
+                              <div className="mentor-attachment-icon-badge">{badge}</div>
+                            </div>
+                            <div className="mentor-attachment-info">
+                              <div className="mentor-attachment-name" title={fileName}>{fileName}</div>
+                              {!!meta && <div className="mentor-attachment-sub">{meta}</div>}
+                            </div>
+                          </Wrapper>
                         </li>
                       );
                     })}
