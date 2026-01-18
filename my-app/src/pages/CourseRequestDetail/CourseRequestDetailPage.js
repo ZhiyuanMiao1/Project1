@@ -621,28 +621,71 @@ function CourseRequestDetailPage() {
   const downloadableAttachments = useMemo(() => {
     return requestAttachments
       .map((att, index) => {
-        const fileUrl = typeof att.fileUrl === 'string' && att.fileUrl.trim() ? att.fileUrl.trim() : '';
-        if (!fileUrl) return null;
+        const fileId = typeof att.fileId === 'string' && /^[0-9a-fA-F]{32}$/.test(att.fileId) ? att.fileId.toLowerCase() : '';
+        if (!fileId) return null;
         const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
         const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
         const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
-        return { fileUrl, fileName };
+        return { fileId, fileName };
       })
       .filter(Boolean);
   }, [requestAttachments]);
+
+  const triggerDownloadUrl = useCallback((url) => {
+    if (!url) return;
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = url;
+    document.body.appendChild(iframe);
+    window.setTimeout(() => {
+      try { iframe.remove(); } catch {}
+    }, 30_000);
+  }, []);
+
+  const fetchAttachmentSignedUrl = useCallback(async (fileId) => {
+    const rid = String(requestId || '').trim();
+    if (!rid) throw new Error('缺少 requestId');
+    const res = await api.get(`/api/attachments/course-requests/${encodeURIComponent(rid)}/attachments/${encodeURIComponent(fileId)}/signed-url`);
+    const url = res?.data?.url;
+    if (!url || typeof url !== 'string') throw new Error('签名链接无效');
+    return url;
+  }, [requestId]);
+
+  const fetchAttachmentsSignedUrls = useCallback(async (fileIds) => {
+    const rid = String(requestId || '').trim();
+    if (!rid) throw new Error('缺少 requestId');
+    const res = await api.post(`/api/attachments/course-requests/${encodeURIComponent(rid)}/attachments/signed-urls`, { fileIds });
+    const items = Array.isArray(res?.data?.items) ? res.data.items : [];
+    return items
+      .map((it) => ({ fileId: it?.fileId, url: it?.url }))
+      .filter((it) => typeof it?.fileId === 'string' && typeof it?.url === 'string' && it.url);
+  }, [requestId]);
+
+  const handleDownloadAttachment = useCallback(async (fileId) => {
+    try {
+      const url = await fetchAttachmentSignedUrl(fileId);
+      triggerDownloadUrl(url);
+    } catch (e) {
+      const msg = e?.response?.data?.error || e?.message || '下载失败，请稍后再试';
+      window.alert(String(msg));
+    }
+  }, [fetchAttachmentSignedUrl, triggerDownloadUrl]);
+
   const handleDownloadAllAttachments = useCallback(() => {
     if (!downloadableAttachments.length) return;
-    downloadableAttachments.forEach(({ fileUrl, fileName }) => {
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = fileName || '';
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    });
-  }, [downloadableAttachments]);
+    const fileIds = downloadableAttachments.map((x) => x.fileId);
+    fetchAttachmentsSignedUrls(fileIds)
+      .then((items) => {
+        if (!items.length) throw new Error('未获取到下载链接');
+        items.forEach((it, idx) => {
+          window.setTimeout(() => triggerDownloadUrl(it.url), idx * 200);
+        });
+      })
+      .catch((e) => {
+        const msg = e?.response?.data?.error || e?.message || '下载失败，请稍后再试';
+        window.alert(String(msg));
+      });
+  }, [downloadableAttachments, fetchAttachmentsSignedUrls, triggerDownloadUrl]);
 
   const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
   const monthLabel = useMemo(() => {
@@ -1336,7 +1379,7 @@ function CourseRequestDetailPage() {
                 {requestAttachments.length ? (
                   <ul className="mentor-attachments-list">
                     {requestAttachments.map((att, index) => {
-                      const fileUrl = typeof att.fileUrl === 'string' && att.fileUrl.trim() ? att.fileUrl.trim() : '';
+                      const fileId = typeof att.fileId === 'string' && /^[0-9a-fA-F]{32}$/.test(att.fileId) ? att.fileId.toLowerCase() : '';
                       const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
                       const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
                       const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
@@ -1344,19 +1387,18 @@ function CourseRequestDetailPage() {
                       const typeKey = getAttachmentTypeKey({ ext: att.ext, fileName });
                       const badge = getAttachmentBadge({ ext: att.ext, fileName, typeKey });
                       const meta = sizeLabel;
-                      const key = (typeof att.fileId === 'string' && att.fileId) ? att.fileId : `${fileName}-${index}`;
-                      const Wrapper = fileUrl ? 'a' : 'div';
+                      const key = fileId ? fileId : `${fileName}-${index}`;
+                      const canDownload = !!fileId;
 
                       return (
                         <li key={key} className="mentor-attachment-item">
-                          <Wrapper
-                            className={`mentor-attachment-card${fileUrl ? '' : ' disabled'}`}
-                            href={fileUrl || undefined}
-                            target={fileUrl ? '_blank' : undefined}
-                            rel={fileUrl ? 'noopener noreferrer' : undefined}
-                            download={fileUrl ? fileName : undefined}
-                            aria-disabled={fileUrl ? undefined : 'true'}
-                            title={fileUrl ? `下载 ${fileName}` : '不可用'}
+                          <button
+                            type="button"
+                            className={`mentor-attachment-card${canDownload ? '' : ' disabled'}`}
+                            onClick={canDownload ? () => handleDownloadAttachment(fileId) : undefined}
+                            disabled={!canDownload}
+                            aria-disabled={canDownload ? undefined : 'true'}
+                            title={canDownload ? `下载 ${fileName}` : '不可用'}
                           >
                             <div className={`mentor-attachment-icon type-${typeKey}`} aria-hidden="true">
                               <AttachmentTypeIcon typeKey={typeKey} />
@@ -1366,7 +1408,7 @@ function CourseRequestDetailPage() {
                               <div className="mentor-attachment-name" title={fileName}>{fileName}</div>
                               {!!meta && <div className="mentor-attachment-sub">{meta}</div>}
                             </div>
-                          </Wrapper>
+                          </button>
                         </li>
                       );
                     })}

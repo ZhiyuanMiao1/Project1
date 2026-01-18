@@ -138,6 +138,7 @@
   box-shadow: none;
   text-decoration: none;
   color: inherit;
+  text-align: left;
   cursor: pointer;
   transition: transform 140ms ease, background-color 140ms ease;
 }

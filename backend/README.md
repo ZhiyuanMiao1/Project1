@@ -8,6 +8,8 @@
 - `POST /api/register`：注册/开通角色（`email`、`password`、`role`、可选 `username`）。同一 `email` 只对应一个账号 `userId`；若账号已存在且密码正确，可追加开通另一角色。
 - `POST /api/login`：用户登录（`email` 支持邮箱 / StudentID(s#) / MentorID(m#)，`password`），返回 JWT（默认优先使用 `mentor` 作为 token role），并返回该账号已开通的角色列表（含 `public_id`）。
 - `GET /api/mentor/cards`：导师卡片；仅 `role=mentor` 且 `mentor_approved=1` 可访问，否则返回 403 `{ error: '导师审核中' }`。
+- `POST /api/oss/policy`：浏览器直传 OSS 的短时 policy（用于头像/附件上传）。
+- `GET /api/attachments/course-requests/:requestId/attachments/:fileId/signed-url`：后端鉴权后返回短时签名下载链接（用于私有 OSS 附件下载）。
 
 ## 环境变量（已迁移到阿里云 RDS）
 
@@ -23,6 +25,12 @@ DB_PORT=3306
 DB_USER=your_db_user
 DB_PASSWORD=your_db_password
 DB_NAME=project1
+
+# 阿里云 OSS（用于上传 policy + 下载签名链接）
+OSS_REGION=cn-hongkong
+OSS_BUCKET=your_bucket
+OSS_ACCESS_KEY_ID=your_access_key_id
+OSS_ACCESS_KEY_SECRET=your_access_key_secret
 ```
 
 注意：请在阿里云 RDS 控制台配置「白名单/安全组」，放行你的后端服务器出口 IP（或本机 IP）访问 `DB_PORT`。
