@@ -119,12 +119,11 @@
   text-decoration: none;
   color: inherit;
   cursor: pointer;
-  transition: box-shadow 140ms ease, transform 140ms ease, background-color 140ms ease;
+  transition: transform 140ms ease, background-color 140ms ease;
 }
 
 .mentor-attachment-card:hover {
   background: rgba(2, 6, 23, 0.015);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
   transform: translateY(-2px);
 }
 
