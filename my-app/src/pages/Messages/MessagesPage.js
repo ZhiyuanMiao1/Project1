@@ -5,7 +5,7 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
-import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { getAuthToken } from '../../utils/authStorage';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
@@ -30,12 +30,6 @@ const getThreadCounterpartDisplayName = (thread) => {
     return thread.counterpartId.trim();
   }
   return stripDisplaySuffix(thread.counterpart);
-};
-
-const getAuthedRole = () => {
-  const user = getAuthUser() || {};
-  const role = user?.role || (Array.isArray(user?.roles) && user.roles.includes('mentor') ? 'mentor' : undefined);
-  return role === 'mentor' ? 'mentor' : 'student';
 };
 
 // For now, threads are fetched per authed role, so the viewer's role is the thread role.
@@ -611,7 +605,6 @@ const buildMockAvailability = (date, role) => {
 function MessagesPage() {
   const location = useLocation();
   const isMentorView = useMemo(() => {
-    if (getAuthToken()) return getAuthedRole() === 'mentor';
     return location.pathname.startsWith('/mentor');
   }, [location.pathname]);
 
@@ -712,7 +705,7 @@ function MessagesPage() {
 
     setThreadsStatus('loading');
     setThreadsError('');
-    api.get('/api/messages/threads')
+    api.get('/api/messages/threads', { params: { view: isMentorView ? 'mentor' : 'student' } })
       .then((res) => {
         if (!alive) return;
         const next = Array.isArray(res?.data?.threads) ? res.data.threads : [];

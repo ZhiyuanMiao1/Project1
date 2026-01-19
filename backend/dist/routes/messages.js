@@ -118,7 +118,9 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
     try {
-        if (req.user.role === 'student') {
+        const view = typeof req.query?.view === 'string' ? req.query.view.trim().toLowerCase() : '';
+        const asMentorView = view === 'mentor';
+        if (!asMentorView) {
             const rows = await (0, db_1.query)(`
         SELECT
           t.id AS thread_id,
