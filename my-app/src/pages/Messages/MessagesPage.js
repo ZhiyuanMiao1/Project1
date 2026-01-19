@@ -38,12 +38,7 @@ const getAuthedRole = () => {
   return role === 'mentor' ? 'mentor' : 'student';
 };
 
-const getThreadMyRole = (thread) => {
-  if (!thread) return 'student';
-  // mock 数据：导师侧的会话都会携带学生的 counterpartId（StudentID）
-  if (typeof thread.counterpartId === 'string' && thread.counterpartId.trim()) return 'mentor';
-  return 'student';
-};
+// For now, threads are fetched per authed role, so the viewer's role is the thread role.
 
 const getCourseTitleParts = (thread, scheduleCard) => {
   const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
@@ -86,7 +81,7 @@ const buildScheduleCardsFromThread = (thread) => {
   return [...history, ...main];
 };
 
-const STUDENT_THREADS = []; /*
+/* const STUDENT_THREADS = [
   {
     id: 's-01',
     subject: '日程确认',
@@ -259,7 +254,7 @@ const STUDENT_THREADS = []; /*
   },
 */
 
-const MENTOR_THREADS = []; /*
+/* const MENTOR_THREADS = [
   {
     id: 'm-01',
     subject: '日程邀请',
@@ -476,6 +471,37 @@ const formatHoverTime = (rawValue) => {
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
+const formatThreadTimeLabel = (rawValue) => {
+  const text = String(rawValue || '').trim();
+  if (!text) return '';
+  if (/^(今天|昨天|周[一二三四五六日天])\b/.test(text) || /月\\d{1,2}日/.test(text)) return text;
+
+  const parsed = Date.parse(text);
+  if (Number.isNaN(parsed)) return text;
+
+  const dt = new Date(parsed);
+  const now = new Date();
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const timePart = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+
+  const sameYmd = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+  if (sameYmd(dt, now)) return `今天 ${timePart}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (sameYmd(dt, yesterday)) return `昨天 ${timePart}`;
+
+  const diffDays = Math.floor((now.getTime() - dt.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays >= 0 && diffDays < 7) {
+    const week = weekdayLabels[dt.getDay()] || '';
+    return `${week} ${timePart}`;
+  }
+
+  return `${dt.getMonth() + 1}月${dt.getDate()}日 ${timePart}`;
+};
+
 const formatFullDate = (date) => {
   if (!(date instanceof Date)) return '';
   const label = weekdayLabels[date.getDay()] || '';
@@ -609,6 +635,9 @@ function MessagesPage() {
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [myAvailability, setMyAvailability] = useState(null);
+  const [threads, setThreads] = useState([]);
+  const [threadsStatus, setThreadsStatus] = useState('idle'); // idle | loading | loaded | error
+  const [threadsError, setThreadsError] = useState('');
 
   useEffect(() => {
     const handler = (e) => {
@@ -670,31 +699,48 @@ function MessagesPage() {
     setRescheduleSelection(null);
   }, [rescheduleDate]);
 
-  const threads = useMemo(() => {
-    if (!isMentorView) return STUDENT_THREADS;
-
-    // 导师也可能作为学生向其它导师提问，因此混合展示两类会话（mock 数据交错合并）
-    const merged = [];
-    const maxLen = Math.max(MENTOR_THREADS.length, STUDENT_THREADS.length);
-    for (let index = 0; index < maxLen; index += 1) {
-      const studentSide = STUDENT_THREADS[index];
-      const mentorSide = MENTOR_THREADS[index];
-      if (studentSide) merged.push(studentSide);
-      if (mentorSide) merged.push(mentorSide);
-    }
-    return merged;
-  }, [isMentorView]);
   const hasThreads = threads.length > 0;
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setThreads([]);
+      setThreadsStatus('idle');
+      setThreadsError('');
+      return () => { alive = false; };
+    }
+
+    setThreadsStatus('loading');
+    setThreadsError('');
+    api.get('/api/messages/threads')
+      .then((res) => {
+        if (!alive) return;
+        const next = Array.isArray(res?.data?.threads) ? res.data.threads : [];
+        setThreads(next);
+        setThreadsStatus('loaded');
+      })
+      .catch((err) => {
+        if (!alive) return;
+        const msg = err?.response?.data?.error || err?.message || '加载会话失败，请稍后再试';
+        setThreads([]);
+        setThreadsStatus('error');
+        setThreadsError(String(msg));
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn, isMentorView]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [openMoreId, setOpenMoreId] = useState(null);
 
   useEffect(() => {
-    setActiveId(threads[0]?.id || null);
+    const target = location?.state?.threadId;
+    const preferred = target && threads.some((t) => String(t?.id) === String(target)) ? String(target) : null;
+    setActiveId(preferred || threads[0]?.id || null);
     setScheduleDecision(null);
     setDecisionMenuOpen(false);
     setOpenMoreId(null);
-  }, [threads]);
+  }, [location?.state?.threadId, threads]);
 
   useEffect(() => {
     if (!openMoreId) return undefined;
@@ -716,7 +762,7 @@ function MessagesPage() {
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
   const activeCounterpartDisplayName = useMemo(() => getThreadCounterpartDisplayName(activeThread), [activeThread]);
-  const isMentorInThread = useMemo(() => getThreadMyRole(activeThread) === 'mentor', [activeThread]);
+  const isMentorInThread = isMentorView;
   const detailAvatarInitial = useMemo(() => {
     const name = activeCounterpartDisplayName || '';
     return name.trim().charAt(0) || '·';
@@ -1090,7 +1136,9 @@ function MessagesPage() {
           <h1>消息</h1>
         </section>
 
-        {errorMessage && <div className="messages-alert">{errorMessage}</div>}
+        {(errorMessage || threadsError) && (
+          <div className="messages-alert">{errorMessage || threadsError}</div>
+        )}
 
         {isLoggedIn && (
         <section className="messages-shell" aria-label="消息列表与详情">
@@ -1111,9 +1159,9 @@ function MessagesPage() {
                     const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
                     const initial = threadCounterpartDisplayName.trim().charAt(0) || '·';
                     const isActive = thread.id === activeThread?.id;
-                    const rawTime = thread.time || '';
-                    const timeParts = rawTime.split(/\s+/).filter(Boolean);
-                    const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || rawTime);
+                    const timeLabel = formatThreadTimeLabel(thread.time || '');
+                    const timeParts = timeLabel.split(/\s+/).filter(Boolean);
+                    const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || timeLabel);
 
                     const hasCourseMeta =
                       Boolean(thread?.courseDirectionId || thread?.courseTypeId) ||
@@ -1429,7 +1477,7 @@ function MessagesPage() {
             ) : (
               <div className="messages-empty messages-empty-center">选择左侧的一条会话查看详情</div>
             )) : (
-              <div className="messages-empty messages-empty-center">暂无会话</div>
+              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? '加载中…' : '暂无会话'}</div>
             )}
           </div>
         </section>

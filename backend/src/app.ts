@@ -10,6 +10,7 @@ import favoritesRoute from './routes/favorites';
 import ossRoute from './routes/oss';
 import requestsRoute from './routes/requests';
 import attachmentsRoute from './routes/attachments';
+import messagesRoute from './routes/messages';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/favorites', favoritesRoute);
 app.use('/api/oss', ossRoute);
 app.use('/api/requests', requestsRoute);
 app.use('/api/attachments', attachmentsRoute);
+app.use('/api/messages', messagesRoute);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

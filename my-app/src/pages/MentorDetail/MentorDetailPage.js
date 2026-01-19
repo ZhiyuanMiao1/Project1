@@ -1107,6 +1107,39 @@ function MentorDetailPage() {
     setShowCourseOnboarding(true);
   };
 
+  const handleConfirmAppointmentCourse = async (selectedCourse) => {
+    if (!scheduleSelection) {
+      setShowCourseOnboarding(false);
+      return;
+    }
+    if (!selectedCourse) {
+      alert('请选择一个课程');
+      return;
+    }
+
+    const startLabel = minutesToTimeLabel(scheduleSelection.startMinutes);
+    const endLabel = minutesToTimeLabel(scheduleSelection.endMinutes);
+    const windowLabel = `${startLabel} - ${endLabel}`;
+    const tzShort = buildShortUTC(selectedTimeZone);
+    const windowText = `${formatFullDate(selectedDate)} ${windowLabel} (${tzShort})`;
+
+    try {
+      setShowCourseOnboarding(false);
+      const res = await api.post('/api/messages/appointments', {
+        mentorId,
+        courseRequestId: selectedCourse.requestId,
+        courseDirectionId: selectedCourse.courseDirectionId || '',
+        courseTypeId: selectedCourse.courseTypeId || '',
+        windowText,
+      });
+      const threadId = res?.data?.threadId;
+      navigate('/student/messages', { state: { from: 'mentor-detail', threadId: threadId ? String(threadId) : undefined } });
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '发送失败，请稍后再试';
+      alert(String(msg));
+    }
+  };
+
   return (
     <div className="mentor-detail-page">
       <div className="container">
@@ -1559,6 +1592,7 @@ function MentorDetailPage() {
             windowLabel: `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`,
             timeZoneLabel: `${buildShortUTC(selectedTimeZone)} ${selectedTimeZone}`,
           } : null}
+          onConfirm={handleConfirmAppointmentCourse}
           onCreateCourse={() => {
             setShowCourseOnboarding(false);
             navigate('/student/course-request', { state: { from: 'mentor-detail', mentorId } });

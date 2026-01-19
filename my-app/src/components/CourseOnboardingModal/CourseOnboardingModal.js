@@ -96,9 +96,11 @@ function CourseOnboardingModal({
     return draftCards.map((draft) => {
       const status = String(draft?.status || 'draft');
       const rawDirection = String(draft?.courseDirection || '').trim();
+      const courseDirectionId = rawDirection;
       const label = normalizeCourseLabel(rawDirection) || rawDirection || '其它课程方向';
 
       const rawType = String(draft?.courseType || '').trim();
+      const courseTypeId = rawType;
       const courseTypes = Array.isArray(draft?.courseTypes) ? draft.courseTypes : [];
       const normalizedTypeLabels = Array.from(new Set(
         [
@@ -120,9 +122,18 @@ function CourseOnboardingModal({
         } catch {
           return createdDateLabel;
         }
-      })();
+        })();
 
-      return { requestId: draft?.id, status, label, type, typeIconKey, createdLabel };
+      return {
+        requestId: draft?.id,
+        status,
+        label,
+        type,
+        typeIconKey,
+        createdLabel,
+        courseDirectionId,
+        courseTypeId,
+      };
     });
   }, [createdDateLabel, draftCards]);
 
