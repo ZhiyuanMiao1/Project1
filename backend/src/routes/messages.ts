@@ -5,45 +5,12 @@ import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
 
-const ensureMessagesTables = async () => {
-  await query(`
-    CREATE TABLE IF NOT EXISTS \`message_threads\` (
-      \`id\` BIGINT NOT NULL AUTO_INCREMENT,
-      \`student_user_id\` INT NOT NULL,
-      \`mentor_user_id\` INT NOT NULL,
-      \`last_message_id\` BIGINT NULL,
-      \`last_message_at\` TIMESTAMP NULL,
-      \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      UNIQUE KEY \`uniq_message_threads_pair\` (\`student_user_id\`, \`mentor_user_id\`),
-      KEY \`idx_message_threads_student\` (\`student_user_id\`),
-      KEY \`idx_message_threads_mentor\` (\`mentor_user_id\`),
-      CONSTRAINT \`fk_message_threads_student\` FOREIGN KEY (\`student_user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE,
-      CONSTRAINT \`fk_message_threads_mentor\` FOREIGN KEY (\`mentor_user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS \`message_items\` (
-      \`id\` BIGINT NOT NULL AUTO_INCREMENT,
-      \`thread_id\` BIGINT NOT NULL,
-      \`sender_user_id\` INT NOT NULL,
-      \`message_type\` VARCHAR(50) NOT NULL,
-      \`payload_json\` TEXT NULL,
-      \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`id\`),
-      KEY \`idx_message_items_thread\` (\`thread_id\`),
-      CONSTRAINT \`fk_message_items_thread\` FOREIGN KEY (\`thread_id\`) REFERENCES \`message_threads\`(\`id\`) ON DELETE CASCADE,
-      CONSTRAINT \`fk_message_items_sender\` FOREIGN KEY (\`sender_user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
+const isMissingMessagesSchemaError = (err: any) => {
+  const code = typeof err?.code === 'string' ? err.code : '';
+  if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR') return true;
+  const message = typeof err?.message === 'string' ? err.message : '';
+  return message.includes('message_threads') || message.includes('message_items');
 };
-
-// Best-effort: the rest of the app already runs without an explicit migration step.
-ensureMessagesTables().catch((e) => {
-  console.error('ensureMessagesTables failed:', e);
-});
 
 const formatZoomMeetingId = (digits: number) => {
   const text = String(digits).padStart(9, '0').slice(0, 9);
@@ -129,6 +96,9 @@ router.post('/appointments', requireAuth, async (req: Request, res: Response) =>
 
     return res.json({ threadId });
   } catch (e) {
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
     console.error('Create appointment message error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
@@ -207,6 +177,9 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
 
     return res.json({ threads });
   } catch (e) {
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
     console.error('Fetch message threads error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }

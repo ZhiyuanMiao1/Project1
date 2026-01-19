@@ -217,3 +217,33 @@ CREATE TABLE IF NOT EXISTS `course_request_attachments` (
   KEY `idx_course_request_attachments_request` (`request_id`),
   CONSTRAINT `fk_course_request_attachments_request` FOREIGN KEY (`request_id`) REFERENCES `course_requests`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11) Messages / appointments (account-scoped inbox)
+CREATE TABLE IF NOT EXISTS `message_threads` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `student_user_id` INT NOT NULL,
+  `mentor_user_id` INT NOT NULL,
+  `last_message_id` BIGINT NULL,
+  `last_message_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_message_threads_pair` (`student_user_id`, `mentor_user_id`),
+  KEY `idx_message_threads_student` (`student_user_id`),
+  KEY `idx_message_threads_mentor` (`mentor_user_id`),
+  CONSTRAINT `fk_message_threads_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_message_threads_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `message_items` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `thread_id` BIGINT NOT NULL,
+  `sender_user_id` INT NOT NULL,
+  `message_type` VARCHAR(50) NOT NULL,
+  `payload_json` TEXT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_message_items_thread` (`thread_id`),
+  CONSTRAINT `fk_message_items_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_message_items_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
