@@ -427,6 +427,25 @@ const formatHoverTime = (rawValue) => {
   const timeMatch = text.match(/(\d{1,2}:\d{2})/);
   const timePart = timeMatch ? timeMatch[1] : '';
 
+  const parsed = Date.parse(text);
+  const looksLikeIso = /T\d{2}:\d{2}:\d{2}/.test(text) || /Z$/.test(text);
+  if (!Number.isNaN(parsed) && looksLikeIso) {
+    const dt = new Date(parsed);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const localTimePart = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+
+    const sameYmd = (a, b) =>
+      a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    if (sameYmd(dt, now)) return localTimePart;
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (sameYmd(dt, yesterday)) return `${toDateLabel(dt)} ${localTimePart}`;
+
+    return `${toDateLabel(dt)} ${localTimePart}`;
+  }
+
   if (text.startsWith('今天')) {
     const trimmed = text.replace(/^今天\s*/, '').trim();
     return timePart || trimmed || text;
