@@ -282,6 +282,64 @@ function StudentCourseRequestPage() {
     if (!y||!m||!d) return null;
     return new Date(y, m-1, d);
   }, []);
+
+  const normalizeAvailabilityBlocks = useCallback((rawBlocks) => {
+    if (!Array.isArray(rawBlocks) || rawBlocks.length === 0) return [];
+    const cleaned = rawBlocks
+      .map((b) => ({ start: Number(b?.start), end: Number(b?.end) }))
+      .filter((b) => Number.isFinite(b.start) && Number.isFinite(b.end))
+      .map((b) => ({
+        start: Math.max(0, Math.min(95, Math.floor(Math.min(b.start, b.end)))),
+        end: Math.max(0, Math.min(95, Math.floor(Math.max(b.start, b.end)))),
+      }));
+    if (cleaned.length <= 1) return cleaned;
+
+    const sorted = [...cleaned].sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+    for (let i = 1; i < sorted.length; i += 1) {
+      const prev = merged[merged.length - 1];
+      const cur = sorted[i];
+      if (cur.start <= prev.end + 1) prev.end = Math.max(prev.end, cur.end);
+      else merged.push({ ...cur });
+    }
+    return merged;
+  }, []);
+
+  const normalizeDaySelectionKeys = useCallback((selections) => {
+    const input = (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
+    const out = {};
+
+    const parseDayKeyLoose = (key) => {
+      if (typeof key !== 'string') return null;
+      const match = key.match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/);
+      if (!match) return null;
+      const year = Number.parseInt(match[1], 10);
+      const month = Number.parseInt(match[2], 10);
+      const day = Number.parseInt(match[3], 10);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+      if (month < 1 || month > 12) return null;
+      if (day < 1 || day > 31) return null;
+      const dt = new Date(year, month - 1, day);
+      if (!Number.isFinite(dt.getTime())) return null;
+      return dt;
+    };
+
+    for (const [rawKey, rawBlocks] of Object.entries(input)) {
+      const dt = keyToDateStrict(rawKey) || parseDayKeyLoose(rawKey);
+      if (!dt) continue;
+      const normalizedKey = buildKey(dt);
+      const blocks = normalizeAvailabilityBlocks(rawBlocks);
+      if (!blocks.length) continue;
+
+      const existing = out[normalizedKey];
+      out[normalizedKey] = existing
+        ? normalizeAvailabilityBlocks([...(existing || []), ...blocks])
+        : blocks;
+    }
+
+    return out;
+  }, [buildKey, keyToDateStrict, normalizeAvailabilityBlocks]);
+
   const prunePastDaySelections = useCallback((selections, todayDateLike) => {
     const today = todayDateLike ? new Date(todayDateLike) : null;
     if (!today) return (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
@@ -319,14 +377,8 @@ function StudentCourseRequestPage() {
         if (!draft) return;
 
         const safeText = (value) => (typeof value === 'string' ? value : '');
-        const tz = safeText(draft?.timeZone).trim() || DEFAULT_TIME_ZONE;
-
-        // Prevent automatic account-availability hydration from overriding draft schedule.
-        hasEditedAvailabilityRef.current = true;
-        availabilityHydratingRef.current = false;
-        previousTimeZoneRef.current = tz;
-        setPendingAccountAvailability(null);
-        setAvailabilityReady(true);
+        const tzFromDraft = safeText(draft?.timeZone).trim();
+        const scheduleTimeZone = tzFromDraft || previousTimeZoneRef.current || DEFAULT_TIME_ZONE;
 
         const rawCourseTypes = Array.isArray(draft?.courseTypes) ? draft.courseTypes : [];
         const normalizedCourseTypes = rawCourseTypes.filter((v) => typeof v === 'string' && v.trim()).map((v) => v.trim());
@@ -340,35 +392,50 @@ function StudentCourseRequestPage() {
           (typeof draft?.totalCourseHours === 'number' && Number.isFinite(draft.totalCourseHours))
             ? String(draft.totalCourseHours)
             : (typeof draft?.totalCourseHours === 'string' && draft.totalCourseHours.trim() ? draft.totalCourseHours.trim() : '');
-        const sessionDurationHours =
-          (typeof draft?.sessionDurationHours === 'number' && Number.isFinite(draft.sessionDurationHours))
-            ? draft.sessionDurationHours
-            : (typeof draft?.sessionDurationHours === 'string' && draft.sessionDurationHours.trim()
-              ? Number(draft.sessionDurationHours)
-              : 2);
+        let draftSessionDurationHours = null;
+        if (typeof draft?.sessionDurationHours === 'number' && Number.isFinite(draft.sessionDurationHours)) {
+          draftSessionDurationHours = draft.sessionDurationHours;
+        } else if (typeof draft?.sessionDurationHours === 'string' && draft.sessionDurationHours.trim()) {
+          const parsed = Number(draft.sessionDurationHours);
+          if (Number.isFinite(parsed)) draftSessionDurationHours = parsed;
+        }
 
         const rawDaySelections = (draft?.daySelections && typeof draft.daySelections === 'object' && !Array.isArray(draft.daySelections))
           ? draft.daySelections
           : {};
-        const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(tz));
-        const nextDaySelections = prunePastDaySelections(rawDaySelections, fallbackDate);
-        setDaySelections(nextDaySelections);
+        const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(scheduleTimeZone));
+        const normalizedDaySelections = normalizeDaySelectionKeys(rawDaySelections);
+        const nextDaySelections = prunePastDaySelections(normalizedDaySelections, fallbackDate);
 
-        const candidateDayKeys = Object.keys(nextDaySelections)
-          .filter((k) => Array.isArray(nextDaySelections?.[k]) && nextDaySelections[k].length > 0)
-          .sort();
-        const firstKey = candidateDayKeys[0] || '';
-        const firstDate = firstKey ? keyToDateStrict(firstKey) : null;
-        const nextSelectedDate = toNoonDate(firstDate || fallbackDate);
-        setSelectedDateNoon(nextSelectedDate);
-        setViewMonth(new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1));
-        const selectedKey = buildKey(nextSelectedDate);
-        setSelectedRangeKeys(selectedKey ? [selectedKey] : []);
-        setDragStartKey(null);
-        setDragEndKey(null);
-        setIsDraggingRange(false);
-        setDragPreviewKeys(new Set());
-        didDragRef.current = false;
+        const draftHasScheduleSelections = Object.keys(nextDaySelections)
+          .some((k) => Array.isArray(nextDaySelections?.[k]) && nextDaySelections[k].length > 0);
+
+        if (draftHasScheduleSelections) {
+          // Prevent account-availability hydration from overriding an existing draft schedule.
+          hasEditedAvailabilityRef.current = true;
+          availabilityHydratingRef.current = false;
+          previousTimeZoneRef.current = scheduleTimeZone;
+          setPendingAccountAvailability(null);
+          setAvailabilityReady(true);
+
+          setDaySelections(nextDaySelections);
+
+          const candidateDayKeys = Object.keys(nextDaySelections)
+            .filter((k) => Array.isArray(nextDaySelections?.[k]) && nextDaySelections[k].length > 0)
+            .sort();
+          const firstKey = candidateDayKeys[0] || '';
+          const firstDate = firstKey ? keyToDateStrict(firstKey) : null;
+          const nextSelectedDate = toNoonDate(firstDate || fallbackDate);
+          setSelectedDateNoon(nextSelectedDate);
+          setViewMonth(new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1));
+          const selectedKey = buildKey(nextSelectedDate);
+          setSelectedRangeKeys(selectedKey ? [selectedKey] : []);
+          setDragStartKey(null);
+          setDragEndKey(null);
+          setIsDraggingRange(false);
+          setDragPreviewKeys(new Set());
+          didDragRef.current = false;
+        }
 
         setIsCompleted(false);
         setUploadValidationMessage('');
@@ -385,8 +452,10 @@ function StudentCourseRequestPage() {
           format: safeText(draft?.format) || prev.format,
           milestone: safeText(draft?.milestone),
           totalCourseHours,
-          availability: tz,
-          sessionDurationHours: (Number.isFinite(sessionDurationHours) ? sessionDurationHours : prev.sessionDurationHours),
+          ...(draftHasScheduleSelections ? { availability: scheduleTimeZone } : null),
+          ...(draftHasScheduleSelections && draftSessionDurationHours != null
+            ? { sessionDurationHours: draftSessionDurationHours }
+            : null),
           contactName: safeText(draft?.contactName),
           contactMethod: safeText(draft?.contactMethod) || prev.contactMethod,
           contactValue: safeText(draft?.contactValue),
@@ -424,7 +493,7 @@ function StudentCourseRequestPage() {
         setRequestBusy(false);
       }
     })();
-  }, [buildKey, isLoggedIn, keyToDateStrict, prunePastDaySelections, resumeRequestId, setSelectedDateNoon]);
+  }, [buildKey, isLoggedIn, keyToDateStrict, normalizeDaySelectionKeys, prunePastDaySelections, resumeRequestId, setSelectedDateNoon]);
 
 
 
@@ -589,11 +658,12 @@ function StudentCourseRequestPage() {
     if (selectedTimeZone !== pendingAccountAvailability.timeZone) return;
 
     const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone || DEFAULT_TIME_ZONE));
-    setDaySelections(prunePastDaySelections(pendingAccountAvailability.daySelections || {}, fallbackDate));
+    const normalizedDaySelections = normalizeDaySelectionKeys(pendingAccountAvailability.daySelections || {});
+    setDaySelections(prunePastDaySelections(normalizedDaySelections, fallbackDate));
     availabilityHydratingRef.current = false;
     setPendingAccountAvailability(null);
     setAvailabilityReady(true);
-  }, [pendingAccountAvailability, prunePastDaySelections, selectedTimeZone]);
+  }, [normalizeDaySelectionKeys, pendingAccountAvailability, prunePastDaySelections, selectedTimeZone]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
