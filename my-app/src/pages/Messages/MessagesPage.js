@@ -32,7 +32,10 @@ const getThreadCounterpartDisplayName = (thread) => {
   return stripDisplaySuffix(thread.counterpart);
 };
 
-// For now, threads are fetched per authed role, so the viewer's role is the thread role.
+const getThreadMyRole = (thread) => {
+  const role = typeof thread?.myRole === 'string' ? thread.myRole.trim().toLowerCase() : '';
+  return role === 'mentor' ? 'mentor' : 'student';
+};
 
 const getCourseTitleParts = (thread, scheduleCard) => {
   const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
@@ -725,7 +728,7 @@ function MessagesPage() {
 
     setThreadsStatus('loading');
     setThreadsError('');
-    api.get('/api/messages/threads', { params: { view: isMentorView ? 'mentor' : 'student' } })
+    api.get('/api/messages/threads')
       .then((res) => {
         if (!alive) return;
         const next = Array.isArray(res?.data?.threads) ? res.data.threads : [];
@@ -741,7 +744,7 @@ function MessagesPage() {
       });
 
     return () => { alive = false; };
-  }, [isLoggedIn, isMentorView]);
+  }, [isLoggedIn]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [openMoreId, setOpenMoreId] = useState(null);
@@ -775,7 +778,7 @@ function MessagesPage() {
 
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
   const activeCounterpartDisplayName = useMemo(() => getThreadCounterpartDisplayName(activeThread), [activeThread]);
-  const isMentorInThread = isMentorView;
+  const isMentorInThread = useMemo(() => getThreadMyRole(activeThread) === 'mentor', [activeThread]);
   const detailAvatarInitial = useMemo(() => {
     const name = activeCounterpartDisplayName || '';
     return name.trim().charAt(0) || '·';

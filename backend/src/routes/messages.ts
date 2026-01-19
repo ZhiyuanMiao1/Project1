@@ -138,90 +138,46 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
   try {
-    const view = typeof req.query?.view === 'string' ? req.query.view.trim().toLowerCase() : '';
-    const asMentorView = view === 'mentor';
-
-    if (!asMentorView) {
-      const rows = await query<any[]>(
-        `
-        SELECT
-          t.id AS thread_id,
-          t.last_message_at,
-          t.updated_at,
-          m.sender_user_id,
-          m.payload_json,
-          u.username AS mentor_username,
-          ur.public_id AS mentor_public_id,
-          mp.display_name AS mentor_display_name
-        FROM message_threads t
-        LEFT JOIN message_items m ON m.id = t.last_message_id
-        LEFT JOIN users u ON u.id = t.mentor_user_id
-        LEFT JOIN user_roles ur ON ur.user_id = t.mentor_user_id AND ur.role = 'mentor'
-        LEFT JOIN mentor_profiles mp ON mp.user_id = t.mentor_user_id
-        WHERE t.student_user_id = ?
-        ORDER BY COALESCE(t.last_message_at, t.updated_at) DESC
-        LIMIT 50
-        `,
-        [req.user.id]
-      );
-
-      const threads = (rows || []).map((r) => {
-        let payload: any = null;
-        try { payload = r.payload_json ? JSON.parse(r.payload_json) : null; } catch { payload = null; }
-        const counterpart = String(r.mentor_display_name || r.mentor_username || r.mentor_public_id || '导师');
-        const lastAt = r.last_message_at || r.updated_at;
-        const schedule = payload && payload.kind === 'appointment_card'
-          ? {
-              direction: Number(r.sender_user_id) === req.user!.id ? 'outgoing' : 'incoming',
-              window: String(payload.windowText || '').trim(),
-              meetingId: String(payload.meetingId || '').trim(),
-              status: 'pending',
-              courseDirectionId: payload.courseDirectionId || '',
-              courseTypeId: payload.courseTypeId || '',
-            }
-          : null;
-
-        return {
-          id: String(r.thread_id),
-          subject: '日程',
-          counterpart,
-          time: lastAt ? new Date(lastAt).toISOString() : '',
-          courseDirectionId: payload?.courseDirectionId || '',
-          courseTypeId: payload?.courseTypeId || '',
-          schedule,
-          scheduleHistory: [],
-          messages: [],
-        };
-      });
-
-      return res.json({ threads });
-    }
-
     const rows = await query<any[]>(
       `
       SELECT
         t.id AS thread_id,
+        t.student_user_id,
+        t.mentor_user_id,
         t.last_message_at,
         t.updated_at,
         m.sender_user_id,
         m.payload_json,
-        u.username AS student_username,
-        ur.public_id AS student_public_id
+        su.username AS student_username,
+        srole.public_id AS student_public_id,
+        mu.username AS mentor_username,
+        mrole.public_id AS mentor_public_id,
+        mp.display_name AS mentor_display_name
       FROM message_threads t
       LEFT JOIN message_items m ON m.id = t.last_message_id
-      LEFT JOIN users u ON u.id = t.student_user_id
-      LEFT JOIN user_roles ur ON ur.user_id = t.student_user_id AND ur.role = 'student'
-      WHERE t.mentor_user_id = ?
+      LEFT JOIN users su ON su.id = t.student_user_id
+      LEFT JOIN user_roles srole ON srole.user_id = t.student_user_id AND srole.role = 'student'
+      LEFT JOIN users mu ON mu.id = t.mentor_user_id
+      LEFT JOIN user_roles mrole ON mrole.user_id = t.mentor_user_id AND mrole.role = 'mentor'
+      LEFT JOIN mentor_profiles mp ON mp.user_id = t.mentor_user_id
+      WHERE t.student_user_id = ? OR t.mentor_user_id = ?
       ORDER BY COALESCE(t.last_message_at, t.updated_at) DESC
-      LIMIT 50
+      LIMIT 100
       `,
-      [req.user.id]
+      [req.user.id, req.user.id]
     );
 
     const threads = (rows || []).map((r) => {
       let payload: any = null;
       try { payload = r.payload_json ? JSON.parse(r.payload_json) : null; } catch { payload = null; }
-      const counterpart = String(r.student_username || r.student_public_id || '学生');
+
+      const isStudentSide = Number(r.student_user_id) === req.user!.id;
+      const myRole = isStudentSide ? 'student' : 'mentor';
+      const counterpart = isStudentSide
+        ? String(r.mentor_display_name || r.mentor_username || r.mentor_public_id || '导师')
+        : String(r.student_username || r.student_public_id || '学生');
+      const counterpartId = isStudentSide ? '' : String(r.student_public_id || '');
+
       const lastAt = r.last_message_at || r.updated_at;
       const schedule = payload && payload.kind === 'appointment_card'
         ? {
@@ -237,8 +193,9 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       return {
         id: String(r.thread_id),
         subject: '日程',
+        myRole,
         counterpart,
-        counterpartId: String(r.student_public_id || ''),
+        counterpartId,
         time: lastAt ? new Date(lastAt).toISOString() : '',
         courseDirectionId: payload?.courseDirectionId || '',
         courseTypeId: payload?.courseTypeId || '',
