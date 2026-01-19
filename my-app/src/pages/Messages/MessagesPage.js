@@ -612,6 +612,7 @@ function MessagesPage() {
   const menuAnchorRef = useRef(null);
   const messageBodyScrollRef = useRef(null);
   const scheduleCardSendTimeoutRef = useRef(null);
+  const entryAnimatedThreadRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
   const rescheduleInitialScrollSet = useRef(false);
   const rescheduleResizeRef = useRef(null);
@@ -800,6 +801,24 @@ function MessagesPage() {
       scheduleCardSendTimeoutRef.current = null;
     }
   }, [activeThread?.id]);
+
+  useEffect(() => {
+    const targetThreadId = location?.state?.threadId;
+    const animateKey = location?.state?.animateKey;
+    if (!targetThreadId) return;
+    if (!activeThread?.id || String(activeThread.id) !== String(targetThreadId)) return;
+
+    const dedupeKey = animateKey ? String(animateKey) : `thread:${String(targetThreadId)}`;
+    if (entryAnimatedThreadRef.current === dedupeKey) return;
+    entryAnimatedThreadRef.current = dedupeKey;
+
+    setIsScheduleCardSending(true);
+    if (scheduleCardSendTimeoutRef.current) clearTimeout(scheduleCardSendTimeoutRef.current);
+    scheduleCardSendTimeoutRef.current = setTimeout(() => {
+      setIsScheduleCardSending(false);
+      scheduleCardSendTimeoutRef.current = null;
+    }, 900);
+  }, [activeThread?.id, location?.state?.animateKey, location?.state?.threadId]);
 
   const decisionPopoverActions = useMemo(() => {
     if (scheduleDecision === 'accepted') {

@@ -1133,7 +1133,13 @@ function MentorDetailPage() {
         windowText,
       });
       const threadId = res?.data?.threadId;
-      navigate('/student/messages', { state: { from: 'mentor-detail', threadId: threadId ? String(threadId) : undefined } });
+      navigate('/student/messages', {
+        state: {
+          from: 'mentor-detail',
+          threadId: threadId ? String(threadId) : undefined,
+          animateKey: Date.now(),
+        },
+      });
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || '发送失败，请稍后再试';
       alert(String(msg));
