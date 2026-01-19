@@ -57,7 +57,6 @@ const buildDefaultMeetingId = () => {
 
 router.post('/appointments', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
-  if (req.user.role !== 'student') return res.status(403).json({ error: '仅学生可发送预约' });
 
   const mentorPublicId = typeof req.body?.mentorId === 'string' ? req.body.mentorId.trim() : '';
   const windowText = typeof req.body?.windowText === 'string' ? req.body.windowText.trim() : '';
@@ -254,4 +253,3 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
 });
 
 export default router;
-
