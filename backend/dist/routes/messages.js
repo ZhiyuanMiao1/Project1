@@ -135,13 +135,16 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         m.payload_json,
         su.username AS student_username,
         srole.public_id AS student_public_id,
+        sas.student_avatar_url AS student_avatar_url,
         mu.username AS mentor_username,
         mrole.public_id AS mentor_public_id,
-        mp.display_name AS mentor_display_name
+        mp.display_name AS mentor_display_name,
+        mp.avatar_url AS mentor_avatar_url
       FROM message_threads t
       LEFT JOIN message_items m ON m.id = t.last_message_id
       LEFT JOIN users su ON su.id = t.student_user_id
       LEFT JOIN user_roles srole ON srole.user_id = t.student_user_id AND srole.role = 'student'
+      LEFT JOIN account_settings sas ON sas.user_id = t.student_user_id
       LEFT JOIN users mu ON mu.id = t.mentor_user_id
       LEFT JOIN user_roles mrole ON mrole.user_id = t.mentor_user_id AND mrole.role = 'mentor'
       LEFT JOIN mentor_profiles mp ON mp.user_id = t.mentor_user_id
@@ -156,6 +159,9 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 ? String(r.mentor_display_name || r.mentor_username || r.mentor_public_id || '导师')
                 : String(r.student_username || r.student_public_id || '学生');
             const counterpartId = isStudentSide ? '' : String(r.student_public_id || '');
+            const counterpartAvatarUrl = isStudentSide
+                ? String(r.mentor_avatar_url || '')
+                : String(r.student_avatar_url || '');
             const lastAt = r.last_message_at || r.updated_at;
             return {
                 id: String(r.thread_id),
@@ -163,6 +169,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 myRole,
                 counterpart,
                 counterpartId,
+                counterpartAvatarUrl,
                 time: lastAt ? new Date(lastAt).toISOString() : '',
                 courseDirectionId: '',
                 courseTypeId: '',

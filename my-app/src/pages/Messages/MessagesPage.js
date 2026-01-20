@@ -1192,6 +1192,7 @@ function MessagesPage() {
                 : threads.map((thread) => {
                     const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
                     const initial = threadCounterpartDisplayName.trim().charAt(0) || '·';
+                    const avatarUrl = typeof thread?.counterpartAvatarUrl === 'string' ? thread.counterpartAvatarUrl.trim() : '';
                     const isActive = thread.id === activeThread?.id;
                     const timeLabel = formatThreadTimeLabel(thread.time || '');
                     const timeParts = timeLabel.split(/\s+/).filter(Boolean);
@@ -1215,12 +1216,25 @@ function MessagesPage() {
                         }}
                         aria-pressed={isActive}
                       >
-                        <div className="message-item-shell">
-                          <div className="message-avatar" aria-hidden="true">{initial}</div>
-                          <div className="message-content">
-                            <div className="message-name">{threadCounterpartDisplayName}</div>
-                            <div className="message-subject">{listSubtitle}</div>
-                          </div>
+                          <div className="message-item-shell">
+                            <div className="message-avatar" aria-hidden="true">
+                              <span className="message-avatar-fallback">{initial}</span>
+                              {avatarUrl ? (
+                                <img
+                                  className="message-avatar-img"
+                                  src={avatarUrl}
+                                  alt=""
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                            <div className="message-content">
+                              <div className="message-name">{threadCounterpartDisplayName}</div>
+                              <div className="message-subject">{listSubtitle}</div>
+                            </div>
                           <div className="message-meta-col">
                             <div className="message-time">{displayDate}</div>
                             <div
