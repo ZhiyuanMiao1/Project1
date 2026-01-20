@@ -779,6 +779,10 @@ function MessagesPage() {
   const activeThread = threads.find((item) => item.id === activeId) || threads[0];
   const activeCounterpartDisplayName = useMemo(() => getThreadCounterpartDisplayName(activeThread), [activeThread]);
   const isMentorInThread = useMemo(() => getThreadMyRole(activeThread) === 'mentor', [activeThread]);
+  const activeAvatarUrl = useMemo(() => {
+    const url = typeof activeThread?.counterpartAvatarUrl === 'string' ? activeThread.counterpartAvatarUrl.trim() : '';
+    return url;
+  }, [activeThread]);
   const detailAvatarInitial = useMemo(() => {
     const name = activeCounterpartDisplayName || '';
     return name.trim().charAt(0) || '·';
@@ -1314,7 +1318,20 @@ function MessagesPage() {
               <>
                 <div className="message-detail-head">
                   <div className="message-detail-identity">
-                    <div className="message-detail-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                    <div className="message-detail-avatar" aria-hidden="true">
+                      <span className="message-avatar-fallback">{detailAvatarInitial}</span>
+                      {activeAvatarUrl ? (
+                        <img
+                          className="message-avatar-img"
+                          src={activeAvatarUrl}
+                          alt=""
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                    </div>
                     <div className="message-detail-name">{activeCounterpartDisplayName}</div>
                   </div>
                 </div>
@@ -1356,7 +1373,20 @@ function MessagesPage() {
                         className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''}`}
                       >
                         {!isOutgoing && (
-                          <div className="message-detail-avatar schedule-avatar" aria-hidden="true">{detailAvatarInitial}</div>
+                          <div className="message-detail-avatar schedule-avatar" aria-hidden="true">
+                            <span className="message-avatar-fallback">{detailAvatarInitial}</span>
+                            {activeAvatarUrl ? (
+                              <img
+                                className="message-avatar-img"
+                                src={activeAvatarUrl}
+                                alt=""
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                          </div>
                         )}
                         <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
                           <div className="schedule-card-top">
