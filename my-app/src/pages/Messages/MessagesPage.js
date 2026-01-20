@@ -1,17 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiClock, FiVideo, FiX } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
-import {
-  COURSE_TYPE_ICON_MAP,
-  COURSE_TYPE_ID_TO_LABEL,
-  DIRECTION_ICON_MAP,
-  DIRECTION_ID_TO_LABEL,
-} from '../../constants/courseMappings';
+import AppointmentCard from './AppointmentCard';
+import { getCourseTitleParts, normalizeScheduleStatus } from './appointmentCardUtils';
 import './MessagesPage.css';
 
 const stripDisplaySuffix = (value) => {
@@ -37,31 +33,6 @@ const getThreadMyRole = (thread) => {
   return role === 'mentor' ? 'mentor' : 'student';
 };
 
-const getCourseTitleParts = (thread, scheduleCard) => {
-  const directionId = scheduleCard?.courseDirectionId || thread?.courseDirectionId || 'others';
-  const courseTypeId = scheduleCard?.courseTypeId || thread?.courseTypeId || 'others';
-
-  const courseName = DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || '其它课程方向';
-  const courseType = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || '其它类型';
-  const DirectionIcon = DIRECTION_ICON_MAP[directionId] || DIRECTION_ICON_MAP.others || null;
-  const CourseTypeIcon = COURSE_TYPE_ICON_MAP[courseTypeId] || COURSE_TYPE_ICON_MAP.others || null;
-
-  return { courseName, courseType, directionId, courseTypeId, DirectionIcon, CourseTypeIcon };
-};
-
-const SCHEDULE_STATUS_META = {
-  pending: { label: '待确认', tone: 'pending' },
-  accepted: { label: '已接受', tone: 'accept' },
-  rejected: { label: '已拒绝', tone: 'reject' },
-  rescheduling: { label: '修改时间中', tone: 'reschedule' },
-};
-
-const normalizeScheduleStatus = (value) => {
-  const key = typeof value === 'string' ? value.trim() : '';
-  if (key in SCHEDULE_STATUS_META) return key;
-  return 'pending';
-};
-
 const buildScheduleCardsFromThread = (thread) => {
   if (!thread) return [];
 
@@ -78,347 +49,7 @@ const buildScheduleCardsFromThread = (thread) => {
   return [...history, ...main];
 };
 
-/* const STUDENT_THREADS = [
-  {
-    id: 's-01',
-    subject: '日程确认',
-    counterpart: 'Mia 导师',
-    counterpartMeta: '导师 · 机器学习',
-    courseDirectionId: 'ml',
-    courseTypeId: 'pre-study',
-    time: '今天 09:12',
-    unread: true,
-    tags: ['待确认', '日程邀请'],
-    summary: 'Mia：我这周可以安排一次课前预习，你看这个时间方便吗？',
-    schedule: {
-      direction: 'incoming',
-      window: '12月30日 周二 20:00-21:30 (GMT+8)',
-      meetingId: '会议号：710 332 091',
-      courseDirectionId: 'ml',
-      courseTypeId: 'pre-study',
-    },
-    messages: [
-      { id: 's-01-1', author: 'Mia 导师', from: 'them', time: '09:12', text: '我这周可以安排一次课前预习，你看这个时间方便吗？' },
-      { id: 's-01-2', author: '我', from: 'me', time: '09:18', text: '可以的，我会提前把要点整理好。' },
-    ],
-  },
-  {
-    id: 's-02',
-    subject: '日程确认',
-    counterpart: '李老师',
-    counterpartMeta: '导师 · CS 基础',
-    courseDirectionId: 'algo',
-    courseTypeId: 'final-review',
-    time: '昨天 20:46',
-    unread: false,
-    tags: ['日程已发送'],
-    summary: '我：发了期末复习的时间，等老师确认。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月29日 周一 19:30-21:00 (GMT+8)',
-      meetingId: '会议号：603 221 448',
-      status: 'pending',
-      courseDirectionId: 'algo',
-      courseTypeId: 'final-review',
-    },
-    messages: [
-      { id: 's-02-1', author: '我', from: 'me', time: '20:46', text: '老师我这边整理了复习计划，想约 12月29日 19:30-21:00（GMT+8）一起过一遍。' },
-      { id: 's-02-2', author: '李老师', from: 'them', time: '20:53', text: '收到，我看下当晚安排，晚点回复你。' },
-    ],
-  },
-  {
-    id: 's-03',
-    subject: '日程已确认',
-    counterpart: 'Ken 导师',
-    counterpartMeta: '导师 · 数据分析',
-    courseDirectionId: 'data-analysis',
-    courseTypeId: 'course-selection',
-    time: '周二 14:26',
-    unread: false,
-    tags: ['已接受'],
-    summary: 'Ken：OK，已确认时间。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月27日 周六 10:00-11:00 (GMT+8)',
-      meetingId: '会议号：884 112 309',
-      status: 'accepted',
-      courseDirectionId: 'data-analysis',
-      courseTypeId: 'course-selection',
-    },
-    scheduleHistory: [
-      {
-        direction: 'outgoing',
-        window: '12月26日 周五 21:00-22:00 (GMT+8)',
-        meetingId: '会议号：884 112 309',
-        readOnly: true,
-        courseDirectionId: 'data-analysis',
-        courseTypeId: 'course-selection',
-      },
-    ],
-    messages: [
-      { id: 's-03-1', author: '我', from: 'me', time: '14:20', text: '导师我想约一节选课指导，您看周末上午可以吗？' },
-      { id: 's-03-2', author: 'Ken 导师', from: 'them', time: '14:26', text: '可以，10:00-11:00 我这边确认了。' },
-    ],
-  },
-  {
-    id: 's-04',
-    subject: '日程被拒绝',
-    counterpart: '陈老师',
-    counterpartMeta: '导师 · 编程基础',
-    courseDirectionId: 'cs-foundation',
-    courseTypeId: 'assignment-project',
-    time: '周一 11:02',
-    unread: false,
-    tags: ['已拒绝'],
-    summary: '陈老师：这两天排满了，能否换个时间？',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月26日 周五 15:00-16:30 (GMT+8)',
-      meetingId: '会议号：352 771 904',
-      status: 'rejected',
-      courseDirectionId: 'cs-foundation',
-      courseTypeId: 'assignment-project',
-    },
-    messages: [
-      { id: 's-04-1', author: '我', from: 'me', time: '10:58', text: '老师我想约一次作业项目答疑，12月26日 15:00-16:30（GMT+8）您方便吗？' },
-      { id: 's-04-2', author: '陈老师', from: 'them', time: '11:02', text: '这两天排满了，你看看下周再约？' },
-    ],
-  },
-  {
-    id: 's-05',
-    subject: '修改时间中',
-    counterpart: '赵老师',
-    counterpartMeta: '导师 · 写作',
-    courseDirectionId: 'writing',
-    courseTypeId: 'in-class-support',
-    time: '今天 13:40',
-    unread: false,
-    tags: ['修改时间中'],
-    summary: '我：正在发起新的时间选择。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月31日 周三 20:30-22:00 (GMT+8)',
-      meetingId: '会议号：612 938 155',
-      status: 'rescheduling',
-      courseDirectionId: 'writing',
-      courseTypeId: 'in-class-support',
-    },
-    scheduleHistory: [
-      {
-        direction: 'outgoing',
-        window: '12月30日 周二 20:00-21:30 (GMT+8)',
-        meetingId: '会议号：612 938 155',
-        readOnly: true,
-        courseDirectionId: 'writing',
-        courseTypeId: 'in-class-support',
-      },
-      {
-        direction: 'incoming',
-        window: '12月31日 周三 19:30-21:00 (GMT+8)',
-        meetingId: '会议号：612 938 155',
-        readOnly: true,
-        courseDirectionId: 'writing',
-        courseTypeId: 'in-class-support',
-      },
-    ],
-    messages: [
-      { id: 's-05-1', author: '赵老师', from: 'them', time: '13:18', text: '我周二可能赶不回来，能否周三晚些？' },
-      { id: 's-05-2', author: '我', from: 'me', time: '13:40', text: '好的，我这边重新发一个周三的时间。' },
-    ],
-  },
-  {
-    id: 's-06',
-    subject: '日程确认',
-    counterpart: 'Lily 导师',
-    counterpartMeta: '导师 · 统计',
-    courseDirectionId: 'statistics',
-    courseTypeId: 'final-review',
-    time: '周三 18:10',
-    unread: false,
-    tags: ['待确认'],
-    summary: 'Lily：我们可以针对期末复习梳理重点。',
-    schedule: {
-      direction: 'incoming',
-      window: '12月28日 周日 14:00-15:30 (GMT+8)',
-      meetingId: '会议号：905 114 872',
-      courseDirectionId: 'statistics',
-      courseTypeId: 'final-review',
-    },
-    messages: [
-      { id: 's-06-1', author: 'Lily 导师', from: 'them', time: '18:10', text: '我这周日有空，我们可以针对期末复习梳理重点。' },
-      { id: 's-06-2', author: '我', from: 'me', time: '18:16', text: '好，我把错题清单先发您。' },
-    ],
-  },
-*/
 
-/* const MENTOR_THREADS = [
-  {
-    id: 'm-01',
-    subject: '日程邀请',
-    counterpart: 'Alex 同学',
-    counterpartId: 'S12',
-    counterpartMeta: '学生 · 新预约',
-    courseDirectionId: 'algo',
-    courseTypeId: 'assignment-project',
-    time: '今天 08:40',
-    unread: true,
-    tags: ['待确认'],
-    summary: 'Alex：老师我想约一次作业项目辅导。',
-    schedule: {
-      direction: 'incoming',
-      window: '12月29日 周一 21:00-22:30 (GMT+8)',
-      meetingId: '会议号：410 229 637',
-      courseDirectionId: 'algo',
-      courseTypeId: 'assignment-project',
-    },
-    messages: [
-      { id: 'm-01-1', author: 'Alex 同学', from: 'them', time: '08:40', text: '老师我想约一次作业项目辅导，您看这个时间可以吗？' },
-      { id: 'm-01-2', author: '我', from: 'me', time: '08:52', text: '可以，我这边看下资料后给你建议。' },
-    ],
-  },
-  {
-    id: 'm-02',
-    subject: '日程邀请',
-    counterpart: 'Joyce',
-    counterpartId: 'S21',
-    counterpartMeta: '学生 · 待确认',
-    courseDirectionId: 'ml',
-    courseTypeId: 'pre-study',
-    time: '昨天 19:10',
-    unread: false,
-    tags: ['待确认'],
-    summary: 'Joyce：想约一节机器学习课前预习。',
-    schedule: {
-      direction: 'incoming',
-      window: '12月28日 周日 20:00-21:00 (GMT+8)',
-      meetingId: '会议号：771 332 991',
-      courseDirectionId: 'ml',
-      courseTypeId: 'pre-study',
-    },
-    messages: [
-      { id: 'm-02-1', author: 'Joyce', from: 'them', time: '19:10', text: '老师想约一节机器学习课前预习，您看周日晚上可以吗？' },
-      { id: 'm-02-2', author: '我', from: 'me', time: '19:18', text: '可以，先把你目前的进度和疑问发我。' },
-    ],
-  },
-  {
-    id: 'm-03',
-    subject: '日程已发送',
-    counterpart: '王同学',
-    counterpartId: 'S07',
-    counterpartMeta: '学生 · 新预约',
-    courseDirectionId: 'statistics',
-    courseTypeId: 'final-review',
-    time: '周二 14:30',
-    unread: false,
-    tags: ['待确认'],
-    summary: '我：已发送期末复习时间，等待确认。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月27日 周六 16:00-17:30 (GMT+8)',
-      meetingId: '会议号：118 204 555',
-      status: 'pending',
-      courseDirectionId: 'statistics',
-      courseTypeId: 'final-review',
-    },
-    messages: [
-      { id: 'm-03-1', author: '王同学', from: 'them', time: '14:30', text: '老师我想复习一下统计，您看周末能安排吗？' },
-      { id: 'm-03-2', author: '我', from: 'me', time: '14:38', text: '可以，我发一个时间给你确认。' },
-    ],
-  },
-  {
-    id: 'm-04',
-    subject: '已确认',
-    counterpart: 'Lily 同学',
-    counterpartId: 'S18',
-    counterpartMeta: '学生 · 已确认',
-    courseDirectionId: 'data-analysis',
-    courseTypeId: 'course-selection',
-    time: '今天 13:10',
-    unread: false,
-    tags: ['已接受'],
-    summary: '对方已确认选课指导时间。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月30日 周二 18:30-19:30 (GMT+8)',
-      meetingId: '会议号：932 610 077',
-      status: 'accepted',
-      courseDirectionId: 'data-analysis',
-      courseTypeId: 'course-selection',
-    },
-    messages: [
-      { id: 'm-04-1', author: '我', from: 'me', time: '13:10', text: '我给你发一个选课指导时间：12月30日 18:30-19:30（GMT+8）。' },
-      { id: 'm-04-2', author: 'Lily 同学', from: 'them', time: '13:16', text: '收到！我这边确认没问题。' },
-    ],
-  },
-  {
-    id: 'm-05',
-    subject: '未能确认',
-    counterpart: 'Sarah 同学',
-    counterpartId: 'S31',
-    counterpartMeta: '学生 · 待调整',
-    courseDirectionId: 'cs-foundation',
-    courseTypeId: 'pre-study',
-    time: '周一 11:05',
-    unread: false,
-    tags: ['已拒绝'],
-    summary: '对方表示时间冲突。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月28日 周日 09:30-10:30 (GMT+8)',
-      meetingId: '会议号：500 118 606',
-      status: 'rejected',
-      courseDirectionId: 'cs-foundation',
-      courseTypeId: 'pre-study',
-    },
-    messages: [
-      { id: 'm-05-1', author: '我', from: 'me', time: '11:05', text: '我发了一个课前预习的时间，你看周日早上可以吗？' },
-      { id: 'm-05-2', author: 'Sarah 同学', from: 'them', time: '11:12', text: '抱歉老师，那天早上我有考试冲突。' },
-    ],
-  },
-  {
-    id: 'm-06',
-    subject: '修改时间中',
-    counterpart: 'Kevin 同学',
-    counterpartId: 'S44',
-    counterpartMeta: '学生 · 待确认',
-    courseDirectionId: 'cybersecurity',
-    courseTypeId: 'others',
-    time: '今天 16:25',
-    unread: true,
-    tags: ['修改时间中'],
-    summary: '我：正在调整新的授课时间。',
-    schedule: {
-      direction: 'outgoing',
-      window: '12月31日 周三 15:00-16:00 (GMT+8)',
-      meetingId: '会议号：240 771 118',
-      status: 'rescheduling',
-      courseDirectionId: 'cybersecurity',
-      courseTypeId: 'others',
-    },
-    scheduleHistory: [
-      {
-        direction: 'outgoing',
-        window: '12月30日 周二 14:00-15:00 (GMT+8)',
-        meetingId: '会议号：240 771 118',
-        readOnly: true,
-        courseDirectionId: 'cybersecurity',
-        courseTypeId: 'others',
-      },
-      {
-        direction: 'incoming',
-        window: '12月31日 周三 14:30-15:30 (GMT+8)',
-        meetingId: '会议号：240 771 118',
-        readOnly: true,
-        courseDirectionId: 'cybersecurity',
-        courseTypeId: 'others',
-      },
-    ],
-    messages: [
-      { id: 'm-06-1', author: 'Kevin 同学', from: 'them', time: '16:25', text: '老师周二下午临时有事，能否改到周三？' },
-      { id: 'm-06-2', author: '我', from: 'me', time: '16:33', text: '可以，我这边重新发一个周三的时间给你确认。' },
-    ],
-  },
-*/
 
 const formatHoverTime = (rawValue) => {
   if (!rawValue) return '';
@@ -646,7 +277,6 @@ function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [appointmentBusyId, setAppointmentBusyId] = useState(null);
-  const [decisionMenuForId, setDecisionMenuForId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
@@ -820,7 +450,6 @@ function MessagesPage() {
 
   useEffect(() => {
     setActionError('');
-    setDecisionMenuForId(null);
     setRescheduleOpen(false);
     setRescheduleSourceId(null);
     setRescheduleDate(toMiddayDate());
@@ -867,7 +496,6 @@ function MessagesPage() {
 
   const handleAppointmentDecision = async (appointmentId, status) => {
     if (!appointmentId || !status) return;
-    setDecisionMenuForId(null);
     const ok = await persistAppointmentDecision(appointmentId, status);
     if (!ok) return;
     setScheduleCards((prev) => prev.map((card) => (String(card?.id) === String(appointmentId) ? { ...card, status } : card)));
@@ -884,28 +512,9 @@ function MessagesPage() {
   const openRescheduleFor = (appointmentId) => {
     if (!appointmentId) return;
     setActionError('');
-    setDecisionMenuForId(null);
     setRescheduleSourceId(String(appointmentId));
     setRescheduleOpen(true);
   };
-
-  useEffect(() => {
-    if (!decisionMenuForId) return undefined;
-
-    const handleOutside = (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (target.closest('.schedule-decision-wrapper')) return;
-      setDecisionMenuForId(null);
-    };
-
-    window.addEventListener('mousedown', handleOutside, true);
-    window.addEventListener('touchstart', handleOutside, true);
-    return () => {
-      window.removeEventListener('mousedown', handleOutside, true);
-      window.removeEventListener('touchstart', handleOutside, true);
-    };
-  }, [decisionMenuForId]);
 
   useEffect(() => {
     if (!rescheduleOpen) return undefined;
@@ -1369,8 +978,6 @@ function MessagesPage() {
 
                 <div className="message-detail-body" ref={messageBodyScrollRef}>
                   {scheduleCards.map((scheduleCard) => {
-                    const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
-                    const isOutgoing = cardDirection === 'outgoing';
                     const isPrimary = Boolean(scheduleCard?.__primary);
                     const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '');
 
@@ -1381,227 +988,29 @@ function MessagesPage() {
                       ? scheduleCard.meetingId
                       : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
 
-                    const statusKey = normalizeScheduleStatus(scheduleCard?.status);
-                    const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
-
-                    const showActions = !isOutgoing && isPrimary;
-                    const isActionDisabled = false;
-                    const isSendingCard = isScheduleCardSending && isPrimary && isOutgoing && statusKey === 'pending';
-                    const statusClassName =
-                      statusMeta.tone === 'accept'
-                        ? 'accept-btn'
-                        : statusMeta.tone === 'reject'
-                          ? 'reject-btn'
-                          : statusMeta.tone === 'reschedule'
-                            ? 'reschedule-btn'
-                            : 'pending-btn';
-
-                    const titleParts = getCourseTitleParts(activeThread, scheduleCard);
-
-                    const decisionPopoverActions = (() => {
-                      if (statusKey === 'accepted') {
-                        return [
-                          { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-                          { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-                        ];
-                      }
-                      if (statusKey === 'rejected') {
-                        return [
-                          { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-                          { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-                        ];
-                      }
-                      if (statusKey === 'rescheduling') {
-                        return [
-                          { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-                          { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-                        ];
-                      }
-                      return [
-                        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-                        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-                        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-                      ];
-                    })();
+                    const isSendingCard = Boolean(
+                      isScheduleCardSending
+                      && isPrimary
+                      && scheduleCard?.direction === 'outgoing'
+                      && normalizeScheduleStatus(scheduleCard?.status) === 'pending'
+                    );
 
                     return (
-                      <div
+                      <AppointmentCard
                         key={scheduleCard.__key || scheduleCard.id || windowText}
-                        className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''}`}
-                      >
-                        {!isOutgoing && (
-                          <div className="message-detail-avatar schedule-avatar" aria-hidden="true">
-                            <span className="message-avatar-fallback">{detailAvatarInitial}</span>
-                            {activeAvatarUrl ? (
-                              <img
-                                className="message-avatar-img"
-                                src={activeAvatarUrl}
-                                alt=""
-                                loading="lazy"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        )}
-                        <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
-                          <div className="schedule-card-top">
-                            <div className="schedule-card-top-row">
-                              <div className="schedule-card-icon" aria-hidden="true">
-                                <FiCalendar size={18} />
-                              </div>
-                              <div className="schedule-card-title-text">日程</div>
-                            </div>
-                            <div className="schedule-card-title">
-                              <span className="schedule-card-title-piece">
-                                <span className="schedule-card-title-icon" aria-hidden="true">
-                                  {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
-                                </span>
-                                <span className="schedule-card-title-main">{titleParts.courseName || scheduleTitle}</span>
-                              </span>
-                              {titleParts.courseType ? (
-                                <>
-                                  <span className="schedule-card-title-sep" aria-hidden="true">-</span>
-                                  <span className="schedule-card-title-piece">
-                                    <span className="schedule-card-title-icon" aria-hidden="true">
-                                      {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
-                                    </span>
-                                    <span className="schedule-card-title-sub">{titleParts.courseType}</span>
-                                  </span>
-                                </>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          <div className="schedule-time-row">
-                            <FiClock size={16} aria-hidden="true" />
-                            <span>{windowText}</span>
-                          </div>
-
-                          <div className="schedule-link-row">
-                            <FiVideo size={16} aria-hidden="true" />
-                            <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
-                          </div>
-
-                          <div className="schedule-meeting-id">{meetingText}</div>
-
-                          <div className="schedule-card-bottom">
-                            {showActions ? (
-                              <div className="schedule-actions">
-                                {statusKey === 'pending' ? (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn accept-btn"
-                                      onClick={() => handleAppointmentDecision(scheduleCard.id, 'accepted')}
-                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
-                                    >
-                                      <span className="schedule-btn-icon check" aria-hidden="true" />
-                                      接受
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn reject-btn"
-                                      onClick={() => handleAppointmentDecision(scheduleCard.id, 'rejected')}
-                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
-                                    >
-                                      <span className="schedule-btn-icon minus" aria-hidden="true" />
-                                      拒绝
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn reschedule-btn"
-                                      onClick={() => openRescheduleFor(scheduleCard.id)}
-                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
-                                    >
-                                      <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                                      修改时间
-                                    </button>
-                                  </>
-                                ) : (
-                                  <div
-                                    className={`schedule-decision-wrapper ${String(decisionMenuForId) === String(scheduleCard.id) ? 'menu-open' : ''}`}
-                                    onMouseEnter={() => setDecisionMenuForId(String(scheduleCard.id))}
-                                    onMouseLeave={() => setDecisionMenuForId(null)}
-                                  >
-                                    <button
-                                      type="button"
-                                      className={`schedule-btn merged ${statusClassName}`}
-                                      onClick={() => setDecisionMenuForId((prev) => (String(prev) === String(scheduleCard.id) ? null : String(scheduleCard.id)))}
-                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
-                                    >
-                                      {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                                      {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                                      {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                                      {statusMeta.label}
-                                      <span
-                                        className={`schedule-decision-arrow ${String(decisionMenuForId) === String(scheduleCard.id) ? 'open' : ''}`}
-                                        aria-hidden="true"
-                                      />
-                                    </button>
-                                    {String(decisionMenuForId) === String(scheduleCard.id) && (
-                                      <div className="schedule-decision-popover" role="menu">
-                                        <div className="schedule-decision-popover-title">修改日程状态为</div>
-                                        <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
-                                          {decisionPopoverActions.map((action) => (
-                                            <button
-                                              key={action.key}
-                                              type="button"
-                                              className={`schedule-btn small inline-action ${
-                                                action.tone === 'accept'
-                                                  ? 'accept-btn'
-                                                  : action.tone === 'reject'
-                                                    ? 'reject-btn'
-                                                    : 'reschedule-btn'
-                                              }`}
-                                              onClick={() => {
-                                                if (action.value === 'rescheduling') openRescheduleFor(scheduleCard.id);
-                                                else handleAppointmentDecision(scheduleCard.id, action.value);
-                                              }}
-                                              disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
-                                            >
-                                              {action.tone === 'accept' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                                              {action.tone === 'reject' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                                              {action.tone === 'reschedule' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                                              {action.label}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="schedule-actions">
-                                <button
-                                  type="button"
-                                  className={
-                                    statusKey === 'pending'
-                                      ? `schedule-btn status-btn ${statusClassName}`
-                                      : `schedule-btn merged ${statusClassName}`
-                                  }
-                                  disabled
-                                  aria-label={`日程状态：${statusMeta.label}`}
-                                >
-                                  {isSendingCard && <span className="schedule-btn-spinner" aria-hidden="true" />}
-                                  {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                                  {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                                  {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                                  {statusMeta.label}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {cardHoverTime && (
-                            <div className="schedule-hover-time" aria-hidden="true">
-                              {cardHoverTime}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        thread={activeThread}
+                        scheduleCard={scheduleCard}
+                        detailAvatarInitial={detailAvatarInitial}
+                        activeAvatarUrl={activeAvatarUrl}
+                        scheduleTitle={scheduleTitle}
+                        windowText={windowText}
+                        meetingText={meetingText}
+                        cardHoverTime={cardHoverTime}
+                        isSendingCard={isSendingCard}
+                        appointmentBusyId={appointmentBusyId}
+                        onDecision={handleAppointmentDecision}
+                        onReschedule={openRescheduleFor}
+                      />
                     );
                   })}
                 </div>
