@@ -644,9 +644,11 @@ function MessagesPage() {
     return !!getAuthToken();
   });
   const [errorMessage, setErrorMessage] = useState('');
-  const [scheduleDecision, setScheduleDecision] = useState(null);
-  const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [appointmentBusyId, setAppointmentBusyId] = useState(null);
+  const [decisionMenuForId, setDecisionMenuForId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
@@ -709,6 +711,7 @@ function MessagesPage() {
       rescheduleResizeRef.current = null;
     }
     setRescheduleSelection(null);
+    setRescheduleSourceId(null);
   }, [rescheduleOpen]);
 
   useEffect(() => {
@@ -752,11 +755,10 @@ function MessagesPage() {
   useEffect(() => {
     const target = location?.state?.threadId;
     const preferred = target && threads.some((t) => String(t?.id) === String(target)) ? String(target) : null;
-    setActiveId(preferred || threads[0]?.id || null);
-    setScheduleDecision(null);
-    setDecisionMenuOpen(false);
+    const keepActive = activeId && threads.some((t) => String(t?.id) === String(activeId)) ? activeId : null;
+    setActiveId(preferred || keepActive || threads[0]?.id || null);
     setOpenMoreId(null);
-  }, [location?.state?.threadId, threads]);
+  }, [activeId, location?.state?.threadId, threads]);
 
   useEffect(() => {
     if (!openMoreId) return undefined;
@@ -817,9 +819,10 @@ function MessagesPage() {
   }, [activeThread?.id, scheduleCards]);
 
   useEffect(() => {
-    setScheduleDecision(null);
-    setDecisionMenuOpen(false);
+    setActionError('');
+    setDecisionMenuForId(null);
     setRescheduleOpen(false);
+    setRescheduleSourceId(null);
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
     if (scheduleCardSendTimeoutRef.current) {
@@ -846,68 +849,63 @@ function MessagesPage() {
     }, 900);
   }, [activeThread?.id, location?.state?.animateKey, location?.state?.threadId]);
 
-  const decisionPopoverActions = useMemo(() => {
-    if (scheduleDecision === 'accepted') {
-      return [
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-      ];
-    }
-    if (scheduleDecision === 'rejected') {
-      return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-      ];
-    }
-    if (scheduleDecision === 'rescheduling') {
-      return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-      ];
-    }
-    return [
-      { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-      { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-      { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
-    ];
-  }, [scheduleDecision]);
-
-  const handleScheduleDecision = (value) => {
-    if (!value) return;
-    setScheduleDecision(value);
-    setDecisionMenuOpen(false);
-    if (value === 'rescheduling') setRescheduleOpen(true);
-    else setRescheduleOpen(false);
-
-    if (value === 'accepted' || value === 'rejected') {
-      setScheduleCards((prev) => {
-        if (!Array.isArray(prev) || prev.length === 0) return prev;
-
-        const next = prev.filter((card) => {
-          if (!card || typeof card !== 'object') return true;
-          if (!card.__pendingReschedule) return true;
-          const direction = card.direction === 'outgoing' ? 'outgoing' : 'incoming';
-          if (direction !== 'outgoing') return true;
-          const statusKey = normalizeScheduleStatus(card.status);
-          return statusKey !== 'pending';
-        });
-
-        if (next.length === prev.length) return prev;
-        if (next.some((card) => card && typeof card === 'object' && card.__primary)) return next;
-        if (next.length === 0) return next;
-
-        const lastIndex = next.length - 1;
-        next[lastIndex] = { ...next[lastIndex], __primary: true };
-        return next;
-      });
-
-      setIsScheduleCardSending(false);
-      if (scheduleCardSendTimeoutRef.current) {
-        clearTimeout(scheduleCardSendTimeoutRef.current);
-        scheduleCardSendTimeoutRef.current = null;
-      }
+  const persistAppointmentDecision = async (appointmentId, status) => {
+    if (!appointmentId || !status) return false;
+    setActionError('');
+    setAppointmentBusyId(String(appointmentId));
+    try {
+      await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/decision`, { status });
+      return true;
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '更新日程状态失败，请稍后再试';
+      setActionError(String(msg));
+      return false;
+    } finally {
+      setAppointmentBusyId(null);
     }
   };
+
+  const handleAppointmentDecision = async (appointmentId, status) => {
+    if (!appointmentId || !status) return;
+    setDecisionMenuForId(null);
+    const ok = await persistAppointmentDecision(appointmentId, status);
+    if (!ok) return;
+    setScheduleCards((prev) => prev.map((card) => (String(card?.id) === String(appointmentId) ? { ...card, status } : card)));
+
+    try {
+      const res = await api.get('/api/messages/threads');
+      const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
+      setThreads(nextThreads);
+      setThreadsStatus('loaded');
+      setThreadsError('');
+    } catch {}
+  };
+
+  const openRescheduleFor = (appointmentId) => {
+    if (!appointmentId) return;
+    setActionError('');
+    setDecisionMenuForId(null);
+    setRescheduleSourceId(String(appointmentId));
+    setRescheduleOpen(true);
+  };
+
+  useEffect(() => {
+    if (!decisionMenuForId) return undefined;
+
+    const handleOutside = (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('.schedule-decision-wrapper')) return;
+      setDecisionMenuForId(null);
+    };
+
+    window.addEventListener('mousedown', handleOutside, true);
+    window.addEventListener('touchstart', handleOutside, true);
+    return () => {
+      window.removeEventListener('mousedown', handleOutside, true);
+      window.removeEventListener('touchstart', handleOutside, true);
+    };
+  }, [decisionMenuForId]);
 
   useEffect(() => {
     if (!rescheduleOpen) return undefined;
@@ -1062,8 +1060,9 @@ function MessagesPage() {
     });
   };
 
-  const handleRescheduleSend = () => {
+  const handleRescheduleSend = async () => {
     if (!rescheduleSelection) return;
+    if (!activeThread?.id) return;
     const nextWindow = formatScheduleWindow(
       rescheduleDate,
       rescheduleSelection.startMinutes,
@@ -1078,6 +1077,12 @@ function MessagesPage() {
       setIsScheduleCardSending(false);
       scheduleCardSendTimeoutRef.current = null;
     }, 900);
+
+    const sourceAppointmentId = rescheduleSourceId;
+    const sourceCard =
+      (sourceAppointmentId ? scheduleCards.find((card) => String(card?.id) === String(sourceAppointmentId)) : null)
+      || scheduleCards.find((card) => Boolean(card?.__primary))
+      || null;
 
     setScheduleCards((prev) => {
       if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -1114,9 +1119,35 @@ function MessagesPage() {
       return [...rest, historyEntry, updatedPrimary];
     });
 
-    setScheduleDecision('rescheduling');
-    setDecisionMenuOpen(false);
-    setRescheduleOpen(false);
+    try {
+      if (sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
+        // Mark the original proposal as "rescheduling" so both parties see the state.
+        await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
+      }
+
+      const courseDirectionId = String(sourceCard?.courseDirectionId || activeThread?.courseDirectionId || '');
+      const courseTypeId = String(sourceCard?.courseTypeId || activeThread?.courseTypeId || '');
+      const meetingIdText = String(sourceCard?.meetingId || meetingId || '');
+
+      await api.post(`/api/messages/threads/${encodeURIComponent(String(activeThread.id))}/appointments`, {
+        windowText: nextWindow,
+        meetingId: meetingIdText,
+        courseDirectionId,
+        courseTypeId,
+      });
+
+      const res = await api.get('/api/messages/threads');
+      const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
+      setThreads(nextThreads);
+      setThreadsStatus('loaded');
+      setThreadsError('');
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '发送修改时间失败，请稍后再试';
+      setActionError(String(msg));
+    } finally {
+      setRescheduleOpen(false);
+      setRescheduleSourceId(null);
+    }
   };
 
   const columns = useMemo(() => {
@@ -1174,8 +1205,8 @@ function MessagesPage() {
           <h1>消息</h1>
         </section>
 
-        {(errorMessage || threadsError) && (
-          <div className="messages-alert">{errorMessage || threadsError}</div>
+        {(errorMessage || threadsError || actionError) && (
+          <div className="messages-alert">{errorMessage || threadsError || actionError}</div>
         )}
 
         {isLoggedIn && (
@@ -1350,11 +1381,11 @@ function MessagesPage() {
                       ? scheduleCard.meetingId
                       : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
 
-                    const showActions = !isOutgoing;
-                    const isActionDisabled = false;
-
                     const statusKey = normalizeScheduleStatus(scheduleCard?.status);
                     const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
+
+                    const showActions = !isOutgoing && isPrimary;
+                    const isActionDisabled = false;
                     const isSendingCard = isScheduleCardSending && isPrimary && isOutgoing && statusKey === 'pending';
                     const statusClassName =
                       statusMeta.tone === 'accept'
@@ -1366,6 +1397,32 @@ function MessagesPage() {
                             : 'pending-btn';
 
                     const titleParts = getCourseTitleParts(activeThread, scheduleCard);
+
+                    const decisionPopoverActions = (() => {
+                      if (statusKey === 'accepted') {
+                        return [
+                          { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+                          { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+                        ];
+                      }
+                      if (statusKey === 'rejected') {
+                        return [
+                          { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+                          { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+                        ];
+                      }
+                      if (statusKey === 'rescheduling') {
+                        return [
+                          { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+                          { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+                        ];
+                      }
+                      return [
+                        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
+                        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+                        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+                      ];
+                    })();
 
                     return (
                       <div
@@ -1431,36 +1488,59 @@ function MessagesPage() {
 
                           <div className="schedule-card-bottom">
                             {showActions ? (
-                              <div className={`schedule-actions ${scheduleDecision ? 'decision-resolved' : ''}`}>
-                                {scheduleDecision ? (
+                              <div className="schedule-actions">
+                                {statusKey === 'pending' ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn accept-btn"
+                                      onClick={() => handleAppointmentDecision(scheduleCard.id, 'accepted')}
+                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
+                                    >
+                                      <span className="schedule-btn-icon check" aria-hidden="true" />
+                                      接受
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn reject-btn"
+                                      onClick={() => handleAppointmentDecision(scheduleCard.id, 'rejected')}
+                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
+                                    >
+                                      <span className="schedule-btn-icon minus" aria-hidden="true" />
+                                      拒绝
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="schedule-btn reschedule-btn"
+                                      onClick={() => openRescheduleFor(scheduleCard.id)}
+                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
+                                    >
+                                      <span className="schedule-btn-icon reschedule" aria-hidden="true" />
+                                      修改时间
+                                    </button>
+                                  </>
+                                ) : (
                                   <div
-                                    className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
-                                    onMouseEnter={() => setDecisionMenuOpen(true)}
-                                    onMouseLeave={() => setDecisionMenuOpen(false)}
+                                    className={`schedule-decision-wrapper ${String(decisionMenuForId) === String(scheduleCard.id) ? 'menu-open' : ''}`}
+                                    onMouseEnter={() => setDecisionMenuForId(String(scheduleCard.id))}
+                                    onMouseLeave={() => setDecisionMenuForId(null)}
                                   >
                                     <button
                                       type="button"
-                                      className={`schedule-btn merged ${
-                                        scheduleDecision === 'accepted'
-                                          ? 'accept-btn'
-                                          : scheduleDecision === 'rejected'
-                                            ? 'reject-btn'
-                                            : 'reschedule-btn'
-                                      }`}
-                                      onClick={() => {
-                                        if (scheduleDecision === 'rescheduling') setRescheduleOpen(true);
-                                        else setDecisionMenuOpen((prev) => !prev);
-                                      }}
+                                      className={`schedule-btn merged ${statusClassName}`}
+                                      onClick={() => setDecisionMenuForId((prev) => (String(prev) === String(scheduleCard.id) ? null : String(scheduleCard.id)))}
+                                      disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
                                     >
-                                      {scheduleDecision === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                                      {scheduleDecision === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                                      {scheduleDecision === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                                      {scheduleDecision === 'accepted' && '已接受'}
-                                      {scheduleDecision === 'rejected' && '已拒绝'}
-                                      {scheduleDecision === 'rescheduling' && '修改时间中'}
-                                      <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+                                      {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                                      {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                                      {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
+                                      {statusMeta.label}
+                                      <span
+                                        className={`schedule-decision-arrow ${String(decisionMenuForId) === String(scheduleCard.id) ? 'open' : ''}`}
+                                        aria-hidden="true"
+                                      />
                                     </button>
-                                    {decisionMenuOpen && (
+                                    {String(decisionMenuForId) === String(scheduleCard.id) && (
                                       <div className="schedule-decision-popover" role="menu">
                                         <div className="schedule-decision-popover-title">修改日程状态为</div>
                                         <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
@@ -1475,7 +1555,11 @@ function MessagesPage() {
                                                     ? 'reject-btn'
                                                     : 'reschedule-btn'
                                               }`}
-                                              onClick={() => handleScheduleDecision(action.value)}
+                                              onClick={() => {
+                                                if (action.value === 'rescheduling') openRescheduleFor(scheduleCard.id);
+                                                else handleAppointmentDecision(scheduleCard.id, action.value);
+                                              }}
+                                              disabled={isActionDisabled || String(appointmentBusyId) === String(scheduleCard.id)}
                                             >
                                               {action.tone === 'accept' && <span className="schedule-btn-icon check" aria-hidden="true" />}
                                               {action.tone === 'reject' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
@@ -1487,39 +1571,9 @@ function MessagesPage() {
                                       </div>
                                     )}
                                   </div>
-                                ) : (
-                                  <>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn accept-btn"
-                                      onClick={() => handleScheduleDecision('accepted')}
-                                      disabled={isActionDisabled}
-                                    >
-                                      <span className="schedule-btn-icon check" aria-hidden="true" />
-                                      接受
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn reject-btn"
-                                      onClick={() => handleScheduleDecision('rejected')}
-                                      disabled={isActionDisabled}
-                                    >
-                                      <span className="schedule-btn-icon minus" aria-hidden="true" />
-                                      拒绝
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="schedule-btn reschedule-btn"
-                                      onClick={() => handleScheduleDecision('rescheduling')}
-                                      disabled={isActionDisabled}
-                                    >
-                                      <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                                      修改时间
-                                    </button>
-                                  </>
                                 )}
                               </div>
-                            ) : isOutgoing ? (
+                            ) : (
                               <div className="schedule-actions">
                                 <button
                                   type="button"
@@ -1538,7 +1592,7 @@ function MessagesPage() {
                                   {statusMeta.label}
                                 </button>
                               </div>
-                            ) : null}
+                            )}
                           </div>
 
                           {cardHoverTime && (

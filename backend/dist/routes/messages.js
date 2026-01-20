@@ -12,7 +12,7 @@ const isMissingMessagesSchemaError = (err) => {
     if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR')
         return true;
     const message = typeof err?.message === 'string' ? err.message : '';
-    return message.includes('message_threads') || message.includes('message_items');
+    return message.includes('message_threads') || message.includes('message_items') || message.includes('appointment_statuses');
 };
 const formatZoomMeetingId = (digits) => {
     const text = String(digits).padStart(9, '0').slice(0, 9);
@@ -50,10 +50,18 @@ const toScheduleCard = (row, currentUserId) => {
         window: String(payload.windowText || '').trim(),
         meetingId: String(payload.meetingId || '').trim(),
         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
-        status: 'pending',
+        status: typeof row?.appointment_status === 'string' && row.appointment_status.trim()
+            ? row.appointment_status.trim()
+            : 'pending',
         courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
         courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
     };
+};
+const normalizeDecisionStatus = (value) => {
+    const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending')
+        return raw;
+    return '';
 };
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
@@ -117,6 +125,118 @@ router.post('/appointments', auth_1.requireAuth, async (req, res) => {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Create appointment message error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const threadId = Number(req.params.threadId);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+        return res.status(400).json({ error: '无效会话ID' });
+    }
+    const windowText = typeof req.body?.windowText === 'string' ? req.body.windowText.trim() : '';
+    const courseDirectionId = typeof req.body?.courseDirectionId === 'string' ? req.body.courseDirectionId.trim() : '';
+    const courseTypeId = typeof req.body?.courseTypeId === 'string' ? req.body.courseTypeId.trim() : '';
+    const courseRequestIdRaw = req.body?.courseRequestId;
+    const courseRequestId = Number.isFinite(Number(courseRequestIdRaw)) ? Number(courseRequestIdRaw) : null;
+    const meetingId = typeof req.body?.meetingId === 'string' && req.body.meetingId.trim()
+        ? String(req.body.meetingId).trim()
+        : buildDefaultMeetingId();
+    if (!windowText)
+        return res.status(400).json({ error: '缺少预约时间' });
+    try {
+        const threadRows = await (0, db_1.query)(`
+      SELECT id
+      FROM message_threads
+      WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
+      LIMIT 1
+      `, [threadId, req.user.id, req.user.id]);
+        const thread = threadRows?.[0];
+        if (!thread)
+            return res.status(404).json({ error: '会话不存在或无权限' });
+        const payload = {
+            kind: 'appointment_card',
+            courseDirectionId,
+            courseTypeId,
+            courseRequestId,
+            windowText,
+            meetingId,
+        };
+        const msgInsert = await (0, db_1.query)(`
+      INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+      VALUES (?, ?, ?, ?)
+      `, [threadId, req.user.id, 'appointment_card', JSON.stringify(payload)]);
+        const messageId = Number(msgInsert.insertId);
+        if (!Number.isFinite(messageId) || messageId <= 0) {
+            return res.status(500).json({ error: '发送预约失败' });
+        }
+        await (0, db_1.query)(`
+      UPDATE message_threads
+      SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `, [messageId, threadId]);
+        const appointment = toScheduleCard({
+            id: messageId,
+            thread_id: threadId,
+            sender_user_id: req.user.id,
+            payload_json: JSON.stringify(payload),
+            created_at: new Date(),
+            appointment_status: 'pending',
+        }, req.user.id);
+        return res.json({ threadId: String(threadId), appointment });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行backend/schema.sql' });
+        }
+        console.error('Send appointment message error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const appointmentId = Number(req.params.appointmentId);
+    if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+        return res.status(400).json({ error: '无效预约ID' });
+    }
+    const status = normalizeDecisionStatus(req.body?.status ?? req.body?.decision);
+    if (!status || status === 'pending') {
+        return res.status(400).json({ error: '无效状态' });
+    }
+    try {
+        const rows = await (0, db_1.query)(`
+      SELECT mi.id, mi.thread_id, mi.sender_user_id
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      `, [appointmentId, req.user.id, req.user.id]);
+        const row = rows?.[0];
+        if (!row)
+            return res.status(404).json({ error: '预约不存在或无权限' });
+        if (Number(row.sender_user_id) === req.user.id) {
+            return res.status(403).json({ error: '不能对自己发的预约更改状态' });
+        }
+        await (0, db_1.query)(`
+      INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_at = CURRENT_TIMESTAMP
+      `, [appointmentId, status, req.user.id]);
+        await (0, db_1.query)(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        return res.json({ ok: true, appointmentId: String(appointmentId), status });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行backend/schema.sql' });
+        }
+        console.error('Update appointment decision error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
@@ -184,10 +304,12 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         if (threadIds.length > 0) {
             const placeholders = threadIds.map(() => '?').join(',');
             const items = await (0, db_1.query)(`
-        SELECT id, thread_id, sender_user_id, payload_json, created_at
-        FROM message_items
-        WHERE thread_id IN (${placeholders})
-          AND message_type = 'appointment_card'
+        SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at,
+          COALESCE(ast.status, 'pending') AS appointment_status
+        FROM message_items mi
+        LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+        WHERE mi.thread_id IN (${placeholders})
+          AND mi.message_type = 'appointment_card'
         ORDER BY thread_id ASC, created_at ASC, id ASC
         `, threadIds);
             const byThread = new Map();

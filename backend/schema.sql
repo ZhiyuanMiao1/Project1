@@ -247,3 +247,16 @@ CREATE TABLE IF NOT EXISTS `message_items` (
   CONSTRAINT `fk_message_items_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_message_items_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Persist appointment card status (accepted/rejected/etc) so both parties see consistent state.
+CREATE TABLE IF NOT EXISTS `appointment_statuses` (
+  `appointment_message_id` BIGINT NOT NULL,
+  `status` ENUM('pending','accepted','rejected','rescheduling') NOT NULL DEFAULT 'pending',
+  `updated_by_user_id` INT NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`appointment_message_id`),
+  KEY `idx_appointment_statuses_updated_by` (`updated_by_user_id`),
+  CONSTRAINT `fk_appointment_statuses_message` FOREIGN KEY (`appointment_message_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_appointment_statuses_user` FOREIGN KEY (`updated_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
