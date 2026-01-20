@@ -446,7 +446,7 @@ function MessagesPage() {
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
     scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id, scheduleCards]);
+  }, [activeThread?.id, activeThread?.latestDecision?.status, activeThread?.latestDecision?.time, scheduleCards]);
 
   useEffect(() => {
     setActionError('');
@@ -1013,6 +1013,32 @@ function MessagesPage() {
                       />
                     );
                   })}
+                  {(() => {
+                    const decision = activeThread?.latestDecision;
+                    const decisionStatus = (() => {
+                      if (decision && typeof decision === 'object') {
+                        const status = typeof decision.status === 'string' ? decision.status.trim().toLowerCase() : '';
+                        if ((status === 'accepted' || status === 'rejected') && !decision.isByMe) return status;
+                      }
+
+                      const primaryCard =
+                        scheduleCards.find((card) => Boolean(card?.__primary))
+                        || scheduleCards[scheduleCards.length - 1];
+                      if (!primaryCard || primaryCard?.direction !== 'outgoing') return '';
+                      const statusKey = normalizeScheduleStatus(primaryCard?.status);
+                      if (statusKey === 'accepted' || statusKey === 'rejected') return statusKey;
+                      return '';
+                    })();
+
+                    if (!decisionStatus) return null;
+
+                    const verb = decisionStatus === 'accepted' ? '接受' : '拒绝';
+                    return (
+                      <div className="message-decision-notice" role="status">
+                        {`${activeCounterpartDisplayName}${verb}了你的邀请`}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             ) : (

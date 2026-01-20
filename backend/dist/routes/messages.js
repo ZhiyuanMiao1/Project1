@@ -40,6 +40,14 @@ const parseAppointmentPayload = (payloadJson) => {
         return null;
     return parsed;
 };
+const parseAppointmentDecisionPayload = (payloadJson) => {
+    const parsed = safeJsonParse(payloadJson);
+    if (!parsed || typeof parsed !== 'object')
+        return null;
+    if (parsed.kind !== 'appointment_decision')
+        return null;
+    return parsed;
+};
 const toScheduleCard = (row, currentUserId) => {
     const payload = parseAppointmentPayload(row?.payload_json);
     if (!payload)
@@ -229,7 +237,27 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         updated_by_user_id = VALUES(updated_by_user_id),
         updated_at = CURRENT_TIMESTAMP
       `, [appointmentId, status, req.user.id]);
-        await (0, db_1.query)(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        const shouldEmitDecisionMessage = status === 'accepted' || status === 'rejected';
+        if (shouldEmitDecisionMessage) {
+            const payload = {
+                kind: 'appointment_decision',
+                appointmentId: String(appointmentId),
+                status,
+            };
+            const msgInsert = await (0, db_1.query)(`
+        INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+        VALUES (?, ?, ?, ?)
+        `, [Number(row.thread_id), req.user.id, 'appointment_decision', JSON.stringify(payload)]);
+            const messageId = Number(msgInsert.insertId);
+            await (0, db_1.query)(`
+        UPDATE message_threads
+        SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `, [Number.isFinite(messageId) && messageId > 0 ? messageId : null, Number(row.thread_id)]);
+        }
+        else {
+            await (0, db_1.query)(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        }
         return res.json({ ok: true, appointmentId: String(appointmentId), status });
     }
     catch (e) {
@@ -295,6 +323,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 courseTypeId: '',
                 schedule: null,
                 scheduleHistory: [],
+                latestDecision: null,
                 messages: [],
             };
         });
@@ -303,6 +332,24 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
             .filter((id) => id);
         if (threadIds.length > 0) {
             const placeholders = threadIds.map(() => '?').join(',');
+            const decisionRows = await (0, db_1.query)(`
+        SELECT mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
+        FROM message_items mi
+        INNER JOIN (
+          SELECT thread_id, MAX(id) AS max_id
+          FROM message_items
+          WHERE thread_id IN (${placeholders})
+            AND message_type = 'appointment_decision'
+          GROUP BY thread_id
+        ) latest ON latest.max_id = mi.id
+        `, threadIds);
+            const decisionByThread = new Map();
+            for (const row of decisionRows || []) {
+                const tid = String(row?.thread_id || '').trim();
+                if (!tid)
+                    continue;
+                decisionByThread.set(tid, row);
+            }
             const items = await (0, db_1.query)(`
         SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at,
           COALESCE(ast.status, 'pending') AS appointment_status
@@ -343,6 +390,22 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 thread.scheduleHistory = history;
                 thread.courseDirectionId = String(last.courseDirectionId || '');
                 thread.courseTypeId = String(last.courseTypeId || '');
+            }
+            for (const t of threads) {
+                const row = decisionByThread.get(String(t.id));
+                if (!row)
+                    continue;
+                const payload = parseAppointmentDecisionPayload(row?.payload_json);
+                if (!payload)
+                    continue;
+                const status = typeof payload.status === 'string' ? payload.status.trim() : '';
+                if (!status)
+                    continue;
+                t.latestDecision = {
+                    status,
+                    time: row?.created_at ? new Date(row.created_at).toISOString() : '',
+                    isByMe: Number(row?.sender_user_id) === req.user.id,
+                };
             }
         }
         return res.json({ threads });
