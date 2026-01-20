@@ -442,30 +442,17 @@
 }
 
 .schedule-btn.inline-action {
+  background: transparent;
+  padding: 0;
+  min-width: 0;
+  box-shadow: none;
+  border-radius: 10px;
+  border: none;
+  font-weight: 600;
+  color: #111827;
+  justify-content: flex-start;
   width: 100%;
-  justify-content: center;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 650;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #f1f5f9;
-}
-
-.schedule-btn.inline-action.accept-btn {
-  background: #e8f5ec;
-}
-
-.schedule-btn.inline-action.reject-btn {
-  background: #ffe4e6;
-}
-
-.schedule-btn.inline-action.reschedule-btn {
-  background: #e0f2fe;
-}
-
-.schedule-btn.inline-action:disabled {
-  opacity: 0.8;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .schedule-btn.inline-action.accept-btn {
