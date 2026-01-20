@@ -22,6 +22,45 @@ const buildDefaultMeetingId = () => {
   return `会议号：${formatZoomMeetingId(n)}`;
 };
 
+type AppointmentPayload = {
+  kind?: string;
+  windowText?: unknown;
+  meetingId?: unknown;
+  courseDirectionId?: unknown;
+  courseTypeId?: unknown;
+};
+
+const safeJsonParse = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const parseAppointmentPayload = (payloadJson: unknown): AppointmentPayload | null => {
+  const parsed = safeJsonParse(payloadJson);
+  if (!parsed || typeof parsed !== 'object') return null;
+  if ((parsed as any).kind !== 'appointment_card') return null;
+  return parsed as AppointmentPayload;
+};
+
+const toScheduleCard = (row: any, currentUserId: number) => {
+  const payload = parseAppointmentPayload(row?.payload_json);
+  if (!payload) return null;
+  return {
+    id: String(row?.id ?? ''),
+    direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
+    window: String(payload.windowText || '').trim(),
+    meetingId: String(payload.meetingId || '').trim(),
+    time: row?.created_at ? new Date(row.created_at).toISOString() : '',
+    status: 'pending',
+    courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
+    courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
+  };
+};
+
 router.post('/appointments', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
@@ -138,9 +177,6 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
     );
 
     const threads = (rows || []).map((r) => {
-      let payload: any = null;
-      try { payload = r.payload_json ? JSON.parse(r.payload_json) : null; } catch { payload = null; }
-
       const isStudentSide = Number(r.student_user_id) === req.user!.id;
       const myRole = isStudentSide ? 'student' : 'mentor';
       const counterpart = isStudentSide
@@ -149,16 +185,6 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       const counterpartId = isStudentSide ? '' : String(r.student_public_id || '');
 
       const lastAt = r.last_message_at || r.updated_at;
-      const schedule = payload && payload.kind === 'appointment_card'
-        ? {
-            direction: Number(r.sender_user_id) === req.user!.id ? 'outgoing' : 'incoming',
-            window: String(payload.windowText || '').trim(),
-            meetingId: String(payload.meetingId || '').trim(),
-            status: 'pending',
-            courseDirectionId: payload.courseDirectionId || '',
-            courseTypeId: payload.courseTypeId || '',
-          }
-        : null;
 
       return {
         id: String(r.thread_id),
@@ -167,13 +193,66 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         counterpart,
         counterpartId,
         time: lastAt ? new Date(lastAt).toISOString() : '',
-        courseDirectionId: payload?.courseDirectionId || '',
-        courseTypeId: payload?.courseTypeId || '',
-        schedule,
-        scheduleHistory: [],
+        courseDirectionId: '',
+        courseTypeId: '',
+        schedule: null,
+        scheduleHistory: [] as any[],
         messages: [],
       };
     });
+
+    const threadIds = threads
+      .map((t) => String(t.id || '').trim())
+      .filter((id) => id);
+
+    if (threadIds.length > 0) {
+      const placeholders = threadIds.map(() => '?').join(',');
+      const items = await query<any[]>(
+        `
+        SELECT id, thread_id, sender_user_id, payload_json, created_at
+        FROM message_items
+        WHERE thread_id IN (${placeholders})
+          AND message_type = 'appointment_card'
+        ORDER BY thread_id ASC, created_at ASC, id ASC
+        `,
+        threadIds
+      );
+
+      const byThread = new Map<string, any[]>();
+      for (const row of items || []) {
+        const tid = String(row?.thread_id || '').trim();
+        if (!tid) continue;
+        if (!byThread.has(tid)) byThread.set(tid, []);
+        byThread.get(tid)!.push(row);
+      }
+
+      const threadMap = new Map<string, any>();
+      for (const t of threads) threadMap.set(String(t.id), t);
+
+      for (const [tid, rowsForThread] of byThread.entries()) {
+        const thread = threadMap.get(tid);
+        if (!thread) continue;
+
+        const MAX_PER_THREAD = 30;
+        const recentRows = rowsForThread.length > MAX_PER_THREAD
+          ? rowsForThread.slice(-MAX_PER_THREAD)
+          : rowsForThread;
+
+        const cards = recentRows
+          .map((row) => toScheduleCard(row, req.user!.id))
+          .filter(Boolean) as any[];
+
+        if (cards.length === 0) continue;
+
+        const last = cards[cards.length - 1];
+        const history = cards.slice(0, -1);
+
+        thread.schedule = last;
+        thread.scheduleHistory = history;
+        thread.courseDirectionId = String(last.courseDirectionId || '');
+        thread.courseTypeId = String(last.courseTypeId || '');
+      }
+    }
 
     return res.json({ threads });
   } catch (e) {
