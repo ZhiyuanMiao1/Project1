@@ -164,6 +164,18 @@ CREATE TABLE IF NOT EXISTS `mentor_course_embeddings` (
   CONSTRAINT `fk_mentor_course_embeddings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 9b) Mentor -> direction relevance scores (precomputed for home tabs)
+CREATE TABLE IF NOT EXISTS `mentor_direction_scores` (
+  `user_id` INT NOT NULL,
+  `direction_id` VARCHAR(64) NOT NULL,
+  `score` DOUBLE NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`user_id`, `direction_id`),
+  KEY `idx_mds_direction_score` (`direction_id`, `score`),
+  CONSTRAINT `fk_mds_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 10) Course requests (student publish / save draft)
 CREATE TABLE IF NOT EXISTS `course_requests` (
   `id` INT NOT NULL AUTO_INCREMENT,
@@ -198,8 +210,21 @@ ALTER TABLE `course_requests`
   MODIFY COLUMN `status` ENUM('draft','submitted','paired') NOT NULL DEFAULT 'draft';
 
 -- Persist the last step index when saving "draft + exit" from the frontend.
-ALTER TABLE `course_requests`
-  ADD COLUMN IF NOT EXISTS `draft_step` TINYINT UNSIGNED NOT NULL DEFAULT 0;
+SET @__mx_has_draft_step := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'course_requests'
+    AND COLUMN_NAME = 'draft_step'
+);
+SET @__mx_sql := IF(
+  @__mx_has_draft_step = 0,
+  'ALTER TABLE `course_requests` ADD COLUMN `draft_step` TINYINT UNSIGNED NOT NULL DEFAULT 0',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 CREATE TABLE IF NOT EXISTS `course_request_attachments` (
   `id` INT NOT NULL AUTO_INCREMENT,

@@ -6,9 +6,7 @@ type DbExec = (sql: string, params?: any[]) => Promise<any>;
 
 export type MentorDirectionScore = { directionId: string; score: number };
 
-type DirectionEmbeddingRow = { source_id: string; embedding: any; embedding_dim: any };
 type MentorCourseEmbeddingRow = { course_text: string; embedding: any };
-type CountRow = { c: any };
 
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
@@ -17,22 +15,25 @@ const RELEVANCE_ABS_MIN = 0.35;
 
 let mentorDirectionScoresEnsured = false;
 
-export async function ensureMentorDirectionScoresTable() {
+const tableExists = async (tableName: string, queryFn: DbQuery) => {
+  const rows = await queryFn(
+    'SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+    [tableName]
+  );
+  const n = typeof (rows?.[0] as any)?.c === 'number' ? (rows[0] as any).c : Number((rows?.[0] as any)?.c);
+  return Number.isFinite(n) && n > 0;
+};
+
+export async function ensureMentorDirectionScoresTable(queryFn?: DbQuery) {
   if (mentorDirectionScoresEnsured) return;
 
-  await query(`
-    CREATE TABLE IF NOT EXISTS \`mentor_direction_scores\` (
-      \`user_id\` INT NOT NULL,
-      \`direction_id\` VARCHAR(64) NOT NULL,
-      \`score\` DOUBLE NOT NULL DEFAULT 0,
-      \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-      \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (\`user_id\`, \`direction_id\`),
-      KEY \`idx_mds_direction_score\` (\`direction_id\`, \`score\`),
-      CONSTRAINT \`fk_mds_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
-
+  const q = queryFn || (async (sql: string, args: any[] = []) => query<any[]>(sql, args));
+  const ok = await tableExists('mentor_direction_scores', q);
+  if (!ok) {
+    const err: any = new Error('数据库未升级，请先执行 backend/schema.sql');
+    err.code = 'SCHEMA_NOT_UPGRADED';
+    throw err;
+  }
   mentorDirectionScoresEnsured = true;
 }
 
@@ -182,7 +183,7 @@ export async function refreshMentorDirectionScores(params: {
   const queryFn = params.queryFn || (async (sql: string, args: any[] = []) => query<any[]>(sql, args));
   const execFn = params.execFn || (async (sql: string, args: any[] = []) => query<any>(sql, args));
 
-  await ensureMentorDirectionScoresTable();
+  await ensureMentorDirectionScoresTable(queryFn);
 
   const hasCourses = await hasAnyMentorCourseEmbeddings(userId, queryFn);
 
@@ -235,4 +236,3 @@ export async function refreshMentorDirectionScores(params: {
 
   return { stored: rowsToInsert.length, mode };
 }
-
