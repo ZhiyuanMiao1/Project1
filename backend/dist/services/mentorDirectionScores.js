@@ -81,7 +81,7 @@ async function computeScoresWithVectors(userId, queryFn) {
     WHERE ce.kind = ? AND ce.source_id <> ?
     GROUP BY ce.source_id
     `, [userId, DIRECTION_KIND, OTHERS_DIRECTION_ID]);
-    return (rows || [])
+    const scores = (rows || [])
         .map((r) => {
         const directionId = String(r?.direction_id || '').trim();
         const rawScore = r?.score;
@@ -91,6 +91,22 @@ async function computeScoresWithVectors(userId, queryFn) {
         return { directionId, score: Number.isFinite(score) ? score : 0 };
     })
         .filter(Boolean);
+    const minRows = await queryFn(`
+    SELECT MIN(best_score) AS min_best_score
+    FROM (
+      SELECT
+        mce.id AS course_id,
+        MAX(1 - VEC_DISTANCE(mce.embedding_vec, ce.embedding_vec)) AS best_score
+      FROM mentor_course_embeddings mce
+      JOIN course_embeddings ce
+        ON ce.kind = ? AND ce.source_id <> ?
+      WHERE mce.user_id = ?
+      GROUP BY mce.id
+    ) t
+    `, [DIRECTION_KIND, OTHERS_DIRECTION_ID, userId]);
+    const rawMin = minRows?.[0]?.min_best_score;
+    const minParsed = typeof rawMin === 'number' ? rawMin : Number.parseFloat(String(rawMin ?? '0'));
+    return { scores, minCourseBestScore: Number.isFinite(minParsed) ? minParsed : 0 };
 }
 async function computeScoresFallback(userId, queryFn) {
     const dirRows = await queryFn('SELECT source_id, embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id <> ?', [DIRECTION_KIND, OTHERS_DIRECTION_ID]);
@@ -118,8 +134,6 @@ async function computeScoresFallback(userId, queryFn) {
         return { embedding, norm };
     })
         .filter(Boolean);
-    if (courses.length === 0)
-        return [];
     const directions = (dirRows || [])
         .map((r) => {
         const directionId = String(r?.source_id || '').trim();
@@ -140,29 +154,37 @@ async function computeScoresFallback(userId, queryFn) {
         return { directionId, embedding, norm };
     })
         .filter(Boolean);
-    const scores = [];
-    for (const dir of directions) {
-        let best = 0;
+    const bestByDirection = new Map();
+    for (const dir of directions)
+        bestByDirection.set(dir.directionId, 0);
+    let minCourseBestScore = 0;
+    if (courses.length > 0) {
+        minCourseBestScore = Number.POSITIVE_INFINITY;
         for (const c of courses) {
-            const s = cosineSimilarity(dir.embedding, dir.norm, c.embedding, c.norm);
-            if (s > best)
-                best = s;
+            let bestForCourse = 0;
+            for (const dir of directions) {
+                const s = cosineSimilarity(dir.embedding, dir.norm, c.embedding, c.norm);
+                if (s > bestForCourse)
+                    bestForCourse = s;
+                const prev = bestByDirection.get(dir.directionId) || 0;
+                if (s > prev)
+                    bestByDirection.set(dir.directionId, s);
+            }
+            if (bestForCourse < minCourseBestScore)
+                minCourseBestScore = bestForCourse;
         }
-        scores.push({ directionId: dir.directionId, score: best });
     }
-    return scores;
+    const scores = directions.map((d) => ({
+        directionId: d.directionId,
+        score: bestByDirection.get(d.directionId) || 0,
+    }));
+    return { scores, minCourseBestScore: Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0 };
 }
-function computeOthersScore(scores, hasCourses) {
+function computeOthersScore(minCourseBestScore, hasCourses) {
     if (!hasCourses)
         return 0;
-    let maxScore = 0;
-    for (const s of scores) {
-        if (s.directionId === OTHERS_DIRECTION_ID)
-            continue;
-        if (typeof s.score === 'number' && Number.isFinite(s.score) && s.score > maxScore)
-            maxScore = s.score;
-    }
-    const delta = RELEVANCE_ABS_MIN - maxScore;
+    const best = Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0;
+    const delta = RELEVANCE_ABS_MIN - best;
     return delta > 0 ? delta : 0;
 }
 async function refreshMentorDirectionScores(params) {
@@ -176,24 +198,31 @@ async function refreshMentorDirectionScores(params) {
         return { stored: 0, mode: 'none' };
     }
     let scores = [];
+    let minCourseBestScore = 0;
     let mode = 'fallback';
     try {
         const vecOk = await (0, rdsVectorIndex_1.ensureCourseEmbeddingsVectorColumn)();
         const mentorVecOk = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
         if (vecOk && mentorVecOk) {
-            scores = await computeScoresWithVectors(userId, queryFn);
+            const r = await computeScoresWithVectors(userId, queryFn);
+            scores = r.scores;
+            minCourseBestScore = r.minCourseBestScore;
             mode = 'rds';
         }
         else {
-            scores = await computeScoresFallback(userId, queryFn);
+            const r = await computeScoresFallback(userId, queryFn);
+            scores = r.scores;
+            minCourseBestScore = r.minCourseBestScore;
             mode = 'fallback';
         }
     }
     catch {
-        scores = await computeScoresFallback(userId, queryFn);
+        const r = await computeScoresFallback(userId, queryFn);
+        scores = r.scores;
+        minCourseBestScore = r.minCourseBestScore;
         mode = 'fallback';
     }
-    const othersScore = computeOthersScore(scores, hasCourses);
+    const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
     scores = scores.filter((s) => s.directionId !== OTHERS_DIRECTION_ID);
     scores.push({ directionId: OTHERS_DIRECTION_ID, score: othersScore });
     await execFn('DELETE FROM mentor_direction_scores WHERE user_id = ?', [userId]);
