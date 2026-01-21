@@ -5,6 +5,7 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
+const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const router = (0, express_1.Router)();
 const requiredEnv = (name) => {
@@ -429,6 +430,16 @@ router.put('/profile', auth_1.requireAuth, [
                 keepKeys: preparedEmbeddings.keepKeys,
                 upserts: preparedEmbeddings.upserts,
                 exec: async (sql, args = []) => {
+                    await conn.execute(sql, args);
+                },
+            });
+            await (0, mentorDirectionScores_1.refreshMentorDirectionScores)({
+                userId,
+                queryFn: async (sql, args = []) => {
+                    const [rows] = await conn.execute(sql, args);
+                    return rows;
+                },
+                execFn: async (sql, args = []) => {
                     await conn.execute(sql, args);
                 },
             });

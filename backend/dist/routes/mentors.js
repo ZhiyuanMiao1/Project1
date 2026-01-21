@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
+const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
 const router = (0, express_1.Router)();
 const hrNow = () => process.hrtime.bigint();
@@ -154,6 +155,10 @@ const normalizeCount = (raw) => {
     const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? '0'), 10);
     return Number.isFinite(n) && n > 0 ? n : 0;
 };
+const normalizeScore = (raw) => {
+    const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
+    return Number.isFinite(n) ? n : 0;
+};
 const parseEmbedding = (raw) => {
     if (!raw)
         return null;
@@ -217,10 +222,39 @@ async function loadDirectionEmbeddingById(directionId) {
 // Public: return mentors who have passed approval.
 router.get('/approved', async (_req, res) => {
     const directionId = typeof _req.query?.directionId === 'string' ? _req.query.directionId.trim() : '';
+    const isOthersDirection = directionId === 'others';
+    const useLegacyVectorRanking = false;
     const timingEnabled = getTimingFlag(_req);
     const reqId = timingEnabled ? Math.random().toString(16).slice(2, 8) : '';
     const t0 = timingEnabled ? hrNow() : 0n;
     const runQuery = async () => {
+        if (!directionId) {
+            const rows = await (0, db_1.query)(`
+        SELECT
+          ur.user_id,
+          ur.public_id,
+          u.username,
+          mp.display_name,
+          mp.gender,
+          mp.degree,
+          mp.school,
+          mp.timezone,
+          mp.courses_json,
+          mp.teaching_languages_json,
+          mp.avatar_url,
+          mp.rating,
+          mp.review_count,
+          mp.updated_at
+        FROM user_roles ur
+        JOIN users u ON u.id = ur.user_id
+        LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+        WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
+        ORDER BY mp.updated_at DESC, ur.public_id ASC
+        LIMIT 200
+        `);
+            return rows || [];
+        }
+        const whereOthers = isOthersDirection ? 'AND mds.score > 0' : '';
         const rows = await (0, db_1.query)(`
       SELECT
         ur.user_id,
@@ -236,17 +270,24 @@ router.get('/approved', async (_req, res) => {
         mp.avatar_url,
         mp.rating,
         mp.review_count,
-        mp.updated_at
-      FROM user_roles ur
+        mp.updated_at,
+        mds.score AS relevance_score
+      FROM mentor_direction_scores mds
+      JOIN user_roles ur
+        ON ur.user_id = mds.user_id AND ur.role = 'mentor' AND ur.mentor_approved = 1
       JOIN users u ON u.id = ur.user_id
       LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
-      WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
-      ORDER BY mp.updated_at DESC, ur.public_id ASC
+      WHERE mds.direction_id = ?
+      ${whereOthers}
+      ORDER BY mds.score DESC, mp.updated_at DESC, ur.public_id ASC
       LIMIT 200
-      `);
+      `, [directionId]);
         return rows || [];
     };
     try {
+        if (directionId) {
+            await (0, mentorDirectionScores_1.ensureMentorDirectionScoresTable)();
+        }
         const tMentorsQueryStart = timingEnabled ? hrNow() : 0n;
         let rows = [];
         try {
@@ -273,6 +314,7 @@ router.get('/approved', async (_req, res) => {
         const tBuildCardsStart = timingEnabled ? hrNow() : 0n;
         let mentors = rows.flatMap((row) => {
             const courses = parseCourses(row.courses_json);
+            const relevanceScore = directionId ? normalizeScore(row?.relevance_score) : undefined;
             const hasAnyProfileInfo = hasNonEmptyText(row.avatar_url) ||
                 hasNonEmptyText(row.school) ||
                 hasNonEmptyText(row.degree) ||
@@ -296,11 +338,12 @@ router.get('/approved', async (_req, res) => {
                     timezone: row.timezone || '',
                     languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
                     imageUrl: row.avatar_url || null,
+                    relevanceScore,
                 },
             ];
         });
         const tBuildCardsMs = timingEnabled ? msSince(tBuildCardsStart) : 0;
-        if (directionId) {
+        if (directionId && useLegacyVectorRanking) {
             let vectorRanked = false;
             const vectorUserIds = Array.from(new Set(mentors.map((m) => Number(m._userId)).filter((n) => Number.isFinite(n))));
             if (vectorUserIds.length > 0) {
@@ -476,9 +519,17 @@ router.get('/approved', async (_req, res) => {
                 }
             }
         }
-        else if (timingEnabled) {
+        else if (!directionId && timingEnabled) {
             const totalMs = msSince(t0);
             console.log(`[mentors/approved timing ${reqId}] directionId=<none> mentors=${mentors.length} mentorsSQL=${tMentorsQueryMs.toFixed(1)}ms buildCards=${tBuildCardsMs.toFixed(1)}ms TOTAL=${totalMs.toFixed(1)}ms`);
+        }
+        if (directionId && !useLegacyVectorRanking) {
+            if (isOthersDirection) {
+                mentors = mentors.filter((m) => (m.relevanceScore || 0) > 0);
+            }
+            else {
+                mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
+            }
         }
         const publicMentors = mentors.map(({ _userId, ...rest }) => rest);
         return res.json({ mentors: publicMentors });

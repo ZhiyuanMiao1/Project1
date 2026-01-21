@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv_1 = __importDefault(require("dotenv"));
 const db_1 = require("../db");
 const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
+const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 dotenv_1.default.config();
 const requiredEnv = (name) => {
     const value = process.env[name];
@@ -84,6 +85,16 @@ async function main() {
                 keepKeys: prepared.keepKeys,
                 upserts: prepared.upserts,
                 exec: async (sql, args = []) => {
+                    await conn.execute(sql, args);
+                },
+            });
+            await (0, mentorDirectionScores_1.refreshMentorDirectionScores)({
+                userId,
+                queryFn: async (sql, args = []) => {
+                    const [rows] = await conn.execute(sql, args);
+                    return rows;
+                },
+                execFn: async (sql, args = []) => {
                     await conn.execute(sql, args);
                 },
             });

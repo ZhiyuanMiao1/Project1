@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { pool, query } from '../db';
 import { body, validationResult } from 'express-validator';
 import { applyMentorCourseEmbeddings, prepareMentorCourseEmbeddings, sanitizeMentorCourses } from '../services/mentorCourseEmbeddings';
+import { refreshMentorDirectionScores } from '../services/mentorDirectionScores';
 import {
   ensureMentorTeachingLanguagesColumn,
   isMissingTeachingLanguagesColumnError,
@@ -492,6 +493,17 @@ router.put(
           keepKeys: preparedEmbeddings.keepKeys,
           upserts: preparedEmbeddings.upserts,
           exec: async (sql: string, args: any[] = []) => {
+            await conn.execute(sql, args);
+          },
+        });
+
+        await refreshMentorDirectionScores({
+          userId,
+          queryFn: async (sql: string, args: any[] = []) => {
+            const [rows] = await conn.execute(sql, args);
+            return rows as any[];
+          },
+          execFn: async (sql: string, args: any[] = []) => {
             await conn.execute(sql, args);
           },
         });

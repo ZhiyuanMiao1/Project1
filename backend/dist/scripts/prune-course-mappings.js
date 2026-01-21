@@ -121,4 +121,3 @@ main()
     .finally(async () => {
     await db_1.pool.end().catch(() => { });
 });
-

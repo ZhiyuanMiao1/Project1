@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { pool, query } from '../db';
 import { applyMentorCourseEmbeddings, prepareMentorCourseEmbeddings, sanitizeMentorCourses } from '../services/mentorCourseEmbeddings';
+import { refreshMentorDirectionScores } from '../services/mentorDirectionScores';
 
 dotenv.config();
 
@@ -97,6 +98,17 @@ async function main() {
           await conn.execute(sql, args);
         },
       });
+
+      await refreshMentorDirectionScores({
+        userId,
+        queryFn: async (sql: string, args: any[] = []) => {
+          const [rows] = await conn.execute(sql, args);
+          return rows as any[];
+        },
+        execFn: async (sql: string, args: any[] = []) => {
+          await conn.execute(sql, args);
+        },
+      });
       await conn.commit();
     } catch (e) {
       try {
@@ -120,4 +132,3 @@ main().catch((err) => {
   console.error(err);
   process.exitCode = 1;
 });
-
