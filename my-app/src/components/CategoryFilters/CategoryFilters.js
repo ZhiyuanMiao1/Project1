@@ -125,16 +125,32 @@ function CategoryFilters({ eventName = STUDENT_LISTINGS_CATEGORY_EVENT } = {}) {
     .filter(Boolean)
     .map((opt) => ({ id: opt.id, name: opt.label }));
 
+  const getArrowScrollDelta = () => {
+    const el = containerRef.current;
+    if (!el) return 0;
+    const byViewport = Math.floor((el.clientWidth || 0) * 0.9);
+    return Math.max(1200, byViewport);
+  };
+
   const scrollLeft = () => {
-    if (containerRef.current) {
-      // 可以根据实际需求调整滚动距离
-      containerRef.current.scrollLeft -= 900;
+    const el = containerRef.current;
+    if (!el) return;
+    const delta = getArrowScrollDelta();
+    try {
+      el.scrollBy({ left: -delta, behavior: 'smooth' });
+    } catch {
+      el.scrollLeft -= delta;
     }
   };
 
   const scrollRight = () => {
-    if (containerRef.current) {
-      containerRef.current.scrollLeft += 900;
+    const el = containerRef.current;
+    if (!el) return;
+    const delta = getArrowScrollDelta();
+    try {
+      el.scrollBy({ left: delta, behavior: 'smooth' });
+    } catch {
+      el.scrollLeft += delta;
     }
   };
 
