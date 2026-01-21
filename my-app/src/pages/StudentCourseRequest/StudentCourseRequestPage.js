@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
-import { DIRECTION_OPTIONS, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
+import { DIRECTION_OPTIONS, DIRECTION_ID_TO_LABEL, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
@@ -445,7 +445,11 @@ function StudentCourseRequestPage() {
         setFormData((prev) => ({
           ...prev,
           learningGoal: safeText(draft?.learningGoal) || prev.learningGoal,
-          courseDirection: safeText(draft?.courseDirection),
+          courseDirection: (() => {
+            const id = safeText(draft?.courseDirection);
+            if (id === 'operations' || id === 'project-management') return 'management';
+            return id;
+          })(),
           courseType,
           courseTypes,
           courseFocus: safeText(draft?.courseFocus),
@@ -1160,8 +1164,8 @@ function StudentCourseRequestPage() {
   const previewSchool = (previewSchoolRaw || '').trim();
   const previewAvatarInitial = (accountProfile.studentId || mockStudent.name || 'S').slice(0, 1).toUpperCase();
   const previewDirectionLabel = useMemo(() => {
-    const found = DIRECTION_OPTIONS.find((o) => o.id === formData.courseDirection);
-    return found?.label || formData.learningGoal || '未选择方向';
+    const directionId = String(formData.courseDirection || '').trim();
+    return DIRECTION_ID_TO_LABEL[directionId] || formData.learningGoal || '未选择方向';
   }, [formData.courseDirection, formData.learningGoal]);
   // Selected course type(s) label for preview
   const previewCourseTypeLabel = useMemo(() => {

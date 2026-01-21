@@ -6,12 +6,17 @@ import {
   FaProjectDiagram,
   FaRobot,
   FaChartBar,
+  FaChartLine,
   FaCalculator,
   FaChartPie,
   FaAtom,
   FaDna,
   FaFlask,
   FaCubes,
+  FaBolt,
+  FaWrench,
+  FaBuilding,
+  FaCloud,
   FaLaptopCode,
   FaShieldAlt,
   FaDollarSign,
@@ -26,7 +31,8 @@ import {
   FaBalanceScale,
   FaFileAlt,
   FaUserTie,
-  FaUsers,
+  FaHeartbeat,
+  FaChalkboardTeacher,
   FaLightbulb,
   FaBookOpen,
   FaCheckCircle,
@@ -42,21 +48,27 @@ export const DIRECTION_OPTIONS = [
   { id: 'ml', label: '机器学习' },
   { id: 'ai-large-model', label: 'AI 大模型' },
   { id: 'data-analysis', label: '数据分析' },
+  { id: 'business-analytics', label: '商业分析' },
   { id: 'advanced-math', label: '高等数学' },
   { id: 'statistics', label: '概率与统计' },
   { id: 'physics', label: '物理学' },
+  { id: 'electrical-electronics', label: '电气与电子' },
+  { id: 'mechanical-engineering', label: '机械工程' },
+  { id: 'civil-structural', label: '土木 / 结构' },
   { id: 'life-science', label: '生命科学' },
+  { id: 'public-health', label: '健康与公共卫生' },
   { id: 'chemistry', label: '化学' },
   { id: 'materials-science', label: '材料科学' },
   { id: 'software-engineering', label: '软件工程' },
+  { id: 'cloud-computing', label: '云计算' },
   { id: 'cybersecurity', label: '网络安全' },
   { id: 'finance', label: '金融学' },
   { id: 'accounting', label: '会计学' },
   { id: 'economics', label: '经济学' },
   { id: 'marketing', label: '市场营销' },
-  { id: 'operations', label: '运营管理' },
-  { id: 'project-management', label: '人力资源管理' },
+  { id: 'management', label: '管理学' },
   { id: 'psychology', label: '心理学' },
+  { id: 'education', label: '教育学' },
   { id: 'design-creative', label: '设计 / 创意' },
   { id: 'linguistics', label: '语言学' },
   { id: 'communication-studies', label: '传播学' },
@@ -73,21 +85,30 @@ export const DIRECTION_ICON_MAP = {
   'ml': FaRobot,
   'ai-large-model': RiAiGenerate,
   'data-analysis': FaChartBar,
+  'business-analytics': FaChartLine,
   'advanced-math': FaCalculator,
   'statistics': FaChartPie,
   'physics': FaAtom,
+  'electrical-electronics': FaBolt,
+  'mechanical-engineering': FaWrench,
+  'civil-structural': FaBuilding,
   'life-science': FaDna,
+  'public-health': FaHeartbeat,
   'chemistry': FaFlask,
   'materials-science': FaCubes,
   'software-engineering': FaLaptopCode,
+  'cloud-computing': FaCloud,
   'cybersecurity': FaShieldAlt,
   'finance': FaDollarSign,
   'accounting': FaCalculator,
   'economics': FaUniversity,
   'marketing': FaBullhorn,
+  'management': FaCogs,
+  // legacy ids (merged into 管理学)
   'operations': FaCogs,
-  'project-management': FaUsers,
+  'project-management': FaCogs,
   'psychology': FaBrain,
+  'education': FaChalkboardTeacher,
   'design-creative': FaPalette,
   'linguistics': FaLanguage,
   'communication-studies': FaBroadcastTower,
@@ -98,9 +119,15 @@ export const DIRECTION_ICON_MAP = {
 };
 
 // Helper: id -> label map
-export const DIRECTION_ID_TO_LABEL = Object.fromEntries(
+const BASE_DIRECTION_ID_TO_LABEL = Object.fromEntries(
   DIRECTION_OPTIONS.map((o) => [o.id, o.label])
 );
+export const DIRECTION_ID_TO_LABEL = {
+  ...BASE_DIRECTION_ID_TO_LABEL,
+  // legacy ids (merged into 管理学)
+  'operations': BASE_DIRECTION_ID_TO_LABEL.management || '管理学',
+  'project-management': BASE_DIRECTION_ID_TO_LABEL.management || '管理学',
+};
 
 // Mapping by label (component form)
 export const DIRECTION_LABEL_ICON_MAP = Object.fromEntries(
@@ -157,6 +184,7 @@ export function normalizeCourseLabel(raw) {
   if (!s) return '';
   if (DIRECTION_ID_TO_LABEL[s]) return DIRECTION_ID_TO_LABEL[s];
   if (DIRECTION_LABEL_ICON_MAP[s]) return s;
+  if (s === '运营管理' || s === '人力资源管理') return '管理学';
   const lower = s.toLowerCase();
   const has = (re) => re.test(s) || re.test(lower);
   if (has(/python|编程/)) return '编程基础';
@@ -164,21 +192,27 @@ export function normalizeCourseLabel(raw) {
   if (has(/深度学习|机器学习|ml/)) return '机器学习';
   if (has(/大模型|llm/)) return 'AI 大模型';
   if (has(/数据分析|可视化/)) return '数据分析';
+  if (has(/商业分析|商业智能|business\s*(analysis|analytics)|\bbi\b/)) return '商业分析';
   if (has(/高等数学|线性代数|微积分|数理逻辑/)) return '高等数学';
   if (has(/概率|统计/)) return '概率与统计';
   if (has(/物理/)) return '物理学';
+  if (has(/电气|电子|电路|信号与系统|嵌入式|electrical|electronics/)) return '电气与电子';
+  if (has(/机械|机电|机械工程|热力学|流体力学|mechanical/)) return '机械工程';
+  if (has(/土木|结构|建筑|civil|structural/)) return '土木 / 结构';
   if (has(/生命|生物/)) return '生命科学';
+  if (has(/健康|公共卫生|流行病|epidemiology|public\s*health|healthcare/)) return '健康与公共卫生';
   if (has(/化学/)) return '化学';
   if (has(/材料/)) return '材料科学';
+  if (has(/云计算|云原生|cloud\s*computing|aws|azure|gcp|kubernetes|k8s|docker|devops/)) return '云计算';
   if (has(/操作系统|数据库|网络|软件|工程|编译/)) return '软件工程';
   if (has(/安全/)) return '网络安全';
   if (has(/金融/)) return '金融学';
   if (has(/会计/)) return '会计学';
   if (has(/经济/)) return '经济学';
   if (has(/营销/)) return '市场营销';
-  if (has(/运营/)) return '运营管理';
-  if (has(/人力资源|\bhr\b|HR|项目管理/)) return '人力资源管理';
+  if (has(/管理学|运营|人力资源|\bhr\b|HR|项目管理|project\s*management|operations\s*management/)) return '管理学';
   if (has(/心理/)) return '心理学';
+  if (has(/教育学|教育|教学|pedagogy|curriculum|teaching/)) return '教育学';
   if (has(/设计|创意/)) return '设计 / 创意';
   if (has(/语言学/)) return '语言学';
   if (has(/传播/)) return '传播学';

@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { query } from '../db';
+import { pool, query } from '../db';
 import { ensureCourseEmbeddingsVectorColumn } from '../services/rdsVectorIndex';
 
 type CourseKind = 'direction' | 'course_type';
@@ -208,59 +208,63 @@ async function upsertEmbedding(row: CourseRow, model: string, embedding: number[
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const force = Boolean(args.get('force'));
-  const dryRun = Boolean(args.get('dry-run'));
-  const limitRaw = args.get('limit');
-  const limit = typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : null;
+  try {
+    const args = parseArgs(process.argv.slice(2));
+    const force = Boolean(args.get('force'));
+    const dryRun = Boolean(args.get('dry-run'));
+    const limitRaw = args.get('limit');
+    const limit = typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : null;
 
-  const model = (typeof args.get('model') === 'string' ? String(args.get('model')) : DEFAULT_MODEL).trim();
-  const dimension = parseDimension(
-    typeof args.get('dimension') === 'string' ? String(args.get('dimension')) : process.env.DASHSCOPE_EMBEDDING_DIM,
-    DEFAULT_DIMENSION
-  );
-  const embeddingsUrl = String(process.env.DASHSCOPE_EMBEDDINGS_URL || DEFAULT_EMBEDDINGS_URL).trim();
-  const apiKey = requiredEnv('DASHSCOPE_API_KEY');
+    const model = (typeof args.get('model') === 'string' ? String(args.get('model')) : DEFAULT_MODEL).trim();
+    const dimension = parseDimension(
+      typeof args.get('dimension') === 'string' ? String(args.get('dimension')) : process.env.DASHSCOPE_EMBEDDING_DIM,
+      DEFAULT_DIMENSION
+    );
+    const embeddingsUrl = String(process.env.DASHSCOPE_EMBEDDINGS_URL || DEFAULT_EMBEDDINGS_URL).trim();
+    const apiKey = requiredEnv('DASHSCOPE_API_KEY');
 
-  const courseMappingsPath = resolveCourseMappingsPath(typeof args.get('file') === 'string' ? String(args.get('file')) : undefined);
-  const rowsAll = loadCourseRows(courseMappingsPath);
-  const rows = limit && Number.isFinite(limit) && limit > 0 ? rowsAll.slice(0, limit) : rowsAll;
+    const courseMappingsPath = resolveCourseMappingsPath(typeof args.get('file') === 'string' ? String(args.get('file')) : undefined);
+    const rowsAll = loadCourseRows(courseMappingsPath);
+    const rows = limit && Number.isFinite(limit) && limit > 0 ? rowsAll.slice(0, limit) : rowsAll;
 
-  await ensureTable();
-  const useVectorColumn = await ensureCourseEmbeddingsVectorColumn();
+    await ensureTable();
+    const useVectorColumn = await ensureCourseEmbeddingsVectorColumn();
 
-  console.log(`[embed-course-mappings] source=${courseMappingsPath}`);
-  console.log(`[embed-course-mappings] model=${model} dim=${dimension} url=${embeddingsUrl}`);
-  console.log(`[embed-course-mappings] vectorColumn=${useVectorColumn ? 'ON' : 'OFF'}`);
-  console.log(`[embed-course-mappings] total=${rows.length} force=${force} dryRun=${dryRun}`);
+    console.log(`[embed-course-mappings] source=${courseMappingsPath}`);
+    console.log(`[embed-course-mappings] model=${model} dim=${dimension} url=${embeddingsUrl}`);
+    console.log(`[embed-course-mappings] vectorColumn=${useVectorColumn ? 'ON' : 'OFF'}`);
+    console.log(`[embed-course-mappings] total=${rows.length} force=${force} dryRun=${dryRun}`);
 
-  let embedded = 0;
-  let skipped = 0;
+    let embedded = 0;
+    let skipped = 0;
 
-  for (const row of rows) {
-    const textHash = sha256Hex(`${model}\n${dimension}\n${row.text}`);
-    const existing = await getExistingTextHash(row.kind, row.sourceId);
-    if (!force && existing && existing === textHash) {
-      skipped++;
-      continue;
-    }
+    for (const row of rows) {
+      const textHash = sha256Hex(`${model}\n${dimension}\n${row.text}`);
+      const existing = await getExistingTextHash(row.kind, row.sourceId);
+      if (!force && existing && existing === textHash) {
+        skipped++;
+        continue;
+      }
 
-    if (dryRun) {
-      console.log(`[dry-run] ${row.kind}:${row.sourceId} ${row.label}`);
+      if (dryRun) {
+        console.log(`[dry-run] ${row.kind}:${row.sourceId} ${row.label}`);
+        embedded++;
+        continue;
+      }
+
+      const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl, dimension });
+      await upsertEmbedding(row, model, embedding, textHash, useVectorColumn);
       embedded++;
-      continue;
+
+      if (embedded % 5 === 0 || embedded === rows.length) {
+        console.log(`[embed-course-mappings] progress embedded=${embedded} skipped=${skipped}/${rows.length}`);
+      }
     }
 
-    const embedding = await fetchEmbedding({ text: row.text, model, apiKey, url: embeddingsUrl, dimension });
-    await upsertEmbedding(row, model, embedding, textHash, useVectorColumn);
-    embedded++;
-
-    if (embedded % 5 === 0 || embedded === rows.length) {
-      console.log(`[embed-course-mappings] progress embedded=${embedded} skipped=${skipped}/${rows.length}`);
-    }
+    console.log(`[embed-course-mappings] done embedded=${embedded} skipped=${skipped} total=${rows.length}`);
+  } finally {
+    await pool.end().catch(() => {});
   }
-
-  console.log(`[embed-course-mappings] done embedded=${embedded} skipped=${skipped} total=${rows.length}`);
 }
 
 main().catch((err) => {
