@@ -36,6 +36,14 @@ client.interceptors.request.use(
     }
 
     const headers = config.headers || {};
+    if (headers && typeof headers?.set === 'function') {
+      try {
+        const hasAuth = headers.has?.('Authorization') || headers.has?.('authorization');
+        if (!hasAuth) headers.set('Authorization', `Bearer ${token}`);
+      } catch {}
+      return config;
+    }
+
     const hasAuthHeader =
       typeof headers?.Authorization !== 'undefined'
       || typeof headers?.authorization !== 'undefined';
@@ -56,9 +64,11 @@ client.interceptors.response.use(
     if (error?.response?.status === 401) {
       // Only clear auth when request actually carried an auth header; avoid wiping token due to a missing-header race.
       const headers = error?.config?.headers || {};
-      const hadAuthHeader =
-        !!headers?.Authorization
-        || !!headers?.authorization;
+      const authHeaderValue =
+        typeof headers?.get === 'function'
+          ? (headers.get('Authorization') || headers.get('authorization'))
+          : (headers?.Authorization || headers?.authorization);
+      const hadAuthHeader = !!authHeaderValue;
       if (hadAuthHeader) {
         clearAuth(client);
       }

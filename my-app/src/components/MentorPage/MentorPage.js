@@ -6,6 +6,7 @@ import MentorListings from '../Listings/MentorListings';
 import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { COURSE_TYPE_EN_TO_CN, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
+import { clearAuth } from '../../utils/auth';
 import { getAuthToken } from '../../utils/authStorage';
 import './MentorPage.css';
 
@@ -221,6 +222,7 @@ function MentorPage() {
       if (getAuthToken()) askedLoginRef.current = false;
       if (!isLoggedIn || !getAuthToken()) {
         if (!alive) return;
+        if (isLoggedIn) setIsLoggedIn(false);
         setStatus('unauthenticated');
         try { sessionStorage.setItem('postLoginRedirect', currentPath); } catch {}
         try { sessionStorage.setItem('requiredRole', 'mentor'); } catch {}
@@ -242,6 +244,8 @@ function MentorPage() {
         if (!alive) return;
         const status = e?.response?.status;
         if (status === 401) {
+          try { clearAuth(api); } catch {}
+          setIsLoggedIn(false);
           setStatus('unauthenticated');
           // remember intended url for post-login redirect
           try { sessionStorage.setItem('postLoginRedirect', currentPath); } catch {}
