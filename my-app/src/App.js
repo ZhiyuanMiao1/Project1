@@ -14,6 +14,7 @@ import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
 import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
 import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
+import WalletPage from './pages/Wallet/WalletPage';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
         {/* 课程时间轴页面 */}
         <Route path="/student/courses" element={<CoursesPage />} />
         <Route path="/student/messages" element={<MessagesPage />} />
+        <Route path="/student/wallet" element={<WalletPage />} />
         <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
 
         {/* 导师个人名片编辑页面 */}

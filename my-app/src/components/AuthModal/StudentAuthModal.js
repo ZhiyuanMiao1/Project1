@@ -6,7 +6,7 @@ import api from '../../api/client';
 import { clearAuth } from '../../utils/auth';
 import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import { FiBookOpen, FiSettings } from 'react-icons/fi';
+import { FiBookOpen, FiCreditCard, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 
@@ -79,6 +79,10 @@ const StudentAuthModal = ({
       case 'messages':
         onClose && onClose();
         navigate('/student/messages', { state: { from: 'student' } });
+        return;
+      case 'wallet':
+        onClose && onClose();
+        navigate('/student/wallet', { state: { from: 'student' } });
         return;
       case 'settings':
         onClose && onClose();
@@ -161,11 +165,18 @@ const StudentAuthModal = ({
                 课程
               </button>
               <button
-                className="auth-modal-option-button auth-divider"
+                className="auth-modal-option-button"
                 onClick={() => handleAuthAction('messages')}
               >
                 <i className="far fa-comment auth-icon" aria-hidden="true"></i>
                 消息
+              </button>
+              <button
+                className="auth-modal-option-button auth-divider"
+                onClick={() => handleAuthAction('wallet')}
+              >
+                <FiCreditCard className="auth-icon" />
+                钱包
               </button>
               <button
                 className="auth-modal-option-button"
