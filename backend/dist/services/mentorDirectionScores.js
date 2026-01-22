@@ -6,7 +6,7 @@ const db_1 = require("../db");
 const rdsVectorIndex_1 = require("./rdsVectorIndex");
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
-const RELEVANCE_ABS_MIN = 0.35;
+const RELEVANCE_ABS_MIN = 0.6;
 let mentorDirectionScoresEnsured = false;
 const tableExists = async (tableName, queryFn) => {
     const rows = await queryFn('SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [tableName]);
@@ -189,6 +189,7 @@ function computeOthersScore(minCourseBestScore, hasCourses) {
 }
 async function refreshMentorDirectionScores(params) {
     const userId = params.userId;
+    const preferVector = params.preferVector !== false;
     const queryFn = params.queryFn || (async (sql, args = []) => (0, db_1.query)(sql, args));
     const execFn = params.execFn || (async (sql, args = []) => (0, db_1.query)(sql, args));
     await ensureMentorDirectionScoresTable(queryFn);
@@ -200,27 +201,35 @@ async function refreshMentorDirectionScores(params) {
     let scores = [];
     let minCourseBestScore = 0;
     let mode = 'fallback';
-    try {
-        const vecOk = await (0, rdsVectorIndex_1.ensureCourseEmbeddingsVectorColumn)();
-        const mentorVecOk = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
-        if (vecOk && mentorVecOk) {
-            const r = await computeScoresWithVectors(userId, queryFn);
-            scores = r.scores;
-            minCourseBestScore = r.minCourseBestScore;
-            mode = 'rds';
+    if (!preferVector) {
+        const r = await computeScoresFallback(userId, queryFn);
+        scores = r.scores;
+        minCourseBestScore = r.minCourseBestScore;
+        mode = 'fallback';
+    }
+    else {
+        try {
+            const vecOk = await (0, rdsVectorIndex_1.ensureCourseEmbeddingsVectorColumn)();
+            const mentorVecOk = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
+            if (vecOk && mentorVecOk) {
+                const r = await computeScoresWithVectors(userId, queryFn);
+                scores = r.scores;
+                minCourseBestScore = r.minCourseBestScore;
+                mode = 'rds';
+            }
+            else {
+                const r = await computeScoresFallback(userId, queryFn);
+                scores = r.scores;
+                minCourseBestScore = r.minCourseBestScore;
+                mode = 'fallback';
+            }
         }
-        else {
+        catch {
             const r = await computeScoresFallback(userId, queryFn);
             scores = r.scores;
             minCourseBestScore = r.minCourseBestScore;
             mode = 'fallback';
         }
-    }
-    catch {
-        const r = await computeScoresFallback(userId, queryFn);
-        scores = r.scores;
-        minCourseBestScore = r.minCourseBestScore;
-        mode = 'fallback';
     }
     const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
     scores = scores.filter((s) => s.directionId !== OTHERS_DIRECTION_ID);

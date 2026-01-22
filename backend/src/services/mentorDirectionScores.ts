@@ -11,7 +11,7 @@ type MentorCourseEmbeddingRow = { course_text: string; embedding: any };
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
 
-const RELEVANCE_ABS_MIN = 0.35;
+const RELEVANCE_ABS_MIN = 0.6;
 
 let mentorDirectionScoresEnsured = false;
 
@@ -207,10 +207,12 @@ function computeOthersScore(minCourseBestScore: number, hasCourses: boolean) {
 
 export async function refreshMentorDirectionScores(params: {
   userId: number;
+  preferVector?: boolean;
   queryFn?: DbQuery;
   execFn?: DbExec;
 }) {
   const userId = params.userId;
+  const preferVector = params.preferVector !== false;
   const queryFn = params.queryFn || (async (sql: string, args: any[] = []) => query<any[]>(sql, args));
   const execFn = params.execFn || (async (sql: string, args: any[] = []) => query<any>(sql, args));
 
@@ -226,25 +228,32 @@ export async function refreshMentorDirectionScores(params: {
   let scores: MentorDirectionScore[] = [];
   let minCourseBestScore = 0;
   let mode: 'rds' | 'fallback' = 'fallback';
-  try {
-    const vecOk = await ensureCourseEmbeddingsVectorColumn();
-    const mentorVecOk = await ensureMentorCourseEmbeddingsVectorIndex();
-    if (vecOk && mentorVecOk) {
-      const r = await computeScoresWithVectors(userId, queryFn);
-      scores = r.scores;
-      minCourseBestScore = r.minCourseBestScore;
-      mode = 'rds';
-    } else {
+  if (!preferVector) {
+    const r = await computeScoresFallback(userId, queryFn);
+    scores = r.scores;
+    minCourseBestScore = r.minCourseBestScore;
+    mode = 'fallback';
+  } else {
+    try {
+      const vecOk = await ensureCourseEmbeddingsVectorColumn();
+      const mentorVecOk = await ensureMentorCourseEmbeddingsVectorIndex();
+      if (vecOk && mentorVecOk) {
+        const r = await computeScoresWithVectors(userId, queryFn);
+        scores = r.scores;
+        minCourseBestScore = r.minCourseBestScore;
+        mode = 'rds';
+      } else {
+        const r = await computeScoresFallback(userId, queryFn);
+        scores = r.scores;
+        minCourseBestScore = r.minCourseBestScore;
+        mode = 'fallback';
+      }
+    } catch {
       const r = await computeScoresFallback(userId, queryFn);
       scores = r.scores;
       minCourseBestScore = r.minCourseBestScore;
       mode = 'fallback';
     }
-  } catch {
-    const r = await computeScoresFallback(userId, queryFn);
-    scores = r.scores;
-    minCourseBestScore = r.minCourseBestScore;
-    mode = 'fallback';
   }
 
   const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
