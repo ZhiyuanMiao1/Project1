@@ -2,22 +2,16 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { pool, query } from '../db';
 import { body, validationResult } from 'express-validator';
-import { applyMentorCourseEmbeddings, prepareMentorCourseEmbeddings, sanitizeMentorCourses } from '../services/mentorCourseEmbeddings';
-import { refreshMentorDirectionScores } from '../services/mentorDirectionScores';
+import { sanitizeMentorCourses } from '../services/mentorCourseEmbeddings';
 import {
   ensureMentorTeachingLanguagesColumn,
   isMissingTeachingLanguagesColumnError,
   parseTeachingLanguagesJson,
   sanitizeTeachingLanguageCodes,
 } from '../services/mentorTeachingLanguages';
+import { enqueueMentorCourseAsyncRefresh } from '../services/mentorCourseAsync';
 
 const router = Router();
-
-const requiredEnv = (name: string) => {
-  const value = process.env[name];
-  if (!value || !value.trim()) throw new Error(`Missing env var: ${name}`);
-  return value.trim();
-};
 
 // GET /api/mentor/permissions
 // Check mentor permissions (e.g., can edit profile card)
@@ -448,14 +442,7 @@ router.put(
       const teachingLanguagesJson = JSON.stringify(nextTeachingLanguages);
 
       const userId = req.user!.id;
-      const preparedEmbeddings =
-        nextCourses.length > 0
-          ? await prepareMentorCourseEmbeddings({
-              userId,
-              courses: nextCourses,
-              apiKey: requiredEnv('DASHSCOPE_API_KEY'),
-            })
-          : { keepKeys: [] as string[], upserts: [] as any[] };
+      const shouldRefreshCourses = Object.prototype.hasOwnProperty.call(req.body, 'courses');
 
       const conn = await pool.getConnection();
       try {
@@ -488,32 +475,16 @@ router.put(
           ]
         );
 
-        await applyMentorCourseEmbeddings({
-          userId,
-          keepKeys: preparedEmbeddings.keepKeys,
-          upserts: preparedEmbeddings.upserts,
-          exec: async (sql: string, args: any[] = []) => {
-            await conn.execute(sql, args);
-          },
-        });
-
-        await refreshMentorDirectionScores({
-          userId,
-          queryFn: async (sql: string, args: any[] = []) => {
-            const [rows] = await conn.execute(sql, args);
-            return rows as any[];
-          },
-          execFn: async (sql: string, args: any[] = []) => {
-            await conn.execute(sql, args);
-          },
-        });
-
         await conn.commit();
       } catch (e) {
         try { await conn.rollback(); } catch {}
         throw e;
       } finally {
         conn.release();
+      }
+
+      if (shouldRefreshCourses) {
+        enqueueMentorCourseAsyncRefresh(userId);
       }
 
       return res.json({ message: '保存成功' });

@@ -5,15 +5,9 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
-const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
+const mentorCourseAsync_1 = require("../services/mentorCourseAsync");
 const router = (0, express_1.Router)();
-const requiredEnv = (name) => {
-    const value = process.env[name];
-    if (!value || !value.trim())
-        throw new Error(`Missing env var: ${name}`);
-    return value.trim();
-};
 // GET /api/mentor/permissions
 // Check mentor permissions (e.g., can edit profile card)
 router.get('/permissions', auth_1.requireAuth, async (req, res) => {
@@ -392,13 +386,7 @@ router.put('/profile', auth_1.requireAuth, [
         const coursesJson = JSON.stringify(nextCourses);
         const teachingLanguagesJson = JSON.stringify(nextTeachingLanguages);
         const userId = req.user.id;
-        const preparedEmbeddings = nextCourses.length > 0
-            ? await (0, mentorCourseEmbeddings_1.prepareMentorCourseEmbeddings)({
-                userId,
-                courses: nextCourses,
-                apiKey: requiredEnv('DASHSCOPE_API_KEY'),
-            })
-            : { keepKeys: [], upserts: [] };
+        const shouldRefreshCourses = Object.prototype.hasOwnProperty.call(req.body, 'courses');
         const conn = await db_1.pool.getConnection();
         try {
             await conn.beginTransaction();
@@ -425,24 +413,6 @@ router.put('/profile', auth_1.requireAuth, [
                 teachingLanguagesJson,
                 nextAvatarUrl,
             ]);
-            await (0, mentorCourseEmbeddings_1.applyMentorCourseEmbeddings)({
-                userId,
-                keepKeys: preparedEmbeddings.keepKeys,
-                upserts: preparedEmbeddings.upserts,
-                exec: async (sql, args = []) => {
-                    await conn.execute(sql, args);
-                },
-            });
-            await (0, mentorDirectionScores_1.refreshMentorDirectionScores)({
-                userId,
-                queryFn: async (sql, args = []) => {
-                    const [rows] = await conn.execute(sql, args);
-                    return rows;
-                },
-                execFn: async (sql, args = []) => {
-                    await conn.execute(sql, args);
-                },
-            });
             await conn.commit();
         }
         catch (e) {
@@ -454,6 +424,9 @@ router.put('/profile', auth_1.requireAuth, [
         }
         finally {
             conn.release();
+        }
+        if (shouldRefreshCourses) {
+            (0, mentorCourseAsync_1.enqueueMentorCourseAsyncRefresh)(userId);
         }
         return res.json({ message: '保存成功' });
     }
