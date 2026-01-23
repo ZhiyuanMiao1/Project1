@@ -84,6 +84,13 @@
   padding: 16px;
 }
 
+.wallet-balance-card {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+}
+
 .wallet-panel + .wallet-panel {
   margin-top: 18px;
 }

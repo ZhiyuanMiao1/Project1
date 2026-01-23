@@ -106,11 +106,6 @@ function WalletPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="wallet-panel" aria-label="账单记录">
-                <div className="wallet-panel-title">最近交易</div>
-                <div className="wallet-empty">暂无交易记录</div>
-              </div>
             </div>
 
             <div className="wallet-right">
