@@ -112,6 +112,12 @@
   font-weight: 600;
 }
 
+.wallet-balance-card .wallet-panel-eyebrow {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+}
+
 .wallet-panel-title {
   font-size: 16px;
   font-weight: 800;
