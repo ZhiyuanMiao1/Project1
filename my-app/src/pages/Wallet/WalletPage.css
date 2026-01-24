@@ -401,6 +401,7 @@
 
 .wallet-paypal-primary {
   background: #0070ba;
+  font-weight: 600;
 }
 
 .wallet-paypal-primary:hover:not(:disabled) {

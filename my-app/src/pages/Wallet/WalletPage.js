@@ -392,7 +392,7 @@ function WalletPage() {
                       >
                         <span className="wallet-paypal-primary-content">
                           <paypal-mark className="wallet-paypal-primary-mark" aria-hidden="true"></paypal-mark>
-                          <span>PayPal 立即充值</span>
+                          <span>立即充值</span>
                         </span>
                       </button>
                       {isPayPalInitializing && <div className="wallet-empty">PayPal 加载中…</div>}
