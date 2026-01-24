@@ -110,7 +110,6 @@ function WalletPage() {
             <div className="wallet-right">
               <div className="wallet-panel wallet-topup-card" aria-label="充值">
                 <div className="wallet-panel-title">充值</div>
-                <div className="wallet-panel-subtitle">选择一种方式并输入金额。</div>
 
                 <div className="wallet-method-grid" role="group" aria-label="充值方式">
                   {topUpMethods.map((method) => (
