@@ -106,6 +106,10 @@
   box-shadow: none;
 }
 
+.wallet-topup-card {
+  padding-top: 0;
+}
+
 .wallet-panel-header {
   display: flex;
   align-items: flex-start;
