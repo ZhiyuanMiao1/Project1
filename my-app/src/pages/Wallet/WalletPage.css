@@ -96,7 +96,8 @@
 }
 
 .wallet-panel-muted {
-  background: rgba(17, 17, 17, 0.02);
+  background: transparent;
+  padding: 0;
 }
 
 .wallet-topup-card,
@@ -380,7 +381,8 @@
 
 .wallet-tip-list {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   color: rgba(17, 17, 17, 0.7);
   font-size: 13px;
   line-height: 1.55;
