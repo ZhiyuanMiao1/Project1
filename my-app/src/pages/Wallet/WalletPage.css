@@ -384,6 +384,15 @@
   margin-top: 14px;
 }
 
+.wallet-paypal paypal-button {
+  display: block;
+  width: 100%;
+}
+
+.wallet-paypal paypal-button[hidden] {
+  display: none;
+}
+
 .wallet-paypal > div {
   width: 100%;
 }
