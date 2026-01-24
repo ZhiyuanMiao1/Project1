@@ -47,7 +47,6 @@ function WalletPage() {
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
   const paypalApiBase = `${apiBase}/api/paypal-api`;
-  const paypalButtonRef = useRef(null);
   const paypalSdkInstanceRef = useRef(null);
   const [isPayPalInitializing, setIsPayPalInitializing] = useState(false);
   const [isPayPalEligible, setIsPayPalEligible] = useState(false);
@@ -96,7 +95,13 @@ function WalletPage() {
         });
         paypalSdkInstanceRef.current = sdkInstance;
 
-        const methods = await sdkInstance.findEligibleMethods({ currencyCode: 'USD' });
+        const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'USD' });
+        const methods =
+          typeof methodsResponse?.isEligible === 'function'
+            ? methodsResponse
+            : (typeof sdkInstance?.hydrateEligibleMethods === 'function'
+              ? sdkInstance.hydrateEligibleMethods(methodsResponse)
+              : methodsResponse);
         const eligible = typeof methods?.isEligible === 'function' ? methods.isEligible('paypal') : false;
         if (!canceled) setIsPayPalEligible(Boolean(eligible));
       } catch (err) {
@@ -155,84 +160,96 @@ function WalletPage() {
     };
   }, [apiBase, isLoggedIn, paypalApiBase, selectedTopUpMethod]);
 
-  useEffect(() => {
-    const paypalButton = paypalButtonRef.current;
-    if (!paypalButton) return undefined;
-    if (!isPayPalEligible || selectedTopUpMethod !== 'paypal') return undefined;
+  const handlePayPalTopUp = async () => {
+    if (!isAmountValid) {
+      setTopUpNotice('请输入正确的充值金额。');
+      return;
+    }
 
-    const handlePayPalClick = async () => {
-      if (!isAmountValid) {
-        setTopUpNotice('请输入正确的充值金额。');
-        return;
-      }
+    if (selectedTopUpMethod !== 'paypal') {
+      setSelectedTopUpMethod('paypal');
+      return;
+    }
 
-      const sdkInstance = paypalSdkInstanceRef.current;
-      if (!sdkInstance) {
-        setTopUpNotice('PayPal 尚未初始化完成，请稍后重试。');
-        return;
-      }
+    if (isPayPalInitializing) {
+      setTopUpNotice('PayPal 加载中…');
+      return;
+    }
 
-      try {
-        setTopUpNotice('正在跳转 PayPal…');
+    if (payPalInitError) {
+      setTopUpNotice(payPalInitError);
+      return;
+    }
 
-        const createOrder = async () => {
-          const createRes = await fetch(`${paypalApiBase}/checkout/orders/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              intent: 'CAPTURE',
-              purchase_units: [
-                { amount: { currency_code: 'USD', value: amountNumber.toFixed(2) } },
-              ],
-            }),
-          });
-          const createData = await createRes.json().catch(() => ({}));
-          if (!createRes.ok || !createData?.id) {
-            throw new Error(createData?.error || 'Failed to create PayPal order');
-          }
-          return { orderId: createData.id };
-        };
+    if (!isPayPalEligible) {
+      setTopUpNotice('PayPal 当前不可用，请稍后重试。');
+      return;
+    }
 
-        const order = await createOrder();
-        const session = sdkInstance.createPayPalOneTimePaymentSession({
-          onApprove: async (data) => {
-            try {
-              const approvedOrderId = data?.orderId || data?.orderID || order.orderId;
-              const captureRes = await fetch(
-                `${paypalApiBase}/checkout/orders/${encodeURIComponent(String(approvedOrderId))}/capture`,
-                {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({}),
-                },
-              );
-              const captureData = await captureRes.json().catch(() => ({}));
-              if (!captureRes.ok) {
-                throw new Error(captureData?.error || 'PayPal capture failed');
-              }
-              setTopUpNotice('支付成功');
-            } catch (err) {
-              console.error('PayPal approve/capture error:', err);
-              setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额。');
-            }
-          },
-          onCancel: () => setTopUpNotice('已取消支付'),
-          onError: (err) => {
-            console.error('PayPal session error:', err);
-            setTopUpNotice('支付失败，请稍后重试。');
-          },
+    const sdkInstance = paypalSdkInstanceRef.current;
+    if (!sdkInstance) {
+      setTopUpNotice('PayPal 尚未初始化完成，请稍后重试。');
+      return;
+    }
+
+    try {
+      setTopUpNotice('正在跳转 PayPal…');
+
+      const createOrder = async () => {
+        const createRes = await fetch(`${paypalApiBase}/checkout/orders/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intent: 'CAPTURE',
+            purchase_units: [
+              { amount: { currency_code: 'USD', value: amountNumber.toFixed(2) } },
+            ],
+          }),
         });
+        const createData = await createRes.json().catch(() => ({}));
+        if (!createRes.ok || !createData?.id) {
+          throw new Error(createData?.error || 'Failed to create PayPal order');
+        }
+        return { orderId: createData.id };
+      };
 
-        await session.start({ presentationMode: 'auto' }, order);
-      } catch (err) {
-        console.error('PayPal click error:', err);
-        setTopUpNotice('支付初始化失败，请稍后重试。');
-      }
-    };
+      const order = await createOrder();
+      const session = sdkInstance.createPayPalOneTimePaymentSession({
+        onApprove: async (data) => {
+          try {
+            const approvedOrderId = data?.orderId || data?.orderID || order.orderId;
+            const captureRes = await fetch(
+              `${paypalApiBase}/checkout/orders/${encodeURIComponent(String(approvedOrderId))}/capture`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+              },
+            );
+            const captureData = await captureRes.json().catch(() => ({}));
+            if (!captureRes.ok) {
+              throw new Error(captureData?.error || 'PayPal capture failed');
+            }
+            const status = String(captureData?.status || '').toUpperCase();
+            setTopUpNotice(status === 'COMPLETED' ? '支付成功' : `支付完成：${status || 'UNKNOWN'}`);
+          } catch (err) {
+            console.error('PayPal approve/capture error:', err);
+            setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额。');
+          }
+        },
+        onCancel: () => setTopUpNotice('已取消支付'),
+        onError: (err) => {
+          console.error('PayPal session error:', err);
+          setTopUpNotice('支付失败，请稍后重试。');
+        },
+      });
 
-    paypalButton.addEventListener('click', handlePayPalClick);
-    return () => paypalButton.removeEventListener('click', handlePayPalClick);
-  }, [amountNumber, isAmountValid, isPayPalEligible, paypalApiBase, selectedTopUpMethod]);
+      await session.start({ presentationMode: 'auto' }, order);
+    } catch (err) {
+      console.error('PayPal click error:', err);
+      setTopUpNotice('支付初始化失败，请稍后重试。');
+    }
+  };
 
   const topUpMethods = [
     { id: 'paypal', title: 'Paypal 充值', description: '支持国际信用卡与余额' },
@@ -310,7 +327,12 @@ function WalletPage() {
                       aria-pressed={selectedTopUpMethod === method.id}
                     >
                       <span className={`wallet-method-icon wallet-method-icon--${method.id}`} aria-hidden="true">
-                        {method.id === 'paypal' && 'P'}
+                        {method.id === 'paypal' && (
+                          <>
+                            <paypal-mark className="wallet-method-paypal-mark"></paypal-mark>
+                            <span className="wallet-method-paypal-fallback">P</span>
+                          </>
+                        )}
                         {method.id === 'alipay' && '支'}
                         {method.id === 'wechat' && '微'}
                       </span>
@@ -360,7 +382,17 @@ function WalletPage() {
 
                   {selectedTopUpMethod === 'paypal' ? (
                     <div className="wallet-paypal" aria-label="PayPal">
-                      <paypal-button type="pay" hidden={!isPayPalEligible} ref={paypalButtonRef}></paypal-button>
+                      <button
+                        type="button"
+                        className="wallet-primary wallet-paypal-primary"
+                        onClick={handlePayPalTopUp}
+                        disabled={!isAmountValid || isPayPalInitializing || !isPayPalEligible || Boolean(payPalInitError)}
+                      >
+                        <span className="wallet-paypal-primary-content">
+                          <paypal-mark className="wallet-paypal-primary-mark" aria-hidden="true"></paypal-mark>
+                          <span>PayPal 立即充值</span>
+                        </span>
+                      </button>
                       {isPayPalInitializing && <div className="wallet-empty">PayPal 加载中…</div>}
                       {!isPayPalInitializing && payPalInitError && (
                         <div className="wallet-empty">

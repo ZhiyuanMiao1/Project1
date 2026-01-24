@@ -250,6 +250,25 @@
   color: #005ea6;
 }
 
+.wallet-method-paypal-mark {
+  display: none;
+}
+
+paypal-mark.wallet-method-paypal-mark:defined {
+  display: block;
+  transform: scale(0.55);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+paypal-mark.wallet-method-paypal-mark:defined + .wallet-method-paypal-fallback {
+  display: none;
+}
+
+.wallet-method-paypal-fallback {
+  font-weight: 900;
+}
+
 .wallet-method-icon--alipay {
   background: rgba(0, 160, 233, 0.12);
   color: #0076c8;
@@ -384,21 +403,37 @@
   margin-top: 14px;
 }
 
-.wallet-paypal paypal-button {
-  display: block;
-  width: 100%;
-}
-
-.wallet-paypal paypal-button[hidden] {
-  display: none;
-}
-
 .wallet-paypal > div {
   width: 100%;
 }
 
 .wallet-paypal iframe {
   max-width: 100% !important;
+}
+
+.wallet-paypal-primary {
+  background: #0070ba;
+}
+
+.wallet-paypal-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.wallet-paypal-primary-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.wallet-paypal-primary-mark {
+  display: none;
+  transform: scale(0.85);
+  transform-origin: center;
+}
+
+paypal-mark.wallet-paypal-primary-mark:defined {
+  display: inline-block;
 }
 
 .wallet-notice {
