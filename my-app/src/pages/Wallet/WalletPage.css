@@ -98,12 +98,18 @@
 .wallet-panel-muted {
   background: transparent;
   padding: 0;
+  
 }
 
 .wallet-topup-card,
 .wallet-panel-muted {
   border: none;
   box-shadow: none;
+}
+
+.wallet-panel-muted .wallet-panel-title {
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .wallet-topup-card {
@@ -388,7 +394,7 @@
   padding-left: 0;
   list-style: none;
   color: rgba(17, 17, 17, 0.7);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
