@@ -98,7 +98,7 @@
 .wallet-panel-muted {
   background: transparent;
   padding: 0;
-  
+  margin-top: 26px;
 }
 
 .wallet-topup-card,
