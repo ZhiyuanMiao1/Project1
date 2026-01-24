@@ -350,7 +350,7 @@ function WalletPage() {
 
                 <div className="wallet-topup-form" aria-label="充值小时">
                   <label className="wallet-input-label" htmlFor="wallet-topup-amount">
-                    充值小时
+                    充值时长
                   </label>
                   <div className="wallet-amount-row">
                     <span className="wallet-currency" aria-hidden="true">

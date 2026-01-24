@@ -309,10 +309,15 @@
   background: #fff;
 }
 
-.wallet-currency,
-.wallet-unit {
+.wallet-currency {
   font-size: 14px;
   font-weight: 800;
+  color: rgba(17, 17, 17, 0.8);
+}
+
+.wallet-unit {
+  font-size: 14px;
+  font-weight: 600;
   color: rgba(17, 17, 17, 0.8);
 }
 
