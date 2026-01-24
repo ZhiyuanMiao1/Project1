@@ -328,10 +328,12 @@ function WalletPage() {
                     >
                       <span className={`wallet-method-icon wallet-method-icon--${method.id}`} aria-hidden="true">
                         {method.id === 'paypal' && (
-                          <>
-                            <paypal-mark className="wallet-method-paypal-mark"></paypal-mark>
-                            <span className="wallet-method-paypal-fallback">P</span>
-                          </>
+                          <img
+                            className="wallet-method-paypal-icon"
+                            src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+                            alt=""
+                            loading="lazy"
+                          />
                         )}
                         {method.id === 'alipay' && '支'}
                         {method.id === 'wechat' && '微'}

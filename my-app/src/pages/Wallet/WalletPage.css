@@ -250,23 +250,11 @@
   color: #005ea6;
 }
 
-.wallet-method-paypal-mark {
-  display: none;
-}
-
-paypal-mark.wallet-method-paypal-mark:defined {
+.wallet-method-paypal-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
   display: block;
-  transform: scale(0.55);
-  transform-origin: center;
-  pointer-events: none;
-}
-
-paypal-mark.wallet-method-paypal-mark:defined + .wallet-method-paypal-fallback {
-  display: none;
-}
-
-.wallet-method-paypal-fallback {
-  font-weight: 900;
 }
 
 .wallet-method-icon--alipay {
