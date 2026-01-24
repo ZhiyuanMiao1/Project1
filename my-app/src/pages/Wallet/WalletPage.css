@@ -99,6 +99,12 @@
   background: rgba(17, 17, 17, 0.02);
 }
 
+.wallet-topup-card,
+.wallet-panel-muted {
+  border: none;
+  box-shadow: none;
+}
+
 .wallet-panel-header {
   display: flex;
   align-items: flex-start;
