@@ -182,8 +182,8 @@ function WalletPage() {
               <div className="wallet-panel wallet-panel-muted" aria-label="温馨提示">
                 <div className="wallet-panel-title">温馨提示</div>
                 <ul className="wallet-tip-list">
-                  <li>充值成功后余额实时到账。</li>
-                  <li>如遇支付问题，请联系在线客服。</li>
+                  <li>充值成功后余额实时到账</li>
+                  <li>如遇支付问题，请前往“帮助中心”联系我们</li>
                 </ul>
               </div>
             </div>
