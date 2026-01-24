@@ -160,7 +160,7 @@
 }
 
 .wallet-stat-grid {
-  margin-top: 50px;
+  margin-top: 70px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
@@ -182,7 +182,7 @@
 .wallet-stat-value {
   margin-top: 6px;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 600;
   color: #111;
 }
 
