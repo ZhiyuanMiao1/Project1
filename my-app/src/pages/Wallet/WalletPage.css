@@ -380,6 +380,18 @@
   transform: none;
 }
 
+.wallet-paypal {
+  margin-top: 14px;
+}
+
+.wallet-paypal > div {
+  width: 100%;
+}
+
+.wallet-paypal iframe {
+  max-width: 100% !important;
+}
+
 .wallet-notice {
   margin-top: 12px;
   padding: 10px 12px;

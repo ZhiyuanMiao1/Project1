@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import { getAuthToken } from '../../utils/authStorage';
@@ -44,6 +45,17 @@ function WalletPage() {
   const amountNumber = Number(topUpAmount);
   const isAmountValid = Number.isFinite(amountNumber) && amountNumber > 0;
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isAmountValid;
+
+  const paypalClientId = process.env.REACT_APP_PAYPAL_CLIENT_ID || 'test';
+  const paypalOptions = useMemo(
+    () => ({
+      'client-id': paypalClientId,
+      currency: 'CNY',
+      intent: 'CAPTURE',
+      components: 'buttons',
+    }),
+    [paypalClientId],
+  );
 
   const topUpMethods = [
     { id: 'paypal', title: 'Paypal 充值', description: '支持国际信用卡与余额' },
@@ -169,9 +181,37 @@ function WalletPage() {
                     ))}
                   </div>
 
-                  <button type="button" className="wallet-primary" onClick={handleTopUp} disabled={!canSubmitTopUp}>
-                    立即充值
-                  </button>
+                  {selectedTopUpMethod === 'paypal' ? (
+                    <div className="wallet-paypal" aria-label="PayPal">
+                      <PayPalScriptProvider options={paypalOptions}>
+                        <PayPalButtons
+                          style={{ layout: 'vertical', shape: 'pill', label: 'pay' }}
+                          disabled={!isAmountValid}
+                          forceReRender={[amountNumber]}
+                          createOrder={(data, actions) =>
+                            actions.order.create({
+                              purchase_units: [
+                                {
+                                  amount: { currency_code: 'CNY', value: amountNumber.toFixed(2) },
+                                },
+                              ],
+                            })
+                          }
+                          onApprove={(data, actions) =>
+                            actions.order
+                              .capture()
+                              .then(() => setTopUpNotice(`PayPal 充值成功：¥${amountNumber.toFixed(2)} 已到账。`))
+                              .catch(() => setTopUpNotice('PayPal 支付完成，但确认结果失败，请稍后查看余额。'))
+                          }
+                          onError={() => setTopUpNotice('PayPal 初始化失败，请检查 Client ID 或网络后重试。')}
+                        />
+                      </PayPalScriptProvider>
+                    </div>
+                  ) : (
+                    <button type="button" className="wallet-primary" onClick={handleTopUp} disabled={!canSubmitTopUp}>
+                      立即充值
+                    </button>
+                  )}
 
                   {topUpNotice && <div className="wallet-notice">{topUpNotice}</div>}
                 </div>
