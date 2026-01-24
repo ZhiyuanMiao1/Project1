@@ -91,7 +91,6 @@ function WalletPage() {
                   <div>
                     <div className="wallet-panel-eyebrow">当前余额</div>
                     <div className="wallet-balance-amount">¥ {formattedBalance}</div>
-                    <div className="wallet-panel-subtitle">余额可用于预约课程、购买服务。</div>
                   </div>
                 </div>
 
