@@ -52,10 +52,22 @@ function WalletPage() {
   const [isPayPalInitializing, setIsPayPalInitializing] = useState(false);
   const [isPayPalEligible, setIsPayPalEligible] = useState(false);
   const [payPalInitError, setPayPalInitError] = useState('');
+  const isLocalhost =
+    typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost';
+  const openWith127Url = isLocalhost
+    ? `${window.location.protocol}//127.0.0.1${window.location.port ? `:${window.location.port}` : ''}${window.location.pathname}${window.location.search}${window.location.hash}`
+    : '';
 
   useEffect(() => {
     if (!isLoggedIn) return undefined;
     if (selectedTopUpMethod !== 'paypal') return undefined;
+
+    if (window.location.hostname === 'localhost') {
+      setIsPayPalInitializing(false);
+      setIsPayPalEligible(false);
+      setPayPalInitError('PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面。');
+      return undefined;
+    }
 
     let canceled = false;
     let detachLoadListener = null;
@@ -74,7 +86,7 @@ function WalletPage() {
         const tokenRes = await fetch(`${paypalApiBase}/auth/browser-safe-client-token`);
         const tokenData = await tokenRes.json().catch(() => ({}));
         if (!tokenRes.ok || !tokenData?.accessToken) {
-          throw new Error(tokenData?.error || 'Failed to fetch PayPal client token');
+          throw new Error(tokenData?.hint || tokenData?.error || 'PayPal 初始化失败，请稍后重试。');
         }
 
         const sdkInstance = await window.paypal.createInstance({
@@ -90,7 +102,8 @@ function WalletPage() {
       } catch (err) {
         console.error('PayPal init error:', err);
         if (!canceled) {
-          setPayPalInitError('PayPal 初始化失败，请稍后重试。');
+          const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试。';
+          setPayPalInitError(message);
           setIsPayPalEligible(false);
         }
       } finally {
@@ -349,7 +362,16 @@ function WalletPage() {
                     <div className="wallet-paypal" aria-label="PayPal">
                       <paypal-button type="pay" hidden={!isPayPalEligible} ref={paypalButtonRef}></paypal-button>
                       {isPayPalInitializing && <div className="wallet-empty">PayPal 加载中…</div>}
-                      {!isPayPalInitializing && payPalInitError && <div className="wallet-empty">{payPalInitError}</div>}
+                      {!isPayPalInitializing && payPalInitError && (
+                        <div className="wallet-empty">
+                          <div>{payPalInitError}</div>
+                          {isLocalhost && openWith127Url && (
+                            <div style={{ marginTop: 8 }}>
+                              <a href={openWith127Url}>用 127.0.0.1 打开</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       {!isPayPalInitializing && !payPalInitError && !isPayPalEligible && (
                         <div className="wallet-empty">PayPal 当前不可用</div>
                       )}

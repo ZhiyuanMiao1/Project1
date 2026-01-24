@@ -12,8 +12,8 @@ type CachedToken = {
   expiresAtMs: number;
 };
 
-let cachedBrowserSafeToken: CachedToken | null = null;
 let cachedServerAccessToken: CachedToken | null = null;
+const cachedBrowserSafeTokens = new Map<string, CachedToken>();
 
 function requirePayPalEnv(res: Response): { clientId: string; clientSecret: string } | null {
   if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
@@ -35,11 +35,7 @@ async function fetchJson(url: string, init: RequestInit): Promise<{ ok: boolean;
   return { ok: response.ok, status: response.status, data };
 }
 
-async function getOAuthAccessToken(params: URLSearchParams, cacheKey: 'browser' | 'server'): Promise<CachedToken> {
-  const cache = cacheKey === 'browser' ? cachedBrowserSafeToken : cachedServerAccessToken;
-  const now = Date.now();
-  if (cache && cache.expiresAtMs > now) return cache;
-
+async function requestOAuthAccessToken(params: URLSearchParams): Promise<CachedToken> {
   const creds = { clientId: PAYPAL_CLIENT_ID ?? '', clientSecret: PAYPAL_CLIENT_SECRET ?? '' };
   const authHeader = getBasicAuthHeader(creds.clientId, creds.clientSecret);
 
@@ -70,24 +66,57 @@ async function getOAuthAccessToken(params: URLSearchParams, cacheKey: 'browser' 
     expiresAtMs: Date.now() + Math.max(0, expiresIn - 60) * 1000,
   };
 
-  if (cacheKey === 'browser') cachedBrowserSafeToken = token;
-  else cachedServerAccessToken = token;
-
   return token;
 }
 
 async function getBrowserSafeClientToken(domains: string[]): Promise<CachedToken> {
+  const domainsKey = domains.join(',');
+  const cached = cachedBrowserSafeTokens.get(domainsKey);
+  const now = Date.now();
+  if (cached && cached.expiresAtMs > now) return cached;
+
   const params = new URLSearchParams();
   params.set('grant_type', 'client_credentials');
   params.set('response_type', 'client_token');
-  domains.forEach((domain) => params.append('domains[]', domain));
-  return getOAuthAccessToken(params, 'browser');
+  params.append('domains[]', domainsKey);
+
+  const token = await requestOAuthAccessToken(params);
+  cachedBrowserSafeTokens.set(domainsKey, token);
+  return token;
 }
 
 async function getServerAccessToken(): Promise<CachedToken> {
+  const now = Date.now();
+  if (cachedServerAccessToken && cachedServerAccessToken.expiresAtMs > now) return cachedServerAccessToken;
+
   const params = new URLSearchParams();
   params.set('grant_type', 'client_credentials');
-  return getOAuthAccessToken(params, 'server');
+
+  const token = await requestOAuthAccessToken(params);
+  cachedServerAccessToken = token;
+  return token;
+}
+
+function normalizeClientTokenDomain(raw: string): string | null {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+
+  let host = value;
+  try {
+    if (/^https?:\/\//i.test(host)) {
+      host = new URL(host).host;
+    } else {
+      host = host.split('/')[0].split('?')[0].split('#')[0];
+    }
+  } catch {
+    host = value.split('/')[0].split('?')[0].split('#')[0];
+  }
+
+  host = host.trim();
+  if (!host) return null;
+  if (host.includes('://') || host.includes('/')) return null;
+
+  return host;
 }
 
 router.get('/auth/browser-safe-client-token', async (req: Request, res: Response) => {
@@ -95,8 +124,33 @@ router.get('/auth/browser-safe-client-token', async (req: Request, res: Response
 
   try {
     const origin = String(req.get('origin') || '').trim();
+    const referer = String(req.get('referer') || '').trim();
+    const rawDomains = typeof req.query?.domains === 'string' ? String(req.query.domains).trim() : '';
     const domainFromQuery = typeof req.query?.domain === 'string' ? String(req.query.domain).trim() : '';
-    const domains = [domainFromQuery || origin || 'http://localhost:3000'].filter(Boolean);
+    const seed = rawDomains || domainFromQuery || origin || referer || '127.0.0.1:3000';
+    const domains = Array.from(
+      new Set(
+        seed
+          .split(',')
+          .map((item) => normalizeClientTokenDomain(item))
+          .filter((item): item is string => Boolean(item))
+      )
+    );
+
+    if (!domains.length) {
+      return res.status(400).json({
+        error: 'PayPal client token 的 domains[] 参数无效',
+        hint: 'domains[] 需要域名格式（不带协议），例如：127.0.0.1:3000 或 example.com',
+      });
+    }
+
+    if (domains.some((domain) => /^localhost(?::\d+)?$/i.test(domain))) {
+      return res.status(400).json({
+        error: 'PayPal sandbox client token 不支持 localhost 作为 domains[]',
+        hint: '请用 http://127.0.0.1:3000 打开前端页面，或用 hosts/ngrok 绑定一个可用域名。',
+        domains,
+      });
+    }
 
     const token = await getBrowserSafeClientToken(domains);
     return res.json({ accessToken: token.accessToken });
