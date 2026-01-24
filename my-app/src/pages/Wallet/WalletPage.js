@@ -252,7 +252,7 @@ function WalletPage() {
   };
 
   const topUpMethods = [
-    { id: 'paypal', title: 'Paypal 充值', description: '支持国际信用卡与余额' },
+    { id: 'paypal', title: 'Paypal', description: '支持国际信用卡与余额' },
     { id: 'alipay', title: '支付宝', description: '推荐国内用户使用' },
     { id: 'wechat', title: '微信', description: '微信支付快捷到账' },
   ];
