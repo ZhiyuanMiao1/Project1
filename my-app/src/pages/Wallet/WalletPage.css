@@ -263,7 +263,7 @@
 .wallet-method-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   min-width: 0;
 }
 
@@ -281,8 +281,8 @@
 
 .wallet-topup-form {
   margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(17, 17, 17, 0.08);
+  padding-top: 0;
+  border-top: none;
 }
 
 .wallet-input-label {

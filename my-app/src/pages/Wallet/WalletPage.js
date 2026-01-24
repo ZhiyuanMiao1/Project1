@@ -127,7 +127,6 @@ function WalletPage() {
                       </span>
                       <span className="wallet-method-body">
                         <span className="wallet-method-title">{method.title}</span>
-                        <span className="wallet-method-desc">{method.description}</span>
                       </span>
                     </button>
                   ))}
