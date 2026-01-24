@@ -9,7 +9,7 @@ function WalletPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedTopUpMethod, setSelectedTopUpMethod] = useState('paypal');
-  const [topUpAmount, setTopUpAmount] = useState('100');
+  const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
   const menuAnchorRef = useRef(null);
 
@@ -41,9 +41,10 @@ function WalletPage() {
     maximumFractionDigits: 2,
   }).format(balanceCny);
 
-  const amountNumber = Number(topUpAmount);
-  const isAmountValid = Number.isFinite(amountNumber) && amountNumber > 0;
-  const canSubmitTopUp = Boolean(selectedTopUpMethod) && isAmountValid;
+  const hoursNumber = Number(topUpHours);
+  const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
+  const amountCnyNumber = hoursNumber * 600;
+  const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
   const paypalApiBase = `${apiBase}/api/paypal-api`;
@@ -95,7 +96,7 @@ function WalletPage() {
         });
         paypalSdkInstanceRef.current = sdkInstance;
 
-        const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'USD' });
+        const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'CNY' });
         const methods =
           typeof methodsResponse?.isEligible === 'function'
             ? methodsResponse
@@ -161,8 +162,8 @@ function WalletPage() {
   }, [apiBase, isLoggedIn, paypalApiBase, selectedTopUpMethod]);
 
   const handlePayPalTopUp = async () => {
-    if (!isAmountValid) {
-      setTopUpNotice('请输入正确的充值金额。');
+    if (!isHoursValid) {
+      setTopUpNotice('请输入正确的小时数。');
       return;
     }
 
@@ -202,7 +203,7 @@ function WalletPage() {
           body: JSON.stringify({
             intent: 'CAPTURE',
             purchase_units: [
-              { amount: { currency_code: 'USD', value: amountNumber.toFixed(2) } },
+              { amount: { currency_code: 'CNY', value: amountCnyNumber.toFixed(2) } },
             ],
           }),
         });
@@ -260,7 +261,9 @@ function WalletPage() {
   const handleTopUp = () => {
     if (!canSubmitTopUp) return;
     const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? '所选方式';
-    setTopUpNotice(`已选择 ${methodLabel}，充值金额 ¥${amountNumber.toFixed(2)}。充值功能开发中，敬请期待。`);
+    setTopUpNotice(
+      `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，金额 ¥${amountCnyNumber.toFixed(2)}（600元/小时）。充值功能开发中，敬请期待。`
+    );
   };
 
   return (
@@ -345,13 +348,13 @@ function WalletPage() {
                   ))}
                 </div>
 
-                <div className="wallet-topup-form" aria-label="充值金额">
+                <div className="wallet-topup-form" aria-label="充值小时">
                   <label className="wallet-input-label" htmlFor="wallet-topup-amount">
-                    充值金额
+                    充值小时
                   </label>
                   <div className="wallet-amount-row">
                     <span className="wallet-currency" aria-hidden="true">
-                      ¥
+                      ⏱
                     </span>
                     <input
                       id="wallet-topup-amount"
@@ -359,23 +362,27 @@ function WalletPage() {
                       type="number"
                       inputMode="decimal"
                       min="0"
-                      step="0.01"
-                      value={topUpAmount}
-                      onChange={(e) => setTopUpAmount(e.target.value)}
-                      placeholder="请输入金额"
+                      step="0.5"
+                      value={topUpHours}
+                      onChange={(e) => setTopUpHours(e.target.value)}
+                      placeholder="请输入小时数"
                     />
                     <span className="wallet-unit" aria-hidden="true">
-                      元
+                      小时
                     </span>
                   </div>
 
-                  <div className="wallet-quick-amount" aria-label="快捷金额">
-                    {[50, 100, 200, 500].map((value) => (
+                  <div className="wallet-derived-amount" aria-label="金额预览">
+                    金额：¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}（600元/小时）
+                  </div>
+
+                  <div className="wallet-quick-amount" aria-label="快捷小时数">
+                    {[0.5, 1, 2, 5].map((value) => (
                       <button
                         key={value}
                         type="button"
-                        className={`wallet-quick-pill ${Number(topUpAmount) === value ? 'is-active' : ''}`}
-                        onClick={() => setTopUpAmount(String(value))}
+                        className={`wallet-quick-pill ${Number(topUpHours) === value ? 'is-active' : ''}`}
+                        onClick={() => setTopUpHours(String(value))}
                       >
                         {value}
                       </button>
@@ -388,7 +395,7 @@ function WalletPage() {
                         type="button"
                         className="wallet-primary wallet-paypal-primary"
                         onClick={handlePayPalTopUp}
-                        disabled={!isAmountValid || isPayPalInitializing || !isPayPalEligible || Boolean(payPalInitError)}
+                        disabled={!isHoursValid || isPayPalInitializing || !isPayPalEligible || Boolean(payPalInitError)}
                       >
                         <span className="wallet-paypal-primary-content">
                           <paypal-mark className="wallet-paypal-primary-mark" aria-hidden="true"></paypal-mark>
