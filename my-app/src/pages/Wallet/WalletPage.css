@@ -240,30 +240,28 @@
   align-items: center;
   justify-content: center;
   font-weight: 800;
+  font-size: 22px;
   color: #111;
-  background: rgba(17, 17, 17, 0.06);
+  background: transparent;
   flex: 0 0 auto;
 }
 
 .wallet-method-icon--paypal {
-  background: rgba(0, 112, 186, 0.12);
   color: #005ea6;
 }
 
 .wallet-method-paypal-icon {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
   display: block;
 }
 
 .wallet-method-icon--alipay {
-  background: rgba(0, 160, 233, 0.12);
   color: #0076c8;
 }
 
 .wallet-method-icon--wechat {
-  background: rgba(7, 193, 96, 0.14);
   color: #07a957;
 }
 
@@ -402,6 +400,8 @@
 .wallet-paypal-primary {
   background: #0070ba;
   font-weight: 600;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .wallet-paypal-primary:hover:not(:disabled) {
