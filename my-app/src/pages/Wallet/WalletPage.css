@@ -213,12 +213,12 @@
   background: #fff;
   cursor: pointer;
   text-align: left;
-  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .wallet-method-card:hover {
-  transform: translateY(-1px);
   border-color: rgba(17, 17, 17, 0.18);
+  background: rgba(17, 17, 17, 0.02);
 }
 
 .wallet-method-card:focus-visible {
