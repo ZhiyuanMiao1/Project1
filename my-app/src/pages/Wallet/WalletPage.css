@@ -394,9 +394,9 @@
 }
 
 .wallet-quick-pill.is-active {
-  background: rgba(79, 70, 229, 0.1);
-  border-color: rgba(79, 70, 229, 0.4);
-  color: rgb(55, 48, 163);
+  background: transparent;
+  border-color: #111;
+  color: #111;
 }
 
 .wallet-primary {
