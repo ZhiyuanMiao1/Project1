@@ -352,37 +352,39 @@ function WalletPage() {
                   <label className="wallet-input-label" htmlFor="wallet-topup-amount">
                     充值时长
                   </label>
-                  <div className="wallet-amount-row">
-                    <span className="wallet-currency" aria-hidden="true">
-                      ⏱
-                    </span>
-                    <input
-                      id="wallet-topup-amount"
-                      className="wallet-amount-input"
-                      type="number"
-                      inputMode="decimal"
-                      min="0"
-                      step="0.5"
-                      value={topUpHours}
-                      onChange={(e) => setTopUpHours(e.target.value)}
-                      placeholder="请输入小时数"
-                    />
-                    <span className="wallet-unit" aria-hidden="true">
-                      小时
-                    </span>
-                  </div>
+                  <div className="wallet-hours-row" aria-label="选择小时数">
+                    <div className="wallet-quick-amount" aria-label="快捷小时数">
+                      {[0.5, 1, 2, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`wallet-quick-pill ${Number(topUpHours) === value ? 'is-active' : ''}`}
+                          onClick={() => setTopUpHours(String(value))}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
 
-                  <div className="wallet-quick-amount" aria-label="快捷小时数">
-                    {[0.5, 1, 2, 5].map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={`wallet-quick-pill ${Number(topUpHours) === value ? 'is-active' : ''}`}
-                        onClick={() => setTopUpHours(String(value))}
-                      >
-                        {value}
-                      </button>
-                    ))}
+                    <div className="wallet-amount-row wallet-hours-input">
+                      <span className="wallet-currency" aria-hidden="true">
+                        ⏱
+                      </span>
+                      <input
+                        id="wallet-topup-amount"
+                        className="wallet-amount-input"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.5"
+                        value={topUpHours}
+                        onChange={(e) => setTopUpHours(e.target.value)}
+                        placeholder="请输入小时数"
+                      />
+                      <span className="wallet-unit" aria-hidden="true">
+                        小时
+                      </span>
+                    </div>
                   </div>
 
                   <div className="wallet-derived-amount" aria-label="价格详情">

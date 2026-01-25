@@ -336,6 +336,25 @@
   font-weight: 600;
 }
 
+.wallet-hours-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wallet-hours-row .wallet-quick-amount {
+  margin-top: 0;
+  flex: 1 1 auto;
+}
+
+.wallet-hours-input {
+  width: 260px;
+  max-width: 48%;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .wallet-derived-amount {
   margin-top: 12px;
   font-size: 13px;
@@ -474,6 +493,16 @@ paypal-mark.wallet-paypal-primary-mark:defined {
 @media (max-width: 720px) {
   .wallet-method-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wallet-hours-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wallet-hours-input {
+    width: 100%;
+    max-width: none;
   }
 }
 
