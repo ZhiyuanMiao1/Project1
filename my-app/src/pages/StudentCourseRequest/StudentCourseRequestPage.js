@@ -661,13 +661,12 @@ function StudentCourseRequestPage() {
     if (!pendingAccountAvailability) return;
     if (selectedTimeZone !== pendingAccountAvailability.timeZone) return;
 
-    const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(selectedTimeZone || DEFAULT_TIME_ZONE));
     const normalizedDaySelections = normalizeDaySelectionKeys(pendingAccountAvailability.daySelections || {});
-    setDaySelections(prunePastDaySelections(normalizedDaySelections, fallbackDate));
+    setDaySelections(normalizedDaySelections);
     availabilityHydratingRef.current = false;
     setPendingAccountAvailability(null);
     setAvailabilityReady(true);
-  }, [normalizeDaySelectionKeys, pendingAccountAvailability, prunePastDaySelections, selectedTimeZone]);
+  }, [normalizeDaySelectionKeys, pendingAccountAvailability, selectedTimeZone]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
