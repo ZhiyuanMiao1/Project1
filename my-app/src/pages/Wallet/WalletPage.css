@@ -343,6 +343,14 @@
   font-weight: 600;
 }
 
+.wallet-hours-input .wallet-amount-input {
+  font-size: 14px;
+}
+
+.wallet-hours-input .wallet-amount-input::placeholder {
+  font-size: 14px;
+}
+
 .wallet-hours-row {
   display: flex;
   align-items: center;
