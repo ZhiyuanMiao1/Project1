@@ -159,6 +159,13 @@
   line-height: 1.05;
 }
 
+.wallet-balance-unit {
+  margin-left: 10px;
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .wallet-stat-grid {
   margin-top: 70px;
   display: grid;

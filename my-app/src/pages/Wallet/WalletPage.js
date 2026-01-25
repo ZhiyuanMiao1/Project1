@@ -295,7 +295,10 @@ function WalletPage() {
                 <div className="wallet-panel-header">
                   <div>
                     <div className="wallet-panel-eyebrow">剩余课时</div>
-                    <div className="wallet-balance-amount">{remainingHours} 小时</div>
+                    <div className="wallet-balance-amount">
+                      <span className="wallet-balance-value">{remainingHours}</span>
+                      <span className="wallet-balance-unit">小时</span>
+                    </div>
                   </div>
                 </div>
 
