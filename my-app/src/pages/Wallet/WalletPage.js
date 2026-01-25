@@ -35,11 +35,7 @@ function WalletPage() {
     return () => window.clearTimeout(timeoutId);
   }, [topUpNotice]);
 
-  const balanceCny = 0;
-  const formattedBalance = new Intl.NumberFormat('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(balanceCny);
+  const remainingHours = 0;
 
   const hoursNumber = Number(topUpHours);
   const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
@@ -298,8 +294,8 @@ function WalletPage() {
               <div className="wallet-panel wallet-balance-card" aria-label="余额">
                 <div className="wallet-panel-header">
                   <div>
-                    <div className="wallet-panel-eyebrow">当前余额</div>
-                    <div className="wallet-balance-amount">¥ {formattedBalance}</div>
+                    <div className="wallet-panel-eyebrow">剩余课时</div>
+                    <div className="wallet-balance-amount">{remainingHours} 小时</div>
                   </div>
                 </div>
 
@@ -354,7 +350,7 @@ function WalletPage() {
                   </label>
                   <div className="wallet-hours-row" aria-label="选择小时数">
                     <div className="wallet-quick-amount" aria-label="快捷小时数">
-                      {[0.5, 1, 2, 5].map((value) => (
+                      {[1, 2, 5, 10, 20].map((value) => (
                         <button
                           key={value}
                           type="button"
