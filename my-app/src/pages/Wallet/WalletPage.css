@@ -356,8 +356,8 @@
 }
 
 .wallet-hours-input {
-  width: 260px;
-  max-width: 48%;
+  width: 200px;
+  max-width: 30%;
   flex: 0 0 auto;
   margin-left: auto;
 }
