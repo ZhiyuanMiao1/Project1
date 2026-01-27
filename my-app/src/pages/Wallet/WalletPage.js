@@ -39,7 +39,8 @@ function WalletPage() {
 
   const hoursNumber = Number(topUpHours);
   const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
-  const amountCnyNumber = hoursNumber * 600;
+  const unitPriceCny = hoursNumber >= 10 ? 500 : 600;
+  const amountCnyNumber = hoursNumber * unitPriceCny;
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
@@ -258,7 +259,7 @@ function WalletPage() {
     if (!canSubmitTopUp) return;
     const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? '所选方式';
     setTopUpNotice(
-      `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，金额 ¥${amountCnyNumber.toFixed(2)}（600元/小时）。充值功能开发中，敬请期待。`
+      `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，单价 ${unitPriceCny}元/小时，总计 ¥${amountCnyNumber.toFixed(2)}。充值功能开发中，敬请期待。`
     );
   };
 
@@ -389,7 +390,12 @@ function WalletPage() {
                   <div className="wallet-derived-amount" aria-label="价格详情">
                     <div className="wallet-derived-label">价格详情</div>
                     <div className="wallet-derived-value">
-                      ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}（600元/小时）
+                      <div className="wallet-derived-rule">
+                        充值时长&lt;10小时，600元/小时，充值时长&gt;=10小时，500元/小时
+                      </div>
+                      <div className="wallet-derived-total">
+                        总计 ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}
+                      </div>
                     </div>
                   </div>
 

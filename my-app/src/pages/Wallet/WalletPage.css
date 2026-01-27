@@ -394,6 +394,18 @@
   margin-top: 6px;
 }
 
+.wallet-derived-rule {
+  color: rgba(17, 17, 17, 0.7);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.wallet-derived-total {
+  margin-top: 8px;
+  color: rgba(17, 17, 17, 0.9);
+  font-weight: 700;
+}
+
 .wallet-quick-amount {
   display: flex;
   flex-wrap: wrap;
