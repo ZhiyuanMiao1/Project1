@@ -400,7 +400,19 @@
   line-height: 1.5;
 }
 
-.wallet-derived-rule > div + div {
+.wallet-derived-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 16px;
+}
+
+.wallet-derived-right {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.wallet-derived-rule > .wallet-derived-row + .wallet-derived-row {
   margin-top: 2px;
 }
 

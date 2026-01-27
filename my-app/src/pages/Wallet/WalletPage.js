@@ -391,11 +391,20 @@ function WalletPage() {
                     <div className="wallet-derived-label">价格详情</div>
                     <div className="wallet-derived-value">
                       <div className="wallet-derived-rule">
-                        <div>充值时长 &lt; 10小时， 600元/小时</div>
-                        <div>充值时长 ≥ 10小时， 500元/小时</div>
+                        <div className="wallet-derived-row">
+                          <span className="wallet-derived-left">充值时长 &lt; 10小时</span>
+                          <span className="wallet-derived-right">600元/小时</span>
+                        </div>
+                        <div className="wallet-derived-row">
+                          <span className="wallet-derived-left">充值时长 ≥ 10小时</span>
+                          <span className="wallet-derived-right">500元/小时</span>
+                        </div>
                       </div>
-                      <div className="wallet-derived-total">
-                        总计 ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}
+                      <div className="wallet-derived-total wallet-derived-row">
+                        <span className="wallet-derived-left">总计</span>
+                        <span className="wallet-derived-right">
+                          ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}
+                        </span>
                       </div>
                     </div>
                   </div>
