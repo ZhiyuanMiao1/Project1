@@ -292,7 +292,7 @@
 }
 
 .wallet-topup-form {
-  margin-top: 14px;
+  margin-top: 24px;
   padding-top: 0;
   border-top: none;
 }
@@ -378,7 +378,7 @@
 }
 
 .wallet-derived-amount {
-  margin-top: 12px;
+  margin-top: 24px;
   font-size: 13px;
   font-weight: 600;
   color: rgba(17, 17, 17, 0.7);
