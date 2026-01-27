@@ -400,6 +400,10 @@
   line-height: 1.5;
 }
 
+.wallet-derived-rule > div + div {
+  margin-top: 2px;
+}
+
 .wallet-derived-total {
   margin-top: 8px;
   color: rgba(17, 17, 17, 0.9);
