@@ -420,6 +420,11 @@
   margin-top: 8px;
   color: rgba(17, 17, 17, 0.9);
   font-weight: 700;
+  font-size: 15px;
+}
+
+.wallet-derived-total .wallet-derived-right {
+  font-size: 16px;
 }
 
 .wallet-quick-amount {
