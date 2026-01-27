@@ -384,6 +384,16 @@
   color: rgba(17, 17, 17, 0.7);
 }
 
+.wallet-derived-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(17, 17, 17, 0.8);
+}
+
+.wallet-derived-value {
+  margin-top: 6px;
+}
+
 .wallet-quick-amount {
   display: flex;
   flex-wrap: wrap;

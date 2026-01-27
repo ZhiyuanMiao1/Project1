@@ -387,7 +387,10 @@ function WalletPage() {
                   </div>
 
                   <div className="wallet-derived-amount" aria-label="价格详情">
-                    价格详情：¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}（600元/小时）
+                    <div className="wallet-derived-label">价格详情</div>
+                    <div className="wallet-derived-value">
+                      ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}（600元/小时）
+                    </div>
                   </div>
 
                   {selectedTopUpMethod === 'paypal' ? (
