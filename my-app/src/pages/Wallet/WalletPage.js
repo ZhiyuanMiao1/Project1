@@ -35,6 +35,10 @@ function WalletPage() {
     return () => window.clearTimeout(timeoutId);
   }, [topUpNotice]);
 
+  const isPayPalPlainNotice =
+    selectedTopUpMethod === 'paypal' &&
+    ['正在跳转 PayPal…', '已取消支付', '支付成功'].includes(topUpNotice);
+
   const remainingHours = 0;
 
   const hoursNumber = Number(topUpHours);
@@ -446,7 +450,9 @@ function WalletPage() {
                     </button>
                   )}
 
-                  {topUpNotice && <div className="wallet-notice">{topUpNotice}</div>}
+                  {topUpNotice && (
+                    <div className={`wallet-notice${isPayPalPlainNotice ? ' is-plain' : ''}`}>{topUpNotice}</div>
+                  )}
                 </div>
               </div>
 

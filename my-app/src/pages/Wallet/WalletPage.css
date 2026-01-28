@@ -543,6 +543,16 @@ paypal-mark.wallet-paypal-primary-mark:defined {
   line-height: 1.4;
 }
 
+.wallet-notice.is-plain {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(17, 17, 17, 0.72);
+  text-align: left;
+  align-self: stretch;
+}
+
 .wallet-tip-list {
   margin: 0;
   padding-left: 0;
