@@ -172,7 +172,6 @@ function WalletPage() {
     }
 
     if (isPayPalInitializing) {
-      setTopUpNotice('PayPal 加载中…');
       return;
     }
 
@@ -427,7 +426,6 @@ function WalletPage() {
                           <span>立即充值</span>
                         </span>
                       </button>
-                      {isPayPalInitializing && <div className="wallet-empty">PayPal 加载中…</div>}
                       {!isPayPalInitializing && payPalInitError && (
                         <div className="wallet-empty">
                           <div>{payPalInitError}</div>
