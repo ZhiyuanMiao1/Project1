@@ -167,13 +167,33 @@ router.post('/checkout/orders/create', async (req: Request, res: Response) => {
   try {
     const token = await getServerAccessToken();
 
-    const payload =
+    const payloadRaw =
       req.body && typeof req.body === 'object' && Object.keys(req.body as Record<string, unknown>).length > 0
         ? req.body
         : {
             intent: 'CAPTURE',
             purchase_units: [{ amount: { currency_code: 'USD', value: '10.00' } }],
           };
+
+    // PayPal Orders v2 (sandbox) may reject some currencies (e.g. CNY) depending on account capabilities.
+    // Keep the frontend display unchanged for now, but force USD to avoid CURRENCY_NOT_SUPPORTED (422).
+    const payload = (() => {
+      try {
+        const cloned = JSON.parse(JSON.stringify(payloadRaw));
+        const purchaseUnits = cloned?.purchase_units;
+        if (Array.isArray(purchaseUnits)) {
+          for (const unit of purchaseUnits) {
+            const code = unit?.amount?.currency_code;
+            if (typeof code === 'string' && code.toUpperCase() === 'CNY') {
+              unit.amount.currency_code = 'USD';
+            }
+          }
+        }
+        return cloned;
+      } catch {
+        return payloadRaw;
+      }
+    })();
 
     const { ok, status, data } = await fetchJson(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
       method: 'POST',
