@@ -214,7 +214,8 @@ function WalletPage() {
         return { orderId: createData.id };
       };
 
-      const order = await createOrder();
+      const orderPromise = createOrder();
+      const order = await orderPromise;
       const session = sdkInstance.createPayPalOneTimePaymentSession({
         onApprove: async (data) => {
           try {
@@ -245,7 +246,7 @@ function WalletPage() {
         },
       });
 
-      await session.start({ presentationMode: 'auto' }, order);
+      await session.start({ presentationMode: 'auto' }, orderPromise);
     } catch (err) {
       console.error('PayPal click error:', err);
       setTopUpNotice('支付初始化失败，请稍后重试。');
