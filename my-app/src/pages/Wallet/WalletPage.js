@@ -41,6 +41,8 @@ function WalletPage() {
   const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
   const unitPriceCny = hoursNumber >= 10 ? 500 : 600;
   const amountCnyNumber = hoursNumber * unitPriceCny;
+  const FX_CNY_PER_USD = 7;
+  const amountUsdNumber = amountCnyNumber / FX_CNY_PER_USD;
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
   const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
@@ -194,13 +196,14 @@ function WalletPage() {
       setTopUpNotice('正在跳转 PayPal…');
 
       const createOrder = async () => {
+        const usdValue = Number.isFinite(amountUsdNumber) ? amountUsdNumber.toFixed(2) : '0.00';
         const createRes = await fetch(`${paypalApiBase}/checkout/orders/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             intent: 'CAPTURE',
             purchase_units: [
-              { amount: { currency_code: 'CNY', value: amountCnyNumber.toFixed(2) } },
+              { amount: { currency_code: 'USD', value: usdValue } },
             ],
           }),
         });
@@ -404,6 +407,7 @@ function WalletPage() {
                         <span className="wallet-derived-left">总计</span>
                         <span className="wallet-derived-right">
                           ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}
+                          {Number.isFinite(amountUsdNumber) ? ` ($${amountUsdNumber.toFixed(2)})` : ''}
                         </span>
                       </div>
                     </div>
