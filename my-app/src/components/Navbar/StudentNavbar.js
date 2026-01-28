@@ -6,6 +6,7 @@ import TimezoneModal from '../TimezoneModal/TimezoneModal';
 import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 // 移除首课日期弹窗，改为直接输入
 import StudentAuthModal from '../AuthModal/StudentAuthModal';
+import CourseOnboardingModal from '../CourseOnboardingModal/CourseOnboardingModal';
 import BrandMark from '../common/BrandMark/BrandMark';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
@@ -33,6 +34,8 @@ function StudentNavbar() {
   const [forceLogin, setForceLogin] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMentorRegistered, setIsMentorRegistered] = useState(false);
+  const [showCourseRequestDraftModal, setShowCourseRequestDraftModal] = useState(false);
+  const [checkingCourseRequestDrafts, setCheckingCourseRequestDrafts] = useState(false);
   // 精确搜索展开（覆盖左侧筛选）状态
   const [isExactExpanded, setIsExactExpanded] = useState(false);
   // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
@@ -191,6 +194,34 @@ function StudentNavbar() {
     } catch {}
   };
 
+  const handlePublishCourseRequest = async () => {
+    if (!isLoggedIn) {
+      setPostLoginRedirect('/student/course-request', 'student');
+      setForceLogin(true);
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (checkingCourseRequestDrafts) return;
+
+    setCheckingCourseRequestDrafts(true);
+    try {
+      ensureFreshAuth(api);
+      const res = await api.get('/api/requests/drafts', { params: { limit: 50 } });
+      const rows = Array.isArray(res?.data?.drafts) ? res.data.drafts : [];
+      const hasUnfinished = rows.some((r) => String(r?.status || '').trim().toLowerCase() === 'draft');
+      if (hasUnfinished) {
+        setShowCourseRequestDraftModal(true);
+      } else {
+        navigate('/student/course-request');
+      }
+    } catch {
+      navigate('/student/course-request');
+    } finally {
+      setCheckingCourseRequestDrafts(false);
+    }
+  };
+
   return (
     <header className="navbar">
       {/* 顶部双层导航 */}
@@ -222,15 +253,8 @@ function StudentNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={publishBtnRef}
-            onClick={() => {
-              if (isLoggedIn) {
-                navigate('/student/course-request');
-              } else {
-                setPostLoginRedirect('/student/course-request', 'student');
-                setForceLogin(true);
-                setShowAuthModal(true);
-              }
-            }}
+            onClick={handlePublishCourseRequest}
+            disabled={checkingCourseRequestDrafts}
           >
             发布课程需求
           </button>
@@ -378,10 +402,23 @@ function StudentNavbar() {
       {showAuthModal && (
         <StudentAuthModal
           onClose={() => { setShowAuthModal(false); setForceLogin(false); }}
+          onPublishCourseRequest={handlePublishCourseRequest}
           anchorRef={userIconRef}
           leftAlignRef={publishBtnRef}
           forceLogin={forceLogin}
           isLoggedIn={isLoggedIn}
+        />
+      )}
+
+      {showCourseRequestDraftModal && (
+        <CourseOnboardingModal
+          showConfirmButton={false}
+          includeSubmitted={false}
+          onCreateCourse={() => {
+            setShowCourseRequestDraftModal(false);
+            navigate('/student/course-request');
+          }}
+          onClose={() => setShowCourseRequestDraftModal(false)}
         />
       )}
     </header>

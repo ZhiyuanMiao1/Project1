@@ -14,6 +14,8 @@ import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
   title = '完善课程资料',
+  showConfirmButton = true,
+  includeSubmitted = true,
   mentorId,
   returnTo,
   initialSelectedRequestId,
@@ -93,7 +95,13 @@ function CourseOnboardingModal({
 
     if (!Array.isArray(draftCards) || draftCards.length === 0) return [];
 
-    return draftCards.map((draft) => {
+    return draftCards
+      .filter((draft) => {
+        const status = String(draft?.status || 'draft');
+        if (!includeSubmitted) return status === 'draft';
+        return status === 'draft' || status === 'submitted';
+      })
+      .map((draft) => {
       const status = String(draft?.status || 'draft');
       const rawDirection = String(draft?.courseDirection || '').trim();
       const courseDirectionId = rawDirection;
@@ -135,7 +143,7 @@ function CourseOnboardingModal({
         courseTypeId,
       };
     });
-  }, [createdDateLabel, draftCards]);
+  }, [createdDateLabel, draftCards, includeSubmitted]);
 
   const courseButtonRefs = useRef([]);
   const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
@@ -366,16 +374,18 @@ function CourseOnboardingModal({
             </button>
           </div>
 
-          <button
-            type="button"
-            className="course-onboarding-confirm"
-            onClick={() => {
-              if (onConfirm) onConfirm(selectedCourse);
-              else onClose?.();
-            }}
-          >
-            确认
-          </button>
+          {showConfirmButton ? (
+            <button
+              type="button"
+              className="course-onboarding-confirm"
+              onClick={() => {
+                if (onConfirm) onConfirm(selectedCourse);
+                else onClose?.();
+              }}
+            >
+              确认
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

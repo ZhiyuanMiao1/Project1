@@ -13,6 +13,7 @@ import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/post
 const StudentAuthModal = ({
   onClose,
   onLoginSuccess,
+  onPublishCourseRequest,
   anchorRef,
   leftAlignRef,
   isLoggedIn = false,
@@ -95,6 +96,10 @@ const StudentAuthModal = ({
           return;
         }
         onClose && onClose();
+        if (typeof onPublishCourseRequest === 'function') {
+          onPublishCourseRequest();
+          return;
+        }
         navigate('/student/course-request');
         return;
       case 'logout':
