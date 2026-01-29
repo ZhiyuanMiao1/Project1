@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
+import apiClient from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import './WalletPage.css';
 
@@ -13,6 +14,11 @@ function WalletPage() {
   const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
+  const [walletSummary, setWalletSummary] = useState(() => ({
+    remainingHours: 0,
+    monthTopUpCny: 0,
+    totalTopUpCny: 0,
+  }));
   const menuAnchorRef = useRef(null);
   const handleClosePaySuccess = useCallback(() => setIsPaySuccessOpen(false), []);
 
@@ -42,7 +48,20 @@ function WalletPage() {
     selectedTopUpMethod === 'paypal' &&
     ['正在跳转 PayPal…', '已取消支付'].includes(topUpNotice);
 
-  const remainingHours = 0;
+  const formatHours = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '0';
+    return String(Number(n.toFixed(2)));
+  };
+
+  const formatCny = (value) => {
+    const n = Number(value);
+    return (Number.isFinite(n) ? n : 0).toFixed(2);
+  };
+
+  const remainingHours = walletSummary?.remainingHours ?? 0;
+  const monthTopUpCny = walletSummary?.monthTopUpCny ?? 0;
+  const totalTopUpCny = walletSummary?.totalTopUpCny ?? 0;
 
   const hoursNumber = Number(topUpHours);
   const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
@@ -68,6 +87,25 @@ function WalletPage() {
   const openWith127Url = isLocalhost
     ? `${window.location.protocol}//127.0.0.1${window.location.port ? `:${window.location.port}` : ''}${window.location.pathname}${window.location.search}${window.location.hash}`
     : '';
+
+  const fetchWalletSummary = useCallback(async () => {
+    const res = await apiClient.get('/api/account/wallet-summary');
+    const data = res?.data || {};
+    setWalletSummary({
+      remainingHours: Number(data?.remainingHours) || 0,
+      monthTopUpCny: Number(data?.monthTopUpCny) || 0,
+      totalTopUpCny: Number(data?.totalTopUpCny) || 0,
+    });
+    return data;
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setWalletSummary({ remainingHours: 0, monthTopUpCny: 0, totalTopUpCny: 0 });
+      return;
+    }
+    fetchWalletSummary().catch((err) => console.error('Wallet summary load error:', err));
+  }, [fetchWalletSummary, isLoggedIn]);
 
   useEffect(() => {
     if (!isLoggedIn) return undefined;
@@ -207,25 +245,20 @@ function WalletPage() {
       setIsPaySuccessOpen(false);
       setTopUpNotice('正在跳转 PayPal…');
 
-      const amountUsdSnapshot = amountUsdNumber;
+      const hoursSnapshot = hoursNumber;
 
       const createOrder = async () => {
-        const usdValue = Number.isFinite(amountUsdSnapshot) ? amountUsdSnapshot.toFixed(2) : '0.00';
-        const createRes = await fetch(`${paypalApiBase}/checkout/orders/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            intent: 'CAPTURE',
-            purchase_units: [
-              { amount: { currency_code: 'USD', value: usdValue } },
-            ],
-          }),
-        });
-        const createData = await createRes.json().catch(() => ({}));
-        if (!createRes.ok || !createData?.id) {
-          throw new Error(createData?.error || 'Failed to create PayPal order');
+        try {
+          const res = await apiClient.post('/api/paypal-api/checkout/orders/create', { hours: hoursSnapshot });
+          const createData = res?.data || {};
+          if (!createData?.id) {
+            throw new Error(createData?.error || 'Failed to create PayPal order');
+          }
+          return { orderId: createData.id };
+        } catch (err) {
+          const message = err?.response?.data?.error || err?.message || 'Failed to create PayPal order';
+          throw new Error(message);
         }
-        return { orderId: createData.id };
       };
 
       const orderPromise = createOrder();
@@ -234,21 +267,21 @@ function WalletPage() {
         onApprove: async (data) => {
           try {
             const approvedOrderId = data?.orderId || data?.orderID || order.orderId;
-            const captureRes = await fetch(
-              `${paypalApiBase}/checkout/orders/${encodeURIComponent(String(approvedOrderId))}/capture`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-              },
-            );
-            const captureData = await captureRes.json().catch(() => ({}));
-            if (!captureRes.ok) {
-              throw new Error(captureData?.error || 'PayPal capture failed');
-            }
+            const captureData = await apiClient
+              .post(`/api/paypal-api/checkout/orders/${encodeURIComponent(String(approvedOrderId))}/capture`, {})
+              .then((r) => r?.data || {})
+              .catch((err) => {
+                const message = err?.response?.data?.error || err?.message || 'PayPal capture failed';
+                throw new Error(message);
+              });
             const status = String(captureData?.status || '').toUpperCase();
             if (status === 'COMPLETED') {
               setTopUpNotice('');
+              if (captureData?.wallet) {
+                setWalletSummary((prev) => ({ ...(prev || {}), ...captureData.wallet }));
+              } else {
+                fetchWalletSummary().catch((err) => console.error('Wallet summary refresh error:', err));
+              }
               setIsPaySuccessOpen(true);
             } else {
               setTopUpNotice(`支付完成：${status || 'UNKNOWN'}`);
@@ -320,7 +353,7 @@ function WalletPage() {
                   <div>
                     <div className="wallet-panel-eyebrow">剩余课时</div>
                     <div className="wallet-balance-amount">
-                      <span className="wallet-balance-value">{remainingHours}</span>
+                      <span className="wallet-balance-value">{formatHours(remainingHours)}</span>
                       <span className="wallet-balance-unit">小时</span>
                     </div>
                   </div>
@@ -329,11 +362,11 @@ function WalletPage() {
                 <div className="wallet-stat-grid" aria-label="余额统计">
                   <div className="wallet-stat">
                     <div className="wallet-stat-label">本月支出</div>
-                    <div className="wallet-stat-value">¥ 0.00</div>
+                    <div className="wallet-stat-value">¥ {formatCny(monthTopUpCny)}</div>
                   </div>
                   <div className="wallet-stat">
                     <div className="wallet-stat-label">累计充值</div>
-                    <div className="wallet-stat-value">¥ 0.00</div>
+                    <div className="wallet-stat-value">¥ {formatCny(totalTopUpCny)}</div>
                   </div>
                 </div>
               </div>

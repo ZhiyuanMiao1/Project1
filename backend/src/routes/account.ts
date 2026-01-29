@@ -342,6 +342,51 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.get('/wallet-summary', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const toNumber = (value: any, fallback = 0) => {
+    const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+  const isMissingWalletSchemaError = (e: any) => {
+    const code = String(e?.code || '');
+    if (code !== 'ER_BAD_FIELD_ERROR' && code !== 'ER_NO_SUCH_TABLE') return false;
+    const message = String(e?.message || '');
+    return message.includes('lesson_balance_hours') || message.includes('billing_orders');
+  };
+
+  try {
+    const balanceRows = await dbQuery<any[]>(
+      'SELECT lesson_balance_hours FROM users WHERE id = ? LIMIT 1',
+      [req.user.id]
+    );
+    const remainingHours = toNumber(balanceRows?.[0]?.lesson_balance_hours, 0);
+
+    const sumRows = await dbQuery<any[]>(
+      `SELECT
+         COALESCE(SUM(amount_cny), 0) AS totalTopUpCny,
+         COALESCE(SUM(CASE WHEN credited_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS monthTopUpCny
+       FROM billing_orders
+       WHERE user_id = ?
+         AND credited_at IS NOT NULL`,
+      [req.user.id]
+    );
+
+    const totalTopUpCny = toNumber(sumRows?.[0]?.totalTopUpCny, 0);
+    const monthTopUpCny = toNumber(sumRows?.[0]?.monthTopUpCny, 0);
+
+    return res.json({ remainingHours, monthTopUpCny, totalTopUpCny });
+  } catch (e) {
+    console.error('Account wallet summary error:', e);
+    if (isMissingWalletSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 升级' });
+    }
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.put(
   '/student-avatar',
   requireAuth,

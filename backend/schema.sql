@@ -10,11 +10,29 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` VARCHAR(100) NULL,
   `email` VARCHAR(255) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
+  `lesson_balance_hours` DECIMAL(10,2) NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_users_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1b) Wallet balance: persist remaining lesson hours per account.
+SET @__mx_has_lesson_balance_hours := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'lesson_balance_hours'
+);
+SET @__mx_sql := IF(
+  @__mx_has_lesson_balance_hours = 0,
+  'ALTER TABLE `users` ADD COLUMN `lesson_balance_hours` DECIMAL(10,2) NOT NULL DEFAULT 0',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 -- 2) Role table (one row per role per user)
 CREATE TABLE IF NOT EXISTS `user_roles` (
@@ -308,4 +326,31 @@ CREATE TABLE IF NOT EXISTS `appointment_statuses` (
   KEY `idx_appointment_statuses_updated_by` (`updated_by_user_id`),
   CONSTRAINT `fk_appointment_statuses_message` FOREIGN KEY (`appointment_message_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_appointment_statuses_user` FOREIGN KEY (`updated_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12) Billing / top-up orders (used by wallet)
+CREATE TABLE IF NOT EXISTS `billing_orders` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `provider` ENUM('paypal','alipay','wechat') NOT NULL DEFAULT 'paypal',
+  `provider_order_id` VARCHAR(64) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'CREATED',
+  `topup_hours` DECIMAL(10,2) NOT NULL,
+  `unit_price_cny` DECIMAL(10,2) NOT NULL,
+  `amount_cny` DECIMAL(10,2) NOT NULL,
+  `currency_code` CHAR(3) NOT NULL DEFAULT 'USD',
+  `amount_usd` DECIMAL(10,2) NOT NULL,
+  `paypal_capture_id` VARCHAR(64) NULL,
+  `paypal_payer_id` VARCHAR(32) NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `captured_at` TIMESTAMP NULL DEFAULT NULL,
+  `credited_at` TIMESTAMP NULL DEFAULT NULL,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `provider_create_json` LONGTEXT NULL,
+  `provider_capture_json` LONGTEXT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_billing_orders_provider_order` (`provider`, `provider_order_id`),
+  KEY `idx_billing_orders_user_created` (`user_id`, `created_at`),
+  KEY `idx_billing_orders_user_credited` (`user_id`, `credited_at`),
+  CONSTRAINT `fk_billing_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
