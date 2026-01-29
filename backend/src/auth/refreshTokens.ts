@@ -27,8 +27,8 @@ export const ensureRefreshTokensTable = async () => {
       \`token_hash\` CHAR(64) NOT NULL,
       \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       \`last_used_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-      \`sliding_expires_at\` TIMESTAMP NOT NULL,
-      \`absolute_expires_at\` TIMESTAMP NOT NULL,
+      \`sliding_expires_at\` TIMESTAMP NOT NULL DEFAULT '1970-01-02 00:00:00',
+      \`absolute_expires_at\` TIMESTAMP NOT NULL DEFAULT '1970-01-02 00:00:00',
       \`revoked_at\` TIMESTAMP NULL DEFAULT NULL,
       \`replaced_by_id\` BIGINT NULL DEFAULT NULL,
       \`revocation_reason\` VARCHAR(200) NULL DEFAULT NULL,
@@ -293,4 +293,3 @@ export const revokeAllRefreshTokensForUser = async (userId: number, reason = 're
     [now, reason || 'revoke_all', userId]
   );
 };
-
