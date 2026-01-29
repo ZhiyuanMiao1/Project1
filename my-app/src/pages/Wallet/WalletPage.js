@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import { getAuthToken } from '../../utils/authStorage';
 import './WalletPage.css';
 
@@ -11,7 +12,10 @@ function WalletPage() {
   const [selectedTopUpMethod, setSelectedTopUpMethod] = useState('paypal');
   const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
+  const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
+  const [paySuccessDesc, setPaySuccessDesc] = useState('');
   const menuAnchorRef = useRef(null);
+  const handleClosePaySuccess = useCallback(() => setIsPaySuccessOpen(false), []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -37,7 +41,7 @@ function WalletPage() {
 
   const isPayPalPlainNotice =
     selectedTopUpMethod === 'paypal' &&
-    ['正在跳转 PayPal…', '已取消支付', '支付成功'].includes(topUpNotice);
+    ['正在跳转 PayPal…', '已取消支付'].includes(topUpNotice);
 
   const remainingHours = 0;
 
@@ -196,10 +200,14 @@ function WalletPage() {
     }
 
     try {
+      setIsPaySuccessOpen(false);
       setTopUpNotice('正在跳转 PayPal…');
 
+      const topUpHoursSnapshot = hoursNumber;
+      const amountUsdSnapshot = amountUsdNumber;
+
       const createOrder = async () => {
-        const usdValue = Number.isFinite(amountUsdNumber) ? amountUsdNumber.toFixed(2) : '0.00';
+        const usdValue = Number.isFinite(amountUsdSnapshot) ? amountUsdSnapshot.toFixed(2) : '0.00';
         const createRes = await fetch(`${paypalApiBase}/checkout/orders/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -236,7 +244,17 @@ function WalletPage() {
               throw new Error(captureData?.error || 'PayPal capture failed');
             }
             const status = String(captureData?.status || '').toUpperCase();
-            setTopUpNotice(status === 'COMPLETED' ? '支付成功' : `支付完成：${status || 'UNKNOWN'}`);
+            if (status === 'COMPLETED') {
+              setTopUpNotice('');
+              setPaySuccessDesc(
+                Number.isFinite(topUpHoursSnapshot)
+                  ? `已成功充值 ${topUpHoursSnapshot.toFixed(2)} 小时`
+                  : '余额已到账'
+              );
+              setIsPaySuccessOpen(true);
+            } else {
+              setTopUpNotice(`支付完成：${status || 'UNKNOWN'}`);
+            }
           } catch (err) {
             console.error('PayPal approve/capture error:', err);
             setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额。');
@@ -479,6 +497,14 @@ function WalletPage() {
           alignOffset={23}
         />
       )}
+
+      <SuccessModal
+        open={isPaySuccessOpen}
+        title="支付成功"
+        description={paySuccessDesc || '余额已到账'}
+        autoCloseMs={2200}
+        onClose={handleClosePaySuccess}
+      />
     </div>
   );
 }
