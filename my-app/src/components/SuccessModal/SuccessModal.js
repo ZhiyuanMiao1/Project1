@@ -60,7 +60,7 @@ function SuccessModal({
               d="M20 6.5 9.75 16.75 4 11"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.6"
+              strokeWidth="3.2"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -89,4 +89,3 @@ function SuccessModal({
 }
 
 export default SuccessModal;
-

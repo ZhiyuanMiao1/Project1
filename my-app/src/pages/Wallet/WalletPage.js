@@ -13,7 +13,6 @@ function WalletPage() {
   const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
-  const [paySuccessDesc, setPaySuccessDesc] = useState('');
   const menuAnchorRef = useRef(null);
   const handleClosePaySuccess = useCallback(() => setIsPaySuccessOpen(false), []);
 
@@ -203,7 +202,6 @@ function WalletPage() {
       setIsPaySuccessOpen(false);
       setTopUpNotice('正在跳转 PayPal…');
 
-      const topUpHoursSnapshot = hoursNumber;
       const amountUsdSnapshot = amountUsdNumber;
 
       const createOrder = async () => {
@@ -246,11 +244,6 @@ function WalletPage() {
             const status = String(captureData?.status || '').toUpperCase();
             if (status === 'COMPLETED') {
               setTopUpNotice('');
-              setPaySuccessDesc(
-                Number.isFinite(topUpHoursSnapshot)
-                  ? `已成功充值 ${topUpHoursSnapshot.toFixed(2)} 小时`
-                  : '余额已到账'
-              );
               setIsPaySuccessOpen(true);
             } else {
               setTopUpNotice(`支付完成：${status || 'UNKNOWN'}`);
@@ -501,7 +494,6 @@ function WalletPage() {
       <SuccessModal
         open={isPaySuccessOpen}
         title="支付成功"
-        description={paySuccessDesc || '余额已到账'}
         autoCloseMs={2200}
         onClose={handleClosePaySuccess}
       />
