@@ -52,7 +52,12 @@ function WalletPage() {
   const amountUsdNumber = amountCnyNumber / FX_CNY_PER_USD;
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+  const apiBase = (() => {
+    const env = process.env.REACT_APP_API_BASE;
+    if (env) return env;
+    if (typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1') return 'http://127.0.0.1:5000';
+    return 'http://localhost:5000';
+  })();
   const paypalApiBase = `${apiBase}/api/paypal-api`;
   const paypalSdkInstanceRef = useRef(null);
   const [isPayPalInitializing, setIsPayPalInitializing] = useState(false);

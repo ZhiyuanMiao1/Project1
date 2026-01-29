@@ -2,8 +2,23 @@ import axios from 'axios';
 import { clearAuth, ensureFreshAuth } from '../utils/auth';
 import { broadcastAuthLogin, getAuthToken, initAuthSync, setAuthToken, setAuthUser } from '../utils/authStorage';
 
-// Prefer env var; fall back to local dev server
-const baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+const getDefaultBaseURL = () => {
+  // Prefer env var
+  const env = process.env.REACT_APP_API_BASE;
+  if (env) return env;
+
+  // When the UI is opened via 127.0.0.1 (e.g. PayPal sandbox), keep API on the same host.
+  // Otherwise refresh-token cookies become cross-site and won't be sent.
+  if (typeof window !== 'undefined') {
+    const host = window.location?.hostname;
+    if (host === '127.0.0.1') return 'http://127.0.0.1:5000';
+  }
+
+  // Default local dev server
+  return 'http://localhost:5000';
+};
+
+const baseURL = getDefaultBaseURL();
 
 const client = axios.create({
   baseURL,
