@@ -151,6 +151,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         checkEditPermission();
         return;
       case 'logout':
+        try { api.post('/api/auth/logout').catch(() => {}); } catch {}
         clearAuth(api);
         onClose && onClose();
         try { navigate('/student'); } catch {}

@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { query } from '../db';
+import { ACCESS_TOKEN_EXPIRES_IN, createRefreshTokenSession, setRefreshTokenCookie } from '../auth/refreshTokens';
 
 const router = Router();
 
@@ -83,7 +84,15 @@ router.post(
       const publicId = roleRow?.public_id || null;
 
       const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
-      const token = jwt.sign({ id: account.id, role: activeRole }, secret, { expiresIn: '1h' });
+      const token = jwt.sign({ id: account.id, role: activeRole }, secret, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+
+      const session = await createRefreshTokenSession({
+        userId: account.id,
+        role: activeRole,
+        userAgent: String(req.get('user-agent') || '').slice(0, 255) || null,
+        ip: String(req.ip || '').slice(0, 45) || null,
+      });
+      setRefreshTokenCookie(res, session.token, session.slidingExpiresAt.getTime() - Date.now());
 
       return res.json({
         message: '登录成功',

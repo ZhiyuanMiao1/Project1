@@ -8,6 +8,7 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
+const refreshTokens_1 = require("../auth/refreshTokens");
 const router = (0, express_1.Router)();
 const parseOrderIds = (value) => {
     if (typeof value !== 'string' || !value.trim())
@@ -561,6 +562,13 @@ router.put('/password', auth_1.requireAuth, [
         if (affected === 0) {
             return res.status(404).json({ error: '未找到账号信息' });
         }
+        try {
+            await (0, refreshTokens_1.revokeAllRefreshTokensForUser)(req.user.id, 'password_changed');
+        }
+        catch (e) {
+            console.error('Revoke refresh tokens on password change error:', e);
+        }
+        (0, refreshTokens_1.clearRefreshTokenCookie)(res);
         return res.json({ message: '密码已更新' });
     }
     catch (e) {

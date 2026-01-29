@@ -6,7 +6,9 @@
 ## API
 
 - `POST /api/register`：注册/开通角色（`email`、`password`、`role`、可选 `username`）。同一 `email` 只对应一个账号 `userId`；若账号已存在且密码正确，可追加开通另一角色。
-- `POST /api/login`：用户登录（`email` 支持邮箱 / StudentID(s#) / MentorID(m#)，`password`），返回 JWT（默认优先使用 `mentor` 作为 token role），并返回该账号已开通的角色列表（含 `public_id`）。
+- `POST /api/login`：用户登录（`email` 支持邮箱 / StudentID(s#) / MentorID(m#)，`password`），返回短期 Access JWT（15 分钟），并通过 Cookie 写入 Refresh Token（HttpOnly，30 天滑动续期 / 14 天不活跃过期 / 90 天绝对过期，且每次刷新会轮换 refresh）。
+- `POST /api/auth/refresh`：使用 Refresh Cookie 换取新的 Access JWT（并轮换 refresh cookie）。
+- `POST /api/auth/logout`：退出登录（撤销当前 refresh token 并清 Cookie）。
 - `GET /api/mentor/cards`：导师卡片；仅 `role=mentor` 且 `mentor_approved=1` 可访问，否则返回 403 `{ error: '导师审核中' }`。
 - `POST /api/oss/policy`：浏览器直传 OSS 的短时 policy（用于头像/附件上传）。
 - `GET /api/attachments/course-requests/:requestId/attachments/:fileId/signed-url`：后端鉴权后返回短时签名下载链接（用于私有 OSS 附件下载）。
@@ -18,6 +20,12 @@
 ```
 PORT=5000
 JWT_SECRET=your_jwt_secret_here
+
+# CORS（可选；逗号分隔 allowlist，默认已放行 localhost）
+# CORS_ORIGIN=http://localhost:3000
+
+# Cookies（可选；仅在 HTTPS 环境建议开启）
+# COOKIE_SECURE=false
 
 # 阿里云 RDS MySQL
 DB_HOST=rm-xxxxxxxxxxxx.mysql.rds.aliyuncs.com

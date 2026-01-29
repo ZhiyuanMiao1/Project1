@@ -1,13 +1,20 @@
 import axios from 'axios';
 import { clearAuth, ensureFreshAuth } from '../utils/auth';
-import { getAuthToken, initAuthSync } from '../utils/authStorage';
+import { broadcastAuthLogin, getAuthToken, initAuthSync, setAuthToken, setAuthUser } from '../utils/authStorage';
 
 // Prefer env var; fall back to local dev server
 const baseURL = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
 const client = axios.create({
   baseURL,
-  withCredentials: false,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+// A dedicated client without interceptors (prevents refresh recursion)
+const refreshClient = axios.create({
+  baseURL,
+  withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -60,20 +67,60 @@ client.interceptors.request.use(
 
 client.interceptors.response.use(
   (res) => res,
-  (error) => {
-    if (error?.response?.status === 401) {
-      // Only clear auth when request actually carried an auth header; avoid wiping token due to a missing-header race.
-      const headers = error?.config?.headers || {};
-      const authHeaderValue =
-        typeof headers?.get === 'function'
-          ? (headers.get('Authorization') || headers.get('authorization'))
-          : (headers?.Authorization || headers?.authorization);
-      const hadAuthHeader = !!authHeaderValue;
-      if (hadAuthHeader) {
-        clearAuth(client);
+  async (error) => {
+    const status = error?.response?.status;
+    const url = String(error?.config?.url || '');
+
+    if (status !== 401) return Promise.reject(error);
+
+    // Avoid loops / refresh recursion
+    const isAuthEndpoint = url.includes('/api/login') || url.includes('/api/register') || url.includes('/api/auth/refresh') || url.includes('/api/auth/logout');
+    if (isAuthEndpoint) return Promise.reject(error);
+
+    const config = error?.config || {};
+    if (config._retry) return Promise.reject(error);
+
+    // Only refresh when request actually carried an auth header; avoid wiping token due to a missing-header race.
+    const headers = config.headers || {};
+    const authHeaderValue =
+      typeof headers?.get === 'function'
+        ? (headers.get('Authorization') || headers.get('authorization'))
+        : (headers?.Authorization || headers?.authorization);
+    const hadAuthHeader = !!authHeaderValue;
+    if (!hadAuthHeader) return Promise.reject(error);
+
+    try {
+      config._retry = true;
+
+      if (!client.__refreshPromise) {
+        client.__refreshPromise = refreshClient
+          .post('/api/auth/refresh')
+          .then((r) => r?.data || {})
+          .finally(() => { client.__refreshPromise = null; });
       }
+
+      const payload = await client.__refreshPromise;
+      const newToken = payload?.token || payload?.accessToken;
+      if (!newToken) throw new Error('Refresh did not return token');
+
+      setAuthToken(newToken);
+      if (payload?.user) setAuthUser(payload.user);
+      broadcastAuthLogin({ token: newToken, user: payload?.user || null });
+      try { client.defaults.headers.common['Authorization'] = `Bearer ${newToken}`; } catch {}
+
+      const nextHeaders = config.headers || {};
+      if (nextHeaders && typeof nextHeaders?.set === 'function') {
+        try { nextHeaders.set('Authorization', `Bearer ${newToken}`); } catch {}
+      } else {
+        try { nextHeaders.Authorization = `Bearer ${newToken}`; } catch {}
+      }
+      config.headers = nextHeaders;
+
+      return client(config);
+    } catch (e) {
+      clearAuth(client);
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
   }
 );
 

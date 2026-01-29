@@ -103,6 +103,7 @@ const StudentAuthModal = ({
         navigate('/student/course-request');
         return;
       case 'logout':
+        try { api.post('/api/auth/logout').catch(() => {}); } catch {}
         clearAuth(api);
         onClose && onClose();
         navigate('/student');

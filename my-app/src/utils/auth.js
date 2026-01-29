@@ -51,14 +51,12 @@ export const ensureFreshAuth = (client) => {
   const token = getAuthToken();
 
   if (!token) {
-    clearAuth(client);
     return { token: null, expired: false };
   }
 
   const expired = isTokenExpired(token);
   if (expired) {
-    clearAuth(client);
-    return { token: null, expired: true };
+    return { token, expired: true };
   }
 
   if (client?.defaults?.headers?.common) {

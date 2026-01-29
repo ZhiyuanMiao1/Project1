@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { requireAuth } from '../middleware/auth';
 import { query as dbQuery } from '../db';
 import { body, validationResult } from 'express-validator';
+import { clearRefreshTokenCookie, revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 
 type Role = 'student' | 'mentor';
 
@@ -681,6 +682,13 @@ router.put(
       if (affected === 0) {
         return res.status(404).json({ error: '未找到账号信息' });
       }
+
+      try {
+        await revokeAllRefreshTokensForUser(req.user.id, 'password_changed');
+      } catch (e) {
+        console.error('Revoke refresh tokens on password change error:', e);
+      }
+      clearRefreshTokenCookie(res);
 
       return res.json({ message: '密码已更新' });
     } catch (e) {

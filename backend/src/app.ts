@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import registerRoute from './routes/register';
 import loginRoute from './routes/login';
+import authRoute from './routes/auth';
 import accountRoute from './routes/account';
 import mentorRoute from './routes/mentor';
 import mentorsRoute from './routes/mentors';
@@ -18,12 +19,45 @@ dotenv.config();
 const app = express();
 
 app.use(express.json());
-app.use(cors());
+
+const parseCorsOrigins = (value: any) => {
+  const raw = typeof value === 'string' ? value : String(value ?? '');
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+const corsAllowlist = new Set<string>([
+  ...parseCorsOrigins(process.env.CORS_ORIGIN),
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+
+      if (corsAllowlist.has(origin)) return callback(null, true);
+
+      try {
+        const url = new URL(origin);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return callback(null, false);
+        if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return callback(null, true);
+      } catch {}
+
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 
 app.use('/api/register', registerRoute);
 app.use('/api/login', loginRoute);
+app.use('/api/auth', authRoute);
 app.use('/api/account', accountRoute);
 app.use('/api/mentor', mentorRoute);
 app.use('/api/mentors', mentorsRoute);

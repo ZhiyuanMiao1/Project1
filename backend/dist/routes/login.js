@@ -8,6 +8,7 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
+const refreshTokens_1 = require("../auth/refreshTokens");
 const router = (0, express_1.Router)();
 router.post('/', [
     // email 字段兼容旧前端；这里允许传入 email / StudentID(s#) / MentorID(m#)
@@ -49,7 +50,14 @@ router.post('/', [
         const activeRole = roleRow?.role === 'mentor' || roleRow?.role === 'student' ? roleRow.role : 'student';
         const publicId = roleRow?.public_id || null;
         const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
-        const token = jsonwebtoken_1.default.sign({ id: account.id, role: activeRole }, secret, { expiresIn: '1h' });
+        const token = jsonwebtoken_1.default.sign({ id: account.id, role: activeRole }, secret, { expiresIn: refreshTokens_1.ACCESS_TOKEN_EXPIRES_IN });
+        const session = await (0, refreshTokens_1.createRefreshTokenSession)({
+            userId: account.id,
+            role: activeRole,
+            userAgent: String(req.get('user-agent') || '').slice(0, 255) || null,
+            ip: String(req.ip || '').slice(0, 45) || null,
+        });
+        (0, refreshTokens_1.setRefreshTokenCookie)(res, session.token, session.slidingExpiresAt.getTime() - Date.now());
         return res.json({
             message: '登录成功',
             token,

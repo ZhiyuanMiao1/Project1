@@ -77,6 +77,30 @@ CREATE TABLE IF NOT EXISTS `account_settings` (
   CONSTRAINT `fk_account_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5b) Refresh tokens (rotating sessions; stored as SHA-256 hash)
+CREATE TABLE IF NOT EXISTS `refresh_tokens` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `role` ENUM('mentor','student') NOT NULL,
+  `family_id` CHAR(36) NOT NULL,
+  `token_hash` CHAR(64) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_used_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `sliding_expires_at` TIMESTAMP NOT NULL,
+  `absolute_expires_at` TIMESTAMP NOT NULL,
+  `revoked_at` TIMESTAMP NULL DEFAULT NULL,
+  `replaced_by_id` BIGINT NULL DEFAULT NULL,
+  `revocation_reason` VARCHAR(200) NULL DEFAULT NULL,
+  `user_agent` VARCHAR(255) NULL DEFAULT NULL,
+  `ip` VARCHAR(45) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_refresh_tokens_token_hash` (`token_hash`),
+  KEY `idx_refresh_tokens_user_id` (`user_id`),
+  KEY `idx_refresh_tokens_family_id` (`family_id`),
+  KEY `idx_refresh_tokens_replaced_by_id` (`replaced_by_id`),
+  CONSTRAINT `fk_refresh_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 6) Mentor profile table: one row per mentor account
 CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `user_id` INT NOT NULL,

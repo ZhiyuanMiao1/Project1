@@ -8,6 +8,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const register_1 = __importDefault(require("./routes/register"));
 const login_1 = __importDefault(require("./routes/login"));
+const auth_1 = __importDefault(require("./routes/auth"));
 const account_1 = __importDefault(require("./routes/account"));
 const mentor_1 = __importDefault(require("./routes/mentor"));
 const mentors_1 = __importDefault(require("./routes/mentors"));
@@ -20,10 +21,40 @@ const paypalApi_1 = __importDefault(require("./routes/paypalApi"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
-app.use((0, cors_1.default)());
+const parseCorsOrigins = (value) => {
+    const raw = typeof value === 'string' ? value : String(value ?? '');
+    return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+};
+const corsAllowlist = new Set([
+    ...parseCorsOrigins(process.env.CORS_ORIGIN),
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]);
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        if (corsAllowlist.has(origin))
+            return callback(null, true);
+        try {
+            const url = new URL(origin);
+            if (url.protocol !== 'http:' && url.protocol !== 'https:')
+                return callback(null, false);
+            if (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
+                return callback(null, true);
+        }
+        catch { }
+        return callback(null, false);
+    },
+    credentials: true,
+}));
 app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 app.use('/api/register', register_1.default);
 app.use('/api/login', login_1.default);
+app.use('/api/auth', auth_1.default);
 app.use('/api/account', account_1.default);
 app.use('/api/mentor', mentor_1.default);
 app.use('/api/mentors', mentors_1.default);
