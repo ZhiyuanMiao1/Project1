@@ -354,3 +354,23 @@ CREATE TABLE IF NOT EXISTS `billing_orders` (
   KEY `idx_billing_orders_user_credited` (`user_id`, `credited_at`),
   CONSTRAINT `fk_billing_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 13) Course sessions (used by Courses page calendar/history)
+-- Note: classroom link / address intentionally NOT stored here (per product requirement).
+CREATE TABLE IF NOT EXISTS `course_sessions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `student_user_id` INT NOT NULL,
+  `mentor_user_id` INT NOT NULL,
+  `course_direction` VARCHAR(64) NULL, -- stores direction id (e.g. cs-foundation)
+  `course_type` VARCHAR(64) NULL,      -- stores type id (e.g. pre-study)
+  `starts_at` DATETIME NOT NULL,
+  `duration_hours` DECIMAL(6,2) NOT NULL,
+  `status` ENUM('scheduled','completed','cancelled') NOT NULL DEFAULT 'scheduled',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_course_sessions_student_time` (`student_user_id`, `starts_at`),
+  KEY `idx_course_sessions_mentor_time` (`mentor_user_id`, `starts_at`),
+  CONSTRAINT `fk_course_sessions_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_sessions_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
