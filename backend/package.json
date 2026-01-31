@@ -12,6 +12,7 @@
     "prune:courses": "npm run build && node dist/scripts/prune-course-mappings.js",
     "backfill:mentor-courses": "npm run build && node dist/scripts/backfill-mentor-course-embeddings.js",
     "backfill:mentor-direction-scores": "npm run build && node dist/scripts/backfill-mentor-direction-scores.js",
+    "backfill:course-sessions": "npm run build && node dist/scripts/backfill-course-sessions.js",
     "seed:mentor-cards": "npm run build && node dist/scripts/seed-mentor-cards.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
