@@ -3,6 +3,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import apiClient from '../../api/client';
+import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
 import './WalletPage.css';
 
@@ -71,13 +72,6 @@ function WalletPage() {
   const amountUsdNumber = amountCnyNumber / FX_CNY_PER_USD;
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
-  const apiBase = (() => {
-    const env = process.env.REACT_APP_API_BASE;
-    if (env) return env;
-    if (typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1') return 'http://127.0.0.1:5000';
-    return 'http://localhost:5000';
-  })();
-  const paypalApiBase = `${apiBase}/api/paypal-api`;
   const paypalSdkInstanceRef = useRef(null);
   const [isPayPalInitializing, setIsPayPalInitializing] = useState(false);
   const [isPayPalEligible, setIsPayPalEligible] = useState(false);
@@ -108,107 +102,60 @@ function WalletPage() {
   }, [fetchWalletSummary, isLoggedIn]);
 
   useEffect(() => {
-    if (!isLoggedIn) return undefined;
+    if (!isLoggedIn) {
+      paypalSdkInstanceRef.current = null;
+      setIsPayPalInitializing(false);
+      setIsPayPalEligible(false);
+      setPayPalInitError('');
+      return undefined;
+    }
+
     if (selectedTopUpMethod !== 'paypal') return undefined;
 
     if (window.location.hostname === 'localhost') {
+      paypalSdkInstanceRef.current = null;
       setIsPayPalInitializing(false);
       setIsPayPalEligible(false);
       setPayPalInitError('PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面。');
       return undefined;
     }
 
+    const snapshot = getPayPalWarmupSnapshot();
+    if (snapshot?.sdkInstance && typeof snapshot?.isEligible === 'boolean' && !snapshot?.initError) {
+      paypalSdkInstanceRef.current = snapshot.sdkInstance;
+      setIsPayPalInitializing(false);
+      setIsPayPalEligible(Boolean(snapshot.isEligible));
+      setPayPalInitError('');
+      return undefined;
+    }
+
     let canceled = false;
-    let detachLoadListener = null;
 
     setIsPayPalInitializing(true);
     setPayPalInitError('');
     setIsPayPalEligible(false);
 
-    async function onPayPalWebSdkLoaded() {
-      if (canceled) return;
-      setIsPayPalInitializing(true);
-      setPayPalInitError('');
-      setIsPayPalEligible(false);
-
-      try {
-        const tokenRes = await fetch(`${paypalApiBase}/auth/browser-safe-client-token`);
-        const tokenData = await tokenRes.json().catch(() => ({}));
-        if (!tokenRes.ok || !tokenData?.accessToken) {
-          throw new Error(tokenData?.hint || tokenData?.error || 'PayPal 初始化失败，请稍后重试。');
-        }
-
-        const sdkInstance = await window.paypal.createInstance({
-          clientToken: tokenData.accessToken,
-          components: ['paypal-payments'],
-          pageType: 'checkout',
-        });
-        paypalSdkInstanceRef.current = sdkInstance;
-
-        const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'CNY' });
-        const methods =
-          typeof methodsResponse?.isEligible === 'function'
-            ? methodsResponse
-            : (typeof sdkInstance?.hydrateEligibleMethods === 'function'
-              ? sdkInstance.hydrateEligibleMethods(methodsResponse)
-              : methodsResponse);
-        const eligible = typeof methods?.isEligible === 'function' ? methods.isEligible('paypal') : false;
-        if (!canceled) setIsPayPalEligible(Boolean(eligible));
-      } catch (err) {
-        console.error('PayPal init error:', err);
-        if (!canceled) {
-          const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试。';
-          setPayPalInitError(message);
-          setIsPayPalEligible(false);
-        }
-      } finally {
-        if (!canceled) setIsPayPalInitializing(false);
-      }
-    }
-
-    window.onPayPalWebSdkLoaded = onPayPalWebSdkLoaded;
-
-    if (window.paypal?.createInstance) {
-      onPayPalWebSdkLoaded();
-      return () => {
-        canceled = true;
-        if (typeof detachLoadListener === 'function') detachLoadListener();
-        if (window.onPayPalWebSdkLoaded === onPayPalWebSdkLoaded) {
-          window.onPayPalWebSdkLoaded = undefined;
-        }
-      };
-    }
-
-    const scriptId = 'paypal-web-sdk-v6-core';
-    const existingScript = document.getElementById(scriptId);
-
-    if (existingScript) {
-      const triggerInit = () => window.onPayPalWebSdkLoaded?.();
-      existingScript.addEventListener('load', triggerInit, { once: true });
-      detachLoadListener = () => existingScript.removeEventListener('load', triggerInit);
-    } else {
-      const script = document.createElement('script');
-      script.id = scriptId;
-      script.async = true;
-      script.src = 'https://www.sandbox.paypal.com/web-sdk/v6/core';
-      script.onload = () => window.onPayPalWebSdkLoaded?.();
-      script.onerror = () => {
+    ensurePayPalReady()
+      .then(({ sdkInstance, isEligible }) => {
         if (canceled) return;
-        setIsPayPalInitializing(false);
+        paypalSdkInstanceRef.current = sdkInstance;
+        setIsPayPalEligible(Boolean(isEligible));
+      })
+      .catch((err) => {
+        if (canceled) return;
+        console.error('PayPal init error:', err);
+        const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试。';
+        setPayPalInitError(message);
         setIsPayPalEligible(false);
-        setPayPalInitError('PayPal SDK 加载失败，请检查网络后重试。');
-      };
-      document.body.appendChild(script);
-    }
+      })
+      .finally(() => {
+        if (!canceled) setIsPayPalInitializing(false);
+      });
 
     return () => {
       canceled = true;
-      if (typeof detachLoadListener === 'function') detachLoadListener();
-      if (window.onPayPalWebSdkLoaded === onPayPalWebSdkLoaded) {
-        window.onPayPalWebSdkLoaded = undefined;
-      }
     };
-  }, [apiBase, isLoggedIn, paypalApiBase, selectedTopUpMethod]);
+  }, [isLoggedIn, selectedTopUpMethod]);
 
   const handlePayPalTopUp = async () => {
     if (!isHoursValid) {
