@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import type { InsertResult } from '../db';
-import { query } from '../db';
+import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
 
 const router = express.Router();
@@ -9,12 +9,137 @@ const isMissingMessagesSchemaError = (err: any) => {
   const code = typeof err?.code === 'string' ? err.code : '';
   if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR') return true;
   const message = typeof err?.message === 'string' ? err.message : '';
-  return message.includes('message_threads') || message.includes('message_items') || message.includes('appointment_statuses');
+  return (
+    message.includes('message_threads')
+    || message.includes('message_items')
+    || message.includes('appointment_statuses')
+    || message.includes('course_sessions')
+  );
 };
 
 const formatZoomMeetingId = (digits: number) => {
   const text = String(digits).padStart(9, '0').slice(0, 9);
   return `${text.slice(0, 3)} ${text.slice(3, 6)} ${text.slice(6)}`;
+};
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const formatUtcDatetime = (date: Date) => {
+  const y = date.getUTCFullYear();
+  const m = pad2(date.getUTCMonth() + 1);
+  const d = pad2(date.getUTCDate());
+  const hh = pad2(date.getUTCHours());
+  const mm = pad2(date.getUTCMinutes());
+  const ss = pad2(date.getUTCSeconds());
+  return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+};
+
+const parseTimezoneOffsetMinutes = (raw: string) => {
+  const s = String(raw || '')
+    .trim()
+    .replace(/\uFF0B/g, '+') // fullwidth plus
+    .replace(/[\u2212\u2010\u2011\u2012\u2013\u2014\uFF0D]/g, '-'); // minus variants
+  if (!s) return null;
+  const match = s.match(/(?:UTC|GMT)\s*([+-])\s*(\d{1,2})(?:[:]\s*(\d{2}))?/i);
+  if (!match) return null;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number.parseInt(match[2], 10);
+  const mins = match[3] ? Number.parseInt(match[3], 10) : 0;
+  if (!Number.isFinite(hours) || hours > 14) return null;
+  if (!Number.isFinite(mins) || mins < 0 || mins >= 60) return null;
+  return sign * (hours * 60 + mins);
+};
+
+type ParsedCourseWindow = {
+  startsAtUtc: Date;
+  endsAtUtc: Date;
+  durationHours: number;
+  tzOffsetMinutes: number;
+};
+
+const parseCourseWindowText = (windowText: unknown, createdAt: Date): ParsedCourseWindow | null => {
+  const raw = typeof windowText === 'string' ? windowText.trim() : '';
+  if (!raw) return null;
+
+  const canonical = raw
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\uFF1A/g, ':') // fullwidth colon
+    .replace(/[\u2013\u2014\uFF5E]/g, '-') // dash/tilde variants
+    .replace(/\uFF0B/g, '+') // fullwidth plus
+    .replace(/[\u2212\uFF0D]/g, '-'); // minus variants
+
+  const tzMatch = canonical.match(/\(([^)]+)\)\s*$/);
+  const tzLabel = tzMatch ? String(tzMatch[1] || '').trim() : '';
+  const tzOffsetMinutes = parseTimezoneOffsetMinutes(tzLabel) ?? parseTimezoneOffsetMinutes(canonical) ?? 0;
+
+  const timeMatch = canonical.match(/(\d{1,2}):(\d{2})\s*(?:-|to)\s*(\d{1,2}):(\d{2})/i);
+  if (!timeMatch) return null;
+  const startHour = Number.parseInt(timeMatch[1], 10);
+  const startMinute = Number.parseInt(timeMatch[2], 10);
+  const endHour = Number.parseInt(timeMatch[3], 10);
+  const endMinute = Number.parseInt(timeMatch[4], 10);
+  if (![startHour, startMinute, endHour, endMinute].every((n) => Number.isFinite(n))) return null;
+  if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) return null;
+  if (startMinute < 0 || startMinute > 59 || endMinute < 0 || endMinute > 59) return null;
+
+  const cnDateMatch = canonical.match(/(?:(\d{4})\s*\u5E74\s*)?(\d{1,2})\s*\u6708\s*(\d{1,2})\s*\u65E5/);
+  const altDateMatch = canonical.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+
+  const parsedYear = cnDateMatch?.[1] || altDateMatch?.[1] || '';
+  const monthText = cnDateMatch?.[2] || altDateMatch?.[2] || '';
+  const dayText = cnDateMatch?.[3] || altDateMatch?.[3] || '';
+
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  const buildStartUtc = (year: number) => {
+    const utcMillis = Date.UTC(year, month - 1, day, startHour, startMinute, 0) - tzOffsetMinutes * 60_000;
+    return new Date(utcMillis);
+  };
+
+  const buildEndUtc = (startUtc: Date) => {
+    let durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
+    if (durationMinutes <= 0) durationMinutes += 24 * 60;
+    const endUtc = new Date(startUtc.getTime() + durationMinutes * 60_000);
+    return { durationMinutes, endUtc };
+  };
+
+  let year: number | null = null;
+  if (parsedYear) {
+    const y = Number.parseInt(parsedYear, 10);
+    if (Number.isFinite(y) && y >= 1970 && y <= 2100) year = y;
+  }
+
+  if (year == null) {
+    const base = createdAt instanceof Date ? createdAt : new Date(createdAt);
+    const baseYear = base.getUTCFullYear();
+    const candidates = [baseYear - 1, baseYear, baseYear + 1];
+    const baseMs = base.getTime();
+    const computed = candidates.map((candidateYear) => {
+      const startUtc = buildStartUtc(candidateYear);
+      return { year: candidateYear, startUtc, diffMs: startUtc.getTime() - baseMs };
+    });
+    const acceptable = computed
+      .filter((c) => c.diffMs >= -36 * 60 * 60 * 1000)
+      .sort((a, b) => a.diffMs - b.diffMs);
+    year = (acceptable[0] || computed.sort((a, b) => Math.abs(a.diffMs) - Math.abs(b.diffMs))[0])?.year ?? baseYear;
+  }
+
+  const startsAtUtc = buildStartUtc(year);
+  if (!Number.isFinite(startsAtUtc.getTime())) return null;
+
+  const { durationMinutes, endUtc } = buildEndUtc(startsAtUtc);
+  const durationHours = Math.round((durationMinutes / 60) * 100) / 100;
+
+  return {
+    startsAtUtc,
+    endsAtUtc: endUtc,
+    durationHours,
+    tzOffsetMinutes,
+  };
 };
 
 const buildDefaultMeetingId = () => {
@@ -262,10 +387,20 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
     return res.status(400).json({ error: '无效状态' });
   }
 
+  const conn = await pool.getConnection();
   try {
-    const rows = await query<any[]>(
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute<any[]>(
       `
-      SELECT mi.id, mi.thread_id, mi.sender_user_id
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.sender_user_id,
+        mi.payload_json,
+        mi.created_at,
+        t.student_user_id,
+        t.mentor_user_id
       FROM message_items mi
       INNER JOIN message_threads t ON t.id = mi.thread_id
       WHERE mi.id = ?
@@ -277,13 +412,17 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
     );
 
     const row = rows?.[0];
+    if (!row) {
+      await conn.rollback();
+    }
     if (!row) return res.status(404).json({ error: '预约不存在或无权限' });
 
     if (Number(row.sender_user_id) === req.user.id) {
+      await conn.rollback();
       return res.status(403).json({ error: '不能对自己发的预约更改状态' });
     }
 
-    await query(
+    await conn.execute(
       `
       INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
       VALUES (?, ?, ?)
@@ -295,6 +434,70 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
       [appointmentId, status, req.user.id]
     );
 
+    if (status === 'accepted') {
+      const payload = parseAppointmentPayload(row?.payload_json);
+      if (!payload) {
+        throw new Error('Invalid appointment payload');
+      }
+      const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
+      const parsed = parseCourseWindowText(payload?.windowText, createdAt);
+
+      if (!parsed) {
+        throw new Error('Invalid schedule windowText');
+      } else {
+        const studentUserId = Number(row?.student_user_id);
+        const mentorUserId = Number(row?.mentor_user_id);
+
+        if (!Number.isFinite(studentUserId) || studentUserId <= 0 || !Number.isFinite(mentorUserId) || mentorUserId <= 0) {
+          throw new Error('Invalid thread users');
+        } else {
+          const startsAt = formatUtcDatetime(parsed.startsAtUtc);
+          const sessionStatus = parsed.endsAtUtc.getTime() <= Date.now() ? 'completed' : 'scheduled';
+
+          try {
+            const [existing] = await conn.execute<any[]>(
+              'SELECT id FROM course_sessions WHERE student_user_id = ? AND mentor_user_id = ? AND starts_at = ? LIMIT 1',
+              [studentUserId, mentorUserId, startsAt]
+            );
+
+            if (!existing || existing.length === 0) {
+              await conn.execute(
+                `
+                INSERT INTO course_sessions
+                  (student_user_id, mentor_user_id, course_direction, course_type, starts_at, duration_hours, status)
+                VALUES
+                  (?, ?, ?, ?, ?, ?, ?)
+                `,
+                [
+                  studentUserId,
+                  mentorUserId,
+                  typeof payload?.courseDirectionId === 'string' && payload.courseDirectionId.trim()
+                    ? payload.courseDirectionId.trim()
+                    : null,
+                  typeof payload?.courseTypeId === 'string' && payload.courseTypeId.trim()
+                    ? payload.courseTypeId.trim()
+                    : null,
+                  startsAt,
+                  parsed.durationHours,
+                  sessionStatus,
+                ]
+              );
+            }
+          } catch (e: any) {
+            const code = String(e?.code || '');
+            const message = String(e?.message || '');
+            const isMissingCourseSessions = code === 'ER_NO_SUCH_TABLE' || message.includes('course_sessions');
+            if (isMissingCourseSessions) {
+              throw e;
+              return res.status(500).json({ error: '鏁版嵁搴撴湭鍗囩骇锛岃鍏堟墽琛宐ackend/schema.sql' });
+            }
+            console.error('Insert course session error:', e);
+            throw e;
+          }
+        }
+      }
+    }
+
     const shouldEmitDecisionMessage = status === 'accepted' || status === 'rejected';
     if (shouldEmitDecisionMessage) {
       const payload = {
@@ -303,7 +506,7 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
         status,
       };
 
-      const msgInsert = await query<InsertResult>(
+      const [msgInsert] = await conn.execute<InsertResult>(
         `
         INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
         VALUES (?, ?, ?, ?)
@@ -312,7 +515,7 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
       );
       const messageId = Number(msgInsert.insertId);
 
-      await query(
+      await conn.execute(
         `
         UPDATE message_threads
         SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -321,19 +524,23 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
         [Number.isFinite(messageId) && messageId > 0 ? messageId : null, Number(row.thread_id)]
       );
     } else {
-      await query(
+      await conn.execute(
         `UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         [Number(row.thread_id)]
       );
     }
 
+    await conn.commit();
     return res.json({ ok: true, appointmentId: String(appointmentId), status });
   } catch (e) {
+    try { await conn.rollback(); } catch {}
     if (isMissingMessagesSchemaError(e)) {
       return res.status(500).json({ error: '数据库未升级，请先执行backend/schema.sql' });
     }
     console.error('Update appointment decision error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  } finally {
+    try { conn.release(); } catch {}
   }
 });
 
