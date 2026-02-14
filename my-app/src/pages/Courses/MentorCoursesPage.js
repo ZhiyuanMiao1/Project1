@@ -6,38 +6,21 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import {
-  DIRECTION_LABEL_ICON_MAP,
+  COURSE_TYPE_ID_TO_LABEL,
   COURSE_TYPE_LABEL_ICON_MAP,
+  DIRECTION_LABEL_ICON_MAP,
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import './CoursesPage.css';
 
-const MOCK_MENTOR_COURSES = [
-  { id: 'mc-2025-11-28-a', title: '编程基础', type: '课前预习', date: '2025-11-28', duration: '2h', studentName: '张同学', studentAvatar: 'https://i.pravatar.cc/120?img=5' },
-  { id: 'mc-2025-11-22-a', title: '数据结构与算法', type: '作业项目', date: '2025-11-22', duration: '1.5h', studentName: 'Alex Chen', studentAvatar: 'https://i.pravatar.cc/120?img=13' },
-  { id: 'mc-2025-11-18-a', title: '软件工程实践', type: '课前预习', date: '2025-11-18', duration: '2h', studentName: '王同学', studentAvatar: 'https://i.pravatar.cc/120?img=45' },
-  { id: 'mc-2025-11-12-b', title: '产品思维', type: '选课指导', date: '2025-11-12', duration: '1.5h', studentName: '陈同学', studentAvatar: 'https://i.pravatar.cc/120?img=47' },
-  { id: 'mc-2025-11-06-a', title: '编译原理', type: '作业项目', date: '2025-11-06', duration: '2h', studentName: '刘同学', studentAvatar: 'https://i.pravatar.cc/120?img=36' },
-  { id: 'mc-2025-10-18-a', title: '系统设计导论', type: '选课指导', date: '2025-10-18', duration: '2h', studentName: '周同学', studentAvatar: 'https://i.pravatar.cc/120?img=23' },
-  { id: 'mc-2025-10-04-a', title: '机器学习基础', type: '课前预习', date: '2025-10-04', duration: '2h', studentName: '李同学', studentAvatar: 'https://i.pravatar.cc/120?img=11' },
-  { id: 'mc-2025-09-15-a', title: '算法刷题营', type: '期末复习', date: '2025-09-15', duration: '1h', studentName: '冯同学', studentAvatar: 'https://i.pravatar.cc/120?img=52' },
-  { id: 'mc-2025-08-30-a', title: '前端工程化', type: '课前预习', date: '2025-08-30', duration: '1.5h', studentName: '郑同学', studentAvatar: 'https://i.pravatar.cc/120?img=55' },
-  { id: 'mc-2024-12-06-a', title: '数据库系统', type: '期末复习', date: '2024-12-06', duration: '2h', studentName: '王同学', studentAvatar: 'https://i.pravatar.cc/120?img=17' },
-  { id: 'mc-2024-11-28-a', title: '软件测试', type: '课前预习', date: '2024-11-28', duration: '1.5h', studentName: '李同学', studentAvatar: 'https://i.pravatar.cc/120?img=57' },
-  { id: 'mc-2024-11-20-a', title: '数据可视化', type: '其它类型', date: '2024-11-20', duration: '1h', studentName: '宋同学', studentAvatar: 'https://i.pravatar.cc/120?img=28' },
-  { id: 'mc-2024-11-15-a', title: '人工智能导论', type: '期末复习', date: '2024-11-15', duration: '1.5h', studentName: '刘同学', studentAvatar: 'https://i.pravatar.cc/120?img=31' },
-  { id: 'mc-2024-11-12-a', title: '操作系统', type: '其它类型', date: '2024-11-12', duration: '1.5h', studentName: '钱同学', studentAvatar: 'https://i.pravatar.cc/120?img=7' },
-  { id: 'mc-2024-11-08-a', title: '移动开发', type: '作业项目', date: '2024-11-08', duration: '2h', studentName: '马同学', studentAvatar: 'https://i.pravatar.cc/120?img=26' },
-  { id: 'mc-2024-11-02-a', title: '网络基础', type: '课前预习', date: '2024-11-02', duration: '1h', studentName: '朱同学', studentAvatar: 'https://i.pravatar.cc/120?img=8' },
-  { id: 'mc-2024-09-16-a', title: '毕业论文辅导', type: '毕业论文', date: '2024-09-16', duration: '1h', studentName: '黄同学', studentAvatar: 'https://i.pravatar.cc/120?img=9' },
-];
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const pad2 = (n) => String(n).padStart(2, '0');
 
 const formatDate = (value) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}/${m}/${day}`;
+  return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
 };
 
 const isCoursePast = (value) => {
@@ -49,29 +32,97 @@ const isCoursePast = (value) => {
   return d.getTime() < today.getTime();
 };
 
+const toDateKey = (rawDate, rawStartsAt) => {
+  const direct = safeText(rawDate);
+  const directMatch = direct.match(/\d{4}-\d{2}-\d{2}/);
+  if (directMatch) return directMatch[0];
+
+  const startsAt = safeText(rawStartsAt);
+  const startsAtMatch = startsAt.match(/\d{4}-\d{2}-\d{2}/);
+  if (startsAtMatch) return startsAtMatch[0];
+
+  const parsed = new Date(startsAt || direct);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}`;
+};
+
+const toDurationText = (durationHours, fallback) => {
+  const n = typeof durationHours === 'number' ? durationHours : Number(durationHours);
+  if (Number.isFinite(n) && n > 0) {
+    const normalized = Math.round(n * 100) / 100;
+    const value = Number.isInteger(normalized) ? String(normalized) : String(normalized).replace(/\.0+$/, '');
+    return `${value}h`;
+  }
+  const text = safeText(fallback);
+  if (text) return text;
+  return '1h';
+};
+
+const normalizeMentorCourse = (row) => {
+  const directionId = safeText(row?.courseDirectionId || row?.course_direction || row?.title);
+  const courseTypeId = safeText(row?.courseTypeId || row?.course_type);
+  const fallbackTitle = safeText(row?.title);
+
+  const title = normalizeCourseLabel(directionId)
+    || normalizeCourseLabel(fallbackTitle)
+    || fallbackTitle
+    || '其它课程方向';
+
+  const type = COURSE_TYPE_ID_TO_LABEL[courseTypeId]
+    || safeText(row?.type)
+    || '其它课程类型';
+
+  const date = toDateKey(row?.date, row?.startsAt || row?.starts_at);
+  const startsAt = safeText(row?.startsAt || row?.starts_at);
+
+  return {
+    id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
+    title,
+    type,
+    date,
+    startsAt,
+    duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
+    studentName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
+    studentAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
+  };
+};
+
+const toDateTimestamp = (course) => {
+  const date = safeText(course?.date);
+  if (date) {
+    const parsed = Date.parse(`${date}T00:00:00`);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  const startsAt = safeText(course?.startsAt);
+  const fallback = Date.parse(startsAt);
+  if (!Number.isNaN(fallback)) return fallback;
+  return 0;
+};
+
 function MentorCoursesPage() {
   const menuAnchorRef = useRef(null);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!getAuthToken();
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken()));
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [errorMessage, setErrorMessage] = useState('');
+  const [courses, setCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [coursesError, setCoursesError] = useState('');
+  const [reloadSeed, setReloadSeed] = useState(0);
 
   useEffect(() => {
     const handler = (e) => {
       if (typeof e?.detail?.isLoggedIn !== 'undefined') {
-        setIsLoggedIn(!!e.detail.isLoggedIn);
+        setIsLoggedIn(Boolean(e.detail.isLoggedIn));
       } else {
-        setIsLoggedIn(!!getAuthToken());
+        setIsLoggedIn(Boolean(getAuthToken()));
       }
     };
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
-  // 访问控制：导师且审核通过才能查看
   useEffect(() => {
     let alive = true;
     const askLogin = () => {
@@ -91,17 +142,21 @@ function MentorCoursesPage() {
           askLogin();
           return;
         }
+
         const res = await api.get('/api/mentor/permissions');
         if (!alive) return;
+
         if (res?.data?.canEditProfile) {
           setStatus('ok');
           setErrorMessage('');
           return;
         }
+
         setStatus('forbidden');
-        setErrorMessage(res?.data?.error || '当前身份暂无权限访问');
+        setErrorMessage(res?.data?.error || '当前身份暂无访问权限');
       } catch (e) {
         if (!alive) return;
+
         const code = e?.response?.status;
         const msg = e?.response?.data?.error || '';
         if (code === 401) {
@@ -116,7 +171,7 @@ function MentorCoursesPage() {
           } else {
             setStatus('forbidden');
           }
-          setErrorMessage(msg || '当前身份暂无权限访问');
+          setErrorMessage(msg || '当前身份暂无访问权限');
           return;
         }
         setStatus('error');
@@ -127,19 +182,63 @@ function MentorCoursesPage() {
     return () => { alive = false; };
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    let alive = true;
+
+    if (status !== 'ok') {
+      setCourses([]);
+      setCoursesLoading(false);
+      setCoursesError('');
+      return () => {
+        alive = false;
+      };
+    }
+
+    setCoursesLoading(true);
+    setCoursesError('');
+
+    api.get('/api/courses', { params: { view: 'mentor' } })
+      .then((res) => {
+        if (!alive) return;
+        const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
+        setCourses(rows.map(normalizeMentorCourse));
+      })
+      .catch((err) => {
+        if (!alive) return;
+        const msg = err?.response?.data?.error || err?.message || '加载课程失败，请稍后重试';
+        setCourses([]);
+        setCoursesError(String(msg));
+      })
+      .finally(() => {
+        if (!alive) return;
+        setCoursesLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [status, reloadSeed]);
+
   const timelineData = useMemo(() => {
-    const sorted = [...MOCK_MENTOR_COURSES].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sorted = [...courses].sort((a, b) => toDateTimestamp(b) - toDateTimestamp(a));
     const yearMap = new Map();
 
     sorted.forEach((course) => {
-      const d = new Date(course.date);
-      const year = d.getFullYear();
-      const month = d.getMonth() + 1;
+      const key = safeText(course.date) || safeText(course.startsAt);
+      const date = new Date(key);
+      if (Number.isNaN(date.getTime())) return;
+
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
 
       if (!yearMap.has(year)) yearMap.set(year, new Map());
       const monthMap = yearMap.get(year);
       if (!monthMap.has(month)) monthMap.set(month, []);
-      monthMap.get(month).push({ ...course, month, dateText: formatDate(course.date) });
+      monthMap.get(month).push({
+        ...course,
+        month,
+        dateText: formatDate(course.date || course.startsAt),
+      });
     });
 
     return Array.from(yearMap.entries())
@@ -148,12 +247,12 @@ function MentorCoursesPage() {
         year,
         months: Array.from(monthsMap.entries())
           .sort((a, b) => b[0] - a[0])
-          .map(([month, courses]) => ({
+          .map(([month, monthCourses]) => ({
             month,
-            courses: courses.sort((a, b) => new Date(b.date) - new Date(a.date)),
+            courses: monthCourses.sort((a, b) => toDateTimestamp(b) - toDateTimestamp(a)),
           })),
       }));
-  }, []);
+  }, [courses]);
 
   const handleCourseOpen = (course) => setActiveCourse(course);
   const handleCourseClose = () => setActiveCourse(null);
@@ -162,6 +261,168 @@ function MentorCoursesPage() {
       event.preventDefault();
       handleCourseOpen(course);
     }
+  };
+
+  const renderTimeline = () => {
+    if (coursesLoading) {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-hint">加载中...</p>
+        </div>
+      );
+    }
+
+    if (coursesError) {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-title">加载失败</p>
+          <p className="courses-guard-subtitle">{coursesError}</p>
+          <div className="courses-guard-actions">
+            <button
+              type="button"
+              className="courses-btn"
+              onClick={() => setReloadSeed((v) => v + 1)}
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!timelineData.length) {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-title">暂无课程</p>
+          <p className="courses-guard-subtitle">学生接受课程邀请后，课程会显示在这里。</p>
+        </div>
+      );
+    }
+
+    return (
+      <section className="courses-timeline">
+        {timelineData.map((yearBlock) => (
+          <div className="courses-year-block" key={yearBlock.year}>
+            <div className="year-side">
+              <div className="year-label">{yearBlock.year}</div>
+              <div className="year-line" />
+            </div>
+            <div className="year-content">
+              {yearBlock.months.map((monthBlock, idx) => (
+                <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
+                  <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
+                    <span className="month-label">{monthBlock.month}月</span>
+                  </div>
+                  <div className="month-cards" role="list">
+                    {monthBlock.courses.map((course) => {
+                      const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
+                      const typeLabel = safeText(course.type) || '其它课程类型';
+                      const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+                      const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
+                      const isPast = isCoursePast(course.date || course.startsAt);
+                      return (
+                        <article
+                          className="course-card"
+                          key={course.id}
+                          role="listitem"
+                          tabIndex={0}
+                          onClick={() => handleCourseOpen(course)}
+                          onKeyDown={(event) => handleCardKeyDown(event, course)}
+                          aria-label={`${normalizedTitle} ${typeLabel}`}
+                        >
+                          <div className="course-head">
+                            <div className="course-title-wrap">
+                              <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
+                                {isPast ? '\u2713' : ''}
+                              </span>
+                              <span className="course-title-icon">
+                                <TitleIcon size={20} />
+                              </span>
+                              <span className="course-title">{normalizedTitle}</span>
+                            </div>
+                          </div>
+                          <div className="course-type-row">
+                            <span className="course-pill">
+                              <span className="course-pill-icon">
+                                <TypeIcon size={14} />
+                              </span>
+                              <span>{typeLabel}</span>
+                            </span>
+                          </div>
+                          <div className="course-meta">
+                            <span className="meta-item">{course.dateText}</span>
+                            <span className="meta-sep">|</span>
+                            <span className="meta-item">{course.duration}</span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+    );
+  };
+
+  const renderStatusGuard = () => {
+    if (status === 'loading') {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-hint">加载中...</p>
+        </div>
+      );
+    }
+
+    if (status === 'unauthenticated') {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-title">请先登录导师账号</p>
+          <p className="courses-guard-subtitle">登录后即可访问导师课程日历。</p>
+          <div className="courses-guard-actions">
+            <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>登录 / 注册</button>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === 'pending') {
+      return (
+        <div className="courses-guard">
+          <div className="mentor-pending">
+            <svg className="mentor-pending-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 4h8v2l-3 3 3 3v2H8v-2l3-3-3-3V4z" />
+              <path d="M9 20h6" />
+            </svg>
+            <div className="mentor-pending-title">你已准备就绪</div>
+            <div className="mentor-pending-subtitle">
+              我们会尽快完成导师审核，审核通过后即可访问导师课程页面。
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === 'forbidden') {
+      return (
+        <div className="courses-guard">
+          <p className="courses-guard-title">仅导师可访问</p>
+          <p className="courses-guard-subtitle">{errorMessage || '请使用导师身份登录后查看。'}</p>
+          <div className="courses-guard-actions">
+            <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>切换账号</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="courses-guard">
+        <p className="courses-guard-title">加载失败</p>
+        <p className="courses-guard-subtitle">{errorMessage || '请稍后重试。'}</p>
+      </div>
+    );
   };
 
   return (
@@ -194,113 +455,7 @@ function MentorCoursesPage() {
           <h1>课程</h1>
         </section>
 
-        {status === 'ok' && (
-          <section className="courses-timeline">
-            {timelineData.map((yearBlock) => (
-              <div className="courses-year-block" key={yearBlock.year}>
-                <div className="year-side">
-                  <div className="year-label">{yearBlock.year}</div>
-                  <div className="year-line" />
-                </div>
-                <div className="year-content">
-                  {yearBlock.months.map((monthBlock, idx) => (
-                    <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
-                      <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
-                        <span className="month-label">{monthBlock.month}月</span>
-                      </div>
-                      <div className="month-cards" role="list">
-                        {monthBlock.courses.map((course) => {
-                          const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
-                          const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-                          const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[course.type] || FaEllipsisH;
-                          const isPast = isCoursePast(course.date);
-                          return (
-                            <article
-                              className="course-card"
-                              key={course.id}
-                              role="listitem"
-                              tabIndex={0}
-                              onClick={() => handleCourseOpen(course)}
-                              onKeyDown={(event) => handleCardKeyDown(event, course)}
-                              aria-label={`${normalizedTitle} ${course.type}`}
-                            >
-                              <div className="course-head">
-                                <div className="course-title-wrap">
-                                  <span className={`course-status ${isPast ? 'course-status--done' : ''}`}>
-                                    {isPast ? '\u2713' : ''}
-                                  </span>
-                                  <span className="course-title-icon">
-                                    <TitleIcon size={20} />
-                                  </span>
-                                  <span className="course-title">{normalizedTitle}</span>
-                                </div>
-                              </div>
-                              <div className="course-type-row">
-                                <span className="course-pill">
-                                  <span className="course-pill-icon">
-                                    <TypeIcon size={14} />
-                                  </span>
-                                  <span>{course.type}</span>
-                                </span>
-                              </div>
-                              <div className="course-meta">
-                                <span className="meta-item">{course.dateText}</span>
-                                <span className="meta-sep">·</span>
-                                <span className="meta-item">{course.duration}</span>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </section>
-        )}
-
-        {status !== 'ok' && (
-          <div className="courses-guard">
-            {status === 'loading' && <p className="courses-guard-hint">加载中...</p>}
-            {status === 'unauthenticated' && (
-              <>
-                <p className="courses-guard-title">请先登录导师账号</p>
-                <p className="courses-guard-subtitle">登录后即可访问导师课程日历。</p>
-                <div className="courses-guard-actions">
-                  <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>登录 / 注册</button>
-                </div>
-              </>
-            )}
-            {status === 'pending' && (
-              <div className="mentor-pending">
-                <svg className="mentor-pending-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M8 4h8v2l-3 3 3 3v2H8v-2l3-3-3-3V4z" />
-                  <path d="M9 20h6" />
-                </svg>
-                <div className="mentor-pending-title">你已准备就绪！</div>
-                <div className="mentor-pending-subtitle">
-                  我们会尽快完成导师审核，审核通过后即可访问导师课程页面。
-                </div>
-              </div>
-            )}
-            {status === 'forbidden' && (
-              <>
-                <p className="courses-guard-title">仅导师可访问</p>
-                <p className="courses-guard-subtitle">{errorMessage || '请使用导师身份登录后查看。'}</p>
-                <div className="courses-guard-actions">
-                  <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>切换账号</button>
-                </div>
-              </>
-            )}
-            {status === 'error' && (
-              <>
-                <p className="courses-guard-title">加载失败</p>
-                <p className="courses-guard-subtitle">{errorMessage || '请稍后重试。'}</p>
-              </>
-            )}
-          </div>
-        )}
+        {status === 'ok' ? renderTimeline() : renderStatusGuard()}
       </div>
 
       {showMentorAuth && (
@@ -327,8 +482,9 @@ function MentorCoursesPage() {
             </button>
             {(() => {
               const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
+              const typeLabel = safeText(activeCourse.type) || '其它课程类型';
               const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-              const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[activeCourse.type] || FaEllipsisH;
+              const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
               return (
                 <>
                   <div className="course-detail-mentor">
@@ -352,12 +508,12 @@ function MentorCoursesPage() {
                         <span className="course-detail-chip-label">课程类型</span>
                         <div className="course-detail-chip-value">
                           <TypeIcon size={14} />
-                          <span>{activeCourse.type}</span>
+                          <span>{typeLabel}</span>
                         </div>
                       </div>
                       <div className="course-detail-meta-chip">
                         <span className="course-detail-chip-label">日期</span>
-                        <div className="course-detail-chip-value">{formatDate(activeCourse.date)}</div>
+                        <div className="course-detail-chip-value">{formatDate(activeCourse.date || activeCourse.startsAt)}</div>
                       </div>
                       <div className="course-detail-meta-chip">
                         <span className="course-detail-chip-label">时长</span>
