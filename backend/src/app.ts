@@ -13,6 +13,7 @@ import requestsRoute from './routes/requests';
 import attachmentsRoute from './routes/attachments';
 import messagesRoute from './routes/messages';
 import paypalApiRoute from './routes/paypalApi';
+import paypalRoute from './routes/paypal';
 
 dotenv.config();
 
@@ -67,6 +68,7 @@ app.use('/api/requests', requestsRoute);
 app.use('/api/attachments', attachmentsRoute);
 app.use('/api/messages', messagesRoute);
 app.use('/api/paypal-api', paypalApiRoute);
+app.use('/api/paypal', paypalRoute);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

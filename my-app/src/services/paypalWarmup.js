@@ -1,7 +1,11 @@
 import apiClient from '../api/client';
 
 const PAYPAL_SCRIPT_ID = 'paypal-web-sdk-v6-core';
-const PAYPAL_SCRIPT_SRC = 'https://www.sandbox.paypal.com/web-sdk/v6/core';
+const PAYPAL_ENV = String(process.env.REACT_APP_PAYPAL_ENV || 'sandbox').trim().toLowerCase();
+const PAYPAL_SCRIPT_SRC =
+  PAYPAL_ENV === 'live'
+    ? 'https://www.paypal.com/web-sdk/v6/core'
+    : 'https://www.sandbox.paypal.com/web-sdk/v6/core';
 
 let paypalScriptPromise = null;
 let paypalInitPromise = null;
@@ -73,7 +77,7 @@ export async function ensurePayPalReady() {
       pageType: 'checkout',
     });
 
-    const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'CNY' });
+    const methodsResponse = await sdkInstance.findEligibleMethods({ currencyCode: 'USD' });
     const methods =
       typeof methodsResponse?.isEligible === 'function'
         ? methodsResponse
@@ -144,4 +148,3 @@ export async function ensurePayPalScriptLoaded() {
 
   return paypalScriptPromise;
 }
-

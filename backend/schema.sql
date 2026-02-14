@@ -340,6 +340,9 @@ CREATE TABLE IF NOT EXISTS `billing_orders` (
   `amount_cny` DECIMAL(10,2) NOT NULL,
   `currency_code` CHAR(3) NOT NULL DEFAULT 'USD',
   `amount_usd` DECIMAL(10,2) NOT NULL,
+  `paypal_fx_quote_id` VARCHAR(128) NULL,
+  `paypal_fx_rate` DECIMAL(20,12) NULL,
+  `paypal_fx_expires_at` TIMESTAMP NULL DEFAULT NULL,
   `paypal_capture_id` VARCHAR(64) NULL,
   `paypal_payer_id` VARCHAR(32) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
@@ -354,6 +357,55 @@ CREATE TABLE IF NOT EXISTS `billing_orders` (
   KEY `idx_billing_orders_user_credited` (`user_id`, `credited_at`),
   CONSTRAINT `fk_billing_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12b) Ensure PayPal FX quote fields exist for upgraded databases.
+SET @__mx_has_billing_fx_quote_id := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'billing_orders'
+    AND COLUMN_NAME = 'paypal_fx_quote_id'
+);
+SET @__mx_sql := IF(
+  @__mx_has_billing_fx_quote_id = 0,
+  'ALTER TABLE `billing_orders` ADD COLUMN `paypal_fx_quote_id` VARCHAR(128) NULL AFTER `amount_usd`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_billing_fx_rate := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'billing_orders'
+    AND COLUMN_NAME = 'paypal_fx_rate'
+);
+SET @__mx_sql := IF(
+  @__mx_has_billing_fx_rate = 0,
+  'ALTER TABLE `billing_orders` ADD COLUMN `paypal_fx_rate` DECIMAL(20,12) NULL AFTER `paypal_fx_quote_id`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_billing_fx_expires_at := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'billing_orders'
+    AND COLUMN_NAME = 'paypal_fx_expires_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_billing_fx_expires_at = 0,
+  'ALTER TABLE `billing_orders` ADD COLUMN `paypal_fx_expires_at` TIMESTAMP NULL DEFAULT NULL AFTER `paypal_fx_rate`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 -- 13) Course sessions (used by Courses page calendar/history)
 -- Note: classroom link / address intentionally NOT stored here (per product requirement).

@@ -3,81 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
+const paypal_1 = require("../services/paypal");
 const router = (0, express_1.Router)();
-const PAYPAL_API_BASE = 'https://api-m.sandbox.paypal.com';
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_SANDBOX_CLIENT_ID;
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_SANDBOX_CLIENT_SECRET;
-let cachedServerAccessToken = null;
 const cachedBrowserSafeTokens = new Map();
-function requirePayPalEnv(res) {
-    if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET) {
-        res.status(500).json({ error: 'Missing PayPal sandbox credentials in environment.' });
-        return null;
-    }
-    return { clientId: PAYPAL_CLIENT_ID, clientSecret: PAYPAL_CLIENT_SECRET };
-}
-function getBasicAuthHeader(clientId, clientSecret) {
-    return `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
-}
-async function fetchJson(url, init) {
-    const response = await fetch(url, init);
-    const data = await response
-        .json()
-        .catch(() => ({ error: 'Non-JSON response from PayPal', status: response.status }));
-    return { ok: response.ok, status: response.status, data };
-}
-async function requestOAuthAccessToken(params) {
-    const creds = { clientId: PAYPAL_CLIENT_ID ?? '', clientSecret: PAYPAL_CLIENT_SECRET ?? '' };
-    const authHeader = getBasicAuthHeader(creds.clientId, creds.clientSecret);
-    const { ok, status, data } = await fetchJson(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
-        method: 'POST',
-        headers: {
-            Authorization: authHeader,
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-    });
-    if (!ok) {
-        const message = data?.error_description || data?.error || 'PayPal OAuth failed';
-        const error = new Error(message);
-        error.paypal = { status, data };
-        throw error;
-    }
-    const accessToken = String(data?.access_token || '');
-    const expiresIn = Number(data?.expires_in || 0);
-    if (!accessToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
-        throw new Error('PayPal OAuth returned invalid token response');
-    }
-    const token = {
-        accessToken,
-        expiresAtMs: Date.now() + Math.max(0, expiresIn - 60) * 1000,
-    };
-    return token;
-}
-async function getBrowserSafeClientToken(domains) {
-    const domainsKey = domains.join(',');
-    const cached = cachedBrowserSafeTokens.get(domainsKey);
-    const now = Date.now();
-    if (cached && cached.expiresAtMs > now)
-        return cached;
-    const params = new URLSearchParams();
-    params.set('grant_type', 'client_credentials');
-    params.set('response_type', 'client_token');
-    params.append('domains[]', domainsKey);
-    const token = await requestOAuthAccessToken(params);
-    cachedBrowserSafeTokens.set(domainsKey, token);
-    return token;
-}
-async function getServerAccessToken() {
-    const now = Date.now();
-    if (cachedServerAccessToken && cachedServerAccessToken.expiresAtMs > now)
-        return cachedServerAccessToken;
-    const params = new URLSearchParams();
-    params.set('grant_type', 'client_credentials');
-    const token = await requestOAuthAccessToken(params);
-    cachedServerAccessToken = token;
-    return token;
-}
 function normalizeClientTokenDomain(raw) {
     const value = String(raw || '').trim();
     if (!value)
@@ -101,23 +29,22 @@ function normalizeClientTokenDomain(raw) {
         return null;
     return host;
 }
-const FX_CNY_PER_USD = 7;
-const parseTopUpHours = (value) => {
-    const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? '').trim());
-    if (!Number.isFinite(n))
-        return null;
-    if (n <= 0)
-        return null;
-    if (n > 200)
-        return null;
-    return Number(n.toFixed(2));
-};
-const computeTopUpPrice = (hours) => {
-    const unitPriceCny = hours >= 10 ? 500 : 600;
-    const amountCny = Number((hours * unitPriceCny).toFixed(2));
-    const amountUsd = Number((amountCny / FX_CNY_PER_USD).toFixed(2));
-    return { unitPriceCny, amountCny, amountUsd };
-};
+async function getBrowserSafeClientToken(runtime, domains) {
+    const domainsKey = domains.join(',');
+    const cacheKey = `${runtime.env}:${runtime.clientId}:${domainsKey}`;
+    const now = Date.now();
+    const cached = cachedBrowserSafeTokens.get(cacheKey);
+    if (cached && cached.expiresAtMs > now)
+        return cached;
+    const params = new URLSearchParams();
+    params.set('grant_type', 'client_credentials');
+    params.set('response_type', 'client_token');
+    for (const domain of domains)
+        params.append('domains[]', domain);
+    const token = await (0, paypal_1.requestOAuthAccessToken)(runtime, params);
+    cachedBrowserSafeTokens.set(cacheKey, token);
+    return token;
+}
 const pickFirstCapture = (paypal) => {
     try {
         const unit = Array.isArray(paypal?.purchase_units) ? paypal.purchase_units[0] : null;
@@ -150,8 +77,33 @@ const fetchWalletSummary = async (userId) => {
     const monthTopUpCny = toNumber(sumRows?.[0]?.monthTopUpCny, 0);
     return { remainingHours, totalTopUpCny, monthTopUpCny };
 };
+const getPayPalIssueCodes = (paypalData) => {
+    const details = Array.isArray(paypalData?.details) ? paypalData.details : [];
+    const issues = [];
+    for (const item of details) {
+        const issue = String(item?.issue || '').trim().toUpperCase();
+        if (issue)
+            issues.push(issue);
+    }
+    return issues;
+};
+const mapFxIssue = (issues) => {
+    if (issues.includes('PAYEE_FX_RATE_ID_EXPIRED')) {
+        return { code: 'FX_QUOTE_EXPIRED', message: 'FX quote expired. Please refresh the quote.' };
+    }
+    const changedIssues = new Set([
+        'PAYEE_FX_RATE_ID_CURRENCY_MISMATCH',
+        'INVALID_FX_RATE_ID',
+        'FX_RATE_CHANGE_DUE_TO_MARKET_EVENT',
+    ]);
+    if (issues.some((issue) => changedIssues.has(issue))) {
+        return { code: 'FX_QUOTE_CHANGED', message: 'FX quote changed. Please refresh the quote.' };
+    }
+    return null;
+};
 router.get('/auth/browser-safe-client-token', async (req, res) => {
-    if (!requirePayPalEnv(res))
+    const runtime = (0, paypal_1.requirePayPalRuntime)(res);
+    if (!runtime)
         return;
     try {
         const origin = String(req.get('origin') || '').trim();
@@ -165,18 +117,18 @@ router.get('/auth/browser-safe-client-token', async (req, res) => {
             .filter((item) => Boolean(item))));
         if (!domains.length) {
             return res.status(400).json({
-                error: 'PayPal client token 的 domains[] 参数无效',
-                hint: 'domains[] 需要域名格式（不带协议），例如：127.0.0.1:3000 或 example.com',
+                error: 'Invalid PayPal client token domains[]',
+                hint: 'domains[] should look like 127.0.0.1:3000 or example.com',
             });
         }
         if (domains.some((domain) => /^localhost(?::\d+)?$/i.test(domain))) {
             return res.status(400).json({
-                error: 'PayPal sandbox client token 不支持 localhost 作为 domains[]',
-                hint: '请用 http://127.0.0.1:3000 打开前端页面，或用 hosts/ngrok 绑定一个可用域名。',
+                error: 'PayPal sandbox client token does not support localhost in domains[]',
+                hint: 'Use http://127.0.0.1:3000 or a mapped domain.',
                 domains,
             });
         }
-        const token = await getBrowserSafeClientToken(domains);
+        const token = await getBrowserSafeClientToken(runtime, domains);
         return res.json({ accessToken: token.accessToken });
     }
     catch (err) {
@@ -186,31 +138,76 @@ router.get('/auth/browser-safe-client-token', async (req, res) => {
     }
 });
 router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
-    if (!requirePayPalEnv(res))
-        return;
     if (!req.user)
-        return res.status(401).json({ error: '未授权' });
+        return res.status(401).json({ error: 'Unauthorized' });
+    const runtime = (0, paypal_1.requirePayPalRuntime)(res);
+    if (!runtime)
+        return;
     try {
-        const token = await getServerAccessToken();
-        const hours = parseTopUpHours(req.body?.hours);
+        const hours = (0, paypal_1.parseTopUpHours)(req.body?.hours);
+        const quoteId = String(req.body?.quote_id || '').trim();
+        const requestedUsdAmount = (0, paypal_1.parseUsdAmount)(req.body?.usd_amount);
         if (!hours) {
-            return res.status(400).json({ error: '充值小时数无效' });
+            return res.status(400).json({ error: 'Invalid top-up hours' });
         }
-        const pricing = computeTopUpPrice(hours);
-        if (!Number.isFinite(pricing.amountUsd) || pricing.amountUsd <= 0) {
-            return res.status(400).json({ error: '充值金额无效' });
+        if (!quoteId || !requestedUsdAmount) {
+            return res.status(400).json({ error: 'Missing FX quote data. Please refresh quote.' });
+        }
+        const pricing = (0, paypal_1.computeTopUpPrice)(hours);
+        if (!Number.isFinite(pricing.amountCny) || pricing.amountCny <= 0) {
+            return res.status(400).json({ error: 'Invalid top-up amount' });
+        }
+        const token = await (0, paypal_1.getServerAccessToken)(runtime);
+        let latestQuote;
+        try {
+            latestQuote = await (0, paypal_1.quoteCnyToUsd)(runtime, token.accessToken, pricing.amountCny, quoteId);
+        }
+        catch (err) {
+            const paypal = err?.paypal;
+            const status = Number(paypal?.status || 0);
+            if (quoteId && status >= 400 && status < 500) {
+                return res.status(409).json({
+                    code: 'FX_QUOTE_CHANGED',
+                    error: 'FX quote changed. Please refresh the quote.',
+                });
+            }
+            throw err;
+        }
+        if (latestQuote.quoteId !== quoteId) {
+            return res.status(409).json({
+                code: 'FX_QUOTE_CHANGED',
+                error: 'FX quote changed. Please refresh the quote.',
+                pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+            });
+        }
+        if (Math.abs(latestQuote.usdAmountNumber - requestedUsdAmount) >= 0.01) {
+            return res.status(409).json({
+                code: 'FX_QUOTE_CHANGED',
+                error: 'FX quote changed. Please refresh the quote.',
+                pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+            });
+        }
+        if ((0, paypal_1.isFxQuoteExpired)(latestQuote.expiresAt)) {
+            return res.status(409).json({
+                code: 'FX_QUOTE_EXPIRED',
+                error: 'FX quote expired. Please refresh the quote.',
+                pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+            });
         }
         const payload = {
             intent: 'CAPTURE',
             purchase_units: [
                 {
-                    amount: { currency_code: 'USD', value: pricing.amountUsd.toFixed(2) },
+                    amount: { currency_code: 'USD', value: latestQuote.usdAmount },
+                    payment_instruction: {
+                        payee_receivable_fx_rate_id: latestQuote.quoteId,
+                    },
                     custom_id: `u${req.user.id}`,
                     description: `Mentory top-up ${hours} hours`,
                 },
             ],
         };
-        const { ok, status, data } = await fetchJson(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+        const { ok, status, data } = await (0, paypal_1.fetchJson)(`${runtime.apiBase}/v2/checkout/orders`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token.accessToken}`,
@@ -219,6 +216,15 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
             body: JSON.stringify(payload),
         });
         if (!ok) {
+            const fxIssue = mapFxIssue(getPayPalIssueCodes(data));
+            if (status === 422 && fxIssue) {
+                return res.status(409).json({
+                    code: fxIssue.code,
+                    error: fxIssue.message,
+                    pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+                    paypal: { status, data },
+                });
+            }
             return res.status(502).json({ error: 'PayPal create order failed', paypal: { status, data } });
         }
         try {
@@ -227,8 +233,10 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
                 await (0, db_1.query)(`INSERT INTO billing_orders (
              user_id, provider, provider_order_id, status,
              topup_hours, unit_price_cny, amount_cny,
-             currency_code, amount_usd, provider_create_json
-           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'USD', ?, ?)
+             currency_code, amount_usd,
+             paypal_fx_quote_id, paypal_fx_rate, paypal_fx_expires_at,
+             provider_create_json
+           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              status = VALUES(status),
              topup_hours = VALUES(topup_hours),
@@ -236,6 +244,9 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
              amount_cny = VALUES(amount_cny),
              currency_code = VALUES(currency_code),
              amount_usd = VALUES(amount_usd),
+             paypal_fx_quote_id = VALUES(paypal_fx_quote_id),
+             paypal_fx_rate = VALUES(paypal_fx_rate),
+             paypal_fx_expires_at = VALUES(paypal_fx_expires_at),
              provider_create_json = VALUES(provider_create_json),
              updated_at = CURRENT_TIMESTAMP`, [
                     req.user.id,
@@ -244,16 +255,19 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
                     hours,
                     pricing.unitPriceCny,
                     pricing.amountCny,
-                    pricing.amountUsd,
-                    JSON.stringify(data),
+                    latestQuote.usdAmountNumber,
+                    latestQuote.quoteId,
+                    Number.parseFloat(latestQuote.rate),
+                    new Date(latestQuote.expiresAt),
+                    JSON.stringify({ ...(data || {}), pricing: (0, paypal_1.toPublicFxQuote)(latestQuote) }),
                 ]);
             }
         }
         catch (err) {
             console.error('PayPal create order DB write error:', err);
-            // Don't block the client order flow; capture step will re-attempt DB updates.
+            // Do not block checkout: capture flow will re-check and persist.
         }
-        return res.json(data);
+        return res.json({ ...(data || {}), pricing: (0, paypal_1.toPublicFxQuote)(latestQuote) });
     }
     catch (err) {
         console.error('PayPal create order error:', err);
@@ -262,16 +276,17 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
     }
 });
 router.post('/checkout/orders/:orderId/capture', auth_1.requireAuth, async (req, res) => {
-    if (!requirePayPalEnv(res))
-        return;
     if (!req.user)
-        return res.status(401).json({ error: '未授权' });
+        return res.status(401).json({ error: 'Unauthorized' });
+    const runtime = (0, paypal_1.requirePayPalRuntime)(res);
+    if (!runtime)
+        return;
     const orderId = String(req.params.orderId || '').trim();
     if (!orderId)
         return res.status(400).json({ error: 'Missing orderId' });
     try {
-        const token = await getServerAccessToken();
-        const { ok, status, data } = await fetchJson(`${PAYPAL_API_BASE}/v2/checkout/orders/${orderId}/capture`, {
+        const token = await (0, paypal_1.getServerAccessToken)(runtime);
+        const { ok, status, data } = await (0, paypal_1.fetchJson)(`${runtime.apiBase}/v2/checkout/orders/${orderId}/capture`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token.accessToken}`,
@@ -283,7 +298,6 @@ router.post('/checkout/orders/:orderId/capture', auth_1.requireAuth, async (req,
         if (!ok) {
             return res.status(502).json({ error: 'PayPal capture failed', paypal: { status, data } });
         }
-        // TODO: 落库逻辑预留（最小可跑通版先打印日志）
         const paypalStatus = String(data?.status || '').toUpperCase();
         const captureMeta = pickFirstCapture(data);
         try {
@@ -300,7 +314,7 @@ router.post('/checkout/orders/:orderId/capture', auth_1.requireAuth, async (req,
                 const order = orderRows?.[0];
                 if (!order) {
                     await conn.rollback();
-                    return res.status(404).json({ error: '订单不存在，请先创建订单' });
+                    return res.status(404).json({ error: 'Order not found. Please create order first.' });
                 }
                 const expectedAmountUsd = toNumber(order?.amount_usd, 0);
                 const paidAmountUsd = captureMeta.value ?? null;
@@ -345,7 +359,7 @@ router.post('/checkout/orders/:orderId/capture', auth_1.requireAuth, async (req,
         }
         catch (err) {
             console.error('PayPal capture DB update error:', err);
-            return res.status(500).json({ error: '订单入库失败，请先执行 schema.sql 升级数据库后重试' });
+            return res.status(500).json({ error: 'Order persistence failed. Please upgrade schema.sql and retry.' });
         }
         const wallet = await fetchWalletSummary(req.user.id).catch(() => null);
         return res.json({ ...(data || {}), wallet });
