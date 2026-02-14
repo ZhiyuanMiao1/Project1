@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
@@ -7,7 +7,9 @@ import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypa
 import { getAuthToken } from '../../utils/authStorage';
 import './WalletPage.css';
 
-const FX_ISSUE_CODES = new Set(['FX_QUOTE_EXPIRED', 'FX_QUOTE_CHANGED']);
+const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
+const FX_INVALID_CODE = 'FX_QUOTE_INVALID';
+const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 
 function WalletPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -28,6 +30,8 @@ function WalletPage() {
   const [fxError, setFxError] = useState('');
   const [fxNowMs, setFxNowMs] = useState(() => Date.now());
   const fxRequestIdRef = useRef(0);
+  const fxAutoRefreshInFlightRef = useRef(false);
+  const fxLastAutoRefreshMsRef = useRef(0);
 
   const menuAnchorRef = useRef(null);
   const paypalSdkInstanceRef = useRef(null);
@@ -55,7 +59,7 @@ function WalletPage() {
   }, []);
 
   const requestFxQuote = useCallback(
-    async (hours, { silent = false } = {}) => {
+    async (hours, { silent = false, preserveExisting = false } = {}) => {
       const requestId = ++fxRequestIdRef.current;
       if (!silent) setIsFxLoading(true);
       setFxError('');
@@ -72,20 +76,24 @@ function WalletPage() {
       } catch (err) {
         if (requestId !== fxRequestIdRef.current) return null;
         const message = err?.response?.data?.error || err?.message || '获取汇率报价失败，请稍后重试。';
-        setFxQuote(null);
+        if (!preserveExisting) {
+          setFxQuote(null);
+        }
         setFxError(message);
         throw err;
       } finally {
-        if (!silent && requestId === fxRequestIdRef.current) setIsFxLoading(false);
+        if (!silent && requestId === fxRequestIdRef.current) {
+          setIsFxLoading(false);
+        }
       }
     },
     [normalizeFxQuote]
   );
 
   const refreshFxQuote = useCallback(
-    async (hours) => {
+    async (hours, options = {}) => {
       try {
-        return await requestFxQuote(hours);
+        return await requestFxQuote(hours, options);
       } catch {
         return null;
       }
@@ -95,6 +103,8 @@ function WalletPage() {
 
   const resetFxQuoteState = useCallback(() => {
     fxRequestIdRef.current += 1;
+    fxAutoRefreshInFlightRef.current = false;
+    fxLastAutoRefreshMsRef.current = 0;
     setFxQuote(null);
     setFxError('');
     setIsFxLoading(false);
@@ -146,15 +156,17 @@ function WalletPage() {
   const amountCnyNumber = Number.isFinite(hoursNumber) ? Number((hoursNumber * unitPriceCny).toFixed(2)) : 0;
   const amountUsdNumber = Number.parseFloat(String(fxQuote?.usd_amount ?? ''));
   const fxExpiresAtMs = fxQuote?.expires_at ? Date.parse(fxQuote.expires_at) : NaN;
+  const fxRemainingMs = Number.isFinite(fxExpiresAtMs) ? Number(fxExpiresAtMs) - fxNowMs : NaN;
   const isFxQuoteExpired =
     Boolean(fxQuote) && (!Number.isFinite(fxExpiresAtMs) || Number(fxExpiresAtMs) <= fxNowMs);
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
-  const isLocalhost = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
+  const isLocalhost =
+    typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost';
   const openWith127Url = isLocalhost
-    ? `${window.location.protocol}//127.0.0.1${window.location.port ? `:${window.location.port}` : ''}${
-        window.location.pathname
-      }${window.location.search}${window.location.hash}`
+    ? `${window.location.protocol}//127.0.0.1${
+        window.location.port ? `:${window.location.port}` : ''
+      }${window.location.pathname}${window.location.search}${window.location.hash}`
     : '';
 
   const fetchWalletSummary = useCallback(async () => {
@@ -256,6 +268,44 @@ function WalletPage() {
     return () => window.clearInterval(timer);
   }, [fxQuote?.expires_at]);
 
+  useEffect(() => {
+    if (!isLoggedIn || selectedTopUpMethod !== 'paypal' || !isHoursValid || !fxQuote || isFxQuoteExpired) return;
+    if (!Number.isFinite(fxRemainingMs) || fxRemainingMs >= 60 * 1000 || fxRemainingMs <= 0) return;
+
+    const now = Date.now();
+    if (fxAutoRefreshInFlightRef.current) return;
+    if (now - fxLastAutoRefreshMsRef.current < 15000) return;
+
+    fxAutoRefreshInFlightRef.current = true;
+    fxLastAutoRefreshMsRef.current = now;
+    refreshFxQuote(Number(hoursNumber.toFixed(2)), { silent: true, preserveExisting: true })
+      .catch((err) => console.error('FX auto-refresh error:', err))
+      .finally(() => {
+        fxAutoRefreshInFlightRef.current = false;
+      });
+  }, [
+    fxQuote,
+    fxRemainingMs,
+    hoursNumber,
+    isFxQuoteExpired,
+    isHoursValid,
+    isLoggedIn,
+    refreshFxQuote,
+    selectedTopUpMethod,
+  ]);
+
+  const applyPricingIfPresent = useCallback(
+    (payload) => {
+      const pricing = normalizeFxQuote(payload?.pricing);
+      if (pricing) {
+        setFxQuote(pricing);
+        setFxNowMs(Date.now());
+      }
+      return pricing;
+    },
+    [normalizeFxQuote]
+  );
+
   const handlePayPalTopUp = async () => {
     if (!isHoursValid) {
       setTopUpNotice('请输入正确的小时数。');
@@ -279,23 +329,22 @@ function WalletPage() {
       return;
     }
 
-    if (isFxLoading) {
+    if (isFxLoading && !fxQuote) {
       setTopUpNotice('正在获取实时汇率，请稍后重试。');
       return;
     }
 
-    if (fxError) {
-      setTopUpNotice(fxError);
-      return;
-    }
-
     if (!fxQuote) {
-      setTopUpNotice('未获取到汇率报价，请稍后重试。');
+      if (fxError) {
+        setTopUpNotice(fxError);
+      } else {
+        setTopUpNotice('未获取到汇率报价，请稍后重试。');
+      }
       return;
     }
 
     if (isFxQuoteExpired) {
-      setTopUpNotice('汇率报价已过期，正在重新获取。');
+      setTopUpNotice('汇率报价已过期，正在刷新最新报价。');
       await refreshFxQuote(Number(hoursNumber.toFixed(2)));
       return;
     }
@@ -321,15 +370,27 @@ function WalletPage() {
             usd_amount: quoteSnapshot.usd_amount,
           });
           const createData = res?.data || {};
-          if (!createData?.id) throw new Error(createData?.error || 'Failed to create PayPal order');
+
+          applyPricingIfPresent(createData);
+
+          if (String(createData?.code || '').trim() === FX_REFRESHED_CODE) {
+            setTopUpNotice('汇率已更新，已按最新报价继续支付。');
+          }
+
+          if (!createData?.id) {
+            throw new Error(createData?.error || 'Failed to create PayPal order');
+          }
           return { orderId: createData.id };
         } catch (err) {
           const status = Number(err?.response?.status || 0);
           const code = String(err?.response?.data?.code || '').trim();
           const message = err?.response?.data?.error || err?.message || 'Failed to create PayPal order';
+
           const wrapped = new Error(message);
-          wrapped.fxIssue = status === 409 && FX_ISSUE_CODES.has(code);
-          wrapped.fxCode = code;
+          wrapped.fxExpired = status === 409 && code === FX_EXPIRED_CODE;
+          wrapped.fxInvalid = status === 409 && code === FX_INVALID_CODE;
+          wrapped.fxIssue = Boolean(wrapped.fxExpired || wrapped.fxInvalid);
+          wrapped.pricing = applyPricingIfPresent(err?.response?.data || {});
           throw wrapped;
         }
       };
@@ -374,7 +435,11 @@ function WalletPage() {
       await session.start({ presentationMode: 'auto' }, orderPromise);
     } catch (err) {
       if (err?.fxIssue) {
-        setTopUpNotice('汇率已变化或过期，请重新获取报价后再支付。');
+        if (err?.fxExpired) {
+          setTopUpNotice('汇率报价已过期，正在刷新最新报价，请再次点击支付。');
+        } else {
+          setTopUpNotice('汇率报价已失效，正在刷新最新报价，请再次点击支付。');
+        }
         await refreshFxQuote(hoursSnapshot);
         return;
       }
@@ -383,11 +448,14 @@ function WalletPage() {
     }
   };
 
-  const topUpMethods = [
-    { id: 'paypal', title: 'Paypal', description: '支持国际信用卡与余额' },
-    { id: 'alipay', title: '支付宝', description: '推荐国内用户使用' },
-    { id: 'wechat', title: '微信', description: '微信支付快捷到账' },
-  ];
+  const topUpMethods = useMemo(
+    () => [
+      { id: 'paypal', title: 'Paypal', description: '支持国际信用卡与余额' },
+      { id: 'alipay', title: '支付宝', description: '推荐国内用户使用' },
+      { id: 'wechat', title: '微信', description: '微信支付快捷到账' },
+    ],
+    []
+  );
 
   const handleTopUp = () => {
     if (!canSubmitTopUp) return;
@@ -400,14 +468,7 @@ function WalletPage() {
   };
 
   const canUsePayPalButton =
-    isHoursValid &&
-    !isPayPalInitializing &&
-    isPayPalEligible &&
-    !payPalInitError &&
-    !isFxLoading &&
-    !fxError &&
-    !!fxQuote &&
-    !isFxQuoteExpired;
+    isHoursValid && !isPayPalInitializing && isPayPalEligible && !payPalInitError && !!fxQuote && !isFxQuoteExpired;
 
   return (
     <div className="wallet-page">
@@ -625,4 +686,3 @@ function WalletPage() {
 }
 
 export default WalletPage;
-

@@ -111,20 +111,21 @@ const getPayPalIssueCodes = (paypalData: any): string[] => {
   return issues;
 };
 
-const mapFxIssue = (
-  issues: string[]
-): { code: 'FX_QUOTE_EXPIRED' | 'FX_QUOTE_CHANGED'; message: string } | null => {
-  if (issues.includes('PAYEE_FX_RATE_ID_EXPIRED')) {
+const mapFxIssue = (issues: string[]): { code: 'FX_QUOTE_EXPIRED' | 'FX_QUOTE_INVALID'; message: string } | null => {
+  const expiredIssues = new Set(['PAYEE_FX_RATE_ID_EXPIRED', 'FX_RATE_ID_EXPIRED']);
+  if (issues.some((issue) => expiredIssues.has(issue))) {
     return { code: 'FX_QUOTE_EXPIRED', message: 'FX quote expired. Please refresh the quote.' };
   }
 
-  const changedIssues = new Set([
+  const invalidIssues = new Set([
     'PAYEE_FX_RATE_ID_CURRENCY_MISMATCH',
+    'PAYEE_FX_RATE_ID_INVALID',
     'INVALID_FX_RATE_ID',
-    'FX_RATE_CHANGE_DUE_TO_MARKET_EVENT',
+    'FX_RATE_ID_INVALID',
+    'CURRENCY_MISMATCH',
   ]);
-  if (issues.some((issue) => changedIssues.has(issue))) {
-    return { code: 'FX_QUOTE_CHANGED', message: 'FX quote changed. Please refresh the quote.' };
+  if (issues.some((issue) => invalidIssues.has(issue))) {
+    return { code: 'FX_QUOTE_INVALID', message: 'FX quote invalid. Please refresh the quote.' };
   }
 
   return null;
@@ -199,34 +200,19 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
     const token = await getServerAccessToken(runtime);
 
     let latestQuote;
+    let pricingRefreshed = false;
     try {
       latestQuote = await quoteCnyToUsd(runtime, token.accessToken, pricing.amountCny, quoteId);
     } catch (err) {
       const paypal = (err as any)?.paypal;
-      const status = Number(paypal?.status || 0);
-      if (quoteId && status >= 400 && status < 500) {
+      const fxIssue = mapFxIssue(getPayPalIssueCodes(paypal?.data));
+      if (fxIssue) {
         return res.status(409).json({
-          code: 'FX_QUOTE_CHANGED',
-          error: 'FX quote changed. Please refresh the quote.',
+          code: fxIssue.code,
+          error: fxIssue.message,
         });
       }
       throw err;
-    }
-
-    if (latestQuote.quoteId !== quoteId) {
-      return res.status(409).json({
-        code: 'FX_QUOTE_CHANGED',
-        error: 'FX quote changed. Please refresh the quote.',
-        pricing: toPublicFxQuote(latestQuote),
-      });
-    }
-
-    if (Math.abs(latestQuote.usdAmountNumber - requestedUsdAmount) >= 0.01) {
-      return res.status(409).json({
-        code: 'FX_QUOTE_CHANGED',
-        error: 'FX quote changed. Please refresh the quote.',
-        pricing: toPublicFxQuote(latestQuote),
-      });
     }
 
     if (isFxQuoteExpired(latestQuote.expiresAt)) {
@@ -235,6 +221,11 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
         error: 'FX quote expired. Please refresh the quote.',
         pricing: toPublicFxQuote(latestQuote),
       });
+    }
+
+    // If quoted USD differs from client snapshot, continue with latest quote and notify client to refresh display.
+    if (Math.abs(latestQuote.usdAmountNumber - requestedUsdAmount) >= 0.01) {
+      pricingRefreshed = true;
     }
 
     const payload = {
@@ -316,7 +307,12 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
       // Do not block checkout: capture flow will re-check and persist.
     }
 
-    return res.json({ ...(data || {}), pricing: toPublicFxQuote(latestQuote) });
+    const responsePayload: any = { ...(data || {}), pricing: toPublicFxQuote(latestQuote) };
+    if (pricingRefreshed) {
+      responsePayload.code = 'FX_QUOTE_REFRESHED';
+      responsePayload.message = 'FX quote refreshed; order created with latest pricing.';
+    }
+    return res.json(responsePayload);
   } catch (err) {
     console.error('PayPal create order error:', err);
     const paypal = (err as any)?.paypal;
@@ -438,4 +434,3 @@ router.post('/checkout/orders/:orderId/capture', requireAuth, async (req: Reques
 });
 
 export default router;
-
