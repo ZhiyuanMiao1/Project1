@@ -61,9 +61,7 @@ function WalletPage() {
       setFxError('');
 
       try {
-        const data = await apiClient
-          .post('/api/paypal/fx-quote', { hours })
-          .then((res) => res?.data || {});
+        const data = await apiClient.post('/api/paypal/fx-quote', { hours }).then((res) => res?.data || {});
         const normalized = normalizeFxQuote(data);
         if (!normalized) throw new Error('汇率报价返回数据无效，请重试。');
 
@@ -78,9 +76,7 @@ function WalletPage() {
         setFxError(message);
         throw err;
       } finally {
-        if (!silent && requestId === fxRequestIdRef.current) {
-          setIsFxLoading(false);
-        }
+        if (!silent && requestId === fxRequestIdRef.current) setIsFxLoading(false);
       }
     },
     [normalizeFxQuote]
@@ -127,8 +123,7 @@ function WalletPage() {
   }, [topUpNotice]);
 
   const isPayPalPlainNotice =
-    selectedTopUpMethod === 'paypal' &&
-    ['正在跳转 PayPal…', '已取消支付'].includes(topUpNotice);
+    selectedTopUpMethod === 'paypal' && ['正在跳转 PayPal…', '已取消支付'].includes(topUpNotice);
 
   const formatHours = (value) => {
     const n = Number(value);
@@ -155,12 +150,11 @@ function WalletPage() {
     Boolean(fxQuote) && (!Number.isFinite(fxExpiresAtMs) || Number(fxExpiresAtMs) <= fxNowMs);
   const canSubmitTopUp = Boolean(selectedTopUpMethod) && isHoursValid;
 
-  const isLocalhost =
-    typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost';
+  const isLocalhost = typeof window !== 'undefined' && window.location?.hostname === 'localhost';
   const openWith127Url = isLocalhost
-    ? `${window.location.protocol}//127.0.0.1${
-        window.location.port ? `:${window.location.port}` : ''
-      }${window.location.pathname}${window.location.search}${window.location.hash}`
+    ? `${window.location.protocol}//127.0.0.1${window.location.port ? `:${window.location.port}` : ''}${
+        window.location.pathname
+      }${window.location.search}${window.location.hash}`
     : '';
 
   const fetchWalletSummary = useCallback(async () => {
@@ -273,9 +267,7 @@ function WalletPage() {
       return;
     }
 
-    if (isPayPalInitializing) {
-      return;
-    }
+    if (isPayPalInitializing) return;
 
     if (payPalInitError) {
       setTopUpNotice(payPalInitError);
@@ -329,9 +321,7 @@ function WalletPage() {
             usd_amount: quoteSnapshot.usd_amount,
           });
           const createData = res?.data || {};
-          if (!createData?.id) {
-            throw new Error(createData?.error || 'Failed to create PayPal order');
-          }
+          if (!createData?.id) throw new Error(createData?.error || 'Failed to create PayPal order');
           return { orderId: createData.id };
         } catch (err) {
           const status = Number(err?.response?.status || 0);
@@ -565,17 +555,6 @@ function WalletPage() {
                       </div>
                     </div>
                   </div>
-
-                  {selectedTopUpMethod === 'paypal' && (
-                    <div className="wallet-empty" style={{ marginTop: 10 }}>
-                      {isFxLoading && <div>正在获取实时汇率报价...</div>}
-                      {!isFxLoading && fxError && <div>{fxError}</div>}
-                      {!isFxLoading && !fxError && fxQuote && isFxQuoteExpired && <div>汇率报价已过期，请重新获取。</div>}
-                      {!isFxLoading && !fxError && fxQuote && !isFxQuoteExpired && fxQuote.expires_at && (
-                        <div>报价有效期至：{new Date(fxQuote.expires_at).toLocaleString()}</div>
-                      )}
-                    </div>
-                  )}
 
                   {selectedTopUpMethod === 'paypal' ? (
                     <div className="wallet-paypal" aria-label="PayPal">
