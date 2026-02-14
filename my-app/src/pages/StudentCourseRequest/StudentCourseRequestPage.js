@@ -340,25 +340,55 @@ function StudentCourseRequestPage() {
     return out;
   }, [buildKey, keyToDateStrict, normalizeAvailabilityBlocks]);
 
-  const prunePastDaySelections = useCallback((selections, todayDateLike) => {
-    const today = todayDateLike ? new Date(todayDateLike) : null;
-    if (!today) return (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
+  const filterFutureDaySelections = useCallback((selections, timeZone, referenceNow) => {
+    const normalized = normalizeDaySelectionKeys(selections);
+    const tz = (typeof timeZone === 'string' && timeZone.trim()) ? timeZone.trim() : DEFAULT_TIME_ZONE;
+    const nowDate = referenceNow instanceof Date ? referenceNow : new Date(referenceNow || Date.now());
+    const zoned = getZonedParts(tz, nowDate);
 
-    const todayStartTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-    const input = (selections && typeof selections === 'object' && !Array.isArray(selections)) ? selections : {};
+    let todayKey = '';
+    if (zoned?.year && zoned?.month && zoned?.day) {
+      todayKey = keyFromParts(zoned.year, zoned.month, zoned.day);
+    } else {
+      const fallbackToday = buildDateFromTimeZoneNow(tz);
+      if (fallbackToday && Number.isFinite(fallbackToday.getTime())) {
+        todayKey = keyFromParts(
+          fallbackToday.getFullYear(),
+          fallbackToday.getMonth() + 1,
+          fallbackToday.getDate()
+        );
+      }
+    }
+
+    const h = Number.isFinite(zoned?.hour) ? zoned.hour : 0;
+    const m = Number.isFinite(zoned?.minute) ? zoned.minute : 0;
+    const s = Number.isFinite(zoned?.second) ? zoned.second : 0;
+    const totalMinutes = Math.max(0, Math.min(1439, h * 60 + m + (s > 0 ? 1 : 0)));
+    const disabledBeforeIndex = Math.floor(totalMinutes / 15);
+
     const result = {};
+    for (const [key, rawBlocks] of Object.entries(normalized)) {
+      const mergedBlocks = normalizeAvailabilityBlocks(rawBlocks);
+      if (!mergedBlocks.length) continue;
 
-    for (const [key, blocks] of Object.entries(input)) {
-      if (!Array.isArray(blocks) || blocks.length === 0) continue;
-      const dt = keyToDateStrict(key);
-      if (!dt) continue;
-      const ts = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
-      if (ts < todayStartTs) continue;
-      result[key] = blocks;
+      if (todayKey && key < todayKey) continue;
+
+      if (!todayKey || key > todayKey) {
+        result[key] = mergedBlocks;
+        continue;
+      }
+
+      if (disabledBeforeIndex >= 95) continue;
+      const minStart = Math.max(0, disabledBeforeIndex + 1);
+      const clipped = mergedBlocks
+        .map((b) => ({ start: Math.max(minStart, b.start), end: b.end }))
+        .filter((b) => b.start <= b.end);
+      const nextBlocks = normalizeAvailabilityBlocks(clipped);
+      if (nextBlocks.length) result[key] = nextBlocks;
     }
 
     return result;
-  }, [keyToDateStrict]);
+  }, [normalizeAvailabilityBlocks, normalizeDaySelectionKeys]);
 
   useEffect(() => {
     if (!resumeRequestId) return;
@@ -404,8 +434,7 @@ function StudentCourseRequestPage() {
           ? draft.daySelections
           : {};
         const fallbackDate = toNoonDate(buildDateFromTimeZoneNow(scheduleTimeZone));
-        const normalizedDaySelections = normalizeDaySelectionKeys(rawDaySelections);
-        const nextDaySelections = prunePastDaySelections(normalizedDaySelections, fallbackDate);
+        const nextDaySelections = filterFutureDaySelections(rawDaySelections, scheduleTimeZone, new Date());
 
         const draftHasScheduleSelections = Object.keys(nextDaySelections)
           .some((k) => Array.isArray(nextDaySelections?.[k]) && nextDaySelections[k].length > 0);
@@ -497,7 +526,7 @@ function StudentCourseRequestPage() {
         setRequestBusy(false);
       }
     })();
-  }, [buildKey, isLoggedIn, keyToDateStrict, normalizeDaySelectionKeys, prunePastDaySelections, resumeRequestId, setSelectedDateNoon]);
+  }, [buildKey, filterFutureDaySelections, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon]);
 
 
 
@@ -614,7 +643,11 @@ function StudentCourseRequestPage() {
     const nextTodayStart = new Date(nextTzToday.getFullYear(), nextTzToday.getMonth(), nextTzToday.getDate());
     nextTodayStart.setHours(0, 0, 0, 0);
 
-    setDaySelections((prev) => convertSelectionsBetweenTimeZones(prev, prevTz, nextTz));
+    setDaySelections((prev) => filterFutureDaySelections(
+      convertSelectionsBetweenTimeZones(prev, prevTz, nextTz),
+      nextTz,
+      new Date(nowTick)
+    ));
 
     const prevSelectedKey = selectedDate ? buildKey(selectedDate) : null;
     const shiftedSelectedKey = prevSelectedKey ? shiftDayKeyForTimezone(prevSelectedKey, prevTz, nextTz) : null;
@@ -654,7 +687,7 @@ function StudentCourseRequestPage() {
     setIsDraggingRange(false);
 
     previousTimeZoneRef.current = nextTz;
-  }, [buildKey, selectedTimeZone, selectedDate, setSelectedDateNoon]);
+  }, [buildKey, filterFutureDaySelections, nowTick, selectedTimeZone, selectedDate, setSelectedDateNoon]);
 
   // Apply fetched account availability after timezone-switch effect runs (avoid double conversion).
   useEffect(() => {
@@ -662,11 +695,12 @@ function StudentCourseRequestPage() {
     if (selectedTimeZone !== pendingAccountAvailability.timeZone) return;
 
     const normalizedDaySelections = normalizeDaySelectionKeys(pendingAccountAvailability.daySelections || {});
-    setDaySelections(normalizedDaySelections);
+    const nextDaySelections = filterFutureDaySelections(normalizedDaySelections, selectedTimeZone, new Date(nowTick));
+    setDaySelections(nextDaySelections);
     availabilityHydratingRef.current = false;
     setPendingAccountAvailability(null);
     setAvailabilityReady(true);
-  }, [normalizeDaySelectionKeys, pendingAccountAvailability, selectedTimeZone]);
+  }, [filterFutureDaySelections, normalizeDaySelectionKeys, nowTick, pendingAccountAvailability, selectedTimeZone]);
 
   // 月份滑动方向：'left' 表示点“下一月”，新网格从右往中滑入；'right' 表示点“上一月”
   const [monthSlideDir, setMonthSlideDir] = useState(null); // 初始为 null，表示无动画方向
@@ -736,10 +770,11 @@ function StudentCourseRequestPage() {
     if (availabilityHydratingRef.current) return;
     if (!hasEditedAvailabilityRef.current) return;
 
+    const nextDaySelections = filterFutureDaySelections(daySelections, selectedTimeZone, new Date());
     const payload = {
       timeZone: selectedTimeZone || DEFAULT_TIME_ZONE,
       sessionDurationHours: formData.sessionDurationHours,
-      daySelections,
+      daySelections: nextDaySelections,
     };
     const fingerprint = buildAvailabilityFingerprint(payload);
     if (fingerprint === lastSavedAvailabilityFingerprintRef.current) return;
@@ -751,7 +786,7 @@ function StudentCourseRequestPage() {
       .catch(() => {
         // Silent fail.
       });
-  }, [availabilityReady, daySelections, formData.sessionDurationHours, isLoggedIn, selectedTimeZone]);
+  }, [availabilityReady, daySelections, filterFutureDaySelections, formData.sessionDurationHours, isLoggedIn, selectedTimeZone]);
   
   const startPageTransition = (action) => {
     if (typeof action !== 'function') {
@@ -856,6 +891,7 @@ function StudentCourseRequestPage() {
     const courseTypes = Array.isArray(formData.courseTypes) && formData.courseTypes.length
       ? formData.courseTypes
       : (formData.courseType ? [formData.courseType] : []);
+    const nextDaySelections = filterFutureDaySelections(daySelections, selectedTimeZone, new Date());
     const payload = {
       ...(nextRequestId ? { requestId: nextRequestId } : {}),
       ...(Number.isFinite(Number(draftStep)) ? { draftStep: Math.floor(Number(draftStep)) } : {}),
@@ -869,7 +905,7 @@ function StudentCourseRequestPage() {
       totalCourseHours: formData.totalCourseHours,
       timeZone: formData.availability,
       sessionDurationHours: formData.sessionDurationHours,
-      daySelections,
+      daySelections: nextDaySelections,
       contactName: formData.contactName,
       contactMethod: formData.contactMethod,
       contactValue: formData.contactValue,
@@ -1176,11 +1212,14 @@ function StudentCourseRequestPage() {
       .filter(Boolean);
     return labels.join('、');
   }, [formData.courseTypes, formData.courseType]);
+  const futureDaySelections = useMemo(() => {
+    return filterFutureDaySelections(daySelections, selectedTimeZone, new Date(nowTick));
+  }, [daySelections, filterFutureDaySelections, nowTick, selectedTimeZone]);
   const earliestSelectedDay = useMemo(() => {
-    const keys = Object.keys(daySelections || {}).filter((k) => (daySelections[k] || []).length > 0);
+    const keys = Object.keys(futureDaySelections || {}).filter((k) => (futureDaySelections[k] || []).length > 0);
     if (!keys.length) return null;
     return keys.sort()[0];
-  }, [daySelections]);
+  }, [futureDaySelections]);
   const tzCity = useMemo(() => extractCityName(formData.availability), [formData.availability]);
   const tzShort = useMemo(() => buildShortUTC(formData.availability), [formData.availability]);
   // 仅当“预计课程总时长”有填时才在预览卡展示
