@@ -4,7 +4,7 @@ import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchAccountProfile } from '../../api/account';
-import { getAuthToken } from '../../utils/authStorage';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
@@ -122,12 +122,29 @@ const isDebugTimingEnabled = () => {
   }
 };
 
+const getMentorIdFromAuthUser = (user) => {
+  if (!user || typeof user !== 'object') return '';
+  const role = typeof user?.role === 'string' ? user.role.trim().toLowerCase() : '';
+  if (role !== 'mentor') return '';
+
+  const raw = user?.public_id ?? user?.publicId ?? user?.mentorId;
+  return typeof raw === 'string' ? raw.trim() : '';
+};
+
 function StudentListings() {
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
-  const [currentMentorId, setCurrentMentorId] = useState('');
+  const [currentMentorId, setCurrentMentorId] = useState(() => {
+    if (!getAuthToken()) return '';
+    return getMentorIdFromAuthUser(getAuthUser());
+  });
+  const [mentorIdResolved, setMentorIdResolved] = useState(() => {
+    if (!getAuthToken()) return true;
+    const cachedMentorId = getMentorIdFromAuthUser(getAuthUser());
+    return !!cachedMentorId;
+  });
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
   const [allMentors, setAllMentors] = useState([]);
   const [listError, setListError] = useState('');
@@ -295,11 +312,29 @@ function StudentListings() {
 
   useEffect(() => {
     const handler = (event) => {
-      if (typeof event?.detail?.isLoggedIn !== 'undefined') {
-        setIsLoggedIn(!!event.detail.isLoggedIn);
-      } else {
-        setIsLoggedIn(!!getAuthToken());
+      const nextIsLoggedIn =
+        typeof event?.detail?.isLoggedIn !== 'undefined'
+          ? !!event.detail.isLoggedIn
+          : !!getAuthToken();
+
+      setIsLoggedIn(nextIsLoggedIn);
+
+      if (!nextIsLoggedIn) {
+        setCurrentMentorId('');
+        setMentorIdResolved(true);
+        return;
       }
+
+      const detailMentorId = getMentorIdFromAuthUser(event?.detail?.user);
+      if (detailMentorId) {
+        setCurrentMentorId(detailMentorId);
+        setMentorIdResolved(true);
+        return;
+      }
+
+      const cachedMentorId = getMentorIdFromAuthUser(getAuthUser());
+      setCurrentMentorId(cachedMentorId);
+      setMentorIdResolved(!!cachedMentorId);
     };
     window.addEventListener('auth:changed', handler);
     return () => window.removeEventListener('auth:changed', handler);
@@ -310,18 +345,23 @@ function StudentListings() {
 
     if (!isLoggedIn) {
       setCurrentMentorId('');
+      setMentorIdResolved(true);
       return () => { alive = false; };
     }
+
+    setMentorIdResolved(false);
 
     fetchAccountProfile()
       .then((res) => {
         if (!alive) return;
         const next = typeof res?.data?.mentorId === 'string' ? res.data.mentorId.trim() : '';
         setCurrentMentorId(next);
+        setMentorIdResolved(true);
       })
       .catch(() => {
         if (!alive) return;
         setCurrentMentorId('');
+        setMentorIdResolved(true);
       });
 
     return () => { alive = false; };
@@ -349,6 +389,7 @@ function StudentListings() {
   }, [isLoggedIn]);
 
   const favoriteIdSet = useMemo(() => favoriteIds, [favoriteIds]);
+  const showSkeleton = loading || (isLoggedIn && !mentorIdResolved);
   /* const listingData = [
     {
       id: 1,
@@ -485,7 +526,7 @@ function StudentListings() {
   return (
     <div className="listings container">
       <div className="listing-grid">
-        {loading
+        {showSkeleton
           ? Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="sk-card">
                 <div className="sk sk-avatar" />
