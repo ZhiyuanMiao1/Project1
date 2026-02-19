@@ -1,0 +1,40 @@
+name: Deploy to ECS                                                  # 工作流名称
+
+on:                                                                  # 触发条件
+  push:                                                              # 触发事件：push
+    branches:                                                        # 监听分支
+      - main                                                         # main 分支触发
+
+jobs:                                                                # 任务集合
+  deploy:                                                            # 任务名
+    runs-on: ubuntu-latest                                           # 运行器环境
+
+    steps:                                                           # 步骤列表
+      - name: Checkout code                                          # 拉取代码
+        uses: actions/checkout@v4                                    # 使用官方 checkout
+
+      - name: Deploy via SSH                                         # 通过 SSH 部署
+        uses: appleboy/ssh-action@v1.0.3                             # SSH Action
+        with:                                                        # 参数
+          host: ${{ secrets.ECS_HOST }}                               # ECS 地址（Secrets）
+          username: ecs-user                                         # SSH 用户
+          key: ${{ secrets.ECS_SSH_KEY }}                             # SSH 私钥（Secrets）
+          port: 22                                                   # SSH 端口
+          script_stop: true                                          # 出错就停
+          script: |                                                  # 在 ECS 上执行的脚本
+            set -e                                                   # 任一命令失败即退出
+            cd /opt/mentory                                          # 进入仓库目录
+            git fetch --all                                          # 拉远端更新
+            git reset --hard origin/main                             # 强制对齐 main（避免冲突）
+            cd /opt/mentory/backend                                  # 进入后端目录
+            npm ci                                                   # 安装后端依赖
+            npm run build                                            # 编译后端
+            pm2 restart mentory-backend                              # 重启后端
+            cd /opt/mentory/my-app                                   # 进入前端目录
+            npm ci                                                   # 安装前端依赖
+            npm run build                                            # 构建前端
+            sudo rm -rf /var/www/mentory/*                           # 清空旧静态文件
+            sudo cp -r build/* /var/www/mentory/                     # 覆盖新静态文件
+            sudo systemctl reload nginx                              # 重载 Nginx
+            curl -I http://127.0.0.1/ | head -n 1                    # 简单检查首页返回
+            echo "✅ Deploy finished"                                # 输出完成信息
