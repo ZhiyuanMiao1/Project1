@@ -19,6 +19,7 @@ import paypalRoute from './routes/paypal';
 dotenv.config();
 
 const app = express();
+app.get('/health', (req, res) => res.status(200).send('ok')); // 健康检查路由，返回200和ok
 
 app.use(express.json());
 
@@ -54,8 +55,6 @@ app.use(
     credentials: true,
   })
 );
-
-app.get('/healthz', (_req, res) => res.status(200).send('ok'));
 
 app.use('/api/register', registerRoute);
 app.use('/api/login', loginRoute);
