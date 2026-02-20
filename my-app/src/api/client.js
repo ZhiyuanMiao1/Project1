@@ -3,11 +3,17 @@ import { clearAuth, ensureFreshAuth } from '../utils/auth';
 import { broadcastAuthLogin, getAuthToken, initAuthSync, setAuthToken, setAuthUser } from '../utils/authStorage';
 
 const getApiBase = () => {
-  const base = process.env.REACT_APP_API_BASE;
-  if (base && base.trim().length > 0) {
-    return base.trim();
-  }
-  return '';
+  const raw = String(process.env.REACT_APP_API_BASE || '').trim();
+  if (!raw) return '';
+
+  // Force same-origin API calls. Ignore absolute origins like http://x.x.x.x:5000.
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('//')) return '';
+
+  const normalized = (raw.startsWith('/') ? raw : `/${raw}`).replace(/\/+$/, '');
+  // Existing request paths already include '/api/...', so keep base empty to avoid '/api/api/...'.
+  if (normalized === '/api') return '';
+
+  return normalized;
 };
 
 const baseURL = getApiBase();
