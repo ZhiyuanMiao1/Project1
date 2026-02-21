@@ -18,9 +18,17 @@ function StudentDataSection({
   studentIdValue,
   schoolValue,
   joinedMentoryDaysDisplay,
+  classCount = null,
+  classCountLoading = false,
   writtenReviews = MOCK_WRITTEN_REVIEWS,
 }) {
   const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
+  const normalizedClassCount = Number.isFinite(Number(classCount))
+    ? Math.max(0, Math.floor(Number(classCount)))
+    : null;
+  const classCountDisplay = classCountLoading
+    ? '...'
+    : (normalizedClassCount == null ? '--' : String(normalizedClassCount));
 
   return (
     <div className="settings-data-section" aria-label="学生数据">
@@ -70,7 +78,10 @@ function StudentDataSection({
           <div className="settings-student-metric">
             <div className="settings-student-metric-label">上课</div>
             <div className="settings-student-metric-value">
-              3<span className="settings-student-metric-unit">次</span>
+              {classCountDisplay}
+              {normalizedClassCount != null && !classCountLoading ? (
+                <span className="settings-student-metric-unit">次</span>
+              ) : null}
             </div>
           </div>
           <div className="settings-student-metric">

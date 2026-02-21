@@ -116,6 +116,10 @@ function AccountSettingsPage({ mode = 'student' }) {
     return { timeZone, sessionDurationHours: 2, daySelections: {} };
   });
   const [savingAvailability, setSavingAvailability] = useState(false);
+  const [studentClassCount, setStudentClassCount] = useState(null);
+  const [mentorClassCount, setMentorClassCount] = useState(null);
+  const [studentClassCountLoading, setStudentClassCountLoading] = useState(false);
+  const [mentorClassCountLoading, setMentorClassCountLoading] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -165,6 +169,10 @@ function AccountSettingsPage({ mode = 'student' }) {
         return { timeZone, sessionDurationHours: 2, daySelections: {} };
       });
       setSavingAvailability(false);
+      setStudentClassCount(null);
+      setMentorClassCount(null);
+      setStudentClassCountLoading(false);
+      setMentorClassCountLoading(false);
       setToast(null);
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -254,6 +262,46 @@ function AccountSettingsPage({ mode = 'student' }) {
       .catch(() => {
         if (!alive) return;
         setAvailabilityStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let alive = true;
+
+    setStudentClassCountLoading(true);
+    setMentorClassCountLoading(true);
+
+    api.get('/api/courses', { params: { view: 'student' } })
+      .then((res) => {
+        if (!alive) return;
+        const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
+        setStudentClassCount(rows.length);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStudentClassCount(null);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setStudentClassCountLoading(false);
+      });
+
+    api.get('/api/courses', { params: { view: 'mentor' } })
+      .then((res) => {
+        if (!alive) return;
+        const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
+        setMentorClassCount(rows.length);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMentorClassCount(null);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setMentorClassCountLoading(false);
       });
 
     return () => { alive = false; };
@@ -732,6 +780,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                   studentIdValue={studentIdValue}
                   schoolValue={schoolValue}
                   joinedMentoryDaysDisplay={joinedMentoryDaysDisplay}
+                  classCount={studentClassCount}
+                  classCountLoading={studentClassCountLoading}
                 />
               )}
 
@@ -746,6 +796,8 @@ function AccountSettingsPage({ mode = 'student' }) {
                   mentorIdValue={mentorIdValue}
                   schoolValue={schoolValue}
                   mentorJoinedMentoryDaysDisplay={mentorJoinedMentoryDaysDisplay}
+                  classCount={mentorClassCount}
+                  classCountLoading={mentorClassCountLoading}
                 />
               )}
 

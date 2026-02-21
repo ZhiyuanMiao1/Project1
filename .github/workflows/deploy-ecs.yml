@@ -5,6 +5,10 @@ on:                                                                  # 触发条
     branches:                                                        # 监听分支
       - main                                                         # main 分支触发
 
+concurrency:                                                         # 并发控制
+  group: deploy-ecs                                                  # 同组同一时间只运行一个
+  cancel-in-progress: true                                           # 新任务触发时取消旧任务
+
 jobs:                                                                # 任务集合
   deploy:                                                            # 任务名
     runs-on: ubuntu-latest                                           # 运行器环境

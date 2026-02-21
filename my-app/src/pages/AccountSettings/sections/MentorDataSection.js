@@ -18,9 +18,17 @@ function MentorDataSection({
   mentorIdValue,
   schoolValue,
   mentorJoinedMentoryDaysDisplay,
+  classCount = null,
+  classCountLoading = false,
   aboutMeReviews = MOCK_ABOUT_ME_REVIEWS,
 }) {
   const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
+  const normalizedClassCount = Number.isFinite(Number(classCount))
+    ? Math.max(0, Math.floor(Number(classCount)))
+    : null;
+  const classCountDisplay = classCountLoading
+    ? '...'
+    : (normalizedClassCount == null ? '--' : String(normalizedClassCount));
 
   return (
     <div className="settings-data-section" aria-label="导师数据">
@@ -70,7 +78,10 @@ function MentorDataSection({
           <div className="settings-mentor-metric">
             <div className="settings-mentor-metric-label">上课</div>
             <div className="settings-mentor-metric-value">
-              3<span className="settings-mentor-metric-unit">次</span>
+              {classCountDisplay}
+              {normalizedClassCount != null && !classCountLoading ? (
+                <span className="settings-mentor-metric-unit">次</span>
+              ) : null}
             </div>
           </div>
           <div className="settings-mentor-metric">
