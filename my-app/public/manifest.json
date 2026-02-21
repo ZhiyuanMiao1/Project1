@@ -3,9 +3,9 @@
   "name": "Mentory",
   "icons": [
     {
-      "src": "Logo.png",
+      "src": "Logo_standard-removebg.png",
       "type": "image/png",
-      "sizes": "1024x1024"
+      "sizes": "500x499"
     }
   ],
   "start_url": ".",
