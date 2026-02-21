@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, matchPath } from 'react-router-dom';
 import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
 import MentorPage from './components/MentorPage/MentorPage';
@@ -16,9 +16,59 @@ import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 import WalletPage from './pages/Wallet/WalletPage';
 
+const BRAND_NAME = 'Mentory';
+
+const ROUTE_TITLE_MAP = [
+  { path: '/student', title: 'Mentory' },
+  { path: '/student/mentors/:mentorId', title: '导师主页' },
+  { path: '/student/course-request', title: '发布课程需求' },
+  { path: '/student/favorites', title: '收藏' },
+  { path: '/student/favorites/:collectionId', title: '收藏夹' },
+  { path: '/student/recent-visits', title: '最近浏览' },
+  { path: '/student/courses', title: '课程' },
+  { path: '/student/messages', title: '消息' },
+  { path: '/student/wallet', title: '钱包' },
+  { path: '/student/settings', title: '设置' },
+  { path: '/mentor', title: 'Mentory' },
+  { path: '/mentor/profile-editor', title: '编辑个人名片' },
+  { path: '/mentor/courses', title: '导师课程' },
+  { path: '/mentor/requests/:requestId', title: '课程需求详情' },
+  { path: '/mentor/messages', title: '消息' },
+  { path: '/mentor/settings', title: '设置' },
+];
+
+const normalizePathname = (pathname) => {
+  if (!pathname || pathname === '/') {
+    return '/';
+  }
+  return pathname.replace(/\/+$/, '') || '/';
+};
+
+const getDocumentTitleByPath = (pathname) => {
+  const normalizedPath = normalizePathname(pathname);
+  const matchedRoute = ROUTE_TITLE_MAP.find((route) =>
+    Boolean(matchPath({ path: route.path, end: true }, normalizedPath))
+  );
+  if (!matchedRoute) {
+    return BRAND_NAME;
+  }
+  return matchedRoute.title;
+};
+
+function RouteTitleManager() {
+  const location = useLocation();
+
+  useEffect(() => {
+    document.title = getDocumentTitleByPath(location.pathname);
+  }, [location.pathname]);
+
+  return null;
+}
+
 function App() {
   return (
     <Router>
+      <RouteTitleManager />
       <Routes>
         {/* 默认路径重定向到 /student */}
         <Route path="/" element={<Navigate to="/student" />} />
