@@ -1,5 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './TimezoneModal.css';
+import regionRandomImage from '../../assets/regions/region-random.png';
+import regionEuropeImage from '../../assets/regions/region-europe.png';
+import regionNorthAmericaImage from '../../assets/regions/region-north-america.png';
+import regionOceaniaImage from '../../assets/regions/region-oceania.png';
+import regionJpKrImage from '../../assets/regions/region-jp-kr.png';
+import regionChinaImage from '../../assets/regions/region-china.png';
 
 const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
   const contentRef = useRef(null);
@@ -62,27 +68,27 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
         <h3>按地区搜索</h3>
         <div className="regions">
           <button onClick={() => handleRegionSelect('随便看看')}>
-            <img src="/images/随便看看.png" alt="随便看看" />
+            <img src={regionRandomImage} alt="随便看看" />
             <span>随便看看</span>
           </button>
           <button onClick={() => handleRegionSelect('欧洲')}>
-            <img src="/images/欧洲.png" alt="欧洲" />
+            <img src={regionEuropeImage} alt="欧洲" />
             <span>欧洲</span>
           </button>
           <button onClick={() => handleRegionSelect('北美')}>
-            <img src="/images/北美.png" alt="北美" />
+            <img src={regionNorthAmericaImage} alt="北美" />
             <span>北美</span>
           </button>
           <button onClick={() => handleRegionSelect('澳洲')}>
-            <img src="/images/澳洲.png" alt="澳洲" />
+            <img src={regionOceaniaImage} alt="澳洲" />
             <span>澳洲</span>
           </button>
           <button onClick={() => handleRegionSelect('日韩')}>
-            <img src="/images/日韩.png" alt="日韩" />
+            <img src={regionJpKrImage} alt="日韩" />
             <span>日韩</span>
           </button>
           <button onClick={() => handleRegionSelect('中国')}>
-            <img src="/images/中国.png" alt="中国" />
+            <img src={regionChinaImage} alt="中国" />
             <span>中国</span>
           </button>
         </div>
@@ -92,4 +98,3 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
 };
 
 export default TimezoneModal;
-
