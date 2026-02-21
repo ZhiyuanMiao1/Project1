@@ -181,3 +181,64 @@
   white-space: normal;
   word-break: break-word;
 }
+
+@media (hover: none) {
+  .listing-card.mentor-preview-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .mentor-preview-card {
+    padding: 14px 12px;
+  }
+
+  .mentor-preview-card .card-header {
+    gap: 10px;
+  }
+
+  .mentor-preview-card .avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  .mentor-preview-card .name {
+    font-size: 18px;
+  }
+
+  .mentor-preview-card .chips {
+    margin-top: 4px;
+    gap: 6px;
+  }
+
+  .mentor-preview-card .item {
+    font-size: 13px;
+    gap: 8px;
+    line-height: 18px;
+  }
+
+  .mentor-preview-card .icon {
+    width: 14px;
+    height: 14px;
+    flex-basis: 14px;
+  }
+
+  .mentor-preview-card .icon svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .listing-card.mentor-preview-card {
+    height: auto;
+    min-height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mentor-preview-card .chip {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+}

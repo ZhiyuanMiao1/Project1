@@ -9,7 +9,7 @@
   
 .listing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -102,4 +102,24 @@
 .sk-line { height: 14px; border-radius: 8px; margin: 10px 0; }
 .sk-line.short { width: 70%; }
 .sk-line.long { width: 100%; }
+
+@media (max-width: 768px) {
+  .listings {
+    margin-top: 18px;
+  }
+
+  .listing-grid {
+    gap: 12px;
+  }
+
+  .listing-empty {
+    min-height: 30vh;
+    font-size: 20px;
+  }
+
+  .sk-card {
+    min-height: 280px;
+    padding: 16px 12px 14px;
+  }
+}
   

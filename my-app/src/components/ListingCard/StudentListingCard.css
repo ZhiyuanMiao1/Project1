@@ -222,3 +222,62 @@
 }
 .gender-male { color: #3b82f6; }  /* 蓝色 */
 .gender-female { color: #ec4899; } /* 粉色 */
+
+@media (hover: none) {
+  .listing-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .listing-card {
+    height: auto;
+    min-height: 320px;
+    padding: 16px 12px;
+  }
+
+  .listing-avatar {
+    width: 132px;
+    height: 132px;
+    margin-bottom: 10px;
+  }
+
+  .listing-name {
+    font-size: 18px;
+    gap: 6px;
+  }
+
+  .listing-tag {
+    font-size: 12px;
+  }
+
+  .listing-rating,
+  .listing-courses,
+  .listing-timezone-languages,
+  .timezone {
+    font-size: 13px;
+  }
+
+  .favorite-icon {
+    top: 8px;
+    right: 8px;
+  }
+
+  .gender-badge {
+    top: 8px;
+    left: 8px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .listing-card {
+    min-height: 0;
+  }
+
+  .listing-avatar {
+    width: 120px;
+    height: 120px;
+  }
+}

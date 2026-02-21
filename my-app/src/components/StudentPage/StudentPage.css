@@ -13,6 +13,18 @@
     margin: 0 auto;
     padding: 0 24px; /* Airbnb 顶部、两边会有一定留白 */
   }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 12px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 0 10px;
+    }
+  }
   
   ul, li {
     list-style: none;

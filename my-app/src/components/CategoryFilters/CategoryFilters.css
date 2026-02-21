@@ -24,7 +24,7 @@
 
   /* 重点：只允许横向滚动，禁止纵向滚动 */
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: hidden;
 
   /* 重点：隐藏滚动条 */
   scrollbar-width: none;       /* Firefox */
@@ -130,4 +130,43 @@
 .category-item.selected::after {
   width: 30%;
   background-color: #000;
+}
+
+@media (max-width: 768px) {
+  .category-filters {
+    margin-top: 4px;
+    margin-bottom: 8px;
+    padding: 2px 0;
+  }
+
+  .category-container {
+    height: auto;
+    padding: 8px 0;
+    gap: 8px;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .category-item {
+    flex: 0 0 auto;
+    min-width: 72px;
+    padding: 2px 0;
+  }
+
+  .category-item .category-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+
+  .category-item .category-text {
+    font-size: 12px;
+  }
+
+  .category-item::after {
+    bottom: -6px;
+  }
+
+  .arrow {
+    display: none;
+  }
 }
