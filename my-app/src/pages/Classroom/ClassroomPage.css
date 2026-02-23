@@ -1,0 +1,182 @@
+.classroom-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(1000px 540px at 10% -10%, rgba(15, 23, 42, 0.08), transparent 50%),
+    radial-gradient(900px 500px at 100% 0%, rgba(30, 64, 175, 0.08), transparent 55%),
+    #f8fafc;
+  color: #0f172a;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.classroom-page .container {
+  margin-left: 96px;
+  padding-bottom: 32px;
+}
+
+.classroom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0 14px;
+}
+
+.classroom-back-btn {
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 999px;
+  height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.classroom-back-btn:hover {
+  background: #f8fafc;
+}
+
+.classroom-meta h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.classroom-status {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.classroom-course-id {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.classroom-error {
+  margin-top: 12px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.classroom-stage {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.classroom-video-panel {
+  border: 1px solid #dce3ee;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.classroom-video-title {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  border-bottom: 1px solid #e5eaf2;
+}
+
+.classroom-video-box {
+  position: relative;
+  background: #0f172a;
+  aspect-ratio: 16 / 9;
+}
+
+.classroom-video-box video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.classroom-video-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e2e8f0;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.classroom-controls {
+  margin-top: 18px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.classroom-control-btn {
+  border: none;
+  border-radius: 999px;
+  height: 40px;
+  padding: 0 14px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.classroom-control-btn:hover {
+  background: #111827;
+}
+
+.classroom-control-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.classroom-control-btn.leave {
+  background: #b91c1c;
+}
+
+.classroom-control-btn.leave:hover {
+  background: #991b1b;
+}
+
+@media (max-width: 960px) {
+  .classroom-page .container {
+    margin-left: 48px;
+  }
+}
+
+@media (max-width: 760px) {
+  .classroom-page .container {
+    margin-left: 0;
+    padding: 0 16px 24px;
+  }
+
+  .classroom-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .classroom-controls {
+    gap: 10px;
+  }
+}

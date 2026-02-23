@@ -84,6 +84,7 @@ const normalizeMentorCourse = (row) => {
     duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
     studentName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
     studentAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
+    status: safeText(row?.status).toLowerCase(),
   };
 };
 
@@ -98,6 +99,8 @@ const toDateTimestamp = (course) => {
   if (!Number.isNaN(fallback)) return fallback;
   return 0;
 };
+
+const isScheduledCourse = (course) => safeText(course?.status).toLowerCase() === 'scheduled';
 
 function MentorCoursesPage() {
   const menuAnchorRef = useRef(null);
@@ -261,6 +264,11 @@ function MentorCoursesPage() {
       event.preventDefault();
       handleCourseOpen(course);
     }
+  };
+  const handleOpenClassroom = (course) => {
+    const courseId = safeText(course?.id);
+    if (!courseId || !isScheduledCourse(course)) return;
+    window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
   };
 
   const renderTimeline = () => {
@@ -485,6 +493,8 @@ function MentorCoursesPage() {
               const typeLabel = safeText(activeCourse.type) || '其它课程类型';
               const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
               const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
+              const canEnterClassroom = isScheduledCourse(activeCourse);
+              const classroomHint = canEnterClassroom ? '将打开新页面进入课堂' : '课程已结束/不可进入课堂';
               return (
                 <>
                   <div className="course-detail-mentor">
@@ -519,6 +529,18 @@ function MentorCoursesPage() {
                         <span className="course-detail-chip-label">时长</span>
                         <div className="course-detail-chip-value">{activeCourse.duration}</div>
                       </div>
+                    </div>
+                    <div className="course-detail-classroom">
+                      <div className="course-detail-classroom-label">课堂</div>
+                      <button
+                        type="button"
+                        className="course-detail-classroom-btn"
+                        onClick={() => handleOpenClassroom(activeCourse)}
+                        disabled={!canEnterClassroom}
+                      >
+                        进入课堂
+                      </button>
+                      <div className="course-detail-classroom-hint">{classroomHint}</div>
                     </div>
                   </div>
                 </>

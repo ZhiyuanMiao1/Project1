@@ -15,6 +15,7 @@ import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
 import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 import WalletPage from './pages/Wallet/WalletPage';
+import ClassroomPage from './pages/Classroom/ClassroomPage';
 
 const BRAND_NAME = 'Mentory';
 
@@ -35,6 +36,7 @@ const ROUTE_TITLE_MAP = [
   { path: '/mentor/requests/:requestId', title: '课程需求详情' },
   { path: '/mentor/messages', title: '消息' },
   { path: '/mentor/settings', title: '设置' },
+  { path: '/classroom/:courseId', title: '课堂' },
 ];
 
 const normalizePathname = (pathname) => {
@@ -92,6 +94,7 @@ function App() {
         <Route path="/student/messages" element={<MessagesPage />} />
         <Route path="/student/wallet" element={<WalletPage />} />
         <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
+        <Route path="/classroom/:courseId" element={<ClassroomPage />} />
 
         {/* 导师个人名片编辑页面 */}
         <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />

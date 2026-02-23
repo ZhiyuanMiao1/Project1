@@ -271,7 +271,8 @@
 
 .course-detail-card {
   width: 360px;
-  height: 360px;
+  min-height: 360px;
+  height: auto;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 20px;
@@ -394,6 +395,9 @@
 .course-detail-body {
   padding: 12px 0 0;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .course-detail-title {
@@ -446,6 +450,49 @@
 
 .course-detail-chip-value svg {
   display: block;
+}
+
+.course-detail-classroom {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.course-detail-classroom-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.course-detail-classroom-btn {
+  border: none;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  height: 38px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.course-detail-classroom-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
+}
+
+.course-detail-classroom-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  box-shadow: none;
+  transform: none;
+}
+
+.course-detail-classroom-hint {
+  font-size: 12px;
+  color: #64748b;
 }
 
 .courses-guard {
