@@ -109,7 +109,7 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
     const userName = safeText(userRows?.[0]?.username) || rtcUserId;
 
     const channelId = `course_${courseId}`;
-    const timestamp = Math.floor(Date.now() / 1000);
+    const timestamp = Math.floor(Date.now() / 1000) + 3600;
     const authInfo = createAliRtcAuthInfo({
       appId: runtime.appId,
       appKey: runtime.appKey,

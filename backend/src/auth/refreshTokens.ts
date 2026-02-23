@@ -1,12 +1,18 @@
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
+import type { SignOptions } from 'jsonwebtoken';
 import { pool, query, type InsertResult } from '../db';
 
 export type Role = 'mentor' | 'student';
 
 const MS_DAY = 24 * 60 * 60 * 1000;
 
-export const ACCESS_TOKEN_EXPIRES_IN = '15m';
+const resolveAccessTokenExpiresIn = (): SignOptions['expiresIn'] => {
+  const raw = String(process.env.ACCESS_TOKEN_EXPIRES_IN || '').trim();
+  return (raw || '2h') as SignOptions['expiresIn'];
+};
+
+export const ACCESS_TOKEN_EXPIRES_IN = resolveAccessTokenExpiresIn();
 export const REFRESH_SLIDING_DAYS = 30;
 export const REFRESH_INACTIVITY_DAYS = 14;
 export const REFRESH_ABSOLUTE_DAYS = 90;

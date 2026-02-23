@@ -7,7 +7,11 @@ exports.revokeAllRefreshTokensForUser = exports.revokeRefreshToken = exports.rot
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db");
 const MS_DAY = 24 * 60 * 60 * 1000;
-exports.ACCESS_TOKEN_EXPIRES_IN = '15m';
+const resolveAccessTokenExpiresIn = () => {
+    const raw = String(process.env.ACCESS_TOKEN_EXPIRES_IN || '').trim();
+    return (raw || '2h');
+};
+exports.ACCESS_TOKEN_EXPIRES_IN = resolveAccessTokenExpiresIn();
 exports.REFRESH_SLIDING_DAYS = 30;
 exports.REFRESH_INACTIVITY_DAYS = 14;
 exports.REFRESH_ABSOLUTE_DAYS = 90;

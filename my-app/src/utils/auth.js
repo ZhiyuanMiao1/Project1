@@ -34,6 +34,36 @@ export const isTokenExpired = (token, skewSeconds = 30) => {
   return exp <= now + skewSeconds;
 };
 
+export const AUTH_SESSION_EXPIRED_EVENT = 'auth:session-expired';
+
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const getCurrentPath = () => {
+  if (typeof window === 'undefined') return '/';
+  try {
+    const { pathname, search, hash } = window.location;
+    return `${pathname || ''}${search || ''}${hash || ''}` || '/';
+  } catch {
+    return '/';
+  }
+};
+
+export const emitAuthSessionExpired = ({
+  message = '登录已失效，请重新登录',
+  from,
+  requiredRole,
+} = {}) => {
+  if (typeof window === 'undefined') return;
+  const detail = {
+    message: safeText(message) || '登录已失效，请重新登录',
+    from: safeText(from) || getCurrentPath(),
+    requiredRole: safeText(requiredRole),
+  };
+  try {
+    window.dispatchEvent(new CustomEvent(AUTH_SESSION_EXPIRED_EVENT, { detail }));
+  } catch {}
+};
+
 export const clearAuth = (client) => {
   clearAuthStorage();
   if (client?.defaults?.headers?.common) {

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAuth, ensureFreshAuth } from '../utils/auth';
+import { clearAuth, emitAuthSessionExpired, ensureFreshAuth, isTokenExpired } from '../utils/auth';
 import { broadcastAuthLogin, getAuthToken, initAuthSync, setAuthToken, setAuthUser } from '../utils/authStorage';
 
 const getApiBase = () => {
@@ -31,7 +31,36 @@ const refreshClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Sync stored token into axios; clears storage if已过期
+const getCurrentPath = () => {
+  if (typeof window === 'undefined') return '/';
+  try {
+    const { pathname, search, hash } = window.location;
+    return `${pathname || ''}${search || ''}${hash || ''}` || '/';
+  } catch {
+    return '/';
+  }
+};
+
+const getSessionExpiredMessage = (error) => {
+  const msg = String(error?.response?.data?.error || '').trim();
+  return msg || '登录已失效，请重新登录';
+};
+
+let lastSessionExpiredAt = 0;
+const SESSION_EXPIRED_DEBOUNCE_MS = 1500;
+
+const handleSessionExpired = (error) => {
+  clearAuth(client);
+  const now = Date.now();
+  if (now - lastSessionExpiredAt < SESSION_EXPIRED_DEBOUNCE_MS) return;
+  lastSessionExpiredAt = now;
+  emitAuthSessionExpired({
+    message: getSessionExpiredMessage(error),
+    from: getCurrentPath(),
+  });
+};
+
+// Sync stored token into axios at startup.
 ensureFreshAuth(client);
 initAuthSync(client);
 
@@ -40,6 +69,10 @@ client.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
     if (!token) return config;
+    if (isTokenExpired(token)) {
+      handleSessionExpired();
+      return Promise.reject(new Error('AUTH_TOKEN_EXPIRED'));
+    }
 
     const url = String(config?.url || '');
     const isAbsolute = /^https?:\/\//i.test(url);
@@ -91,16 +124,15 @@ client.interceptors.response.use(
     if (isAuthEndpoint) return Promise.reject(error);
 
     const config = error?.config || {};
-    if (config._retry) return Promise.reject(error);
+    if (config._retry) {
+      handleSessionExpired(error);
+      return Promise.reject(error);
+    }
 
-    // Only refresh when request actually carried an auth header; avoid wiping token due to a missing-header race.
-    const headers = config.headers || {};
-    const authHeaderValue =
-      typeof headers?.get === 'function'
-        ? (headers.get('Authorization') || headers.get('authorization'))
-        : (headers?.Authorization || headers?.authorization);
-    const hadAuthHeader = !!authHeaderValue;
-    if (!hadAuthHeader) return Promise.reject(error);
+    if (!getAuthToken()) {
+      handleSessionExpired(error);
+      return Promise.reject(error);
+    }
 
     try {
       config._retry = true;
@@ -131,7 +163,7 @@ client.interceptors.response.use(
 
       return client(config);
     } catch (e) {
-      clearAuth(client);
+      handleSessionExpired(e || error);
       return Promise.reject(error);
     }
   }

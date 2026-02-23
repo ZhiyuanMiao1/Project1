@@ -19,16 +19,18 @@ function createAliRtcAuthInfo(params) {
     const appKey = safeTrim(params.appKey);
     const channelId = safeTrim(params.channelId);
     const userId = safeTrim(params.userId);
+    const nonce = safeTrim(params.nonce) || crypto_1.default.randomBytes(8).toString('hex');
     const timestamp = Number.isFinite(params.timestamp) && params.timestamp > 0
         ? Math.floor(params.timestamp)
         : Math.floor(Date.now() / 1000);
     const role = params.role || 'pub';
-    const tokenSeed = `${appId}${appKey}${channelId}${userId}${timestamp}`;
+    const tokenSeed = `${appId}${appKey}${channelId}${userId}${nonce}${timestamp}`;
     const token = crypto_1.default.createHash('sha256').update(tokenSeed).digest('hex');
     return {
         appId,
         channelId,
         userId,
+        nonce,
         timestamp,
         token,
         role,

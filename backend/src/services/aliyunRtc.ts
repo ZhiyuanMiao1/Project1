@@ -6,6 +6,7 @@ export type AliRtcAuthInfo = {
   appId: string;
   channelId: string;
   userId: string;
+  nonce: string;
   timestamp: number;
   token: string;
   role: AliRtcTokenRole;
@@ -30,6 +31,7 @@ export function createAliRtcAuthInfo(params: {
   appKey: string;
   channelId: string;
   userId: string;
+  nonce?: string;
   timestamp: number;
   role?: AliRtcTokenRole;
 }): AliRtcAuthInfo {
@@ -37,18 +39,20 @@ export function createAliRtcAuthInfo(params: {
   const appKey = safeTrim(params.appKey);
   const channelId = safeTrim(params.channelId);
   const userId = safeTrim(params.userId);
+  const nonce = safeTrim(params.nonce) || crypto.randomBytes(8).toString('hex');
   const timestamp = Number.isFinite(params.timestamp) && params.timestamp > 0
     ? Math.floor(params.timestamp)
     : Math.floor(Date.now() / 1000);
   const role: AliRtcTokenRole = params.role || 'pub';
 
-  const tokenSeed = `${appId}${appKey}${channelId}${userId}${timestamp}`;
+  const tokenSeed = `${appId}${appKey}${channelId}${userId}${nonce}${timestamp}`;
   const token = crypto.createHash('sha256').update(tokenSeed).digest('hex');
 
   return {
     appId,
     channelId,
     userId,
+    nonce,
     timestamp,
     token,
     role,

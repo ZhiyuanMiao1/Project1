@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, matchPath } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate, matchPath } from 'react-router-dom';
 import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
 import MentorPage from './components/MentorPage/MentorPage';
@@ -16,6 +16,10 @@ import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 import WalletPage from './pages/Wallet/WalletPage';
 import ClassroomPage from './pages/Classroom/ClassroomPage';
+import api from './api/client';
+import { AUTH_SESSION_EXPIRED_EVENT, clearAuth, emitAuthSessionExpired, isTokenExpired } from './utils/auth';
+import { getAuthToken } from './utils/authStorage';
+import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
 const BRAND_NAME = 'Mentory';
 
@@ -57,6 +61,18 @@ const getDocumentTitleByPath = (pathname) => {
   return matchedRoute.title;
 };
 
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const getCurrentPath = () => {
+  if (typeof window === 'undefined') return '/';
+  try {
+    const { pathname, search, hash } = window.location;
+    return `${pathname || ''}${search || ''}${hash || ''}` || '/';
+  } catch {
+    return '/';
+  }
+};
+
 function RouteTitleManager() {
   const location = useLocation();
 
@@ -67,10 +83,82 @@ function RouteTitleManager() {
   return null;
 }
 
+function AuthSessionManager() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [toastMessage, setToastMessage] = useState('');
+  const toastTimerRef = useRef(null);
+  const checkingRef = useRef(false);
+
+  const showToast = (message) => {
+    const next = safeText(message) || '登录已失效，请重新登录';
+    setToastMessage(next);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastMessage(''), 2600);
+  };
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const onSessionExpired = (event) => {
+      const detail = event?.detail || {};
+      const from = safeText(detail.from) || getCurrentPath();
+      const requiredRole = safeText(detail.requiredRole) || inferRequiredRoleFromPath(from);
+      const message = safeText(detail.message) || '登录已失效，请重新登录';
+
+      showToast(message);
+      setPostLoginRedirect(from, requiredRole);
+
+      const currentPath = safeText(typeof window !== 'undefined' ? window.location.pathname : '');
+      const fallback = requiredRole === 'mentor' ? '/mentor' : '/student';
+      const needsRedirect = currentPath.startsWith('/classroom') || (!currentPath.startsWith('/student') && !currentPath.startsWith('/mentor'));
+      if (needsRedirect && currentPath !== fallback) {
+        navigate(fallback, { replace: true });
+      }
+
+      window.setTimeout(() => {
+        try {
+          window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from, requiredRole } }));
+        } catch {}
+      }, 0);
+    };
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [navigate]);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token || !isTokenExpired(token) || checkingRef.current) return;
+    checkingRef.current = true;
+
+    clearAuth(api);
+    emitAuthSessionExpired({
+      from: `${location.pathname || ''}${location.search || ''}${location.hash || ''}`,
+      requiredRole: inferRequiredRoleFromPath(location.pathname),
+      message: '登录已失效，请重新登录',
+    });
+
+    window.setTimeout(() => {
+      checkingRef.current = false;
+    }, 0);
+  }, [location.pathname, location.search, location.hash]);
+
+  if (!toastMessage) return null;
+  return (
+    <div className="auth-session-toast" role="status" aria-live="polite">
+      {toastMessage}
+    </div>
+  );
+}
+
 function App() {
   return (
     <Router>
       <RouteTitleManager />
+      <AuthSessionManager />
       <Routes>
         {/* 默认路径重定向到 /student */}
         <Route path="/" element={<Navigate to="/student" />} />

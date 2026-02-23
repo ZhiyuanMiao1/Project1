@@ -47,3 +47,27 @@ a {
 .card:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
+
+.auth-session-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  max-width: min(80vw, 420px);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(188, 35, 35, 0.95);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  .auth-session-toast {
+    left: 12px;
+    right: 12px;
+    top: 12px;
+    max-width: none;
+  }
+}

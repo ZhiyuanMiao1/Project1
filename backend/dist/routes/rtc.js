@@ -77,7 +77,7 @@ router.get('/classrooms/:courseId/auth', auth_1.requireAuth, async (req, res) =>
         const userRows = await (0, db_1.query)('SELECT username FROM users WHERE id = ? LIMIT 1', [req.user.id]);
         const userName = safeText(userRows?.[0]?.username) || rtcUserId;
         const channelId = `course_${courseId}`;
-        const timestamp = Math.floor(Date.now() / 1000);
+        const timestamp = Math.floor(Date.now() / 1000) + 3600;
         const authInfo = (0, aliyunRtc_1.createAliRtcAuthInfo)({
             appId: runtime.appId,
             appKey: runtime.appKey,

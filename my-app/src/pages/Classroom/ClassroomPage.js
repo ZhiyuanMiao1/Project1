@@ -1,19 +1,56 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiArrowLeft, FiMic, FiMicOff, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
-import AliRtcEngine from 'aliyun-rtc-sdk';
+import AliRtcEngineSdk from 'aliyun-webrtc-sdk';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import api from '../../api/client';
 import './ClassroomPage.css';
 
+const RTC_GSLB_URL = 'https://rgslb.rtc.aliyuncs.com';
+
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const resolveAliRtcEngineCtor = () => {
+  if (typeof AliRtcEngineSdk === 'function') return AliRtcEngineSdk;
+  if (AliRtcEngineSdk && typeof AliRtcEngineSdk.default === 'function') return AliRtcEngineSdk.default;
+  if (typeof window !== 'undefined' && typeof window.AliRtcEngine === 'function') return window.AliRtcEngine;
+  return null;
+};
+
+const normalizeTimestampSeconds = (value) => {
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return 0;
+  return raw > 1e12 ? Math.floor(raw / 1000) : Math.floor(raw);
+};
 
 const parseErrorMessage = (error, fallback) => {
   const responseMessage = safeText(error?.response?.data?.error);
   if (responseMessage) return responseMessage;
-  const errorMessage = safeText(error?.message);
-  if (errorMessage) return errorMessage;
+  const rawMessage = safeText(error?.message || error?.reason || error?.description);
+  const code = Number(error?.code ?? error?.errorCode);
+  if (rawMessage && Number.isFinite(code)) return `${rawMessage} (code: ${code})`;
+  if (rawMessage) return rawMessage;
+  if (Number.isFinite(code)) return `${fallback} (code: ${code})`;
   return fallback;
+};
+
+const toRtcJoinAuthInfo = (rawAuthInfo) => {
+  const appid = safeText(rawAuthInfo?.appid || rawAuthInfo?.appId);
+  const channel = safeText(rawAuthInfo?.channel || rawAuthInfo?.channelId);
+  const userid = safeText(rawAuthInfo?.userid || rawAuthInfo?.userId);
+  const nonce = safeText(rawAuthInfo?.nonce);
+  const token = safeText(rawAuthInfo?.token);
+  const timestampSeconds = normalizeTimestampSeconds(rawAuthInfo?.timestamp);
+  if (!appid || !channel || !userid || !token || !nonce || !timestampSeconds) return null;
+  return {
+    appid,
+    channel,
+    userid,
+    nonce,
+    timestamp: String(timestampSeconds),
+    token,
+    gslb: [RTC_GSLB_URL],
+  };
 };
 
 function ClassroomPage() {
@@ -66,19 +103,9 @@ function ClassroomPage() {
       detachEngineListeners(engine);
 
       try {
-        if (remoteUserIdRef.current) {
-          engine.setRemoteViewConfig(
-            null,
-            remoteUserIdRef.current,
-            AliRtcEngine.AliRtcVideoTrack.AliRtcVideoTrackCamera
-          );
+        if (joinedRef.current) {
+          await engine.unPublish();
         }
-      } catch {}
-      try {
-        await engine.stopPreview();
-      } catch {}
-      try {
-        await engine.setLocalViewConfig(null, AliRtcEngine.AliRtcVideoTrack.AliRtcVideoTrackCamera);
       } catch {}
       try {
         if (joinedRef.current) {
@@ -86,11 +113,18 @@ function ClassroomPage() {
         }
       } catch {}
       try {
-        await engine.destroy();
+        await engine.stopPreview();
       } catch {}
+      try {
+        if (typeof engine.dispose === 'function') {
+          engine.dispose();
+        }
+      } catch {}
+
       engineRef.current = null;
       joinedRef.current = false;
       remoteUserIdRef.current = '';
+
       if (mountedRef.current) {
         setJoined(false);
         setRemoteUserId('');
@@ -103,58 +137,62 @@ function ClassroomPage() {
   const attachEngineListeners = useCallback((engine) => {
     detachEngineListeners(engine);
 
-    const handleConnectionStatusChange = (connectionStatus) => {
-      if (!mountedRef.current) return;
-      const text = safeText(connectionStatus);
-      if (text) setStatusText(`连接状态：${text}`);
-    };
-
-    const handleRemoteUserOnLineNotify = (uid) => {
-      const normalizedUid = safeText(uid);
+    const handlePublisher = (publisher) => {
+      const normalizedUid = safeText(publisher?.userId);
       if (!normalizedUid || !mountedRef.current) return;
       remoteUserIdRef.current = normalizedUid;
       setRemoteUserId(normalizedUid);
       setStatusText('对方已进入课堂');
+
+      void (async () => {
+        try {
+          if (!engineRef.current) return;
+          await engineRef.current.subscribe(normalizedUid);
+          if (remoteVideoRef.current) {
+            engineRef.current.setDisplayRemoteVideo({
+              userId: normalizedUid,
+              video: remoteVideoRef.current,
+              type: 1,
+            });
+          }
+        } catch (error) {
+          if (!mountedRef.current) return;
+          const message = parseErrorMessage(error, '订阅对方画面失败');
+          setErrorMessage(message);
+          setStatusText(message);
+        }
+      })();
     };
 
-    const handleRemoteTrackAvailableNotify = (uid, _audioTrack, videoTrack) => {
-      const normalizedUid = safeText(uid);
-      if (!normalizedUid) return;
-      remoteUserIdRef.current = normalizedUid;
-      if (!mountedRef.current) return;
-      setRemoteUserId(normalizedUid);
-
-      const videoTrackEnum = AliRtcEngine.AliRtcVideoTrack;
-      if (videoTrack === videoTrackEnum.AliRtcVideoTrackNo) return;
-      const trackToRender = videoTrack === videoTrackEnum.AliRtcVideoTrackScreen
-        ? videoTrackEnum.AliRtcVideoTrackScreen
-        : videoTrackEnum.AliRtcVideoTrackCamera;
-      if (!remoteVideoRef.current || !engineRef.current) return;
-      try {
-        engineRef.current.setRemoteViewConfig(remoteVideoRef.current, normalizedUid, trackToRender);
-      } catch {}
-    };
-
-    const handleRemoteUserOffLineNotify = (uid) => {
-      const normalizedUid = safeText(uid);
+    const handleUnPublisher = (publisher) => {
+      const normalizedUid = safeText(publisher?.userId);
       if (!normalizedUid || !mountedRef.current) return;
       if (remoteUserIdRef.current === normalizedUid) {
         remoteUserIdRef.current = '';
         setRemoteUserId('');
-        if (engineRef.current) {
-          try {
-            engineRef.current.setRemoteViewConfig(
-              null,
-              normalizedUid,
-              AliRtcEngine.AliRtcVideoTrack.AliRtcVideoTrackCamera
-            );
-          } catch {}
-        }
+      }
+      setStatusText('对方已停止发布');
+    };
+
+    const handleJoin = (data) => {
+      const normalizedUid = safeText(data?.userId);
+      if (!normalizedUid || !mountedRef.current) return;
+      if (joinedRef.current) {
+        setStatusText('课堂已连接');
+      }
+    };
+
+    const handleLeave = (data) => {
+      const normalizedUid = safeText(data?.userId);
+      if (!normalizedUid || !mountedRef.current) return;
+      if (remoteUserIdRef.current === normalizedUid) {
+        remoteUserIdRef.current = '';
+        setRemoteUserId('');
       }
       setStatusText('对方已离开课堂');
     };
 
-    const handleOccurError = (error) => {
+    const handleError = (error) => {
       if (!mountedRef.current) return;
       const message = parseErrorMessage(error, '课堂连接发生错误，请稍后重试');
       setErrorMessage(message);
@@ -162,12 +200,12 @@ function ClassroomPage() {
     };
 
     const listeners = [
-      ['connectionStatusChange', handleConnectionStatusChange],
-      ['remoteUserOnLineNotify', handleRemoteUserOnLineNotify],
-      ['remoteTrackAvailableNotify', handleRemoteTrackAvailableNotify],
-      ['remoteUserOffLineNotify', handleRemoteUserOffLineNotify],
-      ['occurError', handleOccurError],
-      ['onOccurError', handleOccurError],
+      ['onPublisher', handlePublisher],
+      ['onUnPublisher', handleUnPublisher],
+      ['onJoin', handleJoin],
+      ['onLeave', handleLeave],
+      ['onError', handleError],
+      ['onBye', handleError],
     ];
 
     listeners.forEach(([eventName, handler]) => {
@@ -203,35 +241,43 @@ function ClassroomPage() {
         const response = await api.get(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/auth`);
         if (cancelled || !mountedRef.current) return;
 
-        const authInfo = response?.data?.authInfo || null;
+        const rawAuthInfo = response?.data?.authInfo || null;
+        const rtcJoinAuthInfo = toRtcJoinAuthInfo(rawAuthInfo);
         const userName = safeText(response?.data?.userName);
         const sessionInfo = response?.data?.session && typeof response.data.session === 'object'
           ? response.data.session
           : null;
 
-        if (!authInfo || !safeText(authInfo.appId) || !safeText(authInfo.channelId) || !safeText(authInfo.userId) || !safeText(authInfo.token)) {
+        if (!rtcJoinAuthInfo) {
           throw new Error('课堂鉴权返回无效');
         }
 
         setSession(sessionInfo);
         setStatusText('正在初始化课堂...');
 
-        const engine = AliRtcEngine.getInstance();
+        const EngineCtor = resolveAliRtcEngineCtor();
+        if (!EngineCtor) {
+          throw new Error('RTC SDK 加载失败');
+        }
+
+        const engine = new EngineCtor();
         engineRef.current = engine;
         attachEngineListeners(engine);
 
-        engine.setChannelProfile(AliRtcEngine.AliRtcSdkChannelProfile.AliRtcSdkCommunication);
-        await engine.setClientRole(AliRtcEngine.AliRtcSdkClientRole.AliRtcSdkInteractive);
-        engine.setDefaultSubscribeAllRemoteAudioStreams(true);
-        engine.setDefaultSubscribeAllRemoteVideoStreams(true);
+        try {
+          engine.setChannelProfile(0);
+        } catch {}
+        try {
+          await engine.setClientRole(0);
+        } catch {}
 
         if (localVideoRef.current) {
-          await engine.setLocalViewConfig(localVideoRef.current, AliRtcEngine.AliRtcVideoTrack.AliRtcVideoTrackCamera);
+          await engine.startPreview(localVideoRef.current);
         }
-        await engine.startPreview();
 
         setStatusText('正在加入课堂...');
-        await engine.joinChannel(authInfo, userName || safeText(authInfo.userId));
+        await engine.joinChannel(rtcJoinAuthInfo, userName || rtcJoinAuthInfo.userid);
+        await engine.publish();
 
         if (cancelled || !mountedRef.current) return;
         joinedRef.current = true;
@@ -258,12 +304,25 @@ function ClassroomPage() {
     };
   }, [attachEngineListeners, courseId, leaveAndDestroy]);
 
+  useEffect(() => {
+    const engine = engineRef.current;
+    const normalizedUid = safeText(remoteUserId);
+    if (!engine || !joinedRef.current || !normalizedUid || !remoteVideoRef.current) return;
+    try {
+      engine.setDisplayRemoteVideo({
+        userId: normalizedUid,
+        video: remoteVideoRef.current,
+        type: 1,
+      });
+    } catch {}
+  }, [remoteUserId]);
+
   const handleToggleMic = useCallback(() => {
     const engine = engineRef.current;
     if (!engine || !joinedRef.current) return;
     const nextMuted = !micMuted;
     try {
-      engine.muteLocalMic(nextMuted);
+      engine.muteLocalMic(nextMuted, true);
       if (mountedRef.current) setMicMuted(nextMuted);
     } catch (error) {
       if (!mountedRef.current) return;
@@ -271,12 +330,12 @@ function ClassroomPage() {
     }
   }, [micMuted]);
 
-  const handleToggleCamera = useCallback(async () => {
+  const handleToggleCamera = useCallback(() => {
     const engine = engineRef.current;
     if (!engine || !joinedRef.current) return;
     const nextMuted = !cameraMuted;
     try {
-      await engine.muteLocalCamera(nextMuted);
+      engine.muteLocalCamera(nextMuted);
       if (mountedRef.current) setCameraMuted(nextMuted);
     } catch (error) {
       if (!mountedRef.current) return;
