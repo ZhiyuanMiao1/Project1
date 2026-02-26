@@ -605,6 +605,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         courseTypeId: '',
         schedule: null,
         scheduleHistory: [] as any[],
+        decisionMessages: [] as any[],
         latestDecision: null as any,
         messages: [],
       };
@@ -619,24 +620,21 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
 
       const decisionRows = await query<any[]>(
         `
-        SELECT mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
+        SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
         FROM message_items mi
-        INNER JOIN (
-          SELECT thread_id, MAX(id) AS max_id
-          FROM message_items
-          WHERE thread_id IN (${placeholders})
-            AND message_type = 'appointment_decision'
-          GROUP BY thread_id
-        ) latest ON latest.max_id = mi.id
+        WHERE mi.thread_id IN (${placeholders})
+          AND mi.message_type = 'appointment_decision'
+        ORDER BY mi.thread_id ASC, mi.id ASC
         `,
         threadIds
       );
 
-      const decisionByThread = new Map<string, any>();
+      const decisionByThread = new Map<string, any[]>();
       for (const row of decisionRows || []) {
         const tid = String(row?.thread_id || '').trim();
         if (!tid) continue;
-        decisionByThread.set(tid, row);
+        if (!decisionByThread.has(tid)) decisionByThread.set(tid, []);
+        decisionByThread.get(tid)!.push(row);
       }
 
       const items = await query<any[]>(
@@ -688,17 +686,47 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       }
 
       for (const t of threads) {
-        const row = decisionByThread.get(String(t.id));
-        if (!row) continue;
-        const payload = parseAppointmentDecisionPayload(row?.payload_json);
-        if (!payload) continue;
-        const status = typeof payload.status === 'string' ? payload.status.trim() : '';
-        if (!status) continue;
-        t.latestDecision = {
-          status,
-          time: row?.created_at ? new Date(row.created_at).toISOString() : '',
-          isByMe: Number(row?.sender_user_id) === req.user!.id,
-        };
+        const rowsForThread = decisionByThread.get(String(t.id)) || [];
+        if (!rowsForThread.length) continue;
+
+        const MAX_PER_THREAD = 30;
+        const recentRows = rowsForThread.length > MAX_PER_THREAD
+          ? rowsForThread.slice(-MAX_PER_THREAD)
+          : rowsForThread;
+
+        const decisionMessages = recentRows
+          .map((row) => {
+            const payload = parseAppointmentDecisionPayload(row?.payload_json);
+            if (!payload) return null;
+
+            const status = normalizeDecisionStatus(payload.status);
+            if (!status) return null;
+
+            const appointmentIdRaw = payload.appointmentId;
+            const appointmentIdText = typeof appointmentIdRaw === 'string'
+              ? appointmentIdRaw.trim()
+              : (appointmentIdRaw == null ? '' : String(appointmentIdRaw).trim());
+
+            return {
+              id: String(row?.id || ''),
+              appointmentId: appointmentIdText,
+              status,
+              time: row?.created_at ? new Date(row.created_at).toISOString() : '',
+              isByMe: Number(row?.sender_user_id) === req.user!.id,
+            };
+          })
+          .filter(Boolean) as any[];
+
+        t.decisionMessages = decisionMessages;
+
+        const latestDecision = decisionMessages[decisionMessages.length - 1];
+        if (latestDecision) {
+          t.latestDecision = {
+            status: latestDecision.status,
+            time: latestDecision.time,
+            isByMe: latestDecision.isByMe,
+          };
+        }
       }
     }
 

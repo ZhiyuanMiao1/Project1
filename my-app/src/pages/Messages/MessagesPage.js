@@ -43,6 +43,16 @@ const toFiniteCardTimeMs = (card) => {
   return Number.isFinite(ms) ? ms : null;
 };
 
+const toFiniteDecisionId = (decision) => {
+  const n = Number.parseInt(String(decision?.id ?? '').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const toFiniteDecisionTimeMs = (decision) => {
+  const ms = Date.parse(String(decision?.time ?? '').trim());
+  return Number.isFinite(ms) ? ms : null;
+};
+
 const compareScheduleCardsChronologically = (a, b) => {
   const idA = toFiniteCardId(a);
   const idB = toFiniteCardId(b);
@@ -50,6 +60,20 @@ const compareScheduleCardsChronologically = (a, b) => {
 
   const timeA = toFiniteCardTimeMs(a);
   const timeB = toFiniteCardTimeMs(b);
+  if (timeA != null && timeB != null && timeA !== timeB) return timeA - timeB;
+  if (timeA != null && timeB == null) return 1;
+  if (timeA == null && timeB != null) return -1;
+
+  return 0;
+};
+
+const compareTimelineItemsChronologically = (a, b) => {
+  const idA = a?.orderId ?? null;
+  const idB = b?.orderId ?? null;
+  if (idA != null && idB != null && idA !== idB) return idA - idB;
+
+  const timeA = a?.orderTimeMs ?? null;
+  const timeB = b?.orderTimeMs ?? null;
   if (timeA != null && timeB != null && timeA !== timeB) return timeA - timeB;
   if (timeA != null && timeB == null) return 1;
   if (timeA == null && timeB != null) return -1;
@@ -465,6 +489,52 @@ function MessagesPage() {
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
 
+  const decisionNotices = useMemo(() => {
+    const rows = Array.isArray(activeThread?.decisionMessages) ? activeThread.decisionMessages : [];
+    const normalized = rows
+      .map((item, index) => {
+        if (!item || typeof item !== 'object') return null;
+        const status = typeof item.status === 'string' ? item.status.trim().toLowerCase() : '';
+        if (status !== 'accepted' && status !== 'rejected') return null;
+        if (item.isByMe) return null;
+        return {
+          id: String(item.id || `decision-${index}`),
+          status,
+          time: String(item.time || ''),
+        };
+      })
+      .filter(Boolean);
+
+    if (normalized.length > 0) return normalized;
+
+    const latest = activeThread?.latestDecision;
+    if (!latest || typeof latest !== 'object') return [];
+    if (latest.isByMe) return [];
+    const status = typeof latest.status === 'string' ? latest.status.trim().toLowerCase() : '';
+    if (status !== 'accepted' && status !== 'rejected') return [];
+    return [{ id: 'latest-decision', status, time: String(latest.time || '') }];
+  }, [activeThread?.decisionMessages, activeThread?.latestDecision]);
+
+  const timelineItems = useMemo(() => {
+    const cardItems = scheduleCards.map((card, index) => ({
+      kind: 'card',
+      key: `card-${card?.__key || card?.id || index}`,
+      orderId: toFiniteCardId(card),
+      orderTimeMs: toFiniteCardTimeMs(card),
+      card,
+    }));
+
+    const decisionItems = decisionNotices.map((decision, index) => ({
+      kind: 'decision',
+      key: `decision-${decision.id || index}`,
+      orderId: toFiniteDecisionId(decision),
+      orderTimeMs: toFiniteDecisionTimeMs(decision),
+      decision,
+    }));
+
+    return [...cardItems, ...decisionItems].sort(compareTimelineItemsChronologically);
+  }, [decisionNotices, scheduleCards]);
+
   useEffect(() => () => {
     if (scheduleCardSendTimeoutRef.current) {
       clearTimeout(scheduleCardSendTimeoutRef.current);
@@ -479,10 +549,10 @@ function MessagesPage() {
   useEffect(() => {
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
-    // Keep auto-jump for thread switch and newly appended cards.
+    // Keep auto-jump for thread switch and newly appended timeline items.
     // Avoid jumping on in-place status updates (length unchanged).
     scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id, scheduleCards.length]);
+  }, [activeThread?.id, timelineItems.length]);
 
   useEffect(() => {
     setActionError('');
@@ -1012,7 +1082,19 @@ function MessagesPage() {
                 </div>
 
                 <div className="message-detail-body" ref={messageBodyScrollRef}>
-                  {scheduleCards.map((scheduleCard) => {
+                  {timelineItems.map((item) => {
+                    if (item.kind === 'decision') {
+                      const decisionStatus = item?.decision?.status;
+                      if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected') return null;
+                      const verb = decisionStatus === 'accepted' ? '接受' : '拒绝';
+                      return (
+                        <div key={item.key} className="message-decision-notice" role="status">
+                          {`${activeCounterpartDisplayName}${verb}了你的邀请`}
+                        </div>
+                      );
+                    }
+
+                    const scheduleCard = item.card;
                     const isPrimary = Boolean(scheduleCard?.__primary);
                     const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '');
 
@@ -1032,7 +1114,7 @@ function MessagesPage() {
 
                     return (
                       <AppointmentCard
-                        key={scheduleCard.__key || scheduleCard.id || windowText}
+                        key={item.key}
                         thread={activeThread}
                         scheduleCard={scheduleCard}
                         detailAvatarInitial={detailAvatarInitial}
@@ -1048,32 +1130,6 @@ function MessagesPage() {
                       />
                     );
                   })}
-                  {(() => {
-                    const decision = activeThread?.latestDecision;
-                    const decisionStatus = (() => {
-                      if (decision && typeof decision === 'object') {
-                        const status = typeof decision.status === 'string' ? decision.status.trim().toLowerCase() : '';
-                        if ((status === 'accepted' || status === 'rejected') && !decision.isByMe) return status;
-                      }
-
-                      const primaryCard =
-                        scheduleCards.find((card) => Boolean(card?.__primary))
-                        || scheduleCards[scheduleCards.length - 1];
-                      if (!primaryCard || primaryCard?.direction !== 'outgoing') return '';
-                      const statusKey = normalizeScheduleStatus(primaryCard?.status);
-                      if (statusKey === 'accepted' || statusKey === 'rejected') return statusKey;
-                      return '';
-                    })();
-
-                    if (!decisionStatus) return null;
-
-                    const verb = decisionStatus === 'accepted' ? '接受' : '拒绝';
-                    return (
-                      <div className="message-decision-notice" role="status">
-                        {`${activeCounterpartDisplayName}${verb}了你的邀请`}
-                      </div>
-                    );
-                  })()}
                 </div>
               </>
             ) : (
