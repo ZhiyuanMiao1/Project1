@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
-import { getCourseTitleParts, normalizeScheduleStatus, SCHEDULE_STATUS_META } from './appointmentCardUtils';
+import {
+  getCourseTitleParts,
+  resolveScheduleStatus,
+  SCHEDULE_STATUS_META,
+} from './appointmentCardUtils';
 import './AppointmentCard.css';
 
 function AppointmentCard({
@@ -20,10 +24,14 @@ function AppointmentCard({
   const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
   const isOutgoing = cardDirection === 'outgoing';
 
-  const statusKey = normalizeScheduleStatus(scheduleCard?.status);
+  const statusKey = useMemo(() => resolveScheduleStatus({
+    status: scheduleCard?.status,
+    windowText,
+    referenceTime: scheduleCard?.time,
+  }), [scheduleCard?.status, scheduleCard?.time, windowText]);
   const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
-  const showActions = !isOutgoing;
+  const showActions = !isOutgoing && statusKey !== 'expired';
 
   const statusClassName =
     statusMeta.tone === 'accept'
@@ -32,6 +40,8 @@ function AppointmentCard({
         ? 'reject-btn'
         : statusMeta.tone === 'reschedule'
           ? 'reschedule-btn'
+          : statusMeta.tone === 'expired'
+            ? 'expired-btn'
           : 'pending-btn';
 
   const titleParts = useMemo(() => getCourseTitleParts(thread, scheduleCard), [scheduleCard, thread]);
@@ -233,7 +243,9 @@ function AppointmentCard({
             <div className="schedule-actions">
               <button
                 type="button"
-                className={statusKey === 'pending' ? `schedule-btn status-btn ${statusClassName}` : `schedule-btn merged ${statusClassName}`}
+                className={(statusKey === 'pending' || statusKey === 'expired')
+                  ? `schedule-btn status-btn ${statusClassName}`
+                  : `schedule-btn merged ${statusClassName}`}
                 disabled
                 aria-label={`日程状态：${statusMeta.label}`}
               >

@@ -323,7 +323,8 @@
 
 .schedule-btn.merged.accept-btn:hover,
 .schedule-btn.merged.reject-btn:hover,
-.schedule-btn.merged.reschedule-btn:hover {
+.schedule-btn.merged.reschedule-btn:hover,
+.schedule-btn.merged.expired-btn:hover {
   transform: none;
   box-shadow: none;
 }
@@ -363,6 +364,11 @@
   color: #0f172a;
 }
 
+.schedule-btn.status-btn.expired-btn {
+  background: #eef2f7;
+  color: #52607a;
+}
+
 .schedule-btn.accept-btn {
   background: #e8f5ec;
   color: #0f172a;
@@ -376,6 +382,11 @@
 .schedule-btn.reschedule-btn {
   background: #e0f2fe;
   color: #0f172a;
+}
+
+.schedule-btn.expired-btn {
+  background: #eef2f7;
+  color: #52607a;
 }
 
 .schedule-decision-arrow {
