@@ -16,9 +16,7 @@ import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 import WalletPage from './pages/Wallet/WalletPage';
 import ClassroomPage from './pages/Classroom/ClassroomPage';
-import api from './api/client';
-import { AUTH_SESSION_EXPIRED_EVENT, clearAuth, emitAuthSessionExpired, isTokenExpired } from './utils/auth';
-import { getAuthToken } from './utils/authStorage';
+import { AUTH_SESSION_EXPIRED_EVENT } from './utils/auth';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
 const BRAND_NAME = 'Mentory';
@@ -85,10 +83,8 @@ function RouteTitleManager() {
 
 function AuthSessionManager() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [toastMessage, setToastMessage] = useState('');
   const toastTimerRef = useRef(null);
-  const checkingRef = useRef(false);
 
   const showToast = (message) => {
     const next = safeText(message) || '登录已失效，请重新登录';
@@ -128,23 +124,6 @@ function AuthSessionManager() {
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
     return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
   }, [navigate]);
-
-  useEffect(() => {
-    const token = getAuthToken();
-    if (!token || !isTokenExpired(token) || checkingRef.current) return;
-    checkingRef.current = true;
-
-    clearAuth(api);
-    emitAuthSessionExpired({
-      from: `${location.pathname || ''}${location.search || ''}${location.hash || ''}`,
-      requiredRole: inferRequiredRoleFromPath(location.pathname),
-      message: '登录已失效，请重新登录',
-    });
-
-    window.setTimeout(() => {
-      checkingRef.current = false;
-    }, 0);
-  }, [location.pathname, location.search, location.hash]);
 
   if (!toastMessage) return null;
   return (

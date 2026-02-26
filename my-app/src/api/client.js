@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAuth, emitAuthSessionExpired, ensureFreshAuth, isTokenExpired } from '../utils/auth';
+import { clearAuth, emitAuthSessionExpired, ensureFreshAuth } from '../utils/auth';
 import { broadcastAuthLogin, getAuthToken, initAuthSync, setAuthToken, setAuthUser } from '../utils/authStorage';
 
 const getApiBase = () => {
@@ -69,10 +69,6 @@ client.interceptors.request.use(
   (config) => {
     const token = getAuthToken();
     if (!token) return config;
-    if (isTokenExpired(token)) {
-      handleSessionExpired();
-      return Promise.reject(new Error('AUTH_TOKEN_EXPIRED'));
-    }
 
     const url = String(config?.url || '');
     const isAbsolute = /^https?:\/\//i.test(url);
