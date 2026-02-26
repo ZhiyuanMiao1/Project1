@@ -238,6 +238,11 @@ const toMiddayDate = (value = new Date()) => {
 
 const DEFAULT_SCHEDULE_WINDOW = '11月11日 周二 14:00-15:00 (GMT+8)';
 const DEFAULT_MEETING_ID = '会议号：123 456 789';
+const MESSAGE_ACTION_EXIT_MS = 220;
+
+const waitFor = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
 
 const toYmdKey = (dateLike) => {
   if (!dateLike) return '';
@@ -327,6 +332,7 @@ function MessagesPage() {
   const rescheduleScrollRef = useRef(null);
   const rescheduleInitialScrollSet = useRef(false);
   const rescheduleResizeRef = useRef(null);
+  const timelineAutoScrollMetaRef = useRef({ threadId: null, length: 0 });
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -345,6 +351,7 @@ function MessagesPage() {
   const [threads, setThreads] = useState([]);
   const [threadsStatus, setThreadsStatus] = useState('idle'); // idle | loading | loaded | error
   const [threadsError, setThreadsError] = useState('');
+  const [exitingMessageActionIds, setExitingMessageActionIds] = useState([]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -548,10 +555,20 @@ function MessagesPage() {
   }, [activeThread]);
 
   useEffect(() => {
+    const currentThreadId = activeThread?.id ? String(activeThread.id) : null;
+    const currentLength = timelineItems.length;
+    const previous = timelineAutoScrollMetaRef.current;
+    const threadSwitched = Boolean(currentThreadId && previous.threadId !== currentThreadId);
+    const appendedInSameThread = Boolean(
+      currentThreadId
+      && previous.threadId === currentThreadId
+      && currentLength > previous.length
+    );
+    timelineAutoScrollMetaRef.current = { threadId: currentThreadId, length: currentLength };
+
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
-    // Keep auto-jump for thread switch and newly appended timeline items.
-    // Avoid jumping on in-place status updates (length unchanged).
+    if (!threadSwitched && !appendedInSameThread) return;
     scrollEl.scrollTop = scrollEl.scrollHeight;
   }, [activeThread?.id, timelineItems.length]);
 
@@ -562,6 +579,7 @@ function MessagesPage() {
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
     setMessageActionBusyId(null);
+    setExitingMessageActionIds([]);
     if (scheduleCardSendTimeoutRef.current) {
       clearTimeout(scheduleCardSendTimeoutRef.current);
       scheduleCardSendTimeoutRef.current = null;
@@ -624,12 +642,28 @@ function MessagesPage() {
 
   const handleDeleteForMe = async (appointmentId) => {
     if (!appointmentId) return;
+    const actionId = String(appointmentId);
+    const preservedScrollTop = messageBodyScrollRef.current?.scrollTop ?? null;
     setActionError('');
-    setMessageActionBusyId(String(appointmentId));
+    setMessageActionBusyId(actionId);
+    setExitingMessageActionIds((prev) => (prev.includes(actionId) ? prev : [...prev, actionId]));
     try {
-      await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/hide`);
+      await Promise.all([
+        waitFor(MESSAGE_ACTION_EXIT_MS),
+        api.post(`/api/messages/appointments/${encodeURIComponent(actionId)}/hide`),
+      ]);
       await reloadThreads();
+      setExitingMessageActionIds((prev) => prev.filter((id) => id !== actionId));
+      if (preservedScrollTop != null) {
+        window.requestAnimationFrame(() => {
+          const scrollEl = messageBodyScrollRef.current;
+          if (!scrollEl) return;
+          const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+          scrollEl.scrollTop = Math.max(0, Math.min(preservedScrollTop, maxScrollTop));
+        });
+      }
     } catch (err) {
+      setExitingMessageActionIds((prev) => prev.filter((id) => id !== actionId));
       const msg = err?.response?.data?.error || err?.message || '\u5220\u9664\u6d88\u606f\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
       setActionError(String(msg));
     } finally {
@@ -639,12 +673,28 @@ function MessagesPage() {
 
   const handleRecall = async (appointmentId) => {
     if (!appointmentId) return;
+    const actionId = String(appointmentId);
+    const preservedScrollTop = messageBodyScrollRef.current?.scrollTop ?? null;
     setActionError('');
-    setMessageActionBusyId(String(appointmentId));
+    setMessageActionBusyId(actionId);
+    setExitingMessageActionIds((prev) => (prev.includes(actionId) ? prev : [...prev, actionId]));
     try {
-      await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/recall`);
+      await Promise.all([
+        waitFor(MESSAGE_ACTION_EXIT_MS),
+        api.post(`/api/messages/appointments/${encodeURIComponent(actionId)}/recall`),
+      ]);
       await reloadThreads();
+      setExitingMessageActionIds((prev) => prev.filter((id) => id !== actionId));
+      if (preservedScrollTop != null) {
+        window.requestAnimationFrame(() => {
+          const scrollEl = messageBodyScrollRef.current;
+          if (!scrollEl) return;
+          const maxScrollTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+          scrollEl.scrollTop = Math.max(0, Math.min(preservedScrollTop, maxScrollTop));
+        });
+      }
     } catch (err) {
+      setExitingMessageActionIds((prev) => prev.filter((id) => id !== actionId));
       const msg = err?.response?.data?.error || err?.message || '\u64a4\u56de\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
       setActionError(String(msg));
     } finally {
@@ -1144,6 +1194,7 @@ function MessagesPage() {
                       && scheduleCard?.direction === 'outgoing'
                       && normalizeScheduleStatus(scheduleCard?.status) === 'pending'
                     );
+                    const isExiting = exitingMessageActionIds.includes(String(scheduleCard?.id));
 
                     return (
                       <AppointmentCard
@@ -1157,6 +1208,7 @@ function MessagesPage() {
                         meetingText={meetingText}
                         cardHoverTime={cardHoverTime}
                         isSendingCard={isSendingCard}
+                        isExiting={isExiting}
                         appointmentBusyId={appointmentBusyId}
                         messageActionBusyId={messageActionBusyId}
                         onDecision={handleAppointmentDecision}

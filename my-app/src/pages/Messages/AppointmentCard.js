@@ -17,6 +17,7 @@ function AppointmentCard({
   meetingText,
   cardHoverTime,
   isSendingCard,
+  isExiting,
   appointmentBusyId,
   messageActionBusyId,
   onDecision,
@@ -107,8 +108,14 @@ function AppointmentCard({
     setMessageMenuOpen(false);
   }, [scheduleCard?.id, statusKey]);
 
+  useEffect(() => {
+    if (!isExiting) return;
+    setDecisionMenuOpen(false);
+    setMessageMenuOpen(false);
+  }, [isExiting]);
+
   return (
-    <div className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''}`}>
+    <div className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''} ${isExiting ? 'is-exiting' : ''}`}>
       {!isOutgoing && (
         <div className="message-detail-avatar schedule-avatar" aria-hidden="true">
           <span className="message-avatar-fallback">{detailAvatarInitial}</span>
@@ -134,7 +141,7 @@ function AppointmentCard({
             aria-haspopup="menu"
             aria-expanded={messageMenuOpen}
             onClick={() => setMessageMenuOpen((prev) => !prev)}
-            disabled={isMessageActionBusy}
+            disabled={isMessageActionBusy || isExiting}
           >
             <span />
             <span />
@@ -149,7 +156,7 @@ function AppointmentCard({
                   setMessageMenuOpen(false);
                   onDeleteForMe?.(scheduleCard?.id);
                 }}
-                disabled={isMessageActionBusy}
+                disabled={isMessageActionBusy || isExiting}
               >
                 删除（仅自己）
               </button>
@@ -161,7 +168,7 @@ function AppointmentCard({
                   setMessageMenuOpen(false);
                   onRecall?.(scheduleCard?.id);
                 }}
-                disabled={isMessageActionBusy || !canRecall}
+                disabled={isMessageActionBusy || isExiting || !canRecall}
                 title={canRecall ? '' : '对方已响应，无法撤回'}
               >
                 撤回
