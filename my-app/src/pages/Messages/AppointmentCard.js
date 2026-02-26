@@ -19,12 +19,11 @@ function AppointmentCard({
 }) {
   const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
   const isOutgoing = cardDirection === 'outgoing';
-  const isPrimary = Boolean(scheduleCard?.__primary);
 
   const statusKey = normalizeScheduleStatus(scheduleCard?.status);
   const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
-  const showActions = !isOutgoing && isPrimary;
+  const showActions = !isOutgoing;
 
   const statusClassName =
     statusMeta.tone === 'accept'

@@ -708,7 +708,6 @@ function MessagesPage() {
         ...primary,
         __primary: false,
         __pendingReschedule: false,
-        readOnly: true,
         __key: `history-${Date.now()}`,
       };
 
