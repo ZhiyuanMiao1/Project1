@@ -445,8 +445,10 @@ function MessagesPage() {
   useEffect(() => {
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
+    // Only snap to bottom when switching conversations.
+    // Keep current scroll position when updating card status in-place.
     scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id, activeThread?.latestDecision?.status, activeThread?.latestDecision?.time, scheduleCards]);
+  }, [activeThread?.id]);
 
   useEffect(() => {
     setActionError('');
