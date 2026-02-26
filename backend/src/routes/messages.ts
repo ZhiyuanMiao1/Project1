@@ -647,7 +647,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
         WHERE mi.thread_id IN (${placeholders})
           AND mi.message_type = 'appointment_card'
-        ORDER BY thread_id ASC, created_at ASC, id ASC
+        ORDER BY mi.thread_id ASC, mi.id ASC
         `,
         threadIds
       );

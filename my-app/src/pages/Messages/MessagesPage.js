@@ -33,20 +33,54 @@ const getThreadMyRole = (thread) => {
   return role === 'mentor' ? 'mentor' : 'student';
 };
 
+const toFiniteCardId = (card) => {
+  const n = Number.parseInt(String(card?.id ?? '').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const toFiniteCardTimeMs = (card) => {
+  const ms = Date.parse(String(card?.time ?? '').trim());
+  return Number.isFinite(ms) ? ms : null;
+};
+
+const compareScheduleCardsChronologically = (a, b) => {
+  const idA = toFiniteCardId(a);
+  const idB = toFiniteCardId(b);
+  if (idA != null && idB != null && idA !== idB) return idA - idB;
+
+  const timeA = toFiniteCardTimeMs(a);
+  const timeB = toFiniteCardTimeMs(b);
+  if (timeA != null && timeB != null && timeA !== timeB) return timeA - timeB;
+  if (timeA != null && timeB == null) return 1;
+  if (timeA == null && timeB != null) return -1;
+
+  return 0;
+};
+
 const buildScheduleCardsFromThread = (thread) => {
   if (!thread) return [];
 
   const history = Array.isArray(thread.scheduleHistory)
     ? thread.scheduleHistory
         .filter((item) => item && typeof item === 'object')
-        .map((item, index) => ({ ...item, __key: `history-${index}`, __primary: false }))
+        .map((item) => ({ ...item }))
     : [];
 
   const main = thread.schedule && typeof thread.schedule === 'object'
-    ? [{ ...thread.schedule, __key: 'main', __primary: true }]
+    ? [{ ...thread.schedule }]
     : [];
 
-  return [...history, ...main];
+  const merged = [...history, ...main];
+  if (merged.length === 0) return merged;
+
+  merged.sort(compareScheduleCardsChronologically);
+  const primaryIndex = merged.length - 1;
+
+  return merged.map((card, index) => ({
+    ...card,
+    __primary: index === primaryIndex,
+    __key: index === primaryIndex ? 'main' : `history-${index}`,
+  }));
 };
 
 
@@ -445,10 +479,10 @@ function MessagesPage() {
   useEffect(() => {
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
-    // Only snap to bottom when switching conversations.
-    // Keep current scroll position when updating card status in-place.
+    // Keep auto-jump for thread switch and newly appended cards.
+    // Avoid jumping on in-place status updates (length unchanged).
     scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id]);
+  }, [activeThread?.id, scheduleCards.length]);
 
   useEffect(() => {
     setActionError('');
