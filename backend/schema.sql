@@ -315,6 +315,17 @@ CREATE TABLE IF NOT EXISTS `message_items` (
   CONSTRAINT `fk_message_items_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Per-user soft delete visibility for message items ("delete for me").
+CREATE TABLE IF NOT EXISTS `message_item_hidden_for_users` (
+  `message_item_id` BIGINT NOT NULL,
+  `user_id` INT NOT NULL,
+  `hidden_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`message_item_id`, `user_id`),
+  KEY `idx_message_item_hidden_user` (`user_id`),
+  CONSTRAINT `fk_message_item_hidden_message` FOREIGN KEY (`message_item_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_message_item_hidden_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Persist appointment card status (accepted/rejected/etc) so both parties see consistent state.
 CREATE TABLE IF NOT EXISTS `appointment_statuses` (
   `appointment_message_id` BIGINT NOT NULL,

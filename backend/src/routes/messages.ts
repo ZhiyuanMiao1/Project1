@@ -12,6 +12,7 @@ const isMissingMessagesSchemaError = (err: any) => {
   return (
     message.includes('message_threads')
     || message.includes('message_items')
+    || message.includes('message_item_hidden_for_users')
     || message.includes('appointment_statuses')
     || message.includes('course_sessions')
   );
@@ -187,15 +188,21 @@ const parseAppointmentDecisionPayload = (payloadJson: unknown): AppointmentDecis
 const toScheduleCard = (row: any, currentUserId: number) => {
   const payload = parseAppointmentPayload(row?.payload_json);
   if (!payload) return null;
+  const rawStatus = typeof row?.appointment_status === 'string'
+    ? row.appointment_status.trim().toLowerCase()
+    : '';
+  const normalizedStatus =
+    rawStatus === 'accepted' || rawStatus === 'rejected' || rawStatus === 'rescheduling' || rawStatus === 'pending'
+      ? rawStatus
+      : 'pending';
   return {
     id: String(row?.id ?? ''),
     direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
     window: String(payload.windowText || '').trim(),
     meetingId: String(payload.meetingId || '').trim(),
     time: row?.created_at ? new Date(row.created_at).toISOString() : '',
-    status: typeof row?.appointment_status === 'string' && row.appointment_status.trim()
-      ? row.appointment_status.trim()
-      : 'pending',
+    status: normalizedStatus,
+    canRecall: Number(row?.sender_user_id) === currentUserId && normalizedStatus === 'pending',
     courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
     courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
   };
@@ -205,6 +212,11 @@ const normalizeDecisionStatus = (value: unknown) => {
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending') return raw;
   return '';
+};
+
+const toPositiveIntOrNull = (value: unknown) => {
+  const n = Number.parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 };
 
 router.post('/appointments', requireAuth, async (req: Request, res: Response) => {
@@ -544,6 +556,145 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
   }
 });
 
+router.post('/appointments/:appointmentId/hide', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const appointmentId = Number(req.params.appointmentId);
+  if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+    return res.status(400).json({ error: '无效预约ID' });
+  }
+
+  try {
+    const rows = await query<any[]>(
+      `
+      SELECT mi.id
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      `,
+      [appointmentId, req.user.id, req.user.id]
+    );
+
+    if (!rows?.[0]) return res.status(404).json({ error: '预约不存在或无权限' });
+
+    await query(
+      `
+      INSERT INTO message_item_hidden_for_users (message_item_id, user_id)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE hidden_at = CURRENT_TIMESTAMP
+      `,
+      [appointmentId, req.user.id]
+    );
+
+    return res.json({ ok: true, appointmentId: String(appointmentId) });
+  } catch (e) {
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Hide appointment message error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.post('/appointments/:appointmentId/recall', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const appointmentId = Number(req.params.appointmentId);
+  if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+    return res.status(400).json({ error: '无效预约ID' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute<any[]>(
+      `
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.sender_user_id,
+        COALESCE(ast.status, 'pending') AS appointment_status
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      `,
+      [appointmentId, req.user.id, req.user.id]
+    );
+
+    const row = rows?.[0];
+    if (!row) {
+      await conn.rollback();
+      return res.status(404).json({ error: '预约不存在或无权限' });
+    }
+
+    if (Number(row.sender_user_id) !== req.user.id) {
+      await conn.rollback();
+      return res.status(403).json({ error: '只能撤回自己发送的消息' });
+    }
+
+    const status = normalizeDecisionStatus(row.appointment_status) || 'pending';
+    if (status !== 'pending') {
+      await conn.rollback();
+      return res.status(409).json({ error: '对方已响应该消息，无法撤回' });
+    }
+
+    await conn.execute('DELETE FROM message_items WHERE id = ? LIMIT 1', [appointmentId]);
+
+    const threadId = Number(row.thread_id);
+    const [latestRows] = await conn.execute<any[]>(
+      `
+      SELECT id, created_at
+      FROM message_items
+      WHERE thread_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [threadId]
+    );
+    const latest = latestRows?.[0];
+
+    if (latest) {
+      await conn.execute(
+        `
+        UPDATE message_threads
+        SET last_message_id = ?, last_message_at = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `,
+        [Number(latest.id), latest.created_at || null, threadId]
+      );
+    } else {
+      await conn.execute(
+        `
+        UPDATE message_threads
+        SET last_message_id = NULL, last_message_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `,
+        [threadId]
+      );
+    }
+
+    await conn.commit();
+    return res.json({ ok: true, appointmentId: String(appointmentId) });
+  } catch (e) {
+    try { await conn.rollback(); } catch {}
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Recall appointment message error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  } finally {
+    try { conn.release(); } catch {}
+  }
+});
+
 router.get('/threads', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
@@ -615,8 +766,24 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       .map((t) => String(t.id || '').trim())
       .filter((id) => id);
 
+    let hiddenAppointmentIds = new Set<number>();
+
     if (threadIds.length > 0) {
       const placeholders = threadIds.map(() => '?').join(',');
+
+      const hiddenRows = await query<any[]>(
+        `
+        SELECT message_item_id
+        FROM message_item_hidden_for_users
+        WHERE user_id = ?
+        `,
+        [req.user.id]
+      );
+      hiddenAppointmentIds = new Set<number>(
+        (hiddenRows || [])
+          .map((row) => toPositiveIntOrNull(row?.message_item_id))
+          .filter((id): id is number => id != null)
+      );
 
       const decisionRows = await query<any[]>(
         `
@@ -652,6 +819,8 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
 
       const byThread = new Map<string, any[]>();
       for (const row of items || []) {
+        const appointmentId = toPositiveIntOrNull(row?.id);
+        if (appointmentId != null && hiddenAppointmentIds.has(appointmentId)) continue;
         const tid = String(row?.thread_id || '').trim();
         if (!tid) continue;
         if (!byThread.has(tid)) byThread.set(tid, []);
@@ -703,13 +872,15 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
             if (!status) return null;
 
             const appointmentIdRaw = payload.appointmentId;
+            const appointmentIdNum = toPositiveIntOrNull(appointmentIdRaw);
+            if (appointmentIdNum != null && hiddenAppointmentIds.has(appointmentIdNum)) return null;
             const appointmentIdText = typeof appointmentIdRaw === 'string'
               ? appointmentIdRaw.trim()
               : (appointmentIdRaw == null ? '' : String(appointmentIdRaw).trim());
 
             return {
               id: String(row?.id || ''),
-              appointmentId: appointmentIdText,
+              appointmentId: appointmentIdNum != null ? String(appointmentIdNum) : appointmentIdText,
               status,
               time: row?.created_at ? new Date(row.created_at).toISOString() : '',
               isByMe: Number(row?.sender_user_id) === req.user!.id,

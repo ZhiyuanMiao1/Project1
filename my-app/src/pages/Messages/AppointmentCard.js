@@ -18,8 +18,11 @@ function AppointmentCard({
   cardHoverTime,
   isSendingCard,
   appointmentBusyId,
+  messageActionBusyId,
   onDecision,
   onReschedule,
+  onDeleteForMe,
+  onRecall,
 }) {
   const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
   const isOutgoing = cardDirection === 'outgoing';
@@ -31,7 +34,11 @@ function AppointmentCard({
   }), [scheduleCard?.status, scheduleCard?.time, windowText]);
   const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
+  const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
+  const rawStatus = typeof scheduleCard?.status === 'string' ? scheduleCard.status.trim().toLowerCase() : 'pending';
+  const canRecallFallback = isOutgoing && rawStatus === 'pending';
+  const canRecall = typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : canRecallFallback;
 
   const statusClassName =
     statusMeta.tone === 'accept'
@@ -73,15 +80,18 @@ function AppointmentCard({
   }, [statusKey]);
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
+  const [messageMenuOpen, setMessageMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!decisionMenuOpen) return undefined;
+    if (!decisionMenuOpen && !messageMenuOpen) return undefined;
 
     const handleOutside = (event) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (target.closest('.schedule-decision-wrapper')) return;
+      if (target.closest('.schedule-card-more')) return;
       setDecisionMenuOpen(false);
+      setMessageMenuOpen(false);
     };
 
     window.addEventListener('mousedown', handleOutside, true);
@@ -90,10 +100,11 @@ function AppointmentCard({
       window.removeEventListener('mousedown', handleOutside, true);
       window.removeEventListener('touchstart', handleOutside, true);
     };
-  }, [decisionMenuOpen]);
+  }, [decisionMenuOpen, messageMenuOpen]);
 
   useEffect(() => {
     setDecisionMenuOpen(false);
+    setMessageMenuOpen(false);
   }, [scheduleCard?.id, statusKey]);
 
   return (
@@ -115,6 +126,50 @@ function AppointmentCard({
         </div>
       )}
       <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
+        <div className={`schedule-card-more ${messageMenuOpen ? 'open' : ''}`}>
+          <button
+            type="button"
+            className="schedule-card-more-trigger"
+            aria-label="更多操作"
+            aria-haspopup="menu"
+            aria-expanded={messageMenuOpen}
+            onClick={() => setMessageMenuOpen((prev) => !prev)}
+            disabled={isMessageActionBusy}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          {messageMenuOpen && (
+            <div className="schedule-card-more-menu" role="menu">
+              <button
+                type="button"
+                className="schedule-card-more-item"
+                onClick={() => {
+                  setMessageMenuOpen(false);
+                  onDeleteForMe?.(scheduleCard?.id);
+                }}
+                disabled={isMessageActionBusy}
+              >
+                删除（仅自己）
+              </button>
+              <button
+                type="button"
+                className="schedule-card-more-item danger"
+                onClick={() => {
+                  if (!canRecall) return;
+                  setMessageMenuOpen(false);
+                  onRecall?.(scheduleCard?.id);
+                }}
+                disabled={isMessageActionBusy || !canRecall}
+                title={canRecall ? '' : '对方已响应，无法撤回'}
+              >
+                撤回
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="schedule-card-top">
           <div className="schedule-card-top-row">
             <div className="schedule-card-icon" aria-hidden="true">

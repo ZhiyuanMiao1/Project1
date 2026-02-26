@@ -335,6 +335,7 @@ function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [appointmentBusyId, setAppointmentBusyId] = useState(null);
+  const [messageActionBusyId, setMessageActionBusyId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
@@ -560,6 +561,7 @@ function MessagesPage() {
     setRescheduleSourceId(null);
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
+    setMessageActionBusyId(null);
     if (scheduleCardSendTimeoutRef.current) {
       clearTimeout(scheduleCardSendTimeoutRef.current);
       scheduleCardSendTimeoutRef.current = null;
@@ -584,6 +586,15 @@ function MessagesPage() {
     }, 900);
   }, [activeThread?.id, location?.state?.animateKey, location?.state?.threadId]);
 
+  const reloadThreads = async () => {
+    const res = await api.get('/api/messages/threads');
+    const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
+    setThreads(nextThreads);
+    setThreadsStatus('loaded');
+    setThreadsError('');
+    return nextThreads;
+  };
+
   const persistAppointmentDecision = async (appointmentId, status) => {
     if (!appointmentId || !status) return false;
     setActionError('');
@@ -592,7 +603,7 @@ function MessagesPage() {
       await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/decision`, { status });
       return true;
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '更新日程状态失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || '\u66f4\u65b0\u65e5\u7a0b\u72b6\u6001\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
       setActionError(String(msg));
       return false;
     } finally {
@@ -607,12 +618,38 @@ function MessagesPage() {
     setScheduleCards((prev) => prev.map((card) => (String(card?.id) === String(appointmentId) ? { ...card, status } : card)));
 
     try {
-      const res = await api.get('/api/messages/threads');
-      const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
-      setThreads(nextThreads);
-      setThreadsStatus('loaded');
-      setThreadsError('');
+      await reloadThreads();
     } catch {}
+  };
+
+  const handleDeleteForMe = async (appointmentId) => {
+    if (!appointmentId) return;
+    setActionError('');
+    setMessageActionBusyId(String(appointmentId));
+    try {
+      await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/hide`);
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '\u5220\u9664\u6d88\u606f\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
+      setActionError(String(msg));
+    } finally {
+      setMessageActionBusyId(null);
+    }
+  };
+
+  const handleRecall = async (appointmentId) => {
+    if (!appointmentId) return;
+    setActionError('');
+    setMessageActionBusyId(String(appointmentId));
+    try {
+      await api.post(`/api/messages/appointments/${encodeURIComponent(String(appointmentId))}/recall`);
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '\u64a4\u56de\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
+      setActionError(String(msg));
+    } finally {
+      setMessageActionBusyId(null);
+    }
   };
 
   const openRescheduleFor = (appointmentId) => {
@@ -739,7 +776,7 @@ function MessagesPage() {
 
   const participantLabels = useMemo(() => {
     return {
-      left: '我',
+      left: '\u6211',
       right: counterpartDisplayName,
     };
   }, [counterpartDisplayName]);
@@ -850,13 +887,9 @@ function MessagesPage() {
         courseTypeId,
       });
 
-      const res = await api.get('/api/messages/threads');
-      const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
-      setThreads(nextThreads);
-      setThreadsStatus('loaded');
-      setThreadsError('');
+      await reloadThreads();
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '发送修改时间失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || '\u53d1\u9001\u4fee\u6539\u65f6\u95f4\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5';
       setActionError(String(msg));
     } finally {
       setRescheduleOpen(false);
@@ -1086,10 +1119,10 @@ function MessagesPage() {
                     if (item.kind === 'decision') {
                       const decisionStatus = item?.decision?.status;
                       if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected') return null;
-                      const verb = decisionStatus === 'accepted' ? '接受' : '拒绝';
+                      const verb = decisionStatus === 'accepted' ? '\u63a5\u53d7' : '\u62d2\u7edd';
                       return (
                         <div key={item.key} className="message-decision-notice" role="status">
-                          {`${activeCounterpartDisplayName}${verb}了你的邀请`}
+                          {`${activeCounterpartDisplayName}${verb}\u4e86\u4f60\u7684\u9080\u8bf7`}
                         </div>
                       );
                     }
@@ -1125,17 +1158,20 @@ function MessagesPage() {
                         cardHoverTime={cardHoverTime}
                         isSendingCard={isSendingCard}
                         appointmentBusyId={appointmentBusyId}
+                        messageActionBusyId={messageActionBusyId}
                         onDecision={handleAppointmentDecision}
                         onReschedule={openRescheduleFor}
+                        onDeleteForMe={handleDeleteForMe}
+                        onRecall={handleRecall}
                       />
                     );
                   })}
                 </div>
               </>
             ) : (
-              <div className="messages-empty messages-empty-center">选择左侧的一条会话查看详情</div>
+              <div className="messages-empty messages-empty-center">{'\u9009\u62e9\u5de6\u4fa7\u7684\u4e00\u6761\u4f1a\u8bdd\u67e5\u770b\u8be6\u60c5'}</div>
             )) : (
-              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? '加载中…' : '暂无会话'}</div>
+              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? '\u52a0\u8f7d\u4e2d\u2026' : '\u6682\u65e0\u4f1a\u8bdd'}</div>
             )}
           </div>
         </section>

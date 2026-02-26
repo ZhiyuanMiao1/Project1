@@ -14,6 +14,7 @@ const isMissingMessagesSchemaError = (err) => {
     const message = typeof err?.message === 'string' ? err.message : '';
     return (message.includes('message_threads')
         || message.includes('message_items')
+        || message.includes('message_item_hidden_for_users')
         || message.includes('appointment_statuses')
         || message.includes('course_sessions'));
 };
@@ -165,15 +166,20 @@ const toScheduleCard = (row, currentUserId) => {
     const payload = parseAppointmentPayload(row?.payload_json);
     if (!payload)
         return null;
+    const rawStatus = typeof row?.appointment_status === 'string'
+        ? row.appointment_status.trim().toLowerCase()
+        : '';
+    const normalizedStatus = rawStatus === 'accepted' || rawStatus === 'rejected' || rawStatus === 'rescheduling' || rawStatus === 'pending'
+        ? rawStatus
+        : 'pending';
     return {
         id: String(row?.id ?? ''),
         direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
         window: String(payload.windowText || '').trim(),
         meetingId: String(payload.meetingId || '').trim(),
         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
-        status: typeof row?.appointment_status === 'string' && row.appointment_status.trim()
-            ? row.appointment_status.trim()
-            : 'pending',
+        status: normalizedStatus,
+        canRecall: Number(row?.sender_user_id) === currentUserId && normalizedStatus === 'pending',
         courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
         courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
     };
@@ -183,6 +189,10 @@ const normalizeDecisionStatus = (value) => {
     if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending')
         return raw;
     return '';
+};
+const toPositiveIntOrNull = (value) => {
+    const n = Number.parseInt(String(value ?? '').trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
 };
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
@@ -461,6 +471,123 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         catch { }
     }
 });
+router.post('/appointments/:appointmentId/hide', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const appointmentId = Number(req.params.appointmentId);
+    if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+        return res.status(400).json({ error: '无效预约ID' });
+    }
+    try {
+        const rows = await (0, db_1.query)(`
+      SELECT mi.id
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      `, [appointmentId, req.user.id, req.user.id]);
+        if (!rows?.[0])
+            return res.status(404).json({ error: '预约不存在或无权限' });
+        await (0, db_1.query)(`
+      INSERT INTO message_item_hidden_for_users (message_item_id, user_id)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE hidden_at = CURRENT_TIMESTAMP
+      `, [appointmentId, req.user.id]);
+        return res.json({ ok: true, appointmentId: String(appointmentId) });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Hide appointment message error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const appointmentId = Number(req.params.appointmentId);
+    if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+        return res.status(400).json({ error: '无效预约ID' });
+    }
+    const conn = await db_1.pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.execute(`
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.sender_user_id,
+        COALESCE(ast.status, 'pending') AS appointment_status
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      `, [appointmentId, req.user.id, req.user.id]);
+        const row = rows?.[0];
+        if (!row) {
+            await conn.rollback();
+            return res.status(404).json({ error: '预约不存在或无权限' });
+        }
+        if (Number(row.sender_user_id) !== req.user.id) {
+            await conn.rollback();
+            return res.status(403).json({ error: '只能撤回自己发送的消息' });
+        }
+        const status = normalizeDecisionStatus(row.appointment_status) || 'pending';
+        if (status !== 'pending') {
+            await conn.rollback();
+            return res.status(409).json({ error: '对方已响应该消息，无法撤回' });
+        }
+        await conn.execute('DELETE FROM message_items WHERE id = ? LIMIT 1', [appointmentId]);
+        const threadId = Number(row.thread_id);
+        const [latestRows] = await conn.execute(`
+      SELECT id, created_at
+      FROM message_items
+      WHERE thread_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+      `, [threadId]);
+        const latest = latestRows?.[0];
+        if (latest) {
+            await conn.execute(`
+        UPDATE message_threads
+        SET last_message_id = ?, last_message_at = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `, [Number(latest.id), latest.created_at || null, threadId]);
+        }
+        else {
+            await conn.execute(`
+        UPDATE message_threads
+        SET last_message_id = NULL, last_message_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `, [threadId]);
+        }
+        await conn.commit();
+        return res.json({ ok: true, appointmentId: String(appointmentId) });
+    }
+    catch (e) {
+        try {
+            await conn.rollback();
+        }
+        catch { }
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Recall appointment message error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+    finally {
+        try {
+            conn.release();
+        }
+        catch { }
+    }
+});
 router.get('/threads', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -516,6 +643,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 courseTypeId: '',
                 schedule: null,
                 scheduleHistory: [],
+                decisionMessages: [],
                 latestDecision: null,
                 messages: [],
             };
@@ -523,25 +651,32 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         const threadIds = threads
             .map((t) => String(t.id || '').trim())
             .filter((id) => id);
+        let hiddenAppointmentIds = new Set();
         if (threadIds.length > 0) {
             const placeholders = threadIds.map(() => '?').join(',');
+            const hiddenRows = await (0, db_1.query)(`
+        SELECT message_item_id
+        FROM message_item_hidden_for_users
+        WHERE user_id = ?
+        `, [req.user.id]);
+            hiddenAppointmentIds = new Set((hiddenRows || [])
+                .map((row) => toPositiveIntOrNull(row?.message_item_id))
+                .filter((id) => id != null));
             const decisionRows = await (0, db_1.query)(`
-        SELECT mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
+        SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
         FROM message_items mi
-        INNER JOIN (
-          SELECT thread_id, MAX(id) AS max_id
-          FROM message_items
-          WHERE thread_id IN (${placeholders})
-            AND message_type = 'appointment_decision'
-          GROUP BY thread_id
-        ) latest ON latest.max_id = mi.id
+        WHERE mi.thread_id IN (${placeholders})
+          AND mi.message_type = 'appointment_decision'
+        ORDER BY mi.thread_id ASC, mi.id ASC
         `, threadIds);
             const decisionByThread = new Map();
             for (const row of decisionRows || []) {
                 const tid = String(row?.thread_id || '').trim();
                 if (!tid)
                     continue;
-                decisionByThread.set(tid, row);
+                if (!decisionByThread.has(tid))
+                    decisionByThread.set(tid, []);
+                decisionByThread.get(tid).push(row);
             }
             const items = await (0, db_1.query)(`
         SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at,
@@ -550,10 +685,13 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
         WHERE mi.thread_id IN (${placeholders})
           AND mi.message_type = 'appointment_card'
-        ORDER BY thread_id ASC, created_at ASC, id ASC
+        ORDER BY mi.thread_id ASC, mi.id ASC
         `, threadIds);
             const byThread = new Map();
             for (const row of items || []) {
+                const appointmentId = toPositiveIntOrNull(row?.id);
+                if (appointmentId != null && hiddenAppointmentIds.has(appointmentId))
+                    continue;
                 const tid = String(row?.thread_id || '').trim();
                 if (!tid)
                     continue;
@@ -585,20 +723,46 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 thread.courseTypeId = String(last.courseTypeId || '');
             }
             for (const t of threads) {
-                const row = decisionByThread.get(String(t.id));
-                if (!row)
+                const rowsForThread = decisionByThread.get(String(t.id)) || [];
+                if (!rowsForThread.length)
                     continue;
-                const payload = parseAppointmentDecisionPayload(row?.payload_json);
-                if (!payload)
-                    continue;
-                const status = typeof payload.status === 'string' ? payload.status.trim() : '';
-                if (!status)
-                    continue;
-                t.latestDecision = {
-                    status,
-                    time: row?.created_at ? new Date(row.created_at).toISOString() : '',
-                    isByMe: Number(row?.sender_user_id) === req.user.id,
-                };
+                const MAX_PER_THREAD = 30;
+                const recentRows = rowsForThread.length > MAX_PER_THREAD
+                    ? rowsForThread.slice(-MAX_PER_THREAD)
+                    : rowsForThread;
+                const decisionMessages = recentRows
+                    .map((row) => {
+                    const payload = parseAppointmentDecisionPayload(row?.payload_json);
+                    if (!payload)
+                        return null;
+                    const status = normalizeDecisionStatus(payload.status);
+                    if (!status)
+                        return null;
+                    const appointmentIdRaw = payload.appointmentId;
+                    const appointmentIdNum = toPositiveIntOrNull(appointmentIdRaw);
+                    if (appointmentIdNum != null && hiddenAppointmentIds.has(appointmentIdNum))
+                        return null;
+                    const appointmentIdText = typeof appointmentIdRaw === 'string'
+                        ? appointmentIdRaw.trim()
+                        : (appointmentIdRaw == null ? '' : String(appointmentIdRaw).trim());
+                    return {
+                        id: String(row?.id || ''),
+                        appointmentId: appointmentIdNum != null ? String(appointmentIdNum) : appointmentIdText,
+                        status,
+                        time: row?.created_at ? new Date(row.created_at).toISOString() : '',
+                        isByMe: Number(row?.sender_user_id) === req.user.id,
+                    };
+                })
+                    .filter(Boolean);
+                t.decisionMessages = decisionMessages;
+                const latestDecision = decisionMessages[decisionMessages.length - 1];
+                if (latestDecision) {
+                    t.latestDecision = {
+                        status: latestDecision.status,
+                        time: latestDecision.time,
+                        isByMe: latestDecision.isByMe,
+                    };
+                }
             }
         }
         return res.json({ threads });
