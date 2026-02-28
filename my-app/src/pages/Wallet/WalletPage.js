@@ -451,7 +451,7 @@ function WalletPage() {
 
   const topUpMethods = useMemo(
     () => [
-      { id: 'paypal', title: 'Paypal', description: '支持国际信用卡与余额' },
+      { id: 'paypal', title: 'PayPal', description: '支持国际信用卡与余额' },
       { id: 'alipay', title: '支付宝', description: '推荐国内用户使用' },
       { id: 'wechat', title: '微信', description: '微信支付快捷到账' },
     ],
@@ -558,7 +558,18 @@ function WalletPage() {
                       </span>
                       {method.id !== 'alipay' && (
                         <span className="wallet-method-body">
-                          <span className="wallet-method-title">{method.title}</span>
+                          <span
+                            className={`wallet-method-title${method.id === 'paypal' ? ' wallet-method-title--paypal' : ''}`}
+                          >
+                            {method.id === 'paypal' ? (
+                              <>
+                                <span className="wallet-method-paypal-wordmark-pay">Pay</span>
+                                <span className="wallet-method-paypal-wordmark-pal">Pal</span>
+                              </>
+                            ) : (
+                              method.title
+                            )}
+                          </span>
                         </span>
                       )}
                     </button>

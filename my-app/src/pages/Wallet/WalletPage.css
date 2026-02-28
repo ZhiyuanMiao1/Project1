@@ -228,6 +228,10 @@
   gap: 0;
 }
 
+.wallet-method-card--paypal {
+  gap: 16px;
+}
+
 .wallet-method-card:hover {
   border-color: rgba(17, 17, 17, 0.18);
   background: rgba(17, 17, 17, 0.02);
@@ -259,11 +263,13 @@
 
 .wallet-method-icon--paypal {
   color: #005ea6;
+  width: 46px;
+  height: 46px;
 }
 
 .wallet-method-paypal-icon {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   object-fit: contain;
   display: block;
 }
@@ -294,6 +300,25 @@
   font-size: 14px;
   font-weight: 700;
   color: #111;
+}
+
+.wallet-method-title--paypal {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 20px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.wallet-method-paypal-wordmark-pay {
+  color: #003087;
+}
+
+.wallet-method-paypal-wordmark-pal {
+  margin-left: -0.08em;
+  color: #009cde;
 }
 
 .wallet-method-desc {
