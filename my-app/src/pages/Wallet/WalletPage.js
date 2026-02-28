@@ -5,6 +5,7 @@ import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import apiClient from '../../api/client';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
+import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import './WalletPage.css';
 
 const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
@@ -532,7 +533,7 @@ function WalletPage() {
                     <button
                       key={method.id}
                       type="button"
-                      className={`wallet-method-card ${selectedTopUpMethod === method.id ? 'is-selected' : ''}`}
+                      className={`wallet-method-card wallet-method-card--${method.id} ${selectedTopUpMethod === method.id ? 'is-selected' : ''}`}
                       onClick={() => setSelectedTopUpMethod(method.id)}
                       aria-pressed={selectedTopUpMethod === method.id}
                     >
@@ -545,12 +546,21 @@ function WalletPage() {
                             loading="lazy"
                           />
                         )}
-                        {method.id === 'alipay' && '支'}
+                        {method.id === 'alipay' && (
+                          <img
+                            className="wallet-method-alipay-icon"
+                            src={alipayLogo}
+                            alt=""
+                            loading="lazy"
+                          />
+                        )}
                         {method.id === 'wechat' && '微'}
                       </span>
-                      <span className="wallet-method-body">
-                        <span className="wallet-method-title">{method.title}</span>
-                      </span>
+                      {method.id !== 'alipay' && (
+                        <span className="wallet-method-body">
+                          <span className="wallet-method-title">{method.title}</span>
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

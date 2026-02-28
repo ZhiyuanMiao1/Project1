@@ -224,6 +224,10 @@
   transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 
+.wallet-method-card--alipay {
+  gap: 0;
+}
+
 .wallet-method-card:hover {
   border-color: rgba(17, 17, 17, 0.18);
   background: rgba(17, 17, 17, 0.02);
@@ -260,6 +264,13 @@
 .wallet-method-paypal-icon {
   width: 26px;
   height: 26px;
+  object-fit: contain;
+  display: block;
+}
+
+.wallet-method-alipay-icon {
+  width: 150px;
+  height: 50px;
   object-fit: contain;
   display: block;
 }
