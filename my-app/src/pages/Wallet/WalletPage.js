@@ -6,6 +6,7 @@ import apiClient from '../../api/client';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
+import wechatPayLogo from '../../assets/images/WechatPay.svg';
 import './WalletPage.css';
 
 const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
@@ -554,9 +555,16 @@ function WalletPage() {
                             loading="lazy"
                           />
                         )}
-                        {method.id === 'wechat' && '微'}
+                        {method.id === 'wechat' && (
+                          <img
+                            className="wallet-method-wechat-icon"
+                            src={wechatPayLogo}
+                            alt=""
+                            loading="lazy"
+                          />
+                        )}
                       </span>
-                      {method.id !== 'alipay' && (
+                      {method.id !== 'alipay' && method.id !== 'wechat' && (
                         <span className="wallet-method-body">
                           <span
                             className={`wallet-method-title${method.id === 'paypal' ? ' wallet-method-title--paypal' : ''}`}

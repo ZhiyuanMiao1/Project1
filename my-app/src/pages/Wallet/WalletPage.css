@@ -224,7 +224,8 @@
   transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 
-.wallet-method-card--alipay {
+.wallet-method-card--alipay,
+.wallet-method-card--wechat {
   gap: 0;
 }
 
@@ -287,6 +288,13 @@
 
 .wallet-method-icon--wechat {
   color: #07a957;
+}
+
+.wallet-method-wechat-icon {
+  width: 150px;
+  height: 50px;
+  object-fit: contain;
+  display: block;
 }
 
 .wallet-method-body {
