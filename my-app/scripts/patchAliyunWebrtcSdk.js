@@ -10,29 +10,46 @@ const sdkBundlePath = path.join(
   'aliyun-webrtc-sdk.js'
 );
 
-const brokenSnippet =
-  'fetch(e._apiManager.getAdapt(e.authInfo.gslb)+o,{body:i,method:"POST"})';
-const fixedSnippet =
-  'fetch(e._apiManager.getAdaptUrl(e._authInfo.gslb)+o,{body:i,method:"POST"})';
+const patches = [
+  {
+    description: 'broken getAdapt fallback',
+    broken:
+      'fetch(e._apiManager.getAdapt(e.authInfo.gslb)+o,{body:i,method:"POST"})',
+    fixed:
+      'fetch(e._apiManager.getAdaptUrl(e._authInfo.gslb)+o,{body:i,method:"POST"})',
+  },
+  {
+    description: 'missing _stopRequest helper in STS retry flow',
+    broken:
+      'e._stopRequest(),e._requestStsToken()',
+    fixed:
+      'e._requesting=!1,e._stopDelayTimer(),e._requestStsToken()',
+  },
+];
 
 if (!fs.existsSync(sdkBundlePath)) {
   console.warn(`[patchAliyunWebrtcSdk] SDK bundle not found: ${sdkBundlePath}`);
   process.exit(0);
 }
 
-const bundle = fs.readFileSync(sdkBundlePath, 'utf8');
+let bundle = fs.readFileSync(sdkBundlePath, 'utf8');
+let appliedCount = 0;
 
-if (bundle.includes(fixedSnippet) && !bundle.includes(brokenSnippet)) {
+patches.forEach(({ description, broken, fixed }) => {
+  if (bundle.includes(fixed) && !bundle.includes(broken)) return;
+  if (!bundle.includes(broken)) {
+    console.warn(`[patchAliyunWebrtcSdk] Expected SDK snippet not found for ${description}; skipping.`);
+    return;
+  }
+
+  bundle = bundle.replace(broken, fixed);
+  appliedCount += 1;
+});
+
+if (appliedCount === 0) {
   console.log('[patchAliyunWebrtcSdk] SDK bundle already patched.');
   process.exit(0);
 }
 
-if (!bundle.includes(brokenSnippet)) {
-  console.warn('[patchAliyunWebrtcSdk] Expected SDK snippet not found; skipping patch.');
-  process.exit(0);
-}
-
-const patchedBundle = bundle.replace(brokenSnippet, fixedSnippet);
-fs.writeFileSync(sdkBundlePath, patchedBundle, 'utf8');
-
-console.log('[patchAliyunWebrtcSdk] Patched broken getAdapt fallback in aliyun-webrtc-sdk.');
+fs.writeFileSync(sdkBundlePath, bundle, 'utf8');
+console.log(`[patchAliyunWebrtcSdk] Applied ${appliedCount} patch(es) to aliyun-webrtc-sdk.`);

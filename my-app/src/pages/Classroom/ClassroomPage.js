@@ -23,6 +23,49 @@ const normalizeTimestampSeconds = (value) => {
   return raw > 1e12 ? Math.floor(raw / 1000) : Math.floor(raw);
 };
 
+const patchAliRtcStopRequestBug = (root) => {
+  if (!root || (typeof root !== 'object' && typeof root !== 'function')) return 0;
+
+  const visited = new WeakSet();
+  const queue = [{ value: root, depth: 0 }];
+  let inspected = 0;
+  let patchedCount = 0;
+
+  while (queue.length > 0 && inspected < 400) {
+    const current = queue.shift();
+    const value = current?.value;
+    const depth = Number(current?.depth || 0);
+    if (!value || (typeof value !== 'object' && typeof value !== 'function')) continue;
+    if (visited.has(value)) continue;
+    visited.add(value);
+    inspected += 1;
+
+    if (
+      typeof value._requestStsToken === 'function'
+      && typeof value._delayRequest === 'function'
+      && typeof value._stopRequest !== 'function'
+    ) {
+      value._stopRequest = function stopRequestShim() {
+        this._requesting = false;
+        if (typeof this._stopDelayTimer === 'function') this._stopDelayTimer();
+      };
+      patchedCount += 1;
+    }
+
+    if (depth >= 6) continue;
+
+    Object.keys(value).forEach((key) => {
+      if (key === 'parent' || key === '_parent' || key === 'window') return;
+      const nextValue = value[key];
+      if (!nextValue || (typeof nextValue !== 'object' && typeof nextValue !== 'function')) return;
+      if (visited.has(nextValue)) return;
+      queue.push({ value: nextValue, depth: depth + 1 });
+    });
+  }
+
+  return patchedCount;
+};
+
 const parseErrorMessage = (error, fallback) => {
   const responseMessage = safeText(error?.response?.data?.error);
   if (responseMessage) return responseMessage;
@@ -262,6 +305,7 @@ function ClassroomPage() {
 
         const engine = new EngineCtor();
         engineRef.current = engine;
+        patchAliRtcStopRequestBug(engine);
         attachEngineListeners(engine);
 
         try {
@@ -277,7 +321,9 @@ function ClassroomPage() {
 
         setStatusText('正在加入课堂...');
         await engine.joinChannel(rtcJoinAuthInfo, userName || rtcJoinAuthInfo.userid);
+        patchAliRtcStopRequestBug(engine);
         await engine.publish();
+        patchAliRtcStopRequestBug(engine);
 
         if (cancelled || !mountedRef.current) return;
         joinedRef.current = true;
