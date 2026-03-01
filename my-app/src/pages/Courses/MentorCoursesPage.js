@@ -494,7 +494,6 @@ function MentorCoursesPage() {
               const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
               const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
               const canEnterClassroom = isScheduledCourse(activeCourse);
-              const classroomHint = canEnterClassroom ? '将打开新页面进入课堂' : '课程已结束/不可进入课堂';
               return (
                 <>
                   <div className="course-detail-mentor">
@@ -531,7 +530,6 @@ function MentorCoursesPage() {
                       </div>
                     </div>
                     <div className="course-detail-classroom">
-                      <div className="course-detail-classroom-label">课堂</div>
                       <button
                         type="button"
                         className="course-detail-classroom-btn"
@@ -540,7 +538,6 @@ function MentorCoursesPage() {
                       >
                         进入课堂
                       </button>
-                      <div className="course-detail-classroom-hint">{classroomHint}</div>
                     </div>
                   </div>
                 </>

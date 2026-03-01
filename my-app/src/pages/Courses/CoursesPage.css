@@ -281,6 +281,8 @@
     0 2px 8px rgba(15, 23, 42, 0.1);
   padding: 28px 28px 24px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .course-detail-close {
@@ -398,6 +400,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
 }
 
 .course-detail-title {
@@ -454,10 +457,11 @@
 
 .course-detail-classroom {
   border-top: 1px dashed #e2e8f0;
-  padding-top: 12px;
+  padding-top: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: center;
+  flex: 1;
 }
 
 .course-detail-classroom-label {
