@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiAward, FiBookOpen, FiClipboard, FiClock, FiMessageCircle, FiX } from 'react-icons/fi';
 import './CourseReviewModal.css';
@@ -11,10 +11,11 @@ const REVIEW_CATEGORY_SPECS = [
   { key: 'punctuality', label: '上课守时', Icon: FiClock },
 ];
 
-const createInitialScores = () => REVIEW_CATEGORY_SPECS.reduce((acc, item) => {
-  acc[item.key] = 0;
-  return acc;
-}, {});
+const createInitialScores = () =>
+  REVIEW_CATEGORY_SPECS.reduce((acc, item) => {
+    acc[item.key] = 0;
+    return acc;
+  }, {});
 
 function CourseReviewModal({ course, onClose, onSubmit }) {
   const [scores, setScores] = useState(() => createInitialScores());
@@ -22,14 +23,6 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
   useEffect(() => {
     setScores(createInitialScores());
   }, [course?.id]);
-
-  const reviewAverage = useMemo(() => {
-    const values = REVIEW_CATEGORY_SPECS
-      .map(({ key }) => Number(scores[key]) || 0)
-      .filter((value) => value > 0);
-    if (!values.length) return null;
-    return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
-  }, [scores]);
 
   const isReviewComplete = REVIEW_CATEGORY_SPECS.every(({ key }) => Number(scores[key]) >= 1);
 
@@ -55,15 +48,7 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
         </button>
 
         <div className="course-review-modal__head">
-          <div>
-            <p className="course-review-modal__eyebrow">评价导师</p>
-            <h2 className="course-review-modal__title">{course?.mentorName || '导师'}</h2>
-            <p className="course-review-modal__subtitle">请按照以下维度为本次课程打分</p>
-          </div>
-          <div className="course-review-modal__average">
-            <span className="course-review-modal__average-value">{reviewAverage != null ? reviewAverage.toFixed(1) : '--'}</span>
-            <span className="course-review-modal__average-label">当前平均分</span>
-          </div>
+          <h2 className="course-review-modal__title">{course?.mentorName || '导师'}</h2>
         </div>
 
         <div className="course-review-modal__list">
