@@ -437,3 +437,26 @@ CREATE TABLE IF NOT EXISTS `course_sessions` (
   CONSTRAINT `fk_course_sessions_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_course_sessions_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 14) Course review records (student -> mentor after session ends)
+CREATE TABLE IF NOT EXISTS `course_session_reviews` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `course_session_id` BIGINT NOT NULL,
+  `student_user_id` INT NOT NULL,
+  `mentor_user_id` INT NOT NULL,
+  `clarity_score` TINYINT UNSIGNED NOT NULL,
+  `communication_score` TINYINT UNSIGNED NOT NULL,
+  `preparation_score` TINYINT UNSIGNED NOT NULL,
+  `expertise_score` TINYINT UNSIGNED NOT NULL,
+  `punctuality_score` TINYINT UNSIGNED NOT NULL,
+  `overall_score` DECIMAL(3,2) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_session_reviews_session_student` (`course_session_id`, `student_user_id`),
+  KEY `idx_course_session_reviews_mentor_created` (`mentor_user_id`, `created_at`),
+  KEY `idx_course_session_reviews_student_created` (`student_user_id`, `created_at`),
+  CONSTRAINT `fk_course_session_reviews_session` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_session_reviews_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_session_reviews_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

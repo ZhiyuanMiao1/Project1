@@ -4,6 +4,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
+import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import api from '../../api/client';
 import {
   COURSE_TYPE_ID_TO_LABEL,
@@ -62,6 +63,22 @@ const toRating = (value) => {
   return Math.round(n * 10) / 10;
 };
 
+const normalizeReviewScores = (source) => {
+  if (!source || typeof source !== 'object') return null;
+  const keys = ['clarity', 'communication', 'preparation', 'expertise', 'punctuality'];
+  const next = {};
+
+  for (const key of keys) {
+    const value = Number(source?.[key]);
+    if (!Number.isFinite(value) || value < 1 || value > 5) return null;
+    next[key] = value;
+  }
+
+  return next;
+};
+
+const hasSubmittedReview = (course) => Boolean(safeText(course?.reviewSubmittedAt));
+
 const normalizeStudentCourse = (row) => {
   const directionId = safeText(row?.courseDirectionId || row?.course_direction || row?.title);
   const courseTypeId = safeText(row?.courseTypeId || row?.course_type);
@@ -70,11 +87,11 @@ const normalizeStudentCourse = (row) => {
   const title = normalizeCourseLabel(directionId)
     || normalizeCourseLabel(fallbackTitle)
     || fallbackTitle
-    || '其它课程方向';
+    || '其他课程方向';
 
   const type = COURSE_TYPE_ID_TO_LABEL[courseTypeId]
     || safeText(row?.type)
-    || '其它课程类型';
+    || '其他课程类型';
 
   const date = toDateKey(row?.date, row?.startsAt || row?.starts_at);
   const startsAt = safeText(row?.startsAt || row?.starts_at);
@@ -93,6 +110,10 @@ const normalizeStudentCourse = (row) => {
     mentorPublicId: safeText(row?.counterpartPublicId || row?.mentorPublicId),
     rating: toRating(row?.counterpartRating ?? row?.rating),
     replayUrl: safeText(row?.replayUrl || row?.replay_url),
+    reviewSubmittedAt: safeText(row?.reviewSubmittedAt || row?.review_submitted_at),
+    reviewUpdatedAt: safeText(row?.reviewUpdatedAt || row?.review_updated_at),
+    reviewScores: normalizeReviewScores(row?.reviewScores || row?.review_scores),
+    reviewOverallScore: toRating(row?.reviewOverallScore ?? row?.review_overall_score),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -137,6 +158,20 @@ const isCompletedCourse = (course) => {
   return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
 };
 
+const getReviewSuccessCopy = (message) => {
+  if (message === 'review_updated') {
+    return {
+      title: '评价已更新',
+      description: '你的评价已更新，新的评分结果已经覆盖之前的记录。',
+    };
+  }
+
+  return {
+    title: '感谢反馈',
+    description: '你的评价已成功提交，我们会认真参考你的反馈持续优化导师服务。',
+  };
+};
+
 function CoursesPage() {
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -147,6 +182,10 @@ function CoursesPage() {
   const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [courses, setCourses] = useState([]);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitError, setReviewSubmitError] = useState('');
+  const [showReviewThanks, setShowReviewThanks] = useState(false);
+  const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
 
   useEffect(() => {
     const handler = (e) => {
@@ -168,6 +207,10 @@ function CoursesPage() {
       setLoading(false);
       setLoadFailed(false);
       setActiveCourse(null);
+      setReviewCourse(null);
+      setReviewSubmitting(false);
+      setReviewSubmitError('');
+      setShowReviewThanks(false);
       setErrorMessage('请登录后查看课程');
       return () => {
         alive = false;
@@ -183,7 +226,6 @@ function CoursesPage() {
         if (!alive) return;
         const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
         setCourses(rows.map(normalizeStudentCourse));
-        setLoadFailed(false);
       })
       .catch((err) => {
         if (!alive) return;
@@ -239,13 +281,47 @@ function CoursesPage() {
 
   const handleCourseOpen = (course) => setActiveCourse(course);
   const handleCourseClose = () => setActiveCourse(null);
-  const handleReviewClose = () => setReviewCourse(null);
+
+  const applyReviewResultToCourse = (course, payload = {}) => {
+    if (!course) return course;
+    const nextSubmittedAt = safeText(payload?.reviewSubmittedAt) || safeText(course?.reviewSubmittedAt) || new Date().toISOString();
+    const nextUpdatedAt = safeText(payload?.reviewUpdatedAt) || nextSubmittedAt;
+    const nextScores = normalizeReviewScores(payload?.reviewScores) || normalizeReviewScores(course?.reviewScores);
+    const nextOverallScore = toRating(payload?.reviewOverallScore ?? course?.reviewOverallScore);
+    const nextRating = toRating(payload?.mentorRating ?? course?.rating);
+
+    return {
+      ...course,
+      reviewSubmittedAt: nextSubmittedAt,
+      reviewUpdatedAt: nextUpdatedAt,
+      reviewScores: nextScores,
+      reviewOverallScore: nextOverallScore,
+      rating: nextRating ?? course?.rating ?? null,
+    };
+  };
+
+  const syncReviewedCourseState = (courseId, payload = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return;
+
+    setCourses((prev) => prev.map((course) => (
+      safeText(course?.id) === normalizedCourseId ? applyReviewResultToCourse(course, payload) : course
+    )));
+    setActiveCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyReviewResultToCourse(prev, payload) : prev
+    ));
+    setReviewCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyReviewResultToCourse(prev, payload) : prev
+    ));
+  };
+
   const handleCardKeyDown = (event, course) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       handleCourseOpen(course);
     }
   };
+
   const handleOpenClassroom = (course) => {
     const courseId = safeText(course?.id);
     if (!courseId || !isScheduledCourse(course)) return;
@@ -261,13 +337,49 @@ function CoursesPage() {
     window.open(replayUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const handleReviewClose = () => {
+    if (reviewSubmitting) return;
+    setReviewCourse(null);
+    setReviewSubmitError('');
+  };
+
+  const handleReviewThanksClose = () => setShowReviewThanks(false);
+
   const handleOpenReview = (course) => {
+    setReviewSubmitError('');
     setReviewCourse(course);
   };
 
-  const handleReviewSubmit = () => {
-    window.alert('评价已提交');
-    handleReviewClose();
+  const handleReviewSubmit = async (scores) => {
+    const courseId = safeText(reviewCourse?.id);
+    if (!courseId || reviewSubmitting) return;
+
+    setReviewSubmitting(true);
+    setReviewSubmitError('');
+
+    try {
+      const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/review`, scores);
+      const payload = response?.data || {};
+      syncReviewedCourseState(courseId, payload);
+      setReviewSuccessCopy(getReviewSuccessCopy(payload?.message));
+      setReviewCourse(null);
+      setShowReviewThanks(true);
+    } catch (err) {
+      const payload = err?.response?.data || {};
+      const errorCode = safeText(payload?.error);
+
+      const messageMap = {
+        invalid_course_id: '课程信息无效，请刷新后重试。',
+        invalid_review_scores: '请为每个评价维度选择 1 到 5 分。',
+        course_not_found: '未找到这节课程，暂时无法评价。',
+        course_not_completed: '课程尚未结束，暂时还不能评价。',
+        submit_review_failed: '提交评价失败，请稍后再试。',
+      };
+
+      setReviewSubmitError(messageMap[errorCode] || err?.message || '提交评价失败，请稍后再试。');
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const renderTimeline = () => {
@@ -314,10 +426,11 @@ function CoursesPage() {
                   <div className="month-cards" role="list">
                     {monthBlock.courses.map((course) => {
                       const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
-                      const typeLabel = safeText(course.type) || '其它课程类型';
+                      const typeLabel = safeText(course.type) || '其他课程类型';
                       const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                       const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
                       const isPast = isCompletedCourse(course);
+
                       return (
                         <article
                           className="course-card"
@@ -377,13 +490,7 @@ function CoursesPage() {
             ref={menuAnchorRef}
             onClick={() => setShowStudentAuth(true)}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -395,12 +502,12 @@ function CoursesPage() {
           <h1>课程</h1>
         </section>
 
-        {errorMessage && !loadFailed && <div className="courses-alert">{errorMessage}</div>}
+        {errorMessage && !loadFailed ? <div className="courses-alert">{errorMessage}</div> : null}
 
-        {isLoggedIn && renderTimeline()}
+        {isLoggedIn ? renderTimeline() : null}
       </div>
 
-      {showStudentAuth && (
+      {showStudentAuth ? (
         <StudentAuthModal
           onClose={() => setShowStudentAuth(false)}
           anchorRef={menuAnchorRef}
@@ -410,16 +517,17 @@ function CoursesPage() {
           align="right"
           alignOffset={23}
         />
-      )}
+      ) : null}
 
-      {activeCourse && (() => {
+      {activeCourse ? (() => {
         const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
-        const typeLabel = safeText(activeCourse.type) || '其它课程类型';
+        const typeLabel = safeText(activeCourse.type) || '其他课程类型';
         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
         const ratingValue = toRating(activeCourse.rating);
         const canEnterClassroom = isScheduledCourse(activeCourse);
         const isCompleted = isCompletedCourse(activeCourse);
+        const isReviewed = hasSubmittedReview(activeCourse);
 
         return (
           <CourseDetailModal
@@ -446,8 +554,9 @@ function CoursesPage() {
                   type="button"
                   className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
                   onClick={() => handleOpenReview(activeCourse)}
+                  disabled={reviewSubmitting}
                 >
-                  评价导师
+                  {isReviewed ? '我的评价' : '评价导师'}
                 </button>
               </div>
             ) : (
@@ -462,15 +571,25 @@ function CoursesPage() {
             )}
           />
         );
-      })()}
+      })() : null}
 
-      {reviewCourse && (
+      {reviewCourse ? (
         <CourseReviewModal
           course={reviewCourse}
           onClose={handleReviewClose}
           onSubmit={handleReviewSubmit}
+          isSubmitting={reviewSubmitting}
+          submitError={reviewSubmitError}
         />
-      )}
+      ) : null}
+
+      <SuccessModal
+        open={showReviewThanks}
+        title={reviewSuccessCopy.title}
+        description={reviewSuccessCopy.description}
+        autoCloseMs={2200}
+        onClose={handleReviewThanksClose}
+      />
     </div>
   );
 }

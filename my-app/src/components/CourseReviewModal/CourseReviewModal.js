@@ -17,22 +17,43 @@ const createInitialScores = () =>
     return acc;
   }, {});
 
-function CourseReviewModal({ course, onClose, onSubmit }) {
-  const [scores, setScores] = useState(() => createInitialScores());
+const normalizeInitialScores = (source) => {
+  const base = createInitialScores();
+  if (!source || typeof source !== 'object') return base;
+
+  REVIEW_CATEGORY_SPECS.forEach(({ key }) => {
+    const value = Number(source?.[key]);
+    base[key] = Number.isFinite(value) && value >= 1 && value <= 5 ? value : 0;
+  });
+
+  return base;
+};
+
+function CourseReviewModal({
+  course,
+  onClose,
+  onSubmit,
+  isSubmitting = false,
+  submitError = '',
+}) {
+  const [scores, setScores] = useState(() => normalizeInitialScores(course?.reviewScores));
   const [hoveredScores, setHoveredScores] = useState(() => createInitialScores());
 
   useEffect(() => {
-    setScores(createInitialScores());
+    setScores(normalizeInitialScores(course?.reviewScores));
     setHoveredScores(createInitialScores());
-  }, [course?.id]);
+  }, [course?.id, course?.reviewSubmittedAt, course?.reviewUpdatedAt, course?.reviewScores]);
 
   const isReviewComplete = REVIEW_CATEGORY_SPECS.every(({ key }) => Number(scores[key]) >= 1);
+  const hasExistingReview = Boolean(course?.reviewSubmittedAt);
 
   const handleScoreChange = (key, score) => {
+    if (isSubmitting) return;
     setScores((prev) => ({ ...prev, [key]: score }));
   };
 
   const handleScoreHover = (key, score) => {
+    if (isSubmitting) return;
     setHoveredScores((prev) => ({ ...prev, [key]: score }));
   };
 
@@ -41,7 +62,7 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
   };
 
   const handleSubmit = () => {
-    if (!isReviewComplete) return;
+    if (!isReviewComplete || isSubmitting) return;
     onSubmit?.(scores);
   };
 
@@ -53,6 +74,7 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
           className="course-review-modal__close"
           aria-label="关闭评价弹窗"
           onClick={onClose}
+          disabled={isSubmitting}
         >
           <FiX size={20} />
         </button>
@@ -97,6 +119,7 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
                         onFocus={() => handleScoreHover(key, score)}
                         onBlur={() => handleScoreHoverLeave(key)}
                         onClick={() => handleScoreChange(key, score)}
+                        disabled={isSubmitting}
                       >
                         <FaStar size={18} />
                       </button>
@@ -114,21 +137,24 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
           })}
         </div>
 
+        {submitError ? <div className="course-review-modal__feedback">{submitError}</div> : null}
+
         <div className="course-review-modal__actions">
           <button
             type="button"
             className="course-review-modal__action course-review-modal__action--ghost"
             onClick={onClose}
+            disabled={isSubmitting}
           >
             取消
           </button>
           <button
             type="button"
             className="course-review-modal__action"
-            disabled={!isReviewComplete}
+            disabled={!isReviewComplete || isSubmitting}
             onClick={handleSubmit}
           >
-            提交评价
+            {isSubmitting ? '提交中...' : hasExistingReview ? '更新评价' : '提交评价'}
           </button>
         </div>
       </div>
