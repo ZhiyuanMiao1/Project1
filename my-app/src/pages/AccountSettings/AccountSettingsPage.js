@@ -11,7 +11,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import { fetchAccountProfile, saveHomeCourseOrder } from '../../api/account';
+import { fetchAccountProfile, fetchAccountReviewsSummary, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
 import {
   broadcastHomeCourseOrderChanged,
@@ -65,6 +65,34 @@ const SETTINGS_SECTIONS = [
     icon: FiGlobe,
   },
 ];
+
+const normalizeReviewItem = (item) => {
+  const id = item?.id;
+  if (id == null) return null;
+
+  const ratingRaw = typeof item?.rating === 'number' ? item.rating : Number.parseFloat(String(item?.rating ?? ''));
+  const rating = Number.isFinite(ratingRaw) ? Math.max(0, Math.min(5, ratingRaw)) : null;
+
+  return {
+    id: String(id),
+    target: typeof item?.target === 'string' ? item.target : '',
+    rating,
+    content: typeof item?.content === 'string' ? item.content : '',
+    time: typeof item?.time === 'string' ? item.time : '',
+    avatarUrl: typeof item?.avatarUrl === 'string' ? item.avatarUrl : '',
+  };
+};
+
+const normalizeReviewItems = (items) => {
+  if (!Array.isArray(items)) return [];
+  return items.map(normalizeReviewItem).filter(Boolean);
+};
+
+const normalizeCount = (value) => {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, parsed);
+};
 
 function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
@@ -120,6 +148,11 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [mentorClassCount, setMentorClassCount] = useState(null);
   const [studentClassCountLoading, setStudentClassCountLoading] = useState(false);
   const [mentorClassCountLoading, setMentorClassCountLoading] = useState(false);
+  const [studentWrittenReviews, setStudentWrittenReviews] = useState([]);
+  const [mentorReceivedReviews, setMentorReceivedReviews] = useState([]);
+  const [studentWrittenReviewCount, setStudentWrittenReviewCount] = useState(null);
+  const [mentorReceivedReviewCount, setMentorReceivedReviewCount] = useState(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -173,6 +206,11 @@ function AccountSettingsPage({ mode = 'student' }) {
       setMentorClassCount(null);
       setStudentClassCountLoading(false);
       setMentorClassCountLoading(false);
+      setStudentWrittenReviews([]);
+      setMentorReceivedReviews([]);
+      setStudentWrittenReviewCount(null);
+      setMentorReceivedReviewCount(null);
+      setReviewsLoading(false);
       setToast(null);
       if (toastTimerRef.current) {
         clearTimeout(toastTimerRef.current);
@@ -234,6 +272,35 @@ function AccountSettingsPage({ mode = 'student' }) {
         }
       })
       .catch(() => {});
+
+    return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let alive = true;
+    setReviewsLoading(true);
+
+    fetchAccountReviewsSummary()
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data || {};
+        setStudentWrittenReviewCount(normalizeCount(data.studentWrittenReviewCount));
+        setMentorReceivedReviewCount(normalizeCount(data.mentorReceivedReviewCount));
+        setStudentWrittenReviews(normalizeReviewItems(data.studentWrittenReviews));
+        setMentorReceivedReviews(normalizeReviewItems(data.mentorReceivedReviews));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStudentWrittenReviewCount(null);
+        setMentorReceivedReviewCount(null);
+        setStudentWrittenReviews([]);
+        setMentorReceivedReviews([]);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setReviewsLoading(false);
+      });
 
     return () => { alive = false; };
   }, [isLoggedIn]);
@@ -782,6 +849,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                   joinedMentoryDaysDisplay={joinedMentoryDaysDisplay}
                   classCount={studentClassCount}
                   classCountLoading={studentClassCountLoading}
+                  reviewCount={studentWrittenReviewCount}
+                  reviewsLoading={reviewsLoading}
+                  writtenReviews={studentWrittenReviews}
                 />
               )}
 
@@ -798,6 +868,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                   mentorJoinedMentoryDaysDisplay={mentorJoinedMentoryDaysDisplay}
                   classCount={mentorClassCount}
                   classCountLoading={mentorClassCountLoading}
+                  reviewCount={mentorReceivedReviewCount}
+                  reviewsLoading={reviewsLoading}
+                  aboutMeReviews={mentorReceivedReviews}
                 />
               )}
 

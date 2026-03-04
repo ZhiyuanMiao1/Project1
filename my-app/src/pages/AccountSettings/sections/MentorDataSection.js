@@ -3,11 +3,6 @@ import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import defaultAvatar from '../../../assets/images/default-avatar.jpg';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
 
-const MOCK_ABOUT_ME_REVIEWS = [
-  { id: 'aboutme-2025-12-05-01', target: 's12', rating: 4.4, content: '讲解很清晰，学习效率提升很多。', time: '2025/12/05 18:20' },
-  { id: 'aboutme-2025-11-09-02', target: 's44', rating: 3.6, content: '很有耐心，建议也很到位。', time: '2025/11/09 10:15' },
-];
-
 function MentorDataSection({
   mentorAvatarUrl,
   mentorAvatarUploading,
@@ -20,15 +15,23 @@ function MentorDataSection({
   mentorJoinedMentoryDaysDisplay,
   classCount = null,
   classCountLoading = false,
-  aboutMeReviews = MOCK_ABOUT_ME_REVIEWS,
+  reviewCount = null,
+  reviewsLoading = false,
+  aboutMeReviews = [],
 }) {
   const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
   const normalizedClassCount = Number.isFinite(Number(classCount))
     ? Math.max(0, Math.floor(Number(classCount)))
     : null;
+  const normalizedReviewCount = Number.isFinite(Number(reviewCount))
+    ? Math.max(0, Math.floor(Number(reviewCount)))
+    : null;
   const classCountDisplay = classCountLoading
     ? '...'
     : (normalizedClassCount == null ? '--' : String(normalizedClassCount));
+  const reviewCountDisplay = reviewsLoading
+    ? '...'
+    : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
 
   return (
     <div className="settings-data-section" aria-label="导师数据">
@@ -87,7 +90,10 @@ function MentorDataSection({
           <div className="settings-mentor-metric">
             <div className="settings-mentor-metric-label">被评价</div>
             <div className="settings-mentor-metric-value">
-              2<span className="settings-mentor-metric-unit">条</span>
+              {reviewCountDisplay}
+              {normalizedReviewCount != null && !reviewsLoading ? (
+                <span className="settings-mentor-metric-unit">条</span>
+              ) : null}
             </div>
           </div>
           <div className="settings-mentor-metric">
@@ -114,9 +120,6 @@ function MentorDataSection({
                 <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
                 <span>关于我的评价</span>
               </div>
-              {!aboutMeReviews.length ? (
-                <div className="settings-row-value">暂无评价</div>
-              ) : null}
             </div>
             <span className="settings-accordion-icon" aria-hidden="true">
               <FiChevronDown size={18} />
@@ -127,7 +130,9 @@ function MentorDataSection({
             className="settings-accordion-panel"
             hidden={!aboutMeReviewsExpanded}
           >
-            {aboutMeReviews.length ? (
+            {reviewsLoading ? (
+              <div className="settings-orders-empty">加载中...</div>
+            ) : aboutMeReviews.length ? (
               <WrittenReviewsTable reviews={aboutMeReviews} ariaLabel="关于我的评价列表" nameFallback="StudentID" />
             ) : (
               <div className="settings-orders-empty">暂无评价</div>

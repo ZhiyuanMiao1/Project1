@@ -2,11 +2,6 @@ import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
 
-const MOCK_WRITTEN_REVIEWS = [
-  { id: 'review-2025-12-12-01', target: '导师 Alex', rating: 3.6, content: '讲解清晰，反馈及时。', time: '2025/12/12 20:10' },
-  { id: 'review-2025-11-20-02', target: '导师 Lily', rating: 4.4, content: '很耐心，建议更具体一点。', time: '2025/11/20 19:05' },
-];
-
 function StudentDataSection({
   studentAvatarUrl,
   studentAvatarUploading,
@@ -20,15 +15,23 @@ function StudentDataSection({
   joinedMentoryDaysDisplay,
   classCount = null,
   classCountLoading = false,
-  writtenReviews = MOCK_WRITTEN_REVIEWS,
+  reviewCount = null,
+  reviewsLoading = false,
+  writtenReviews = [],
 }) {
   const [writtenReviewsExpanded, setWrittenReviewsExpanded] = useState(false);
   const normalizedClassCount = Number.isFinite(Number(classCount))
     ? Math.max(0, Math.floor(Number(classCount)))
     : null;
+  const normalizedReviewCount = Number.isFinite(Number(reviewCount))
+    ? Math.max(0, Math.floor(Number(reviewCount)))
+    : null;
   const classCountDisplay = classCountLoading
     ? '...'
     : (normalizedClassCount == null ? '--' : String(normalizedClassCount));
+  const reviewCountDisplay = reviewsLoading
+    ? '...'
+    : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
 
   return (
     <div className="settings-data-section" aria-label="学生数据">
@@ -87,7 +90,10 @@ function StudentDataSection({
           <div className="settings-student-metric">
             <div className="settings-student-metric-label">评价</div>
             <div className="settings-student-metric-value">
-              2<span className="settings-student-metric-unit">条</span>
+              {reviewCountDisplay}
+              {normalizedReviewCount != null && !reviewsLoading ? (
+                <span className="settings-student-metric-unit">条</span>
+              ) : null}
             </div>
           </div>
           <div className="settings-student-metric">
@@ -114,9 +120,6 @@ function StudentDataSection({
                 <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
                 <span>我撰写的评价</span>
               </div>
-              {!writtenReviews.length ? (
-                <div className="settings-row-value">暂无评价</div>
-              ) : null}
             </div>
             <span className="settings-accordion-icon" aria-hidden="true">
               <FiChevronDown size={18} />
@@ -127,7 +130,9 @@ function StudentDataSection({
             className="settings-accordion-panel"
             hidden={!writtenReviewsExpanded}
           >
-            {writtenReviews.length ? (
+            {reviewsLoading ? (
+              <div className="settings-orders-empty">加载中...</div>
+            ) : writtenReviews.length ? (
               <WrittenReviewsTable reviews={writtenReviews} ariaLabel="我撰写的评价列表" nameFallback="导师" />
             ) : (
               <div className="settings-orders-empty">暂无评价</div>

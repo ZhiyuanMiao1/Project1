@@ -8,6 +8,10 @@ export const fetchHomeCourseOrder = () => {
   return client.get('/api/account/home-course-order');
 };
 
+export const fetchAccountReviewsSummary = () => {
+  return client.get('/api/account/reviews-summary');
+};
+
 export const saveHomeCourseOrder = (orderIds = []) => {
   return client.put('/api/account/home-course-order', { orderIds });
 };
@@ -15,6 +19,7 @@ export const saveHomeCourseOrder = (orderIds = []) => {
 const accountApi = {
   fetchAccountProfile,
   fetchHomeCourseOrder,
+  fetchAccountReviewsSummary,
   saveHomeCourseOrder,
 };
 

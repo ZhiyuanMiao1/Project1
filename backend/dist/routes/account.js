@@ -9,6 +9,35 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const refreshTokens_1 = require("../auth/refreshTokens");
+const toInt = (value, fallback = 0) => {
+    const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(n) ? n : fallback;
+};
+const toRating = (value) => {
+    const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    if (!Number.isFinite(n))
+        return null;
+    return Number(Math.max(0, Math.min(5, n)).toFixed(1));
+};
+const normalizeReviewSummaryRows = (rows = []) => {
+    return rows.map((row) => {
+        const target = typeof row?.target === 'string' ? row.target.trim() : '';
+        const content = typeof row?.content === 'string' ? row.content.trim() : '';
+        const reviewTime = row?.time instanceof Date
+            ? row.time.toISOString()
+            : (typeof row?.time === 'string' ? row.time : '');
+        return {
+            id: String(row?.id ?? ''),
+            target,
+            rating: toRating(row?.rating),
+            content,
+            time: reviewTime,
+            avatarUrl: typeof row?.avatar_url === 'string' && row.avatar_url.trim()
+                ? row.avatar_url.trim()
+                : null,
+        };
+    }).filter((row) => row.id);
+};
 const router = (0, express_1.Router)();
 const parseOrderIds = (value) => {
     if (typeof value !== 'string' || !value.trim())
@@ -347,6 +376,62 @@ router.get('/wallet-summary', auth_1.requireAuth, async (req, res) => {
         if (isMissingWalletSchemaError(e)) {
             return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 升级' });
         }
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/reviews-summary', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    try {
+        const [studentCountRows, mentorCountRows, studentReviewRows, mentorReviewRows] = await Promise.all([
+            (0, db_1.query)('SELECT COUNT(*) AS total_count FROM course_session_reviews WHERE student_user_id = ?', [req.user.id]),
+            (0, db_1.query)('SELECT COUNT(*) AS total_count FROM course_session_reviews WHERE mentor_user_id = ?', [req.user.id]),
+            (0, db_1.query)(`
+          SELECT
+            csr.id,
+            COALESCE(NULLIF(TRIM(mp.display_name), ''), NULLIF(TRIM(mr.public_id), ''), '导师') AS target,
+            csr.overall_score AS rating,
+            csr.comment_text AS content,
+            csr.created_at AS time,
+            mp.avatar_url AS avatar_url
+          FROM course_session_reviews csr
+          LEFT JOIN user_roles mr
+            ON mr.user_id = csr.mentor_user_id AND mr.role = 'mentor'
+          LEFT JOIN mentor_profiles mp
+            ON mp.user_id = csr.mentor_user_id
+          WHERE csr.student_user_id = ?
+          ORDER BY csr.created_at DESC, csr.id DESC
+          LIMIT 100
+        `, [req.user.id]),
+            (0, db_1.query)(`
+          SELECT
+            csr.id,
+            COALESCE(NULLIF(TRIM(sr.public_id), ''), NULLIF(TRIM(u.username), ''), '学生') AS target,
+            csr.overall_score AS rating,
+            csr.comment_text AS content,
+            csr.created_at AS time,
+            sas.student_avatar_url AS avatar_url
+          FROM course_session_reviews csr
+          LEFT JOIN user_roles sr
+            ON sr.user_id = csr.student_user_id AND sr.role = 'student'
+          LEFT JOIN users u
+            ON u.id = csr.student_user_id
+          LEFT JOIN account_settings sas
+            ON sas.user_id = csr.student_user_id
+          WHERE csr.mentor_user_id = ?
+          ORDER BY csr.created_at DESC, csr.id DESC
+          LIMIT 100
+        `, [req.user.id]),
+        ]);
+        return res.json({
+            studentWrittenReviewCount: toInt(studentCountRows?.[0]?.total_count, 0),
+            mentorReceivedReviewCount: toInt(mentorCountRows?.[0]?.total_count, 0),
+            studentWrittenReviews: normalizeReviewSummaryRows(studentReviewRows),
+            mentorReceivedReviews: normalizeReviewSummaryRows(mentorReviewRows),
+        });
+    }
+    catch (e) {
+        console.error('Account reviews summary error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

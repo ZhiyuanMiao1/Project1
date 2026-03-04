@@ -32,16 +32,30 @@ function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFal
         const numericRating = Number(review.rating);
         const clampedRating = Number.isFinite(numericRating) ? Math.max(0, Math.min(5, numericRating)) : 0;
         const ratingForStars = Math.round(clampedRating * 10) / 10;
+        const reviewContent = typeof review.content === 'string' && review.content.trim()
+          ? review.content.trim()
+          : '未填写文字评价';
+        const avatarUrl = typeof review.avatarUrl === 'string' && review.avatarUrl.trim()
+          ? review.avatarUrl.trim()
+          : defaultAvatar;
 
         return (
           <li key={review.id} className="settings-written-review-item">
-            <img className="settings-written-review-avatar" src={defaultAvatar} alt="" />
+            <img
+              className="settings-written-review-avatar"
+              src={avatarUrl}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = defaultAvatar;
+              }}
+            />
             <div className="settings-written-review-body">
               <div className="settings-written-review-meta">
                 <span className="settings-written-review-name">{displayName}</span>
                 {monthLabel ? <span className="settings-written-review-date">{monthLabel}</span> : null}
               </div>
-              <div className="settings-written-review-text">{review.content}</div>
+              <div className="settings-written-review-text">{reviewContent}</div>
             </div>
             <div className="settings-written-review-rating" aria-label={`评分 ${ratingLabel}`}>
               <div className="settings-written-review-stars" aria-hidden="true">
@@ -94,4 +108,3 @@ function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFal
 }
 
 export default WrittenReviewsTable;
-
