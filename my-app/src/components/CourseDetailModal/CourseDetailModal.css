@@ -103,7 +103,7 @@
 }
 
 .course-detail-modal__star-base {
-  color: #e5e7eb;
+  color: var(--mx-rating-yellow);
 }
 
 .course-detail-modal__star-fill {
