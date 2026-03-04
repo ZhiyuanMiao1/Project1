@@ -11,7 +11,7 @@
 }
 
 .course-review-modal__card {
-  width: min(680px, 100%);
+  width: min(600px, 100%);
   max-height: min(88vh, 820px);
   overflow: auto;
   background: #ffffff;
@@ -118,12 +118,15 @@
 }
 
 .course-review-modal__star-btn:hover {
-  transform: translateY(-1px);
   color: #f59e0b;
 }
 
 .course-review-modal__star-btn.is-active {
   color: #f59e0b;
+}
+
+.course-review-modal__star-btn.is-hover-preview {
+  transform: translateY(-1px);
 }
 
 .course-review-modal__item-score {
@@ -132,6 +135,10 @@
   font-size: 14px;
   font-weight: 500;
   color: #475569;
+}
+
+.course-review-modal__item-score--filled {
+  font-size: 16px;
 }
 
 .course-review-modal__actions {

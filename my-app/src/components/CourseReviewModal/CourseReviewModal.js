@@ -88,7 +88,9 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
                       <button
                         type="button"
                         key={score}
-                        className={`course-review-modal__star-btn${score <= displayValue ? ' is-active' : ''}`}
+                        className={`course-review-modal__star-btn${score <= displayValue ? ' is-active' : ''}${
+                          hoverValue && score <= hoverValue ? ' is-hover-preview' : ''
+                        }`}
                         aria-label={`${label}${score}分`}
                         aria-pressed={score === value}
                         onMouseEnter={() => handleScoreHover(key, score)}
@@ -102,7 +104,11 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
                   })}
                 </div>
 
-                <span className="course-review-modal__item-score">{value ? `${value}.0` : '未评分'}</span>
+                <span
+                  className={`course-review-modal__item-score${value ? ' course-review-modal__item-score--filled' : ''}`}
+                >
+                  {value ? `${value}.0` : '未评分'}
+                </span>
               </div>
             );
           })}
