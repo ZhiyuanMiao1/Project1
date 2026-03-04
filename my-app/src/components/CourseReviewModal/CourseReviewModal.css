@@ -54,7 +54,7 @@
 .course-review-modal__title {
   margin: 0;
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -83,10 +83,6 @@
 }
 
 .course-review-modal__item-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-  background: #eef2ff;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
@@ -96,7 +92,7 @@
 
 .course-review-modal__item-label {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   color: #0f172a;
 }
 

@@ -215,7 +215,7 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .course-detail-classroom-btn--secondary {
@@ -230,15 +230,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.course-detail-classroom-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
-}
-
-.course-detail-classroom-btn--ghost:hover {
-  background: #f8fafc;
 }
 
 .course-detail-classroom-btn:disabled {
