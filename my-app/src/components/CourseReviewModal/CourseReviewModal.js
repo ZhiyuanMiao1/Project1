@@ -19,15 +19,25 @@ const createInitialScores = () =>
 
 function CourseReviewModal({ course, onClose, onSubmit }) {
   const [scores, setScores] = useState(() => createInitialScores());
+  const [hoveredScores, setHoveredScores] = useState(() => createInitialScores());
 
   useEffect(() => {
     setScores(createInitialScores());
+    setHoveredScores(createInitialScores());
   }, [course?.id]);
 
   const isReviewComplete = REVIEW_CATEGORY_SPECS.every(({ key }) => Number(scores[key]) >= 1);
 
   const handleScoreChange = (key, score) => {
     setScores((prev) => ({ ...prev, [key]: score }));
+  };
+
+  const handleScoreHover = (key, score) => {
+    setHoveredScores((prev) => ({ ...prev, [key]: score }));
+  };
+
+  const handleScoreHoverLeave = (key) => {
+    setHoveredScores((prev) => ({ ...prev, [key]: 0 }));
   };
 
   const handleSubmit = () => {
@@ -54,6 +64,9 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
         <div className="course-review-modal__list">
           {REVIEW_CATEGORY_SPECS.map(({ key, label, Icon }) => {
             const value = Number(scores[key]) || 0;
+            const hoverValue = Number(hoveredScores[key]) || 0;
+            const displayValue = hoverValue || value;
+
             return (
               <div className="course-review-modal__item" key={key}>
                 <div className="course-review-modal__item-meta">
@@ -62,16 +75,25 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
                   </span>
                   <span className="course-review-modal__item-label">{label}</span>
                 </div>
-                <div className="course-review-modal__stars" role="radiogroup" aria-label={`${label}评分`}>
+
+                <div
+                  className="course-review-modal__stars"
+                  role="radiogroup"
+                  aria-label={`${label}评分`}
+                  onMouseLeave={() => handleScoreHoverLeave(key)}
+                >
                   {Array.from({ length: 5 }).map((_, index) => {
                     const score = index + 1;
                     return (
                       <button
                         type="button"
                         key={score}
-                        className={`course-review-modal__star-btn${score <= value ? ' is-active' : ''}`}
+                        className={`course-review-modal__star-btn${score <= displayValue ? ' is-active' : ''}`}
                         aria-label={`${label}${score}分`}
                         aria-pressed={score === value}
+                        onMouseEnter={() => handleScoreHover(key, score)}
+                        onFocus={() => handleScoreHover(key, score)}
+                        onBlur={() => handleScoreHoverLeave(key)}
                         onClick={() => handleScoreChange(key, score)}
                       >
                         <FaStar size={18} />
@@ -79,6 +101,7 @@ function CourseReviewModal({ course, onClose, onSubmit }) {
                     );
                   })}
                 </div>
+
                 <span className="course-review-modal__item-score">{value ? `${value}.0` : '未评分'}</span>
               </div>
             );

@@ -120,7 +120,6 @@
 .course-review-modal__star-btn:hover {
   transform: translateY(-1px);
   color: #f59e0b;
-  background: rgba(245, 158, 11, 0.08);
 }
 
 .course-review-modal__star-btn.is-active {
@@ -131,7 +130,7 @@
   min-width: 52px;
   text-align: right;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   color: #475569;
 }
 
