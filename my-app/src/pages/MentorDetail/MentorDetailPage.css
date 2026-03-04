@@ -851,6 +851,12 @@
   margin-right: -26px;
 }
 
+.mentor-reviews-empty {
+  padding: 6px 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
 .mentor-review-card {
   grid-column: span 3;
   padding: 16px;

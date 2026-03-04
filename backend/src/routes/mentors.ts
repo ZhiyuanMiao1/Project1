@@ -142,6 +142,30 @@ type ApprovedMentorCard = {
 
 type MentorInternal = ApprovedMentorCard & { _userId: number };
 
+type MentorReviewAggregateRow = {
+  review_count: any;
+  rating: any;
+  clarity_avg: any;
+  communication_avg: any;
+  preparation_avg: any;
+  expertise_avg: any;
+  punctuality_avg: any;
+  star_5_count: any;
+  star_4_count: any;
+  star_3_count: any;
+  star_2_count: any;
+  star_1_count: any;
+};
+
+type MentorReviewCommentRow = {
+  id: number | string;
+  author: string | null;
+  rating: number | string | null;
+  content: string | null;
+  time: Date | string | null;
+  avatar_url?: string | null;
+};
+
 let mentorRatingColumnsEnsured = false;
 
 const isMissingRatingColumnsError = (e: any) => {
@@ -191,6 +215,12 @@ const normalizeRating = (raw: any) => {
   return Number.isFinite(n) && n > 0 ? Math.round(n * 10) / 10 : 0;
 };
 
+const normalizePreciseRating = (raw: any, digits = 2) => {
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Number(Math.max(0, Math.min(5, n)).toFixed(digits));
+};
+
 const normalizeCount = (raw: any) => {
   const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? '0'), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -199,6 +229,74 @@ const normalizeCount = (raw: any) => {
 const normalizeScore = (raw: any) => {
   const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '0'));
   return Number.isFinite(n) ? n : 0;
+};
+
+const toIsoString = (raw: unknown) => {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString();
+  if (typeof raw !== 'string') return '';
+  const text = raw.trim();
+  if (!text) return '';
+  const normalized = text.includes('T') ? text : text.replace(' ', 'T');
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return parsed.toISOString();
+};
+
+const isMissingCourseReviewSchemaError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  return (
+    code === 'ER_NO_SUCH_TABLE'
+    || ((code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && (
+      message.includes('course_session_reviews')
+      || message.includes('overall_score')
+      || message.includes('comment_text')
+      || message.includes('clarity_score')
+      || message.includes('communication_score')
+      || message.includes('preparation_score')
+      || message.includes('expertise_score')
+      || message.includes('punctuality_score')
+    ))
+  );
+};
+
+const buildEmptyMentorReviewSummary = () => ({
+  rating: 0,
+  reviewCount: 0,
+  distribution: [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 })),
+  categoryAverages: {
+    clarity: 0,
+    communication: 0,
+    preparation: 0,
+    expertise: 0,
+    punctuality: 0,
+  },
+  reviews: [] as Array<{
+    id: string;
+    author: string;
+    rating: number;
+    content: string;
+    time: string;
+    avatarUrl: string | null;
+  }>,
+});
+
+const normalizeMentorReviewRows = (rows: MentorReviewCommentRow[] = []) => {
+  return rows.map((row) => {
+    const author = typeof row?.author === 'string' ? row.author.trim() : '';
+    const content = typeof row?.content === 'string' ? row.content.trim() : '';
+
+    return {
+      id: String(row?.id ?? ''),
+      author: author || '学生',
+      rating: normalizeRating(row?.rating),
+      content,
+      time: toIsoString(row?.time),
+      avatarUrl: typeof row?.avatar_url === 'string' && row.avatar_url.trim()
+        ? row.avatar_url.trim()
+        : null,
+    };
+  }).filter((row) => row.id && row.content);
 };
 
 const parseEmbedding = (raw: any): number[] | null => {
@@ -606,6 +704,165 @@ router.get('/approved', async (_req: Request, res: Response) => {
   return res.json({ mentors: publicMentors });
   } catch (e) {
     console.error('Fetch approved mentors error:', e);
+    return res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// GET /api/mentors/:mentorId/detail
+// Public: return a single approved mentor card plus real review summary from the database.
+router.get('/:mentorId/detail', async (req: Request, res: Response) => {
+  const mentorId = typeof req.params?.mentorId === 'string' ? req.params.mentorId.trim().toLowerCase() : '';
+  if (!mentorId) return res.status(400).json({ error: 'missing_mentor_id' });
+
+  const runMentorQuery = async () => {
+    const rows = await query<ApprovedMentorRow[]>(
+      `
+        SELECT
+          ur.user_id,
+          ur.public_id,
+          u.username,
+          mp.display_name,
+          mp.gender,
+          mp.degree,
+          mp.school,
+          mp.timezone,
+          mp.courses_json,
+          mp.teaching_languages_json,
+          mp.avatar_url,
+          mp.rating,
+          mp.review_count
+        FROM user_roles ur
+        JOIN users u
+          ON u.id = ur.user_id
+        LEFT JOIN mentor_profiles mp
+          ON mp.user_id = ur.user_id
+        WHERE ur.role = 'mentor'
+          AND ur.mentor_approved = 1
+          AND ur.public_id = ?
+        LIMIT 1
+      `,
+      [mentorId]
+    );
+
+    return rows?.[0] || null;
+  };
+
+  try {
+    let row: ApprovedMentorRow | null = null;
+    try {
+      row = await runMentorQuery();
+    } catch (e: any) {
+      const missingRating = isMissingRatingColumnsError(e);
+      const missingTeaching = isMissingTeachingLanguagesColumnError(e);
+      if (!missingRating && !missingTeaching) throw e;
+      if (missingRating) {
+        const ensured = await ensureMentorRatingColumns();
+        if (!ensured) throw e;
+      }
+      if (missingTeaching) {
+        const ensured = await ensureMentorTeachingLanguagesColumn();
+        if (!ensured) throw e;
+      }
+      row = await runMentorQuery();
+    }
+
+    if (!row) return res.status(404).json({ error: 'mentor_not_found' });
+
+    const courses = parseCourses(row.courses_json);
+    const mentor: ApprovedMentorCard = {
+      id: row.public_id,
+      name: (row.display_name && String(row.display_name).trim()) || (row.username && String(row.username).trim()) || row.public_id,
+      gender: row.gender || '',
+      degree: row.degree || '',
+      school: row.school || '',
+      rating: normalizeRating(row.rating),
+      reviewCount: normalizeCount(row.review_count),
+      courses,
+      timezone: row.timezone || '',
+      languages: formatTeachingLanguageCodesForCard(parseTeachingLanguagesJson(row.teaching_languages_json)),
+      imageUrl: row.avatar_url || null,
+    };
+
+    const reviewSummary = buildEmptyMentorReviewSummary();
+    const mentorUserId = Number(row.user_id);
+
+    if (Number.isFinite(mentorUserId) && mentorUserId > 0) {
+      try {
+        const [aggregateRows, reviewRows] = await Promise.all([
+          query<MentorReviewAggregateRow[]>(
+            `
+              SELECT
+                COUNT(*) AS review_count,
+                COALESCE(ROUND(AVG(overall_score), 2), 0) AS rating,
+                COALESCE(ROUND(AVG(clarity_score), 1), 0) AS clarity_avg,
+                COALESCE(ROUND(AVG(communication_score), 1), 0) AS communication_avg,
+                COALESCE(ROUND(AVG(preparation_score), 1), 0) AS preparation_avg,
+                COALESCE(ROUND(AVG(expertise_score), 1), 0) AS expertise_avg,
+                COALESCE(ROUND(AVG(punctuality_score), 1), 0) AS punctuality_avg,
+                SUM(CASE WHEN overall_score >= 4.5 THEN 1 ELSE 0 END) AS star_5_count,
+                SUM(CASE WHEN overall_score >= 3.5 AND overall_score < 4.5 THEN 1 ELSE 0 END) AS star_4_count,
+                SUM(CASE WHEN overall_score >= 2.5 AND overall_score < 3.5 THEN 1 ELSE 0 END) AS star_3_count,
+                SUM(CASE WHEN overall_score >= 1.5 AND overall_score < 2.5 THEN 1 ELSE 0 END) AS star_2_count,
+                SUM(CASE WHEN overall_score < 1.5 THEN 1 ELSE 0 END) AS star_1_count
+              FROM course_session_reviews
+              WHERE mentor_user_id = ?
+            `,
+            [mentorUserId]
+          ),
+          query<MentorReviewCommentRow[]>(
+            `
+              SELECT
+                csr.id,
+                COALESCE(NULLIF(TRIM(sr.public_id), ''), NULLIF(TRIM(u.username), ''), '学生') AS author,
+                csr.overall_score AS rating,
+                csr.comment_text AS content,
+                csr.created_at AS time,
+                sas.student_avatar_url AS avatar_url
+              FROM course_session_reviews csr
+              LEFT JOIN user_roles sr
+                ON sr.user_id = csr.student_user_id AND sr.role = 'student'
+              LEFT JOIN users u
+                ON u.id = csr.student_user_id
+              LEFT JOIN account_settings sas
+                ON sas.user_id = csr.student_user_id
+              WHERE csr.mentor_user_id = ?
+                AND NULLIF(TRIM(csr.comment_text), '') IS NOT NULL
+              ORDER BY csr.created_at DESC, csr.id DESC
+              LIMIT 100
+            `,
+            [mentorUserId]
+          ),
+        ]);
+
+        const aggregate = aggregateRows?.[0];
+        reviewSummary.rating = normalizePreciseRating(aggregate?.rating, 2);
+        reviewSummary.reviewCount = normalizeCount(aggregate?.review_count);
+        reviewSummary.distribution = [
+          { stars: 5, count: normalizeCount(aggregate?.star_5_count) },
+          { stars: 4, count: normalizeCount(aggregate?.star_4_count) },
+          { stars: 3, count: normalizeCount(aggregate?.star_3_count) },
+          { stars: 2, count: normalizeCount(aggregate?.star_2_count) },
+          { stars: 1, count: normalizeCount(aggregate?.star_1_count) },
+        ];
+        reviewSummary.categoryAverages = {
+          clarity: normalizePreciseRating(aggregate?.clarity_avg, 1),
+          communication: normalizePreciseRating(aggregate?.communication_avg, 1),
+          preparation: normalizePreciseRating(aggregate?.preparation_avg, 1),
+          expertise: normalizePreciseRating(aggregate?.expertise_avg, 1),
+          punctuality: normalizePreciseRating(aggregate?.punctuality_avg, 1),
+        };
+        reviewSummary.reviews = normalizeMentorReviewRows(reviewRows);
+
+        mentor.rating = reviewSummary.rating;
+        mentor.reviewCount = reviewSummary.reviewCount;
+      } catch (e: any) {
+        if (!isMissingCourseReviewSchemaError(e)) throw e;
+      }
+    }
+
+    return res.json({ mentor, reviewSummary });
+  } catch (e) {
+    console.error('Fetch mentor detail error:', e);
     return res.status(500).json({ error: 'server_error' });
   }
 });

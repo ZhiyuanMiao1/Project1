@@ -7,6 +7,11 @@ export const fetchApprovedMentors = (params = {}) => {
   });
 };
 
+export const fetchMentorDetail = (mentorId) => {
+  const id = typeof mentorId === 'string' ? mentorId.trim() : '';
+  return client.get(`/api/mentors/${encodeURIComponent(id)}/detail`);
+};
+
 export const fetchMentorAvailability = (mentorId) => {
   const id = typeof mentorId === 'string' ? mentorId.trim() : '';
   return client.get(`/api/mentors/${encodeURIComponent(id)}/availability`);
@@ -14,6 +19,7 @@ export const fetchMentorAvailability = (mentorId) => {
 
 const mentorsApi = {
   fetchApprovedMentors,
+  fetchMentorDetail,
   fetchMentorAvailability,
 };
 

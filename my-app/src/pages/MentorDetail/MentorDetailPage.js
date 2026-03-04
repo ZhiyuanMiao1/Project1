@@ -15,16 +15,13 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseOnboardingModal from '../../components/CourseOnboardingModal/CourseOnboardingModal';
 import api from '../../api/client';
-import { fetchApprovedMentors } from '../../api/mentors';
+import { fetchMentorAvailability, fetchMentorDetail } from '../../api/mentors';
 import { fetchFavoriteItems } from '../../api/favorites';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './MentorDetailPage.css';
-
-const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
-const round1 = (value) => Math.round(value * 10) / 10;
 
 const RATING_CATEGORY_SPECS = [
   { key: 'clarity', label: '讲解清晰', Icon: FiBookOpen },
@@ -33,35 +30,6 @@ const RATING_CATEGORY_SPECS = [
   { key: 'expertise', label: '知识专业', Icon: FiAward },
   { key: 'punctuality', label: '上课守时', Icon: FiClock },
 ];
-
-const isZhangSanPhdTestMentor = (mentor) => {
-  if (process.env.NODE_ENV === 'production') return false;
-  const name = String(mentor?.name || '').trim();
-  if (!name.includes('张三')) return false;
-  const degree = String(mentor?.degree || '').toLowerCase();
-  return degree.includes('phd') || String(mentor?.degree || '').includes('博士');
-};
-
-const hashString = (input) => {
-  const text = String(input ?? '');
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i += 1) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-};
-
-const mulberry32 = (seed) => {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-};
 
 const safeDecode = (value) => {
   try {
@@ -285,75 +253,65 @@ const normalizeNumber = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
-const buildMockReviewSummary = ({ seedKey, rating, reviewCount }) => {
-  const rng = mulberry32(hashString(seedKey));
-  const base = clamp(rating > 0 ? rating : 4.8, 1, 5);
-  const count = Number.isFinite(reviewCount) && reviewCount > 0 ? reviewCount : 0;
-
-  const categories = RATING_CATEGORY_SPECS.map(({ key, label, Icon }) => ({
+const buildEmptyReviewSummary = () => ({
+  rating: 0,
+  reviewCount: 0,
+  distribution: [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 })),
+  categories: RATING_CATEGORY_SPECS.map(({ key, label, Icon }) => ({
     key,
     label,
     Icon,
-    score: round1(clamp(base + (rng() - 0.5) * 0.4, 0, 5)),
-  }));
+    score: 0,
+  })),
+  reviews: [],
+});
 
-  const distribution = (() => {
-    if (!count) return [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 }));
-    const mean = clamp(base, 1, 5);
-    const w5 = clamp(0.55 + (mean - 4.5) * 0.7, 0.12, 0.88);
-    const w4 = clamp(0.28 - (mean - 4.5) * 0.35, 0.06, 0.6);
-    const w3 = clamp(0.12 - (mean - 4.5) * 0.2, 0.02, 0.25);
-    const w2 = clamp(0.03 + (4.2 - mean) * 0.02, 0.01, 0.12);
-    const w1 = clamp(0.02 + (4.1 - mean) * 0.02, 0.01, 0.12);
-    const weightsRaw = [w5, w4, w3, w2, w1];
-    const sum = weightsRaw.reduce((acc, x) => acc + x, 0) || 1;
-    const weights = weightsRaw.map((x) => x / sum);
-    const expected = weights.map((w) => w * count);
-    const counts = expected.map((x) => Math.floor(x));
-    let remaining = count - counts.reduce((acc, x) => acc + x, 0);
-    const order = [...Array(expected.length).keys()].sort((a, b) => expected[b] - expected[a]);
-    let idx = 0;
-    while (remaining > 0) {
-      counts[order[idx % order.length]] += 1;
-      remaining -= 1;
-      idx += 1;
-    }
-    return [
-      { stars: 5, count: counts[0] },
-      { stars: 4, count: counts[1] },
-      { stars: 3, count: counts[2] },
-      { stars: 2, count: counts[3] },
-      { stars: 1, count: counts[4] },
-    ];
-  })();
+const normalizeReviewCount = (value) => {
+  const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
 
-  const reviews = (() => {
-    const templates = [
-      '讲解非常清晰，会结合题目拆解思路，课后也会给到改进建议。',
-      '沟通顺畅，安排灵活，能快速定位我的薄弱点并提供练习方案。',
-      '很有耐心，解释到我完全理解为止，节奏把控得很好。',
-      '专业度很强，给到的学习路径很具体，效率提升明显。',
-      '反馈及时，代码走查细致，指出了很多容易忽略的问题。',
-      '课程节奏把控得很好，讲解时会先给出整体框架再逐步拆解细节；遇到我卡住的点会换一种说法举例说明，直到我能自己复述并写出来。课后还给了我一份复盘清单和练习路线，照着做提升非常明显。',
-      '沟通非常顺畅，时间安排也很灵活；每次都会先快速定位薄弱环节，然后用针对性的题目把思路练熟。尤其在代码走查上很细，能指出很多容易忽略的边界情况和写法习惯，建议也都很可落地。',
-      '这是一条更长的测试评价，用来确保文本在当前卡片宽度下能够稳定超过四行：导师会先帮我梳理目标与优先级，然后把知识点拆成可执行的小步骤；每次课后都有明确的作业与检查点，下一次会先复盘上次的错误，再迭代我的解题思路。过程中不仅讲“怎么做”，还讲“为什么这样做”，并会补充常见坑、边界情况和更优雅的写法。整体体验非常高效，帮助我快速建立信心并持续提升。',
-    ];
-    const names = ['Yoriko', 'Andrea', 'S12', 'S8', 'S19', 'S3'];
-    const times = ['4 天前', '2 周前', '1 个月前', '3 天前', '5 天前'];
-    const take = Math.max(2, Math.min(18, Number.isFinite(reviewCount) ? reviewCount : 0));
-    return Array.from({ length: take }).map((_, i) => {
-      const score = round1(clamp(base + (rng() - 0.5) * 0.6, 1, 5));
-      return {
-        id: `${seedKey}-review-${i}`,
-        author: names[Math.floor(rng() * names.length)],
-        time: times[Math.floor(rng() * times.length)],
-        rating: score,
-        content: (i === 0 ? templates[templates.length - 1] : templates[Math.floor(rng() * templates.length)]),
-      };
+const normalizeMentorReviewSummary = (raw) => {
+  const base = buildEmptyReviewSummary();
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return base;
+
+  const distributionMap = new Map();
+  if (Array.isArray(raw.distribution)) {
+    raw.distribution.forEach((item) => {
+      const stars = Number.parseInt(String(item?.stars ?? ''), 10);
+      if (stars >= 1 && stars <= 5) {
+        distributionMap.set(stars, normalizeReviewCount(item?.count));
+      }
     });
-  })();
+  }
 
-  return { categories, distribution, reviews };
+  const categoryAverages = raw.categoryAverages && typeof raw.categoryAverages === 'object' && !Array.isArray(raw.categoryAverages)
+    ? raw.categoryAverages
+    : {};
+
+  return {
+    rating: normalizeNumber(raw.rating, 0),
+    reviewCount: normalizeReviewCount(raw.reviewCount),
+    distribution: [5, 4, 3, 2, 1].map((stars) => ({
+      stars,
+      count: distributionMap.get(stars) || 0,
+    })),
+    categories: RATING_CATEGORY_SPECS.map(({ key, label, Icon }) => ({
+      key,
+      label,
+      Icon,
+      score: normalizeNumber(categoryAverages[key], 0),
+    })),
+    reviews: Array.isArray(raw.reviews)
+      ? raw.reviews.map((review, index) => ({
+        id: String(review?.id ?? `${index}`),
+        author: typeof review?.author === 'string' && review.author.trim() ? review.author.trim() : '学生',
+        time: typeof review?.time === 'string' ? review.time : '',
+        rating: normalizeNumber(review?.rating, 0),
+        content: typeof review?.content === 'string' ? review.content.trim() : '',
+      })).filter((review) => review.id && review.content)
+      : [],
+  };
 };
 
 function MentorDetailPage() {
@@ -393,6 +351,8 @@ function MentorDetailPage() {
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
   const [errorMessage, setErrorMessage] = useState('');
+  const [reviewSummary, setReviewSummary] = useState(() => buildEmptyReviewSummary());
+  const [reviewSummaryLoaded, setReviewSummaryLoaded] = useState(false);
   const [activeReview, setActiveReview] = useState(null);
   const [visibleReviewCount, setVisibleReviewCount] = useState(6);
   const [revealStartIndex, setRevealStartIndex] = useState(null);
@@ -647,17 +607,20 @@ function MentorDetailPage() {
     let alive = true;
 
     const fromState = location?.state?.mentor;
-    if (fromState && String(fromState?.id) === mentorId) {
+    const hasStateMentor = Boolean(fromState && String(fromState?.id) === mentorId);
+    setReviewSummary(buildEmptyReviewSummary());
+    setReviewSummaryLoaded(false);
+
+    if (hasStateMentor) {
       setMentor(fromState);
       setLoading(false);
       setErrorMessage('');
-      return () => {
-        alive = false;
-      };
     }
 
     if (!mentorId) {
       setMentor(null);
+      setReviewSummary(buildEmptyReviewSummary());
+      setReviewSummaryLoaded(false);
       setLoading(false);
       setErrorMessage('缺少 MentorID');
       return () => {
@@ -665,26 +628,36 @@ function MentorDetailPage() {
       };
     }
 
-    setLoading(true);
-    setErrorMessage('');
+    if (!hasStateMentor) {
+      setLoading(true);
+      setErrorMessage('');
+    }
 
-    fetchApprovedMentors()
+    fetchMentorDetail(mentorId)
       .then((res) => {
         if (!alive) return;
-        const list = Array.isArray(res?.data?.mentors) ? res.data.mentors : [];
-        const hit = list.find((m) => String(m?.id) === mentorId) || null;
-        if (!hit) {
-          setMentor(null);
-          setErrorMessage('未找到该导师');
+        const nextMentor = res?.data?.mentor && typeof res.data.mentor === 'object' ? res.data.mentor : null;
+        if (!nextMentor) {
+          if (!hasStateMentor) {
+            setMentor(null);
+            setErrorMessage('未找到该导师');
+          }
           return;
         }
-        setMentor(hit);
+        setMentor((prev) => ({ ...(prev || {}), ...nextMentor }));
+        setReviewSummary(normalizeMentorReviewSummary(res?.data?.reviewSummary));
+        setReviewSummaryLoaded(true);
+        setErrorMessage('');
       })
       .catch((e) => {
         if (!alive) return;
         const msg = e?.response?.data?.error || e?.message || '加载失败，请稍后再试';
-        setMentor(null);
-        setErrorMessage(String(msg));
+        setReviewSummary(buildEmptyReviewSummary());
+        setReviewSummaryLoaded(false);
+        if (!hasStateMentor) {
+          setMentor(null);
+          setErrorMessage(String(msg));
+        }
       })
       .finally(() => {
         if (!alive) return;
@@ -703,7 +676,7 @@ function MentorDetailPage() {
       return () => { alive = false; };
     }
 
-    api.get(`/api/mentors/${encodeURIComponent(mentorId)}/availability`)
+    fetchMentorAvailability(mentorId)
       .then((res) => {
         if (!alive) return;
         setMentorAvailability(normalizeAvailabilityPayload(res?.data?.availability));
@@ -738,13 +711,10 @@ function MentorDetailPage() {
   }, [isLoggedIn]);
 
   const rawRatingValue = normalizeNumber(mentor?.rating, 0);
-  const rawReviewCount = Number.parseInt(String(mentor?.reviewCount ?? 0), 10) || 0;
-  const ratingValue = isZhangSanPhdTestMentor(mentor) ? 4.91 : rawRatingValue;
-  const reviewCount = isZhangSanPhdTestMentor(mentor) ? 36 : rawReviewCount;
-  const summary = useMemo(() => {
-    const seedKey = mentor?.id || mentorId || 'mentor';
-    return buildMockReviewSummary({ seedKey, rating: ratingValue, reviewCount });
-  }, [mentor?.id, mentorId, ratingValue, reviewCount]);
+  const rawReviewCount = normalizeReviewCount(mentor?.reviewCount);
+  const ratingValue = reviewSummaryLoaded ? normalizeNumber(reviewSummary.rating, 0) : rawRatingValue;
+  const reviewCount = reviewSummaryLoaded ? normalizeReviewCount(reviewSummary.reviewCount) : rawReviewCount;
+  const summary = reviewSummary;
 
   useEffect(() => {
     setVisibleReviewCount(6);
@@ -1511,33 +1481,37 @@ function MentorDetailPage() {
               </section>
 
               <section id="mentor-reviews" className="mentor-reviews" aria-label="学员评价列表">
-                <div className="mentor-reviews-grid">
-                  {summary.reviews.slice(0, visibleReviewCount).map((review, index) => (
-                    <article
-                      className={`mentor-review-card${(revealStartIndex !== null && index >= revealStartIndex) ? ' mentor-review-card--reveal' : ''}`}
-                      key={review.id}
-                      style={(revealStartIndex !== null && index >= revealStartIndex)
-                        ? { '--mentor-review-reveal-delay': `${Math.min(5, index - revealStartIndex) * 28}ms` }
-                        : undefined}
-                    >
-                      <div className="review-head">
-                        <div className="review-avatar" aria-hidden="true">
-                          {String(normalizeStudentIdLabel(review.author) || 'S').slice(0, 1).toUpperCase()}
+                {summary.reviews.length ? (
+                  <div className="mentor-reviews-grid">
+                    {summary.reviews.slice(0, visibleReviewCount).map((review, index) => (
+                      <article
+                        className={`mentor-review-card${(revealStartIndex !== null && index >= revealStartIndex) ? ' mentor-review-card--reveal' : ''}`}
+                        key={review.id}
+                        style={(revealStartIndex !== null && index >= revealStartIndex)
+                          ? { '--mentor-review-reveal-delay': `${Math.min(5, index - revealStartIndex) * 28}ms` }
+                          : undefined}
+                      >
+                        <div className="review-head">
+                          <div className="review-avatar" aria-hidden="true">
+                            {String(normalizeStudentIdLabel(review.author) || 'S').slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="review-author">{normalizeStudentIdLabel(review.author)}</div>
+                          <div className="review-sub">
+                            <span className="review-score">
+                              <span className="review-star" aria-hidden="true">★</span>
+                              <span className="review-rating">{review.rating.toFixed(1)}</span>
+                            </span>
+                            <span className="review-dot">·</span>
+                            <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
+                          </div>
                         </div>
-                        <div className="review-author">{normalizeStudentIdLabel(review.author)}</div>
-                        <div className="review-sub">
-                          <span className="review-score">
-                            <span className="review-star" aria-hidden="true">★</span>
-                            <span className="review-rating">{review.rating.toFixed(1)}</span>
-                          </span>
-                          <span className="review-dot">·</span>
-                          <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
-                        </div>
-                      </div>
-                      <ReviewContent review={review} />
-                    </article>
-                  ))}
-                </div>
+                        <ReviewContent review={review} />
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mentor-reviews-empty">暂无文字评价</div>
+                )}
 
                 {summary.reviews.length > visibleReviewCount ? (
                   <button
