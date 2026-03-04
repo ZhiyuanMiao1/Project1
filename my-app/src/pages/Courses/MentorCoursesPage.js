@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH, FaUserCircle } from 'react-icons/fa';
-import { FiX } from 'react-icons/fi';
+import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import {
@@ -477,75 +477,37 @@ function MentorCoursesPage() {
         />
       )}
 
-      {activeCourse && (
-        <div className="course-detail-overlay" role="dialog" aria-modal="true">
-          <div className="course-detail-card">
-            <button
-              type="button"
-              className="course-detail-close"
-              aria-label="关闭课程详情"
-              onClick={handleCourseClose}
-            >
-              <FiX size={20} />
-            </button>
-            {(() => {
-              const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
-              const typeLabel = safeText(activeCourse.type) || '其它课程类型';
-              const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-              const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-              const canEnterClassroom = isScheduledCourse(activeCourse);
-              return (
-                <>
-                  <div className="course-detail-mentor">
-                    <div
-                      className="course-detail-avatar"
-                      style={activeCourse.studentAvatar ? { backgroundImage: `url(${activeCourse.studentAvatar})` } : {}}
-                    >
-                      {!activeCourse.studentAvatar && <FaUserCircle size={36} />}
-                    </div>
-                    <div className="course-detail-mentor-info">
-                      <span className="course-detail-mentor-name">{activeCourse.studentName}</span>
-                    </div>
-                  </div>
-                  <div className="course-detail-body">
-                    <div className="course-detail-title">
-                      <TitleIcon size={18} className="course-detail-title-icon-plain" />
-                      <span>{normalizedTitle}</span>
-                    </div>
-                    <div className="course-detail-meta-grid">
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">课程类型</span>
-                        <div className="course-detail-chip-value">
-                          <TypeIcon size={14} />
-                          <span>{typeLabel}</span>
-                        </div>
-                      </div>
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">日期</span>
-                        <div className="course-detail-chip-value">{formatDate(activeCourse.date || activeCourse.startsAt)}</div>
-                      </div>
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">时长</span>
-                        <div className="course-detail-chip-value">{activeCourse.duration}</div>
-                      </div>
-                    </div>
-                    <div className="course-detail-classroom">
-                      <button
-                        type="button"
-                        className="course-detail-classroom-btn"
-                        onClick={() => handleOpenClassroom(activeCourse)}
-                        disabled={!canEnterClassroom}
-                      >
-                        进入课堂
-                      </button>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+      {activeCourse && (() => {
+        const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
+        const typeLabel = safeText(activeCourse.type) || '其它课程类型';
+        const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+        const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
+        const canEnterClassroom = isScheduledCourse(activeCourse);
+
+        return (
+          <CourseDetailModal
+            participantName={activeCourse.studentName}
+            avatarUrl={activeCourse.studentAvatar}
+            title={normalizedTitle}
+            TitleIcon={TitleIcon}
+            typeLabel={typeLabel}
+            TypeIcon={TypeIcon}
+            dateLabel={formatDate(activeCourse.date || activeCourse.startsAt)}
+            durationLabel={activeCourse.duration}
+            onClose={handleCourseClose}
+            actions={(
+              <button
+                type="button"
+                className="course-detail-classroom-btn"
+                onClick={() => handleOpenClassroom(activeCourse)}
+                disabled={!canEnterClassroom}
+              >
+                进入课堂
+              </button>
+            )}
+          />
+        );
+      })()}
     </div>
   );
 }

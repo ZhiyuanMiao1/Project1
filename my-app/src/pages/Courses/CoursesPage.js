@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaEllipsisH, FaRegStar, FaStar, FaUserCircle } from 'react-icons/fa';
-import { FiX } from 'react-icons/fi';
+import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
+import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
 import api from '../../api/client';
 import {
   COURSE_TYPE_ID_TO_LABEL,
@@ -21,15 +22,6 @@ const formatDate = (value) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
-};
-
-const isCoursePast = (value) => {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime() < today.getTime();
 };
 
 const toDateKey = (rawDate, rawStartsAt) => {
@@ -58,6 +50,12 @@ const toDurationText = (durationHours, fallback) => {
   return '1h';
 };
 
+const toDurationHours = (value) => {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+};
+
 const toRating = (value) => {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -80,6 +78,7 @@ const normalizeStudentCourse = (row) => {
 
   const date = toDateKey(row?.date, row?.startsAt || row?.starts_at);
   const startsAt = safeText(row?.startsAt || row?.starts_at);
+  const durationHours = toDurationHours(row?.durationHours ?? row?.duration_hours);
 
   return {
     id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
@@ -87,10 +86,13 @@ const normalizeStudentCourse = (row) => {
     type,
     date,
     startsAt,
-    duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
+    duration: toDurationText(durationHours, row?.duration),
+    durationHours,
     mentorName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
     mentorAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
+    mentorPublicId: safeText(row?.counterpartPublicId || row?.mentorPublicId),
     rating: toRating(row?.counterpartRating ?? row?.rating),
+    replayUrl: safeText(row?.replayUrl || row?.replay_url),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -109,10 +111,37 @@ const toDateTimestamp = (course) => {
 
 const isScheduledCourse = (course) => safeText(course?.status).toLowerCase() === 'scheduled';
 
+const getCourseEndTimestamp = (course) => {
+  const startsAt = safeText(course?.startsAt);
+  const startsAtTimestamp = Date.parse(startsAt);
+  if (!Number.isNaN(startsAtTimestamp)) {
+    const durationHours = toDurationHours(course?.durationHours);
+    const durationMs = (durationHours ?? 0) * 60 * 60 * 1000;
+    return startsAtTimestamp + durationMs;
+  }
+
+  const date = safeText(course?.date);
+  if (date) {
+    const fallback = Date.parse(`${date}T23:59:59`);
+    if (!Number.isNaN(fallback)) return fallback;
+  }
+
+  return NaN;
+};
+
+const isCompletedCourse = (course) => {
+  const status = safeText(course?.status).toLowerCase();
+  if (status === 'completed') return true;
+  if (status && status !== 'scheduled') return false;
+  const endTimestamp = getCourseEndTimestamp(course);
+  return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
+};
+
 function CoursesPage() {
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
+  const [reviewCourse, setReviewCourse] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -210,6 +239,7 @@ function CoursesPage() {
 
   const handleCourseOpen = (course) => setActiveCourse(course);
   const handleCourseClose = () => setActiveCourse(null);
+  const handleReviewClose = () => setReviewCourse(null);
   const handleCardKeyDown = (event, course) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -222,23 +252,22 @@ function CoursesPage() {
     window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const renderStars = (ratingValue) => {
-    const value = typeof ratingValue === 'number' && !Number.isNaN(ratingValue) ? ratingValue : 0;
-    const starSize = 14;
-    return Array.from({ length: 5 }).map((_, idx) => {
-      const fill = Math.max(0, Math.min(1, value - idx));
-      const clipPath = `inset(0 ${100 - fill * 100}% 0 0)`;
-      return (
-        <span className="course-detail-star" key={idx} aria-hidden="true">
-          <FaRegStar size={starSize} className="course-detail-star-base" />
-          {fill > 0 && (
-            <span className="course-detail-star-fill" style={{ clipPath }}>
-              <FaStar size={starSize} />
-            </span>
-          )}
-        </span>
-      );
-    });
+  const handleOpenReplay = (course) => {
+    const replayUrl = safeText(course?.replayUrl);
+    if (!replayUrl) {
+      window.alert('回放功能即将上线');
+      return;
+    }
+    window.open(replayUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenReview = (course) => {
+    setReviewCourse(course);
+  };
+
+  const handleReviewSubmit = () => {
+    window.alert('评价已提交');
+    handleReviewClose();
   };
 
   const renderTimeline = () => {
@@ -288,7 +317,7 @@ function CoursesPage() {
                       const typeLabel = safeText(course.type) || '其它课程类型';
                       const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                       const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-                      const isPast = isCoursePast(course.date || course.startsAt);
+                      const isPast = isCompletedCourse(course);
                       return (
                         <article
                           className="course-card"
@@ -383,81 +412,64 @@ function CoursesPage() {
         />
       )}
 
-      {activeCourse && (
-        <div className="course-detail-overlay" role="dialog" aria-modal="true">
-          <div className="course-detail-card">
-            <button
-              type="button"
-              className="course-detail-close"
-              aria-label="关闭课程详情"
-              onClick={handleCourseClose}
-            >
-              <FiX size={20} />
-            </button>
-            {(() => {
-              const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
-              const typeLabel = safeText(activeCourse.type) || '其它课程类型';
-              const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
-              const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-              const ratingValue = toRating(activeCourse.rating);
-              const canEnterClassroom = isScheduledCourse(activeCourse);
-              return (
-                <>
-                  <div className="course-detail-mentor">
-                    <div
-                      className="course-detail-avatar"
-                      style={activeCourse.mentorAvatar ? { backgroundImage: `url(${activeCourse.mentorAvatar})` } : {}}
-                    >
-                      {!activeCourse.mentorAvatar && <FaUserCircle size={36} />}
-                    </div>
-                    <div className="course-detail-mentor-info">
-                      <span className="course-detail-mentor-name">{activeCourse.mentorName}</span>
-                    </div>
-                    {ratingValue != null && (
-                      <div className="course-detail-rating">
-                        <div className="course-detail-stars">{renderStars(ratingValue)}</div>
-                        <span className="course-detail-rating-value">{ratingValue.toFixed(1)}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="course-detail-body">
-                    <div className="course-detail-title">
-                      <TitleIcon size={18} className="course-detail-title-icon-plain" />
-                      <span>{normalizedTitle}</span>
-                    </div>
-                    <div className="course-detail-meta-grid">
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">课程类型</span>
-                        <div className="course-detail-chip-value">
-                          <TypeIcon size={14} />
-                          <span>{typeLabel}</span>
-                        </div>
-                      </div>
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">日期</span>
-                        <div className="course-detail-chip-value">{formatDate(activeCourse.date || activeCourse.startsAt)}</div>
-                      </div>
-                      <div className="course-detail-meta-chip">
-                        <span className="course-detail-chip-label">时长</span>
-                        <div className="course-detail-chip-value">{activeCourse.duration}</div>
-                      </div>
-                    </div>
-                    <div className="course-detail-classroom">
-                      <button
-                        type="button"
-                        className="course-detail-classroom-btn"
-                        onClick={() => handleOpenClassroom(activeCourse)}
-                        disabled={!canEnterClassroom}
-                      >
-                        进入课堂
-                      </button>
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
+      {activeCourse && (() => {
+        const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
+        const typeLabel = safeText(activeCourse.type) || '其它课程类型';
+        const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
+        const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
+        const ratingValue = toRating(activeCourse.rating);
+        const canEnterClassroom = isScheduledCourse(activeCourse);
+        const isCompleted = isCompletedCourse(activeCourse);
+
+        return (
+          <CourseDetailModal
+            participantName={activeCourse.mentorName}
+            avatarUrl={activeCourse.mentorAvatar}
+            ratingValue={ratingValue}
+            title={normalizedTitle}
+            TitleIcon={TitleIcon}
+            typeLabel={typeLabel}
+            TypeIcon={TypeIcon}
+            dateLabel={formatDate(activeCourse.date || activeCourse.startsAt)}
+            durationLabel={activeCourse.duration}
+            onClose={handleCourseClose}
+            actions={isCompleted ? (
+              <div className="course-detail-action-row">
+                <button
+                  type="button"
+                  className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
+                  onClick={() => handleOpenReplay(activeCourse)}
+                >
+                  查看回放
+                </button>
+                <button
+                  type="button"
+                  className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                  onClick={() => handleOpenReview(activeCourse)}
+                >
+                  评价导师
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="course-detail-classroom-btn"
+                onClick={() => handleOpenClassroom(activeCourse)}
+                disabled={!canEnterClassroom}
+              >
+                进入课堂
+              </button>
+            )}
+          />
+        );
+      })()}
+
+      {reviewCourse && (
+        <CourseReviewModal
+          course={reviewCourse}
+          onClose={handleReviewClose}
+          onSubmit={handleReviewSubmit}
+        />
       )}
     </div>
   );

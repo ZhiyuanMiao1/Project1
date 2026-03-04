@@ -1510,7 +1510,7 @@ function MentorDetailPage() {
                 </div>
               </section>
 
-              <section className="mentor-reviews" aria-label="学员评价列表">
+              <section id="mentor-reviews" className="mentor-reviews" aria-label="学员评价列表">
                 <div className="mentor-reviews-grid">
                   {summary.reviews.slice(0, visibleReviewCount).map((review, index) => (
                     <article
