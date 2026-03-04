@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiAward, FiBookOpen, FiClipboard, FiClock, FiMessageCircle, FiX } from 'react-icons/fi';
 import './CourseReviewModal.css';
@@ -38,11 +38,14 @@ function CourseReviewModal({
 }) {
   const [scores, setScores] = useState(() => normalizeInitialScores(course?.reviewScores));
   const [hoveredScores, setHoveredScores] = useState(() => createInitialScores());
+  const [comment, setComment] = useState(() => (typeof course?.reviewComment === 'string' ? course.reviewComment : ''));
+  const commentInputRef = useRef(null);
 
   useEffect(() => {
     setScores(normalizeInitialScores(course?.reviewScores));
     setHoveredScores(createInitialScores());
-  }, [course?.id, course?.reviewSubmittedAt, course?.reviewUpdatedAt, course?.reviewScores]);
+    setComment(typeof course?.reviewComment === 'string' ? course.reviewComment : '');
+  }, [course?.id, course?.reviewSubmittedAt, course?.reviewUpdatedAt, course?.reviewScores, course?.reviewComment]);
 
   const isReviewComplete = REVIEW_CATEGORY_SPECS.every(({ key }) => Number(scores[key]) >= 1);
   const hasExistingReview = Boolean(course?.reviewSubmittedAt);
@@ -63,11 +66,36 @@ function CourseReviewModal({
 
   const handleSubmit = () => {
     if (!isReviewComplete || isSubmitting) return;
-    onSubmit?.(scores);
+    onSubmit?.({
+      ...scores,
+      comment: comment.trim(),
+    });
+  };
+
+  const handleBlankAreaMouseDown = (event) => {
+    const textarea = commentInputRef.current;
+    if (!textarea) return;
+
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (textarea.contains(target)) return;
+
+    const interactiveSelector = 'button, textarea, input, label, a, select, option';
+    if (target.closest(interactiveSelector)) return;
+
+    if (document.activeElement === textarea) {
+      textarea.blur();
+    }
   };
 
   return (
-    <div className="course-review-modal__overlay" role="dialog" aria-modal="true" aria-label="评价导师">
+    <div
+      className="course-review-modal__overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="评价导师"
+      onMouseDown={handleBlankAreaMouseDown}
+    >
       <div className="course-review-modal__card">
         <button
           type="button"
@@ -135,6 +163,23 @@ function CourseReviewModal({
               </div>
             );
           })}
+        </div>
+
+        <div className="course-review-modal__comment">
+          <label className="course-review-modal__comment-label" htmlFor="course-review-comment">
+            文字评价（可选）
+          </label>
+          <textarea
+            id="course-review-comment"
+            ref={commentInputRef}
+            className="course-review-modal__comment-input"
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            placeholder="可以写下这节课的体验、收获或建议，为其他学生提供参考"
+            rows={5}
+            maxLength={1000}
+            disabled={isSubmitting}
+          />
         </div>
 
         {submitError ? <div className="course-review-modal__feedback">{submitError}</div> : null}

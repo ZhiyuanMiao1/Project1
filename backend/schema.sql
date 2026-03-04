@@ -449,6 +449,7 @@ CREATE TABLE IF NOT EXISTS `course_session_reviews` (
   `preparation_score` TINYINT UNSIGNED NOT NULL,
   `expertise_score` TINYINT UNSIGNED NOT NULL,
   `punctuality_score` TINYINT UNSIGNED NOT NULL,
+  `comment_text` TEXT NULL,
   `overall_score` DECIMAL(3,2) NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

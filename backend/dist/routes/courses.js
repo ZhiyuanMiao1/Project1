@@ -11,6 +11,7 @@ const REVIEW_SCORE_KEYS = [
     'expertise',
     'punctuality',
 ];
+const REVIEW_COMMENT_MAX_LENGTH = 1000;
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
 const isMissingCoursesSchemaError = (err) => {
@@ -100,6 +101,19 @@ const ensureMentorRatingColumns = async () => {
 const ensureCourseReviewSchema = async () => {
     if (courseReviewSchemaEnsured)
         return true;
+    const ensureColumn = async (sql) => {
+        try {
+            await (0, db_1.query)(sql);
+            return true;
+        }
+        catch (e) {
+            const code = String(e?.code || '');
+            const message = String(e?.message || '');
+            if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name'))
+                return true;
+            return false;
+        }
+    };
     await (0, db_1.query)(`
     CREATE TABLE IF NOT EXISTS course_session_reviews (
       id BIGINT NOT NULL AUTO_INCREMENT,
@@ -111,6 +125,7 @@ const ensureCourseReviewSchema = async () => {
       preparation_score TINYINT UNSIGNED NOT NULL,
       expertise_score TINYINT UNSIGNED NOT NULL,
       punctuality_score TINYINT UNSIGNED NOT NULL,
+      comment_text TEXT NULL,
       overall_score DECIMAL(3,2) NOT NULL,
       created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -123,8 +138,9 @@ const ensureCourseReviewSchema = async () => {
       CONSTRAINT fk_course_session_reviews_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-    courseReviewSchemaEnsured = true;
-    return true;
+    const commentColumnReady = await ensureColumn('ALTER TABLE course_session_reviews ADD COLUMN comment_text TEXT NULL AFTER punctuality_score');
+    courseReviewSchemaEnsured = commentColumnReady;
+    return courseReviewSchemaEnsured;
 };
 const normalizeReviewScores = (payload) => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload))
@@ -141,6 +157,16 @@ const normalizeReviewScores = (payload) => {
 const getOverallScore = (scores) => {
     const total = REVIEW_SCORE_KEYS.reduce((sum, key) => sum + scores[key], 0);
     return Math.round((total / REVIEW_SCORE_KEYS.length) * 100) / 100;
+};
+const normalizeReviewComment = (raw) => {
+    if (typeof raw !== 'string')
+        return '';
+    const text = raw.trim();
+    if (!text)
+        return '';
+    if (text.length > REVIEW_COMMENT_MAX_LENGTH)
+        return null;
+    return text;
 };
 const isCourseEligibleForReview = (row) => {
     const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
@@ -163,6 +189,7 @@ const buildReviewPayload = (row) => {
             reviewUpdatedAt: '',
             reviewScores: null,
             reviewOverallScore: null,
+            reviewComment: '',
         };
     }
     return {
@@ -176,6 +203,7 @@ const buildReviewPayload = (row) => {
             punctuality: toInt(row?.review_punctuality_score) ?? 0,
         },
         reviewOverallScore: toNumber(row?.review_overall_score),
+        reviewComment: typeof row?.review_comment === 'string' ? row.review_comment.trim() : '',
     };
 };
 const recalculateMentorRating = async (connection, mentorUserId) => {
@@ -233,6 +261,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           csr.preparation_score AS review_preparation_score,
           csr.expertise_score AS review_expertise_score,
           csr.punctuality_score AS review_punctuality_score,
+          csr.comment_text AS review_comment,
           csr.overall_score AS review_overall_score
         FROM course_sessions cs
         LEFT JOIN users mu
@@ -267,6 +296,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           NULL AS review_preparation_score,
           NULL AS review_expertise_score,
           NULL AS review_punctuality_score,
+          NULL AS review_comment,
           NULL AS review_overall_score
         FROM course_sessions cs
         LEFT JOIN users su
@@ -323,6 +353,10 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
     if (!scores) {
         return res.status(400).json({ error: 'invalid_review_scores' });
     }
+    const comment = normalizeReviewComment(req.body?.comment);
+    if (comment === null) {
+        return res.status(400).json({ error: 'invalid_review_comment' });
+    }
     try {
         const ratingReady = await ensureMentorRatingColumns();
         if (!ratingReady) {
@@ -372,6 +406,7 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
             preparation_score = ?,
             expertise_score = ?,
             punctuality_score = ?,
+            comment_text = ?,
             overall_score = ?
           WHERE id = ?
         `, [
@@ -380,6 +415,7 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
                 scores.preparation,
                 scores.expertise,
                 scores.punctuality,
+                comment || null,
                 overallScore,
                 Number(existing.id),
             ]);
@@ -395,8 +431,9 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
             preparation_score,
             expertise_score,
             punctuality_score,
+            comment_text,
             overall_score
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
                 courseId,
                 req.user.id,
@@ -406,12 +443,13 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
                 scores.preparation,
                 scores.expertise,
                 scores.punctuality,
+                comment || null,
                 overallScore,
             ]);
         }
         const { mentorRating, mentorReviewCount } = await recalculateMentorRating(connection, mentorUserId);
         const [savedRowsRaw] = await connection.query(`
-        SELECT created_at, updated_at
+        SELECT created_at, updated_at, comment_text AS review_comment
         FROM course_session_reviews
         WHERE course_session_id = ? AND student_user_id = ?
         LIMIT 1
@@ -425,6 +463,7 @@ router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
             reviewUpdatedAt: toIsoString(saved.updated_at) || new Date().toISOString(),
             reviewScores: scores,
             reviewOverallScore: overallScore,
+            reviewComment: typeof saved.review_comment === 'string' ? saved.review_comment.trim() : '',
             mentorRating,
             mentorReviewCount,
         });

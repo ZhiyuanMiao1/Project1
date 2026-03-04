@@ -152,6 +152,49 @@
   line-height: 1.5;
 }
 
+.course-review-modal__comment {
+  margin-top: 18px;
+}
+
+.course-review-modal__comment-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.course-review-modal__comment-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 144px;
+  resize: vertical;
+  padding: 14px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0);
+  color: #0f172a;
+  font: inherit;
+  line-height: 1.6;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.course-review-modal__comment-input::placeholder {
+  color: #94a3b8;
+}
+
+.course-review-modal__comment-input:focus {
+  outline: none;
+  border-color: #0f172a;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px #0f172a;
+}
+
+.course-review-modal__comment-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
 .course-review-modal__actions {
   display: flex;
   justify-content: flex-end;

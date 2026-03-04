@@ -63,6 +63,11 @@ const toRating = (value) => {
   return Math.round(n * 10) / 10;
 };
 
+const normalizeReviewComment = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
 const normalizeReviewScores = (source) => {
   if (!source || typeof source !== 'object') return null;
   const keys = ['clarity', 'communication', 'preparation', 'expertise', 'punctuality'];
@@ -114,6 +119,7 @@ const normalizeStudentCourse = (row) => {
     reviewUpdatedAt: safeText(row?.reviewUpdatedAt || row?.review_updated_at),
     reviewScores: normalizeReviewScores(row?.reviewScores || row?.review_scores),
     reviewOverallScore: toRating(row?.reviewOverallScore ?? row?.review_overall_score),
+    reviewComment: normalizeReviewComment(row?.reviewComment ?? row?.review_comment),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -289,6 +295,7 @@ function CoursesPage() {
     const nextScores = normalizeReviewScores(payload?.reviewScores) || normalizeReviewScores(course?.reviewScores);
     const nextOverallScore = toRating(payload?.reviewOverallScore ?? course?.reviewOverallScore);
     const nextRating = toRating(payload?.mentorRating ?? course?.rating);
+    const nextComment = normalizeReviewComment(payload?.reviewComment ?? course?.reviewComment);
 
     return {
       ...course,
@@ -296,6 +303,7 @@ function CoursesPage() {
       reviewUpdatedAt: nextUpdatedAt,
       reviewScores: nextScores,
       reviewOverallScore: nextOverallScore,
+      reviewComment: nextComment,
       rating: nextRating ?? course?.rating ?? null,
     };
   };
@@ -350,7 +358,7 @@ function CoursesPage() {
     setReviewCourse(course);
   };
 
-  const handleReviewSubmit = async (scores) => {
+  const handleReviewSubmit = async (reviewForm) => {
     const courseId = safeText(reviewCourse?.id);
     if (!courseId || reviewSubmitting) return;
 
@@ -358,7 +366,7 @@ function CoursesPage() {
     setReviewSubmitError('');
 
     try {
-      const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/review`, scores);
+      const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/review`, reviewForm);
       const payload = response?.data || {};
       syncReviewedCourseState(courseId, payload);
       setReviewSuccessCopy(getReviewSuccessCopy(payload?.message));
@@ -371,6 +379,7 @@ function CoursesPage() {
       const messageMap = {
         invalid_course_id: '课程信息无效，请刷新后重试。',
         invalid_review_scores: '请为每个评价维度选择 1 到 5 分。',
+        invalid_review_comment: '文字评价最多可填写 1000 个字符。',
         course_not_found: '未找到这节课程，暂时无法评价。',
         course_not_completed: '课程尚未结束，暂时还不能评价。',
         submit_review_failed: '提交评价失败，请稍后再试。',
