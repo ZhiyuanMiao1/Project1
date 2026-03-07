@@ -368,6 +368,7 @@ function MessagesPage() {
   const [threadsStatus, setThreadsStatus] = useState('idle'); // idle | loading | loaded | error
   const [threadsError, setThreadsError] = useState('');
   const [exitingMessageActionIds, setExitingMessageActionIds] = useState([]);
+  const [openScheduleMessageMenuId, setOpenScheduleMessageMenuId] = useState(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -608,6 +609,7 @@ function MessagesPage() {
     setIsScheduleCardSending(false);
     setMessageActionBusyId(null);
     setExitingMessageActionIds([]);
+    setOpenScheduleMessageMenuId(null);
     if (scheduleCardSendTimeoutRef.current) {
       clearTimeout(scheduleCardSendTimeoutRef.current);
       scheduleCardSendTimeoutRef.current = null;
@@ -924,18 +926,27 @@ function MessagesPage() {
     );
     if (!nextWindow) return;
 
+    const currentIntent = rescheduleIntent;
+    const sourceAppointmentId = rescheduleSourceId;
+    const sourceCard =
+      (sourceAppointmentId ? scheduleCards.find((card) => String(card?.id) === String(sourceAppointmentId)) : null)
+      || scheduleCards.find((card) => Boolean(card?.__primary))
+      || null;
+
+    setRescheduleOpen(false);
+    setRescheduleSourceId(null);
+    setRescheduleIntent('reschedule');
+
+    await new Promise((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
     setIsScheduleCardSending(true);
     if (scheduleCardSendTimeoutRef.current) clearTimeout(scheduleCardSendTimeoutRef.current);
     scheduleCardSendTimeoutRef.current = setTimeout(() => {
       setIsScheduleCardSending(false);
       scheduleCardSendTimeoutRef.current = null;
     }, 900);
-
-    const sourceAppointmentId = rescheduleSourceId;
-    const sourceCard =
-      (sourceAppointmentId ? scheduleCards.find((card) => String(card?.id) === String(sourceAppointmentId)) : null)
-      || scheduleCards.find((card) => Boolean(card?.__primary))
-      || null;
 
     setScheduleCards((prev) => {
       if (!Array.isArray(prev) || prev.length === 0) return prev;
@@ -945,7 +956,7 @@ function MessagesPage() {
       const draftSource = sourceCard || primary;
       const provisionalId = `pending-${Date.now()}`;
 
-      if (rescheduleIntent === 'next_lesson') {
+      if (currentIntent === 'next_lesson') {
         return [
           ...prev.map((card) => ({
             ...card,
@@ -995,7 +1006,7 @@ function MessagesPage() {
     });
 
     try {
-      if (rescheduleIntent === 'reschedule' && sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
+      if (currentIntent === 'reschedule' && sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
         // Mark the original proposal as "rescheduling" so both parties see the state.
         await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
       }
@@ -1009,7 +1020,7 @@ function MessagesPage() {
         meetingId: meetingIdText,
         courseDirectionId,
         courseTypeId,
-        ...(rescheduleIntent === 'next_lesson' && sourceAppointmentId
+        ...(currentIntent === 'next_lesson' && sourceAppointmentId
           ? { sourceAppointmentId: String(sourceAppointmentId) }
           : {}),
       });
@@ -1284,6 +1295,8 @@ function MessagesPage() {
                         isExiting={isExiting}
                         appointmentBusyId={appointmentBusyId}
                         messageActionBusyId={messageActionBusyId}
+                        openMessageMenuId={openScheduleMessageMenuId}
+                        onOpenMessageMenuChange={setOpenScheduleMessageMenuId}
                         onDecision={handleAppointmentDecision}
                         onReschedule={openRescheduleFor}
                         onScheduleNextLesson={openNextLessonFor}

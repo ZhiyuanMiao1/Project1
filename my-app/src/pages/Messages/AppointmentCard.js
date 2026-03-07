@@ -22,6 +22,8 @@ function AppointmentCard({
   isExiting,
   appointmentBusyId,
   messageActionBusyId,
+  openMessageMenuId,
+  onOpenMessageMenuChange,
   onDecision,
   onReschedule,
   onScheduleNextLesson,
@@ -52,6 +54,7 @@ function AppointmentCard({
   const canRecall = canRecallByStatus
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
   const canScheduleNextLesson = isOutgoing && (statusKey === 'pending' || statusKey === 'accepted');
+  const scheduleCardId = String(scheduleCard?.id || '');
   const recallDisabledTitle = !isOutgoing
     ? '仅可撤回自己发出的日程'
     : statusKey === 'expired'
@@ -98,10 +101,24 @@ function AppointmentCard({
   }, [statusKey]);
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
-  const [messageMenuOpen, setMessageMenuOpen] = useState(false);
+  const [messageMenuOpenInternal, setMessageMenuOpenInternal] = useState(false);
+  const isMessageMenuControlled = typeof onOpenMessageMenuChange === 'function';
+  const actualMessageMenuOpen = isMessageMenuControlled
+    ? Boolean(openMessageMenuId) && String(openMessageMenuId) === scheduleCardId
+    : messageMenuOpenInternal;
+  const toggleActualMessageMenuOpen = (valueOrUpdater) => {
+    if (isMessageMenuControlled) {
+      const nextValue = typeof valueOrUpdater === 'function'
+        ? valueOrUpdater(actualMessageMenuOpen)
+        : valueOrUpdater;
+      onOpenMessageMenuChange?.(Boolean(nextValue) ? scheduleCardId : null);
+      return;
+    }
+    setMessageMenuOpenInternal(valueOrUpdater);
+  };
 
   useEffect(() => {
-    if (!decisionMenuOpen && !messageMenuOpen) return undefined;
+    if (!decisionMenuOpen && !actualMessageMenuOpen) return undefined;
 
     const handleOutside = (event) => {
       const target = event.target;
@@ -109,7 +126,8 @@ function AppointmentCard({
       if (target.closest('.schedule-decision-wrapper')) return;
       if (target.closest('.schedule-card-more')) return;
       setDecisionMenuOpen(false);
-      setMessageMenuOpen(false);
+      if (isMessageMenuControlled) onOpenMessageMenuChange?.(null);
+      else setMessageMenuOpenInternal(false);
     };
 
     window.addEventListener('mousedown', handleOutside, true);
@@ -118,18 +136,20 @@ function AppointmentCard({
       window.removeEventListener('mousedown', handleOutside, true);
       window.removeEventListener('touchstart', handleOutside, true);
     };
-  }, [decisionMenuOpen, messageMenuOpen]);
+  }, [actualMessageMenuOpen, decisionMenuOpen, isMessageMenuControlled, onOpenMessageMenuChange]);
 
   useEffect(() => {
     setDecisionMenuOpen(false);
-    setMessageMenuOpen(false);
-  }, [scheduleCard?.id, statusKey]);
+    if (isMessageMenuControlled) onOpenMessageMenuChange?.(null);
+    else setMessageMenuOpenInternal(false);
+  }, [isMessageMenuControlled, onOpenMessageMenuChange, scheduleCard?.id, statusKey]);
 
   useEffect(() => {
     if (!isExiting) return;
     setDecisionMenuOpen(false);
-    setMessageMenuOpen(false);
-  }, [isExiting]);
+    if (isMessageMenuControlled) onOpenMessageMenuChange?.(null);
+    else setMessageMenuOpenInternal(false);
+  }, [isExiting, isMessageMenuControlled, onOpenMessageMenuChange]);
 
   return (
     <div className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''} ${isExiting ? 'is-exiting' : ''}`}>
@@ -150,28 +170,28 @@ function AppointmentCard({
         </div>
       )}
       <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
-        <div className={`schedule-card-more ${messageMenuOpen ? 'open' : ''}`}>
+        <div className={`schedule-card-more ${actualMessageMenuOpen ? 'open' : ''}`}>
           <button
             type="button"
             className="schedule-card-more-trigger"
             aria-label="更多操作"
             aria-haspopup="menu"
-            aria-expanded={messageMenuOpen}
-            onClick={() => setMessageMenuOpen((prev) => !prev)}
+            aria-expanded={actualMessageMenuOpen}
+            onClick={() => toggleActualMessageMenuOpen((prev) => !prev)}
             disabled={isMessageActionBusy || isExiting}
           >
             <span />
             <span />
             <span />
           </button>
-          {messageMenuOpen && (
+          {actualMessageMenuOpen && (
             <div className="schedule-card-more-menu" role="menu">
               {canScheduleNextLesson ? (
                 <button
                   type="button"
                   className="schedule-card-more-item"
                   onClick={() => {
-                    setMessageMenuOpen(false);
+                    toggleActualMessageMenuOpen(false);
                     onScheduleNextLesson?.(scheduleCard?.id);
                   }}
                   disabled={isMessageActionBusy || isExiting || isBusy}
@@ -183,7 +203,7 @@ function AppointmentCard({
                 type="button"
                 className="schedule-card-more-item"
                 onClick={() => {
-                  setMessageMenuOpen(false);
+                  toggleActualMessageMenuOpen(false);
                   onDeleteForMe?.(scheduleCard?.id);
                 }}
                 disabled={isMessageActionBusy || isExiting}
@@ -196,7 +216,7 @@ function AppointmentCard({
                   className="schedule-card-more-item danger"
                   onClick={() => {
                     if (!canRecall) return;
-                    setMessageMenuOpen(false);
+                    toggleActualMessageMenuOpen(false);
                     onRecall?.(scheduleCard?.id);
                   }}
                   disabled={isMessageActionBusy || isExiting || !canRecall}
