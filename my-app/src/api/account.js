@@ -12,6 +12,10 @@ export const fetchAccountReviewsSummary = () => {
   return client.get('/api/account/reviews-summary');
 };
 
+export const fetchAccountPaymentsSummary = () => {
+  return client.get('/api/account/payments-summary');
+};
+
 export const saveHomeCourseOrder = (orderIds = []) => {
   return client.put('/api/account/home-course-order', { orderIds });
 };
@@ -20,6 +24,7 @@ const accountApi = {
   fetchAccountProfile,
   fetchHomeCourseOrder,
   fetchAccountReviewsSummary,
+  fetchAccountPaymentsSummary,
   saveHomeCourseOrder,
 };
 

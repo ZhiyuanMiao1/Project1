@@ -19,6 +19,10 @@ const toRating = (value) => {
         return null;
     return Number(Math.max(0, Math.min(5, n)).toFixed(1));
 };
+const toDecimal = (value, fallback = 0) => {
+    const n = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    return Number.isFinite(n) ? n : fallback;
+};
 const normalizeReviewSummaryRows = (rows = []) => {
     return rows.map((row) => {
         const target = typeof row?.target === 'string' ? row.target.trim() : '';
@@ -37,6 +41,39 @@ const normalizeReviewSummaryRows = (rows = []) => {
                 : null,
         };
     }).filter((row) => row.id);
+};
+const normalizeBillingRecordRows = (rows = []) => {
+    return rows.map((row) => {
+        const creditedAt = row?.credited_at instanceof Date
+            ? row.credited_at.toISOString()
+            : (typeof row?.credited_at === 'string' ? row.credited_at : '');
+        return {
+            id: String(row?.id ?? ''),
+            time: creditedAt,
+            amount: Number(toDecimal(row?.amount_cny, 0).toFixed(2)),
+            courseHours: Number(toDecimal(row?.topup_hours, 0).toFixed(2)),
+        };
+    }).filter((row) => row.id && row.time);
+};
+const normalizeMentorIncomeRecordRows = (rows = []) => {
+    return rows.map((row) => {
+        const availableAt = row?.available_at instanceof Date
+            ? row.available_at.toISOString()
+            : (typeof row?.available_at === 'string' ? row.available_at : '');
+        const teachingHours = Number(toDecimal(row?.duration_hours, 0).toFixed(2));
+        const studentIdRaw = typeof row?.student_public_id === 'string' && row.student_public_id.trim()
+            ? row.student_public_id.trim()
+            : (typeof row?.student_name === 'string' ? row.student_name.trim() : '');
+        return {
+            id: String(row?.id ?? ''),
+            time: availableAt,
+            amount: Number((teachingHours * 400).toFixed(2)),
+            teachingHours,
+            studentId: studentIdRaw || '--',
+            courseDirectionId: typeof row?.course_direction === 'string' ? row.course_direction.trim() : '',
+            courseTypeId: typeof row?.course_type === 'string' ? row.course_type.trim() : '',
+        };
+    }).filter((row) => row.id && row.time);
 };
 const router = (0, express_1.Router)();
 const parseOrderIds = (value) => {
@@ -374,6 +411,78 @@ router.get('/wallet-summary', auth_1.requireAuth, async (req, res) => {
     catch (e) {
         console.error('Account wallet summary error:', e);
         if (isMissingWalletSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 升级' });
+        }
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/payments-summary', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const isMissingPaymentsSchemaError = (e) => {
+        const code = String(e?.code || '');
+        if (code !== 'ER_BAD_FIELD_ERROR' && code !== 'ER_NO_SUCH_TABLE')
+            return false;
+        const message = String(e?.message || '');
+        return message.includes('billing_orders')
+            || message.includes('course_sessions')
+            || message.includes('user_roles');
+    };
+    try {
+        const [billingRows, mentorIncomeRows] = await Promise.all([
+            (0, db_1.query)(`
+          SELECT
+            id,
+            credited_at,
+            amount_cny,
+            topup_hours
+          FROM billing_orders
+          WHERE user_id = ?
+            AND credited_at IS NOT NULL
+          ORDER BY credited_at DESC, id DESC
+          LIMIT 200
+        `, [req.user.id]),
+            (0, db_1.query)(`
+          SELECT
+            cs.id,
+            TIMESTAMPADD(
+              DAY,
+              3,
+              TIMESTAMPADD(MINUTE, ROUND(COALESCE(cs.duration_hours, 0) * 60), cs.starts_at)
+            ) AS available_at,
+            cs.duration_hours,
+            sr.public_id AS student_public_id,
+            su.username AS student_name,
+            cs.course_direction,
+            cs.course_type
+          FROM course_sessions cs
+          LEFT JOIN user_roles sr
+            ON sr.user_id = cs.student_user_id AND sr.role = 'student'
+          LEFT JOIN users su
+            ON su.id = cs.student_user_id
+          WHERE cs.mentor_user_id = ?
+            AND cs.status IN ('scheduled', 'completed')
+            AND TIMESTAMPADD(
+              DAY,
+              3,
+              TIMESTAMPADD(MINUTE, ROUND(COALESCE(cs.duration_hours, 0) * 60), cs.starts_at)
+            ) <= CURRENT_TIMESTAMP
+          ORDER BY available_at DESC, cs.id DESC
+          LIMIT 200
+        `, [req.user.id]),
+        ]);
+        return res.json({
+            paymentRecords: normalizeBillingRecordRows(billingRows),
+            incomeRecords: normalizeMentorIncomeRecordRows(mentorIncomeRows),
+            mentorIncomeRule: {
+                ratePerHourCny: 400,
+                settlementDelayDays: 3,
+            },
+        });
+    }
+    catch (e) {
+        console.error('Account payments summary error:', e);
+        if (isMissingPaymentsSchemaError(e)) {
             return res.status(500).json({ error: '数据库未升级，请先执行 schema.sql 升级' });
         }
         return res.status(500).json({ error: '服务器错误，请稍后再试' });

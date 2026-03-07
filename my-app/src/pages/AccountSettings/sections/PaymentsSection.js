@@ -1,40 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
+import { fetchAccountPaymentsSummary } from '../../../api/account';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
   DIRECTION_ICON_MAP,
   DIRECTION_ID_TO_LABEL,
 } from '../../../constants/courseMappings';
-
-const MOCK_RECHARGE_RECORDS = [
-  { id: 'topup-2025-12-18-01', timeZone: 'UTC+08:00', time: '2025/12/18 20:10', amount: 200, courseHours: 2 },
-  { id: 'topup-2025-12-10-02', timeZone: 'UTC+08:00', time: '2025/12/10 14:32', amount: 300, courseHours: 3 },
-  { id: 'topup-2025-11-26-03', timeZone: 'UTC+08:00', time: '2025/11/26 09:05', amount: 150, courseHours: 1.5 },
-];
-
-const MOCK_INCOME_RECORDS = [
-  {
-    id: 'income-2025-12-16-01',
-    timeZone: 'UTC+08:00',
-    time: '2025/12/16 21:40',
-    amount: 360,
-    teachingHours: 1.5,
-    studentId: 's44',
-    courseDirectionId: 'statistics',
-    courseTypeId: 'final-review',
-  },
-  {
-    id: 'income-2025-12-03-02',
-    timeZone: 'UTC+08:00',
-    time: '2025/12/03 18:20',
-    amount: 240,
-    teachingHours: 1,
-    studentId: 's12',
-    courseDirectionId: 'algo',
-    courseTypeId: 'pre-study',
-  },
-];
 
 const cnyFormatter = new Intl.NumberFormat('zh-CN', {
   style: 'currency',
@@ -49,8 +21,68 @@ const formatCny = (value) => {
 
 const formatCourseHours = (value) => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-  const normalized = Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+  const normalized = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
   return normalized;
+};
+
+const toOffsetLabel = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '--';
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
+  const minutes = String(absoluteMinutes % 60).padStart(2, '0');
+  return `UTC${sign}${hours}:${minutes}`;
+};
+
+const formatDateTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year || '--'}/${map.month || '--'}/${map.day || '--'} ${map.hour || '--'}:${map.minute || '--'}`;
+};
+
+const normalizeNumber = (value) => {
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizePaymentRecord = (item) => {
+  const id = item?.id;
+  const time = typeof item?.time === 'string' ? item.time : '';
+  if (id == null || !time) return null;
+
+  return {
+    id: String(id),
+    time,
+    amount: Number(normalizeNumber(item?.amount).toFixed(2)),
+    courseHours: Number(normalizeNumber(item?.courseHours).toFixed(2)),
+  };
+};
+
+const normalizeIncomeRecord = (item) => {
+  const id = item?.id;
+  const time = typeof item?.time === 'string' ? item.time : '';
+  if (id == null || !time) return null;
+
+  return {
+    id: String(id),
+    time,
+    amount: Number(normalizeNumber(item?.amount).toFixed(2)),
+    teachingHours: Number(normalizeNumber(item?.teachingHours).toFixed(2)),
+    studentId: typeof item?.studentId === 'string' ? item.studentId : '',
+    courseDirectionId: typeof item?.courseDirectionId === 'string' ? item.courseDirectionId : '',
+    courseTypeId: typeof item?.courseTypeId === 'string' ? item.courseTypeId : '',
+  };
 };
 
 function RechargeTable({ records = [] }) {
@@ -68,8 +100,8 @@ function RechargeTable({ records = [] }) {
         <tbody>
           {records.map((record) => (
             <tr key={record.id}>
-              <td className="settings-recharge-timezone">{record.timeZone}</td>
-              <td className="settings-orders-time">{record.time}</td>
+              <td className="settings-recharge-timezone">{toOffsetLabel(new Date(record.time))}</td>
+              <td className="settings-orders-time">{formatDateTime(record.time)}</td>
               <td className="settings-orders-amount">{formatCny(record.amount)}</td>
               <td className="settings-recharge-hours">{formatCourseHours(record.courseHours)}</td>
             </tr>
@@ -127,8 +159,8 @@ function IncomeTable({ records = [] }) {
                   onClick={() => toggleExpanded(record.id)}
                   onKeyDown={(e) => handleRowKeyDown(e, record.id)}
                 >
-                  <td className="settings-recharge-timezone">{record.timeZone}</td>
-                  <td className="settings-orders-time">{record.time}</td>
+                  <td className="settings-recharge-timezone">{toOffsetLabel(new Date(record.time))}</td>
+                  <td className="settings-orders-time">{formatDateTime(record.time)}</td>
                   <td className="settings-orders-amount">{formatCny(record.amount)}</td>
                   <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
                 </tr>
@@ -166,9 +198,56 @@ function IncomeTable({ records = [] }) {
   );
 }
 
-function PaymentsSection() {
+function PaymentsSection({ isLoggedIn = false }) {
   const [paymentsExpanded, setPaymentsExpanded] = useState(false);
-  const [receiptsExpanded, setReceiptsExpanded] = useState(false);
+  const [incomeExpanded, setIncomeExpanded] = useState(false);
+  const [status, setStatus] = useState('idle');
+  const [paymentRecords, setPaymentRecords] = useState([]);
+  const [incomeRecords, setIncomeRecords] = useState([]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setStatus('idle');
+      setPaymentRecords([]);
+      setIncomeRecords([]);
+      return undefined;
+    }
+
+    let alive = true;
+    setStatus('loading');
+
+    fetchAccountPaymentsSummary()
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data || {};
+        const nextPaymentRecords = Array.isArray(data.paymentRecords)
+          ? data.paymentRecords.map(normalizePaymentRecord).filter(Boolean)
+          : [];
+        const nextIncomeRecords = Array.isArray(data.incomeRecords)
+          ? data.incomeRecords.map(normalizeIncomeRecord).filter(Boolean)
+          : [];
+        setPaymentRecords(nextPaymentRecords);
+        setIncomeRecords(nextIncomeRecords);
+        setStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setPaymentRecords([]);
+        setIncomeRecords([]);
+        setStatus('error');
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [isLoggedIn]);
+
+  const paymentSummary = status === 'loading'
+    ? '加载中...'
+    : (paymentRecords.length ? `充值记录（${paymentRecords.length}）` : '暂无记录');
+  const incomeSummary = status === 'loading'
+    ? '加载中...'
+    : (incomeRecords.length ? `收入记录（${incomeRecords.length}）` : '暂无记录');
 
   return (
     <>
@@ -182,9 +261,7 @@ function PaymentsSection() {
         >
           <div className="settings-row-main">
             <div className="settings-row-title">付款</div>
-            <div className="settings-row-value">
-              {MOCK_RECHARGE_RECORDS.length ? `充值记录（${MOCK_RECHARGE_RECORDS.length}）` : '暂无记录'}
-            </div>
+            <div className="settings-row-value">{paymentSummary}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">
             <FiChevronDown size={18} />
@@ -195,8 +272,12 @@ function PaymentsSection() {
           className="settings-accordion-panel"
           hidden={!paymentsExpanded}
         >
-          {MOCK_RECHARGE_RECORDS.length ? (
-            <RechargeTable records={MOCK_RECHARGE_RECORDS} />
+          {status === 'loading' ? (
+            <div className="settings-orders-empty">加载中...</div>
+          ) : status === 'error' ? (
+            <div className="settings-orders-empty">付款记录加载失败，请稍后再试</div>
+          ) : paymentRecords.length ? (
+            <RechargeTable records={paymentRecords} />
           ) : (
             <div className="settings-orders-empty">暂无充值记录</div>
           )}
@@ -207,29 +288,31 @@ function PaymentsSection() {
         <button
           type="button"
           className="settings-accordion-trigger"
-          aria-expanded={receiptsExpanded}
-          aria-controls="settings-receipts-history"
-          onClick={() => setReceiptsExpanded((prev) => !prev)}
+          aria-expanded={incomeExpanded}
+          aria-controls="settings-income-history"
+          onClick={() => setIncomeExpanded((prev) => !prev)}
         >
           <div className="settings-row-main">
-            <div className="settings-row-title">收款</div>
-            <div className="settings-row-value">
-              {MOCK_INCOME_RECORDS.length ? `入账记录（${MOCK_INCOME_RECORDS.length}）` : '暂无记录'}
-            </div>
+            <div className="settings-row-title">收入</div>
+            <div className="settings-row-value">{incomeSummary}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">
             <FiChevronDown size={18} />
           </span>
         </button>
         <div
-          id="settings-receipts-history"
+          id="settings-income-history"
           className="settings-accordion-panel"
-          hidden={!receiptsExpanded}
+          hidden={!incomeExpanded}
         >
-          {MOCK_INCOME_RECORDS.length ? (
-            <IncomeTable records={MOCK_INCOME_RECORDS} />
+          {status === 'loading' ? (
+            <div className="settings-orders-empty">加载中...</div>
+          ) : status === 'error' ? (
+            <div className="settings-orders-empty">收入记录加载失败，请稍后再试</div>
+          ) : incomeRecords.length ? (
+            <IncomeTable records={incomeRecords} />
           ) : (
-            <div className="settings-orders-empty">暂无入账记录</div>
+            <div className="settings-orders-empty">暂无收入记录</div>
           )}
         </div>
       </div>
@@ -238,4 +321,3 @@ function PaymentsSection() {
 }
 
 export default PaymentsSection;
-

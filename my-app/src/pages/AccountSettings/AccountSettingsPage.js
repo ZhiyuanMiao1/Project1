@@ -886,7 +886,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                 />
               )}
 
-              {activeSectionId === 'payments' && <PaymentsSection />}
+              {activeSectionId === 'payments' && <PaymentsSection isLoggedIn={isLoggedIn} />}
 
               {activeSectionId === 'language' && (
                 <LanguageSection
