@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FiCalendar, FiClock, FiVideo } from 'react-icons/fi';
 import {
   getCourseTitleParts,
+  isScheduleWindowExpired,
   resolveScheduleStatus,
   SCHEDULE_STATUS_META,
 } from './appointmentCardUtils';
@@ -33,13 +34,23 @@ function AppointmentCard({
     windowText,
     referenceTime: scheduleCard?.time,
   }), [scheduleCard?.status, scheduleCard?.time, windowText]);
+  const isScheduleExpired = useMemo(() => isScheduleWindowExpired({
+    windowText,
+    referenceTime: scheduleCard?.time,
+  }), [scheduleCard?.time, windowText]);
   const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
-  const rawStatus = typeof scheduleCard?.status === 'string' ? scheduleCard.status.trim().toLowerCase() : 'pending';
-  const canRecallFallback = isOutgoing && rawStatus === 'pending';
-  const canRecall = typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : canRecallFallback;
+  const canEditDecision = !isScheduleExpired && statusKey !== 'pending';
+  const canRecallByStatus = isOutgoing && statusKey === 'pending';
+  const canRecall = canRecallByStatus
+    && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
+  const recallDisabledTitle = !isOutgoing
+    ? '仅可撤回自己发出的日程'
+    : statusKey === 'expired'
+      ? '日程已过期，无法撤回'
+      : '对方已响应，无法撤回';
 
   const statusClassName =
     statusMeta.tone === 'accept'
@@ -160,19 +171,21 @@ function AppointmentCard({
               >
                 删除（仅自己）
               </button>
-              <button
-                type="button"
-                className="schedule-card-more-item danger"
-                onClick={() => {
-                  if (!canRecall) return;
-                  setMessageMenuOpen(false);
-                  onRecall?.(scheduleCard?.id);
-                }}
-                disabled={isMessageActionBusy || isExiting || !canRecall}
-                title={canRecall ? '' : '对方已响应，无法撤回'}
-              >
-                撤回
-              </button>
+              {isOutgoing ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item danger"
+                  onClick={() => {
+                    if (!canRecall) return;
+                    setMessageMenuOpen(false);
+                    onRecall?.(scheduleCard?.id);
+                  }}
+                  disabled={isMessageActionBusy || isExiting || !canRecall}
+                  title={canRecall ? '' : recallDisabledTitle}
+                >
+                  撤回
+                </button>
+              ) : null}
             </div>
           )}
         </div>
@@ -250,7 +263,7 @@ function AppointmentCard({
                     修改时间
                   </button>
                 </>
-              ) : (
+              ) : canEditDecision ? (
                 <div
                   className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
                   onMouseEnter={() => setDecisionMenuOpen(true)}
@@ -299,6 +312,18 @@ function AppointmentCard({
                     </div>
                   )}
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  className={`schedule-btn merged ${statusClassName}`}
+                  disabled
+                  aria-label={`日程状态：${statusMeta.label}`}
+                >
+                  {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                  {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                  {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
+                  {statusMeta.label}
+                </button>
               )}
             </div>
           ) : (

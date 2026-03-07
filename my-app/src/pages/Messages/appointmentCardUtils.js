@@ -89,12 +89,16 @@ const parseWindowStartMs = (windowText, referenceTime) => {
   return (acceptable[0] || candidates.sort((a, b) => Math.abs(a.diffMs) - Math.abs(b.diffMs))[0])?.startMs ?? null;
 };
 
+export const isScheduleWindowExpired = ({ windowText, referenceTime, nowMs = Date.now() }) => {
+  const startMs = parseWindowStartMs(windowText, referenceTime);
+  if (!Number.isFinite(startMs)) return false;
+  return startMs <= nowMs;
+};
+
 export const resolveScheduleStatus = ({ status, windowText, referenceTime, nowMs = Date.now() }) => {
   const baseStatus = normalizeScheduleStatus(status);
   if (baseStatus !== 'pending') return baseStatus;
-  const startMs = parseWindowStartMs(windowText, referenceTime);
-  if (!Number.isFinite(startMs)) return baseStatus;
-  return startMs <= nowMs ? 'expired' : baseStatus;
+  return isScheduleWindowExpired({ windowText, referenceTime, nowMs }) ? 'expired' : baseStatus;
 };
 
 export const getCourseTitleParts = (thread, scheduleCard) => {
