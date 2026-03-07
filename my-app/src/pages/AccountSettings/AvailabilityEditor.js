@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
 import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } from '../StudentCourseRequest/steps/timezoneUtils';
+import { buildAvailabilityDaySet, mergeAvailabilityBlocks, normalizeBlockMap } from '../../utils/availabilityBusy';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -123,6 +124,7 @@ const subtractAvailabilityBlocks = (base, remove) => {
 
 function AvailabilityEditor({
   value,
+  busySelections,
   disabled = false,
   loading = false,
   saving = false,
@@ -162,6 +164,7 @@ function AvailabilityEditor({
   }, [selectedTimeZone]);
 
   const safeValue = useMemo(() => normalizeAvailability(value), [normalizeAvailability, value]);
+  const safeBusySelections = useMemo(() => normalizeBlockMap(busySelections), [busySelections]);
 
   useEffect(() => {
     const parts = getZonedParts(selectedTimeZone, new Date());
@@ -223,6 +226,17 @@ function AvailabilityEditor({
     if (selectedKeys.length > 1) return multiDayCommonBlocks;
     return selectedBlocks;
   }, [multiDayCommonBlocks, selectedBlocks, selectedKeys.length]);
+
+  const busyDaySet = useMemo(() => buildAvailabilityDaySet(safeBusySelections), [safeBusySelections]);
+
+  const displayedBusyBlocks = useMemo(() => {
+    if (selectedKeys.length > 1) {
+      return mergeAvailabilityBlocks(
+        selectedKeys.flatMap((key) => safeBusySelections[key] || [])
+      );
+    }
+    return safeBusySelections[selectedKey] || [];
+  }, [safeBusySelections, selectedKey, selectedKeys]);
 
   const keyToDateStrict = useCallback((key) => {
     if (!key) return null;
@@ -385,6 +399,7 @@ function AvailabilityEditor({
               const selected = isSameDay(date, selectedDate);
               const key = ymdKey(date);
               const hasSelection = !!(safeValue.daySelections[key] && safeValue.daySelections[key].length);
+              const hasBusy = busyDaySet.has(key);
               const isPast = key < todayKey;
               const inMultiSelected = (selectedRangeKeys || []).includes(key);
               const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
@@ -451,6 +466,7 @@ function AvailabilityEditor({
                 >
                   <span className="date-number">{date.getDate()}</span>
                   {hasSelection && <span className="date-marker" aria-hidden />}
+                  {hasBusy && <span className="date-busy-marker" aria-hidden />}
                 </button>
               );
             })}
@@ -467,6 +483,7 @@ function AvailabilityEditor({
           getDayBlocks={getDayBlocks}
           setDayBlocks={setDayBlocks}
           disableBeforeIndex={disabledBeforeIndex}
+          busyBlocks={displayedBusyBlocks}
         />
       </div>
 

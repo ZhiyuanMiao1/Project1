@@ -11,6 +11,16 @@ import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import {
+  buildAvailabilityDaySet,
+  buildSelectionFromPoint,
+  findMinuteSlotContainingRange,
+  intersectMinuteSlots,
+  mergeAvailabilityBlocks,
+  normalizeBlockMap,
+  selectionFitsWithinSlots,
+  subtractAvailabilityBlocks,
+} from '../../utils/availabilityBusy';
+import {
   buildShortUTC,
   convertSelectionsBetweenTimeZones,
   getDefaultTimeZone,
@@ -426,6 +436,7 @@ function CourseRequestDetailPage() {
     return !!getAuthToken();
   });
   const [myAvailability, setMyAvailability] = useState(null);
+  const [myBusySelections, setMyBusySelections] = useState({});
 
   const [request, setRequest] = useState(() => {
     const fromState = location?.state?.request;
@@ -494,6 +505,7 @@ function CourseRequestDetailPage() {
     if (!isLoggedIn) {
       setSelectedTimeZone(getDefaultTimeZone());
       setMyAvailability(null);
+      setMyBusySelections({});
       return () => { alive = false; };
     }
 
@@ -502,6 +514,7 @@ function CourseRequestDetailPage() {
         if (!alive) return;
         const availability = normalizeAvailabilityPayload(res?.data?.availability);
         setMyAvailability(availability);
+        setMyBusySelections(normalizeBlockMap(res?.data?.busySelections));
         const tz = typeof availability?.timeZone === 'string' ? availability.timeZone.trim() : '';
         setSelectedTimeZone(tz || getDefaultTimeZone());
       })
@@ -509,6 +522,7 @@ function CourseRequestDetailPage() {
         if (!alive) return;
         setSelectedTimeZone(getDefaultTimeZone());
         setMyAvailability(null);
+        setMyBusySelections({});
       });
 
     return () => { alive = false; };
@@ -840,6 +854,13 @@ function CourseRequestDetailPage() {
     return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
   }, [myAvailability, selectedTimeZone]);
 
+  const myBusySelectionsInViewTz = useMemo(() => {
+    const fromTz = typeof myAvailability?.timeZone === 'string' && myAvailability.timeZone.trim()
+      ? myAvailability.timeZone.trim()
+      : selectedTimeZone;
+    return convertSelectionsBetweenTimeZones(normalizeBlockMap(myBusySelections), fromTz, selectedTimeZone);
+  }, [myAvailability?.timeZone, myBusySelections, selectedTimeZone]);
+
   const requestAvailability = useMemo(() => {
     const data = previewCardData || request;
     if (!data) return null;
@@ -863,25 +884,53 @@ function CourseRequestDetailPage() {
     return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
   }, [requestAvailability, selectedTimeZone]);
 
+  const requestBusySelectionsInViewTz = useMemo(() => {
+    const fromTz = typeof requestAvailability?.timeZone === 'string' && requestAvailability.timeZone.trim()
+      ? requestAvailability.timeZone.trim()
+      : selectedTimeZone;
+    return convertSelectionsBetweenTimeZones(
+      normalizeBlockMap(request?.busySelections),
+      fromTz,
+      selectedTimeZone
+    );
+  }, [request?.busySelections, requestAvailability?.timeZone, selectedTimeZone]);
+
   const myAvailabilityDays = useMemo(() => {
-    const keys = Object.keys(mySelectionsInViewTz || {});
-    const set = new Set();
-    for (const key of keys) {
-      const blocks = mySelectionsInViewTz[key];
-      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
-    }
-    return set;
+    return buildAvailabilityDaySet(mySelectionsInViewTz);
   }, [mySelectionsInViewTz]);
 
   const requestAvailabilityDays = useMemo(() => {
-    const keys = Object.keys(requestSelectionsInViewTz || {});
-    const set = new Set();
-    for (const key of keys) {
-      const blocks = requestSelectionsInViewTz[key];
-      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
-    }
-    return set;
+    return buildAvailabilityDaySet(requestSelectionsInViewTz);
   }, [requestSelectionsInViewTz]);
+
+  const myBusyDays = useMemo(() => buildAvailabilityDaySet(myBusySelectionsInViewTz), [myBusySelectionsInViewTz]);
+  const requestBusyDays = useMemo(() => buildAvailabilityDaySet(requestBusySelectionsInViewTz), [requestBusySelectionsInViewTz]);
+
+  const myEffectiveSelectionsInViewTz = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(mySelectionsInViewTz || {}),
+      ...Object.keys(myBusySelectionsInViewTz || {}),
+    ]);
+    const next = {};
+    keys.forEach((key) => {
+      const blocks = subtractAvailabilityBlocks(mySelectionsInViewTz?.[key], myBusySelectionsInViewTz?.[key]);
+      if (blocks.length > 0) next[key] = blocks;
+    });
+    return next;
+  }, [myBusySelectionsInViewTz, mySelectionsInViewTz]);
+
+  const requestEffectiveSelectionsInViewTz = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(requestSelectionsInViewTz || {}),
+      ...Object.keys(requestBusySelectionsInViewTz || {}),
+    ]);
+    const next = {};
+    keys.forEach((key) => {
+      const blocks = subtractAvailabilityBlocks(requestSelectionsInViewTz?.[key], requestBusySelectionsInViewTz?.[key]);
+      if (blocks.length > 0) next[key] = blocks;
+    });
+    return next;
+  }, [requestBusySelectionsInViewTz, requestSelectionsInViewTz]);
 
   const selectedKeys = useMemo(() => {
     if (!Array.isArray(selectedRangeKeys)) return [];
@@ -892,39 +941,67 @@ function CourseRequestDetailPage() {
     if (selectedKeys.length <= 1) return [];
     let common = null;
     for (const key of selectedKeys) {
-      const blocks = mySelectionsInViewTz?.[key] || [];
+      const blocks = myEffectiveSelectionsInViewTz?.[key] || [];
       common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
       if (!common || common.length === 0) return [];
     }
     return common || [];
-  }, [mySelectionsInViewTz, selectedKeys]);
+  }, [myEffectiveSelectionsInViewTz, selectedKeys]);
 
   const multiDayRequestBlocks = useMemo(() => {
     if (selectedKeys.length <= 1) return [];
     let common = null;
     for (const key of selectedKeys) {
-      const blocks = requestSelectionsInViewTz?.[key] || [];
+      const blocks = requestEffectiveSelectionsInViewTz?.[key] || [];
       common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
       if (!common || common.length === 0) return [];
     }
     return common || [];
-  }, [requestSelectionsInViewTz, selectedKeys]);
+  }, [requestEffectiveSelectionsInViewTz, selectedKeys]);
+
+  const multiDayMyBusyBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    return mergeAvailabilityBlocks(selectedKeys.flatMap((key) => myBusySelectionsInViewTz?.[key] || []));
+  }, [myBusySelectionsInViewTz, selectedKeys]);
+
+  const multiDayRequestBusyBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    return mergeAvailabilityBlocks(selectedKeys.flatMap((key) => requestBusySelectionsInViewTz?.[key] || []));
+  }, [requestBusySelectionsInViewTz, selectedKeys]);
 
   const selectedDayKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
   const mySlots = useMemo(() => {
     if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMyBlocks);
-    return blocksToMinuteSlots(mySelectionsInViewTz?.[selectedDayKey]);
-  }, [multiDayMyBlocks, mySelectionsInViewTz, selectedDayKey, selectedKeys.length]);
+    return blocksToMinuteSlots(myEffectiveSelectionsInViewTz?.[selectedDayKey]);
+  }, [multiDayMyBlocks, myEffectiveSelectionsInViewTz, selectedDayKey, selectedKeys.length]);
 
   const requestSlots = useMemo(() => {
     if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayRequestBlocks);
-    return blocksToMinuteSlots(requestSelectionsInViewTz?.[selectedDayKey]);
-  }, [requestSelectionsInViewTz, multiDayRequestBlocks, selectedDayKey, selectedKeys.length]);
+    return blocksToMinuteSlots(requestEffectiveSelectionsInViewTz?.[selectedDayKey]);
+  }, [requestEffectiveSelectionsInViewTz, multiDayRequestBlocks, selectedDayKey, selectedKeys.length]);
+
+  const myBusySlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMyBusyBlocks);
+    return blocksToMinuteSlots(myBusySelectionsInViewTz?.[selectedDayKey]);
+  }, [multiDayMyBusyBlocks, myBusySelectionsInViewTz, selectedDayKey, selectedKeys.length]);
+
+  const requestBusySlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayRequestBusyBlocks);
+    return blocksToMinuteSlots(requestBusySelectionsInViewTz?.[selectedDayKey]);
+  }, [requestBusySelectionsInViewTz, multiDayRequestBusyBlocks, selectedDayKey, selectedKeys.length]);
+
+  const commonAvailableSlots = useMemo(() => intersectMinuteSlots(mySlots, requestSlots), [mySlots, requestSlots]);
   const columns = useMemo(() => ({ mySlots, counterpartSlots: requestSlots }), [mySlots, requestSlots]);
 
   useEffect(() => {
     setScheduleSelection(null);
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!scheduleSelection) return;
+    if (selectionFitsWithinSlots(scheduleSelection, commonAvailableSlots)) return;
+    setScheduleSelection(null);
+  }, [commonAvailableSlots, scheduleSelection]);
 
   useEffect(() => {
     const scrollEl = scheduleScrollRef.current;
@@ -973,7 +1050,8 @@ function CourseRequestDetailPage() {
     const minStart = timelineConfig.startHour * 60;
     const maxStart = timelineConfig.endHour * 60 - 60;
     const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
-    setScheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+    const nextSelection = buildSelectionFromPoint(commonAvailableSlots, startMinutes, 60, 15);
+    setScheduleSelection(nextSelection);
   };
 
   const clearResizeState = () => {
@@ -1002,13 +1080,20 @@ function CourseRequestDetailPage() {
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
     const snappedDelta = Math.round(deltaMinutes / 15) * 15;
-    const minStart = timelineConfig.startHour * 60;
-    const maxEnd = timelineConfig.endHour * 60;
     const minDuration = 15;
+    const slotBounds = findMinuteSlotContainingRange(commonAvailableSlots, {
+      startMinutes: state.startMinutes,
+      endMinutes: state.endMinutes,
+    });
+    if (!slotBounds) {
+      setScheduleSelection(null);
+      clearResizeState();
+      return;
+    }
 
     if (state.edge === 'start') {
       const startMinutes = Math.max(
-        minStart,
+        slotBounds.startMinutes,
         Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
       );
       setScheduleSelection({ startMinutes, endMinutes: state.endMinutes });
@@ -1017,7 +1102,7 @@ function CourseRequestDetailPage() {
 
     const endMinutes = Math.max(
       state.startMinutes + minDuration,
-      Math.min(maxEnd, state.endMinutes + snappedDelta),
+      Math.min(slotBounds.endMinutes, state.endMinutes + snappedDelta),
     );
     setScheduleSelection({ startMinutes: state.startMinutes, endMinutes });
   };
@@ -1154,6 +1239,7 @@ function CourseRequestDetailPage() {
                         const isPast = key < todayKey;
                         const hasMyAvailability = myAvailabilityDays.has(key);
                         const hasRequestAvailability = requestAvailabilityDays.has(key);
+                        const hasBusy = myBusyDays.has(key) || requestBusyDays.has(key);
                         const inMultiSelected = (selectedRangeKeys || []).includes(key);
                         const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
                           ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
@@ -1218,6 +1304,7 @@ function CourseRequestDetailPage() {
                             }}
                           >
                             <span className="date-number">{date.getDate()}</span>
+                            {hasBusy ? <span className="date-busy-marker" aria-hidden="true" /> : null}
                             {(hasMyAvailability || hasRequestAvailability) ? (
                               <span className="availability-dots" aria-hidden="true">
                                 {(hasMyAvailability && hasRequestAvailability) ? (
@@ -1307,6 +1394,18 @@ function CourseRequestDetailPage() {
                               aria-label="我的空闲时间"
                               onClick={handleTimelineClick}
                             >
+                              {myBusySlots.map((slot, index) => (
+                                <div
+                                  key={`busy-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                  className="reschedule-slot busy"
+                                  style={{
+                                    top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                    height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                  }}
+                                >
+                                  {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                </div>
+                              ))}
                               {columns.mySlots.map((slot, index) => (
                                 <div
                                   key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
@@ -1326,6 +1425,18 @@ function CourseRequestDetailPage() {
                               aria-label="学员空闲时间"
                               onClick={handleTimelineClick}
                             >
+                              {requestBusySlots.map((slot, index) => (
+                                <div
+                                  key={`counterpart-busy-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                  className="reschedule-slot busy"
+                                  style={{
+                                    top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                    height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                  }}
+                                >
+                                  {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                </div>
+                              ))}
                               {columns.counterpartSlots.map((slot, index) => (
                                 <div
                                   key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}

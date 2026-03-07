@@ -21,6 +21,16 @@ import { recordRecentVisit } from '../../api/recentVisits';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import {
+  buildAvailabilityDaySet,
+  buildSelectionFromPoint,
+  findMinuteSlotContainingRange,
+  intersectMinuteSlots,
+  mergeAvailabilityBlocks,
+  normalizeBlockMap,
+  selectionFitsWithinSlots,
+  subtractAvailabilityBlocks,
+} from '../../utils/availabilityBusy';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './MentorDetailPage.css';
 
@@ -348,7 +358,9 @@ function MentorDetailPage() {
     return !!getAuthToken();
   });
   const [myAvailability, setMyAvailability] = useState(null);
+  const [myBusySelections, setMyBusySelections] = useState({});
   const [mentorAvailability, setMentorAvailability] = useState(null);
+  const [mentorBusySelections, setMentorBusySelections] = useState({});
 
   const [mentor, setMentor] = useState(() => location?.state?.mentor || null);
   const [loading, setLoading] = useState(() => !location?.state?.mentor);
@@ -573,6 +585,7 @@ function MentorDetailPage() {
     if (!isLoggedIn) {
       setSelectedTimeZone(getDefaultTimeZone());
       setMyAvailability(null);
+      setMyBusySelections({});
       return () => { alive = false; };
     }
 
@@ -581,6 +594,7 @@ function MentorDetailPage() {
         if (!alive) return;
         const availability = normalizeAvailabilityPayload(res?.data?.availability);
         setMyAvailability(availability);
+        setMyBusySelections(normalizeBlockMap(res?.data?.busySelections));
         const tz = typeof availability?.timeZone === 'string' ? availability.timeZone.trim() : '';
         setSelectedTimeZone(tz || getDefaultTimeZone());
       })
@@ -588,6 +602,7 @@ function MentorDetailPage() {
         if (!alive) return;
         setSelectedTimeZone(getDefaultTimeZone());
         setMyAvailability(null);
+        setMyBusySelections({});
       });
 
     return () => { alive = false; };
@@ -675,6 +690,7 @@ function MentorDetailPage() {
     let alive = true;
     if (!mentorId) {
       setMentorAvailability(null);
+      setMentorBusySelections({});
       return () => { alive = false; };
     }
 
@@ -682,10 +698,12 @@ function MentorDetailPage() {
       .then((res) => {
         if (!alive) return;
         setMentorAvailability(normalizeAvailabilityPayload(res?.data?.availability));
+        setMentorBusySelections(normalizeBlockMap(res?.data?.busySelections));
       })
       .catch(() => {
         if (!alive) return;
         setMentorAvailability(null);
+        setMentorBusySelections({});
       });
 
     return () => { alive = false; };
@@ -889,6 +907,13 @@ function MentorDetailPage() {
     return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
   }, [myAvailability, selectedTimeZone]);
 
+  const myBusySelectionsInViewTz = useMemo(() => {
+    const fromTz = typeof myAvailability?.timeZone === 'string' && myAvailability.timeZone.trim()
+      ? myAvailability.timeZone.trim()
+      : selectedTimeZone;
+    return convertSelectionsBetweenTimeZones(normalizeBlockMap(myBusySelections), fromTz, selectedTimeZone);
+  }, [myAvailability?.timeZone, myBusySelections, selectedTimeZone]);
+
   const mentorSelectionsInViewTz = useMemo(() => {
     const payload = mentorAvailability;
     if (!payload) return {};
@@ -897,25 +922,49 @@ function MentorDetailPage() {
     return convertSelectionsBetweenTimeZones(daySelections, fromTz, selectedTimeZone);
   }, [mentorAvailability, selectedTimeZone]);
 
+  const mentorBusySelectionsInViewTz = useMemo(() => {
+    const fromTz = typeof mentorAvailability?.timeZone === 'string' && mentorAvailability.timeZone.trim()
+      ? mentorAvailability.timeZone.trim()
+      : selectedTimeZone;
+    return convertSelectionsBetweenTimeZones(normalizeBlockMap(mentorBusySelections), fromTz, selectedTimeZone);
+  }, [mentorAvailability?.timeZone, mentorBusySelections, selectedTimeZone]);
+
   const myAvailabilityDays = useMemo(() => {
-    const keys = Object.keys(mySelectionsInViewTz || {});
-    const set = new Set();
-    for (const key of keys) {
-      const blocks = mySelectionsInViewTz[key];
-      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
-    }
-    return set;
+    return buildAvailabilityDaySet(mySelectionsInViewTz);
   }, [mySelectionsInViewTz]);
 
   const mentorAvailabilityDays = useMemo(() => {
-    const keys = Object.keys(mentorSelectionsInViewTz || {});
-    const set = new Set();
-    for (const key of keys) {
-      const blocks = mentorSelectionsInViewTz[key];
-      if (Array.isArray(blocks) && blocks.length > 0) set.add(key);
-    }
-    return set;
+    return buildAvailabilityDaySet(mentorSelectionsInViewTz);
   }, [mentorSelectionsInViewTz]);
+
+  const myBusyDays = useMemo(() => buildAvailabilityDaySet(myBusySelectionsInViewTz), [myBusySelectionsInViewTz]);
+  const mentorBusyDays = useMemo(() => buildAvailabilityDaySet(mentorBusySelectionsInViewTz), [mentorBusySelectionsInViewTz]);
+
+  const myEffectiveSelectionsInViewTz = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(mySelectionsInViewTz || {}),
+      ...Object.keys(myBusySelectionsInViewTz || {}),
+    ]);
+    const next = {};
+    keys.forEach((key) => {
+      const blocks = subtractAvailabilityBlocks(mySelectionsInViewTz?.[key], myBusySelectionsInViewTz?.[key]);
+      if (blocks.length > 0) next[key] = blocks;
+    });
+    return next;
+  }, [myBusySelectionsInViewTz, mySelectionsInViewTz]);
+
+  const mentorEffectiveSelectionsInViewTz = useMemo(() => {
+    const keys = new Set([
+      ...Object.keys(mentorSelectionsInViewTz || {}),
+      ...Object.keys(mentorBusySelectionsInViewTz || {}),
+    ]);
+    const next = {};
+    keys.forEach((key) => {
+      const blocks = subtractAvailabilityBlocks(mentorSelectionsInViewTz?.[key], mentorBusySelectionsInViewTz?.[key]);
+      if (blocks.length > 0) next[key] = blocks;
+    });
+    return next;
+  }, [mentorBusySelectionsInViewTz, mentorSelectionsInViewTz]);
 
   const selectedKeys = useMemo(() => {
     if (!Array.isArray(selectedRangeKeys)) return [];
@@ -926,39 +975,67 @@ function MentorDetailPage() {
     if (selectedKeys.length <= 1) return [];
     let common = null;
     for (const key of selectedKeys) {
-      const blocks = mySelectionsInViewTz?.[key] || [];
+      const blocks = myEffectiveSelectionsInViewTz?.[key] || [];
       common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
       if (!common || common.length === 0) return [];
     }
     return common || [];
-  }, [mySelectionsInViewTz, selectedKeys]);
+  }, [myEffectiveSelectionsInViewTz, selectedKeys]);
 
   const multiDayMentorBlocks = useMemo(() => {
     if (selectedKeys.length <= 1) return [];
     let common = null;
     for (const key of selectedKeys) {
-      const blocks = mentorSelectionsInViewTz?.[key] || [];
+      const blocks = mentorEffectiveSelectionsInViewTz?.[key] || [];
       common = common == null ? blocks : intersectAvailabilityBlocks(common, blocks);
       if (!common || common.length === 0) return [];
     }
     return common || [];
-  }, [mentorSelectionsInViewTz, selectedKeys]);
+  }, [mentorEffectiveSelectionsInViewTz, selectedKeys]);
+
+  const multiDayMyBusyBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    return mergeAvailabilityBlocks(selectedKeys.flatMap((key) => myBusySelectionsInViewTz?.[key] || []));
+  }, [myBusySelectionsInViewTz, selectedKeys]);
+
+  const multiDayMentorBusyBlocks = useMemo(() => {
+    if (selectedKeys.length <= 1) return [];
+    return mergeAvailabilityBlocks(selectedKeys.flatMap((key) => mentorBusySelectionsInViewTz?.[key] || []));
+  }, [mentorBusySelectionsInViewTz, selectedKeys]);
 
   const selectedDayKey = useMemo(() => ymdKey(selectedDate), [selectedDate]);
   const mySlots = useMemo(() => {
     if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMyBlocks);
-    return blocksToMinuteSlots(mySelectionsInViewTz?.[selectedDayKey]);
-  }, [multiDayMyBlocks, mySelectionsInViewTz, selectedDayKey, selectedKeys.length]);
+    return blocksToMinuteSlots(myEffectiveSelectionsInViewTz?.[selectedDayKey]);
+  }, [multiDayMyBlocks, myEffectiveSelectionsInViewTz, selectedDayKey, selectedKeys.length]);
 
   const mentorSlots = useMemo(() => {
     if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMentorBlocks);
-    return blocksToMinuteSlots(mentorSelectionsInViewTz?.[selectedDayKey]);
-  }, [mentorSelectionsInViewTz, multiDayMentorBlocks, selectedDayKey, selectedKeys.length]);
+    return blocksToMinuteSlots(mentorEffectiveSelectionsInViewTz?.[selectedDayKey]);
+  }, [mentorEffectiveSelectionsInViewTz, multiDayMentorBlocks, selectedDayKey, selectedKeys.length]);
+
+  const myBusySlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMyBusyBlocks);
+    return blocksToMinuteSlots(myBusySelectionsInViewTz?.[selectedDayKey]);
+  }, [multiDayMyBusyBlocks, myBusySelectionsInViewTz, selectedDayKey, selectedKeys.length]);
+
+  const mentorBusySlots = useMemo(() => {
+    if (selectedKeys.length > 1) return blocksToMinuteSlots(multiDayMentorBusyBlocks);
+    return blocksToMinuteSlots(mentorBusySelectionsInViewTz?.[selectedDayKey]);
+  }, [mentorBusySelectionsInViewTz, multiDayMentorBusyBlocks, selectedDayKey, selectedKeys.length]);
+
+  const commonAvailableSlots = useMemo(() => intersectMinuteSlots(mySlots, mentorSlots), [mentorSlots, mySlots]);
   const columns = useMemo(() => ({ mySlots, counterpartSlots: mentorSlots }), [mentorSlots, mySlots]);
 
   useEffect(() => {
     setScheduleSelection(null);
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!scheduleSelection) return;
+    if (selectionFitsWithinSlots(scheduleSelection, commonAvailableSlots)) return;
+    setScheduleSelection(null);
+  }, [commonAvailableSlots, scheduleSelection]);
 
   useEffect(() => {
     const scrollEl = scheduleScrollRef.current;
@@ -1007,7 +1084,8 @@ function MentorDetailPage() {
     const minStart = timelineConfig.startHour * 60;
     const maxStart = timelineConfig.endHour * 60 - 60;
     const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
-    setScheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+    const nextSelection = buildSelectionFromPoint(commonAvailableSlots, startMinutes, 60, 15);
+    setScheduleSelection(nextSelection);
   };
 
   const clearResizeState = () => {
@@ -1036,13 +1114,20 @@ function MentorDetailPage() {
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
     const snappedDelta = Math.round(deltaMinutes / 15) * 15;
-    const minStart = timelineConfig.startHour * 60;
-    const maxEnd = timelineConfig.endHour * 60;
     const minDuration = 15;
+    const slotBounds = findMinuteSlotContainingRange(commonAvailableSlots, {
+      startMinutes: state.startMinutes,
+      endMinutes: state.endMinutes,
+    });
+    if (!slotBounds) {
+      setScheduleSelection(null);
+      clearResizeState();
+      return;
+    }
 
     if (state.edge === 'start') {
       const startMinutes = Math.max(
-        minStart,
+        slotBounds.startMinutes,
         Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
       );
       setScheduleSelection({ startMinutes, endMinutes: state.endMinutes });
@@ -1051,7 +1136,7 @@ function MentorDetailPage() {
 
     const endMinutes = Math.max(
       state.startMinutes + minDuration,
-      Math.min(maxEnd, state.endMinutes + snappedDelta),
+      Math.min(slotBounds.endMinutes, state.endMinutes + snappedDelta),
     );
     setScheduleSelection({ startMinutes: state.startMinutes, endMinutes });
   };
@@ -1226,6 +1311,7 @@ function MentorDetailPage() {
                           const isPast = key < todayKey;
                           const hasMyAvailability = myAvailabilityDays.has(key);
                           const hasMentorAvailability = mentorAvailabilityDays.has(key);
+                          const hasBusy = myBusyDays.has(key) || mentorBusyDays.has(key);
                           const inMultiSelected = (selectedRangeKeys || []).includes(key);
                           const inPreview = (dragPreviewKeys && dragPreviewKeys.size)
                             ? (dragPreviewKeys.has(key) && !selected && !inMultiSelected)
@@ -1289,10 +1375,11 @@ function MentorDetailPage() {
                                 }
                               }}
                             >
-                              <span className="date-number">{date.getDate()}</span>
-                              {(hasMyAvailability || hasMentorAvailability) ? (
-                                <span className="availability-dots" aria-hidden="true">
-                                  {(hasMyAvailability && hasMentorAvailability) ? (
+                            <span className="date-number">{date.getDate()}</span>
+                            {hasBusy ? <span className="date-busy-marker" aria-hidden="true" /> : null}
+                            {(hasMyAvailability || hasMentorAvailability) ? (
+                              <span className="availability-dots" aria-hidden="true">
+                                {(hasMyAvailability && hasMentorAvailability) ? (
                                     <span className="availability-dot both" />
                                   ) : hasMyAvailability ? (
                                     <span className="availability-dot me" />
@@ -1378,6 +1465,18 @@ function MentorDetailPage() {
                                 aria-label="我的空闲时间"
                                 onClick={handleTimelineClick}
                               >
+                                {myBusySlots.map((slot, index) => (
+                                  <div
+                                    key={`busy-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                    className="reschedule-slot busy"
+                                    style={{
+                                      top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                      height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                    }}
+                                  >
+                                    {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                  </div>
+                                ))}
                                 {columns.mySlots.map((slot, index) => (
                                   <div
                                     key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
@@ -1397,6 +1496,18 @@ function MentorDetailPage() {
                                 aria-label="导师空闲时间"
                                 onClick={handleTimelineClick}
                               >
+                                {mentorBusySlots.map((slot, index) => (
+                                  <div
+                                    key={`counterpart-busy-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                                    className="reschedule-slot busy"
+                                    style={{
+                                      top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                                      height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                                    }}
+                                  >
+                                    {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                                  </div>
+                                ))}
                                 {columns.counterpartSlots.map((slot, index) => (
                                   <div
                                     key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}

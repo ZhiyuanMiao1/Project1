@@ -13,6 +13,14 @@ import {
   normalizeScheduleStatus,
   parseScheduleWindowRange,
 } from './appointmentCardUtils';
+import {
+  buildSelectionFromPoint,
+  findMinuteSlotContainingRange,
+  intersectMinuteSlots,
+  normalizeBlockMap,
+  selectionFitsWithinSlots,
+  subtractAvailabilityBlocks,
+} from '../../utils/availabilityBusy';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -283,56 +291,6 @@ const availabilityBlocksToSlots = (blocks) => {
     .sort((a, b) => a.startMinutes - b.startMinutes);
 };
 
-const intersectSlots = (a = [], b = []) => {
-  const result = [];
-  let i = 0;
-  let j = 0;
-  const sortedA = [...a].sort((x, y) => x.startMinutes - y.startMinutes);
-  const sortedB = [...b].sort((x, y) => x.startMinutes - y.startMinutes);
-
-  while (i < sortedA.length && j < sortedB.length) {
-    const slotA = sortedA[i];
-    const slotB = sortedB[j];
-    const start = Math.max(slotA.startMinutes, slotB.startMinutes);
-    const end = Math.min(slotA.endMinutes, slotB.endMinutes);
-    if (end > start) result.push({ startMinutes: start, endMinutes: end });
-
-    if (slotA.endMinutes < slotB.endMinutes) i += 1;
-    else j += 1;
-  }
-
-  return result;
-};
-
-const buildMockAvailability = (date, role) => {
-  const day = date?.getDay?.() ?? 1;
-  const isWeekend = day === 0 || day === 6;
-
-  if (role === 'student') {
-    return isWeekend
-      ? [
-        { startMinutes: 13 * 60, endMinutes: 16 * 60 },
-        { startMinutes: 19 * 60, endMinutes: 21 * 60 },
-      ]
-      : [
-        { startMinutes: 12 * 60, endMinutes: 13 * 60 + 30 },
-        { startMinutes: 14 * 60, endMinutes: 15 * 60 + 30 },
-        { startMinutes: 20 * 60, endMinutes: 21 * 60 + 30 },
-      ];
-  }
-
-  return isWeekend
-    ? [
-      { startMinutes: 15 * 60, endMinutes: 17 * 60 + 30 },
-      { startMinutes: 20 * 60, endMinutes: 21 * 60 },
-    ]
-    : [
-      { startMinutes: 11 * 60 + 30, endMinutes: 12 * 60 + 30 },
-      { startMinutes: 14 * 60 + 30, endMinutes: 17 * 60 },
-      { startMinutes: 19 * 60, endMinutes: 20 * 60 + 30 },
-    ];
-};
-
 function MessagesPage() {
   const location = useLocation();
   const isMentorView = useMemo(() => {
@@ -364,6 +322,8 @@ function MessagesPage() {
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [myAvailability, setMyAvailability] = useState(null);
+  const [threadAvailabilityStatus, setThreadAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
+  const [threadAvailability, setThreadAvailability] = useState(null);
   const [threads, setThreads] = useState([]);
   const [threadsStatus, setThreadsStatus] = useState('idle'); // idle | loading | loaded | error
   const [threadsError, setThreadsError] = useState('');
@@ -394,6 +354,8 @@ function MessagesPage() {
     if (isLoggedIn) return;
     setMyAvailabilityStatus('idle');
     setMyAvailability(null);
+    setThreadAvailability(null);
+    setThreadAvailabilityStatus('idle');
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -508,6 +470,35 @@ function MessagesPage() {
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
     : DEFAULT_SCHEDULE_WINDOW;
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn || !rescheduleOpen || !activeThread?.id) {
+      setThreadAvailability(null);
+      setThreadAvailabilityStatus('idle');
+      return () => { alive = false; };
+    }
+
+    setThreadAvailabilityStatus('loading');
+    api.get(`/api/messages/threads/${encodeURIComponent(String(activeThread.id))}/availability`)
+      .then((res) => {
+        if (!alive) return;
+        setThreadAvailability({
+          studentAvailability: res?.data?.studentAvailability || null,
+          mentorAvailability: res?.data?.mentorAvailability || null,
+          studentBusySelections: normalizeBlockMap(res?.data?.studentBusySelections),
+          mentorBusySelections: normalizeBlockMap(res?.data?.mentorBusySelections),
+        });
+        setThreadAvailabilityStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setThreadAvailability(null);
+        setThreadAvailabilityStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [activeThread?.id, isLoggedIn, rescheduleOpen]);
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
@@ -798,7 +789,8 @@ function MessagesPage() {
     const minStart = timelineConfig.startHour * 60;
     const maxStart = timelineConfig.endHour * 60 - 60;
     const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
-    setRescheduleSelection({ startMinutes, endMinutes: startMinutes + 60 });
+    const nextSelection = buildSelectionFromPoint(availability.commonSlots, startMinutes, 60, 15);
+    setRescheduleSelection(nextSelection);
   };
 
   const clearRescheduleResizeState = () => {
@@ -817,13 +809,20 @@ function MessagesPage() {
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
     const snappedDelta = Math.round(deltaMinutes / 15) * 15;
-    const minStart = timelineConfig.startHour * 60;
-    const maxEnd = timelineConfig.endHour * 60;
     const minDuration = 15;
+    const slotBounds = findMinuteSlotContainingRange(availability.commonSlots, {
+      startMinutes: state.startMinutes,
+      endMinutes: state.endMinutes,
+    });
+    if (!slotBounds) {
+      setRescheduleSelection(null);
+      clearRescheduleResizeState();
+      return;
+    }
 
     if (state.edge === 'start') {
       const startMinutes = Math.max(
-        minStart,
+        slotBounds.startMinutes,
         Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
       );
       setRescheduleSelection({ startMinutes, endMinutes: state.endMinutes });
@@ -832,7 +831,7 @@ function MessagesPage() {
 
     const endMinutes = Math.max(
       state.startMinutes + minDuration,
-      Math.min(maxEnd, state.endMinutes + snappedDelta),
+      Math.min(slotBounds.endMinutes, state.endMinutes + snappedDelta),
     );
     setRescheduleSelection({ startMinutes: state.startMinutes, endMinutes });
   };
@@ -885,27 +884,89 @@ function MessagesPage() {
     };
   }, [counterpartDisplayName]);
 
+  const selectionDayKey = useMemo(() => toYmdKey(rescheduleDate), [rescheduleDate]);
+
+  const currentStudentAvailability = threadAvailability?.studentAvailability || null;
+  const currentMentorAvailability = threadAvailability?.mentorAvailability || null;
+  const currentStudentBusySelections = useMemo(
+    () => threadAvailability?.studentBusySelections || {},
+    [threadAvailability?.studentBusySelections]
+  );
+  const currentMentorBusySelections = useMemo(
+    () => threadAvailability?.mentorBusySelections || {},
+    [threadAvailability?.mentorBusySelections]
+  );
+
+  const myAvailabilityPayload = useMemo(() => {
+    if (isMentorInThread) return currentMentorAvailability || myAvailability;
+    return currentStudentAvailability || myAvailability;
+  }, [currentMentorAvailability, currentStudentAvailability, isMentorInThread, myAvailability]);
+
+  const counterpartAvailabilityPayload = useMemo(() => {
+    return isMentorInThread ? currentStudentAvailability : currentMentorAvailability;
+  }, [currentMentorAvailability, currentStudentAvailability, isMentorInThread]);
+
+  const myBusySelectionsForThread = useMemo(() => {
+    return isMentorInThread ? currentMentorBusySelections : currentStudentBusySelections;
+  }, [currentMentorBusySelections, currentStudentBusySelections, isMentorInThread]);
+
+  const counterpartBusySelectionsForThread = useMemo(() => {
+    return isMentorInThread ? currentStudentBusySelections : currentMentorBusySelections;
+  }, [currentMentorBusySelections, currentStudentBusySelections, isMentorInThread]);
+
   const myAvailabilitySlots = useMemo(() => {
-    if (myAvailability && typeof myAvailability === 'object') {
-      const key = toYmdKey(rescheduleDate);
-      const blocks = myAvailability.daySelections?.[key];
-      return availabilityBlocksToSlots(blocks);
+    if (myAvailabilityPayload && typeof myAvailabilityPayload === 'object') {
+      const freeBlocks = subtractAvailabilityBlocks(
+        myAvailabilityPayload.daySelections?.[selectionDayKey],
+        myBusySelectionsForThread?.[selectionDayKey]
+      );
+      return availabilityBlocksToSlots(freeBlocks);
     }
-    if (myAvailabilityStatus === 'idle' || myAvailabilityStatus === 'loading') return null;
+    if (myAvailabilityStatus === 'idle' || myAvailabilityStatus === 'loading' || threadAvailabilityStatus === 'loading') return null;
     return [];
-  }, [myAvailability, myAvailabilityStatus, rescheduleDate]);
+  }, [myAvailabilityPayload, myAvailabilityStatus, myBusySelectionsForThread, selectionDayKey, threadAvailabilityStatus]);
+
+  const counterpartAvailabilitySlots = useMemo(() => {
+    if (counterpartAvailabilityPayload && typeof counterpartAvailabilityPayload === 'object') {
+      const freeBlocks = subtractAvailabilityBlocks(
+        counterpartAvailabilityPayload.daySelections?.[selectionDayKey],
+        counterpartBusySelectionsForThread?.[selectionDayKey]
+      );
+      return availabilityBlocksToSlots(freeBlocks);
+    }
+    if (threadAvailabilityStatus === 'idle' || threadAvailabilityStatus === 'loading') return null;
+    return [];
+  }, [counterpartAvailabilityPayload, counterpartBusySelectionsForThread, selectionDayKey, threadAvailabilityStatus]);
+
+  const myBusySlots = useMemo(() => {
+    return availabilityBlocksToSlots(myBusySelectionsForThread?.[selectionDayKey]);
+  }, [myBusySelectionsForThread, selectionDayKey]);
+
+  const counterpartBusySlots = useMemo(() => {
+    return availabilityBlocksToSlots(counterpartBusySelectionsForThread?.[selectionDayKey]);
+  }, [counterpartBusySelectionsForThread, selectionDayKey]);
 
   const availability = useMemo(() => {
     const mySlots = Array.isArray(myAvailabilitySlots) ? myAvailabilitySlots : [];
-    const counterpartSlots = buildMockAvailability(rescheduleDate, isMentorInThread ? 'student' : 'mentor');
+    const counterpartSlots = Array.isArray(counterpartAvailabilitySlots) ? counterpartAvailabilitySlots : [];
     const studentSlots = isMentorInThread ? counterpartSlots : mySlots;
     const mentorSlots = isMentorInThread ? mySlots : counterpartSlots;
+    const studentBusySlots = isMentorInThread ? counterpartBusySlots : myBusySlots;
+    const mentorBusySlots = isMentorInThread ? myBusySlots : counterpartBusySlots;
     return {
       studentSlots,
       mentorSlots,
-      commonSlots: intersectSlots(studentSlots, mentorSlots),
+      studentBusySlots,
+      mentorBusySlots,
+      commonSlots: intersectMinuteSlots(studentSlots, mentorSlots),
     };
-  }, [isMentorInThread, myAvailabilitySlots, rescheduleDate]);
+  }, [counterpartAvailabilitySlots, counterpartBusySlots, isMentorInThread, myAvailabilitySlots, myBusySlots]);
+
+  useEffect(() => {
+    if (!rescheduleSelection) return;
+    if (selectionFitsWithinSlots(rescheduleSelection, availability.commonSlots)) return;
+    setRescheduleSelection(null);
+  }, [availability.commonSlots, rescheduleSelection]);
 
   const shiftRescheduleDate = (deltaDays) => {
     setRescheduleDate((prev) => {
@@ -1423,6 +1484,18 @@ function MessagesPage() {
                     aria-label="我的空闲时间"
                     onClick={handleRescheduleTimelineClick}
                   >
+                    {(isMentorInThread ? availability.mentorBusySlots : availability.studentBusySlots).map((slot, index) => (
+                      <div
+                        key={`busy-left-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                        className="reschedule-slot busy"
+                        style={{
+                          top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                          height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                        }}
+                      >
+                        {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                      </div>
+                    ))}
                     {columns.mySlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
@@ -1442,6 +1515,18 @@ function MessagesPage() {
                     aria-label="对方空闲时间"
                     onClick={handleRescheduleTimelineClick}
                   >
+                    {(isMentorInThread ? availability.studentBusySlots : availability.mentorBusySlots).map((slot, index) => (
+                      <div
+                        key={`busy-right-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                        className="reschedule-slot busy"
+                        style={{
+                          top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                          height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                        }}
+                      >
+                        {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                      </div>
+                    ))}
                     {columns.counterpartSlots.map((slot, index) => (
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}

@@ -16,6 +16,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   getDayBlocks,          // 可选，(key)=>blocks，用于跨天读
   setDayBlocks,          // 可选，(key,next)=>void，用于跨天写
   disableBeforeIndex = -1, // 可选，<= 该索引的格子禁用（用于“今天”已过时段）
+  busyBlocks = EMPTY_BLOCKS, // 可选，当前日期被课程/预约占用的格子
 }) {
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
@@ -244,6 +245,19 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
     return set;
   }, [selectedBlocks]);
 
+  const busyIndexSet = useMemo(() => {
+    const set = new Set();
+    for (const b of Array.isArray(busyBlocks) ? busyBlocks : EMPTY_BLOCKS) {
+      const start = Number(b?.start);
+      const end = Number(b?.end);
+      if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+      const safeStart = Math.max(0, Math.min(95, Math.floor(Math.min(start, end))));
+      const safeEnd = Math.max(0, Math.min(95, Math.floor(Math.max(start, end))));
+      for (let i = safeStart; i <= safeEnd; i += 1) set.add(i);
+    }
+    return set;
+  }, [busyBlocks]);
+
   return (
     <div className="schedule-times-panel">
       <div className="times-panel-header">
@@ -295,16 +309,19 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
         {timeSlots.map((t, idx) => {
       const isSelected = selectedIndexSet.has(idx);
       const isDisabled = disableBeforeIndex >= 0 && idx <= disableBeforeIndex;
+      const isBusy = busyIndexSet.has(idx);
+      const isBlocked = isDisabled || isBusy;
       return (
         <button
           key={`${t.h}-${t.m}-${idx}`}
           type="button"
-          className={`time-slot ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
+          className={`time-slot ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''} ${isBusy ? 'occupied' : ''}`}
           data-index={idx}
           data-time-slot={t.label}
-          onClick={isDisabled ? undefined : () => handleClickSlot(idx)}
-          disabled={isDisabled}
-          aria-pressed={isSelected && !isDisabled}   // ✅ 合法（按钮/role=button 可用）
+          onClick={isBlocked ? undefined : () => handleClickSlot(idx)}
+          disabled={isBlocked}
+          aria-pressed={isSelected && !isBlocked}   // ✅ 合法（按钮/role=button 可用）
+          aria-disabled={isBlocked}
         >
               <span className="dot" aria-hidden />
               <span className="time-text">{t.label}</span>

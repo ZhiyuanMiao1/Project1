@@ -10,6 +10,7 @@ import {
   sanitizeTeachingLanguageCodes,
 } from '../services/mentorTeachingLanguages';
 import { enqueueMentorCourseAsyncRefresh } from '../services/mentorCourseAsync';
+import { getBusySelectionsForUser } from '../services/availabilityBusy';
 
 const router = Router();
 
@@ -262,6 +263,11 @@ router.get('/requests/:id', requireAuth, async (req: Request, res: Response) => 
       return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 
+    const busySelections = await getBusySelectionsForUser(
+      Number(row.student_user_id),
+      row.time_zone || row.student_timezone || 'Asia/Shanghai'
+    );
+
     return res.json({
       request: {
         id: Number(row.request_id),
@@ -278,6 +284,7 @@ router.get('/requests/:id', requireAuth, async (req: Request, res: Response) => 
         timeZone: row.time_zone || row.student_timezone || '',
         sessionDurationHours: row.session_duration_hours,
         daySelections,
+        busySelections,
         student: {
           publicId: String(row.student_public_id || '').toUpperCase(),
           degree: row.student_degree || '',

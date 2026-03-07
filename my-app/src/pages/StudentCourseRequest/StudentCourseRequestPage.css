@@ -716,6 +716,22 @@
 .date-cell.selected .date-marker, /* 单日选中为白点 */
 .date-cell.multi-selected .date-marker { background: #ffffff; } /* 多日选中同样为白点 */
 
+.date-busy-marker {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f59e0b;
+  pointer-events: none;
+}
+.date-cell.selected .date-busy-marker,
+.date-cell.multi-selected .date-busy-marker {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55);
+}
+
 .schedule-right-panel {
   align-self: stretch;
   width: 100%;
@@ -844,6 +860,21 @@
 .time-slot:disabled .dot { background: #9ca3af; }
 .time-slot.disabled:hover,
 .time-slot:disabled:hover { border-color: #e5e7eb; box-shadow: none; }
+
+.time-slot.occupied,
+.time-slot.occupied:disabled {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(255, 247, 237, 0.98);
+}
+.time-slot.occupied .time-text,
+.time-slot.occupied:disabled .time-text { color: #9a3412; }
+.time-slot.occupied .dot,
+.time-slot.occupied:disabled .dot { background: #f59e0b; }
+.time-slot.occupied:hover,
+.time-slot.occupied:disabled:hover {
+  border-color: rgba(245, 158, 11, 0.3);
+  box-shadow: none;
+}
 
 /* 细节页右侧表单容器（替代动画） */
 .details-right-panel {

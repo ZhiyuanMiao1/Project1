@@ -202,6 +202,7 @@ function ProfileSection({
   accountProfile,
   onSaveAccountProfilePatch,
   availability,
+  availabilityBusySelections,
   availabilityStatus,
   savingAvailability,
   availabilitySummary,
@@ -407,6 +408,7 @@ function ProfileSection({
         >
           <AvailabilityEditor
             value={availability}
+            busySelections={availabilityBusySelections}
             disabled={!isLoggedIn}
             loading={availabilityStatus === 'loading'}
             saving={savingAvailability}
@@ -420,4 +422,3 @@ function ProfileSection({
 }
 
 export default ProfileSection;
-

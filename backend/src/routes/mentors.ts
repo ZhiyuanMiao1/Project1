@@ -8,6 +8,7 @@ import {
 } from '../services/mentorTeachingLanguages';
 import { ensureMentorDirectionScoresTable } from '../services/mentorDirectionScores';
 import { ensureMentorCourseEmbeddingsVectorIndex } from '../services/rdsVectorIndex';
+import { getBusySelectionsForUser } from '../services/availabilityBusy';
 
 const router = Router();
 
@@ -893,7 +894,10 @@ router.get('/:mentorId/availability', async (req: Request, res: Response) => {
     }
 
     const availability = parseAvailability(settingsRows?.[0]?.availability_json);
-    return res.json({ availability });
+    const busySelections = availability
+      ? await getBusySelectionsForUser(userId, availability.timeZone)
+      : {};
+    return res.json({ availability, busySelections });
   } catch (e) {
     console.error('Fetch mentor availability error:', e);
     return res.status(500).json({ error: 'server_error' });

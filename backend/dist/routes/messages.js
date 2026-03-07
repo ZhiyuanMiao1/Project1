@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
+const availabilityBusy_1 = require("../services/availabilityBusy");
 const router = express_1.default.Router();
 const isMissingMessagesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
@@ -166,6 +167,107 @@ const buildCourseSessionLookupKey = (studentUserId, mentorUserId, startsAtText) 
     if (!normalizedStartsAt)
         return '';
     return `${studentUserId}:${mentorUserId}:${normalizedStartsAt}`;
+};
+const isMissingAvailabilityColumnError = (error) => {
+    const code = typeof error?.code === 'string' ? error.code : '';
+    const message = typeof error?.message === 'string' ? error.message : '';
+    return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('availability_json');
+};
+const mergeAvailabilityBlocks = (blocks) => {
+    if (!Array.isArray(blocks) || blocks.length === 0)
+        return [];
+    const sorted = blocks
+        .map((block) => ({
+        start: Math.min(block.start, block.end),
+        end: Math.max(block.start, block.end),
+    }))
+        .sort((a, b) => a.start - b.start);
+    const merged = [sorted[0]];
+    for (let index = 1; index < sorted.length; index += 1) {
+        const previous = merged[merged.length - 1];
+        const current = sorted[index];
+        if (current.start <= previous.end + 1)
+            previous.end = Math.max(previous.end, current.end);
+        else
+            merged.push({ ...current });
+    }
+    return merged;
+};
+const isValidDayKey = (key) => {
+    if (typeof key !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(key))
+        return false;
+    const [yearText, monthText, dayText] = key.split('-');
+    const year = Number.parseInt(yearText, 10);
+    const month = Number.parseInt(monthText, 10);
+    const day = Number.parseInt(dayText, 10);
+    if (![year, month, day].every(Number.isFinite))
+        return false;
+    if (month < 1 || month > 12 || day < 1 || day > 31)
+        return false;
+    const date = new Date(year, month - 1, day);
+    if (!Number.isFinite(date.getTime()))
+        return false;
+    return (date.getFullYear() === year
+        && date.getMonth() + 1 === month
+        && date.getDate() === day);
+};
+const sanitizeDaySelections = (raw) => {
+    const out = {};
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+        return out;
+    for (const [key, value] of Object.entries(raw)) {
+        if (!isValidDayKey(key) || !Array.isArray(value))
+            continue;
+        const blocks = [];
+        for (const item of value) {
+            const start = Number(item?.start);
+            const end = Number(item?.end);
+            if (!Number.isFinite(start) || !Number.isFinite(end))
+                continue;
+            const safeStart = Math.max(0, Math.min(95, Math.floor(start)));
+            const safeEnd = Math.max(0, Math.min(95, Math.floor(end)));
+            blocks.push({ start: Math.min(safeStart, safeEnd), end: Math.max(safeStart, safeEnd) });
+        }
+        const merged = mergeAvailabilityBlocks(blocks);
+        if (merged.length > 0)
+            out[key] = merged;
+    }
+    return out;
+};
+const parseAvailabilityPayload = (value, fallbackTimeZone = 'Asia/Shanghai') => {
+    if (typeof value !== 'string' || !value.trim())
+        return null;
+    try {
+        const parsed = JSON.parse(value);
+        const timeZone = typeof parsed?.timeZone === 'string' && parsed.timeZone.trim()
+            ? parsed.timeZone.trim()
+            : fallbackTimeZone;
+        const sessionDurationRaw = typeof parsed?.sessionDurationHours === 'number'
+            ? parsed.sessionDurationHours
+            : Number.parseFloat(String(parsed?.sessionDurationHours ?? '2'));
+        const sessionDurationHours = Number.isFinite(sessionDurationRaw)
+            ? Math.max(0.25, Math.min(10, sessionDurationRaw))
+            : 2;
+        return {
+            timeZone,
+            sessionDurationHours,
+            daySelections: sanitizeDaySelections(parsed?.daySelections),
+        };
+    }
+    catch {
+        return null;
+    }
+};
+const fetchAccountAvailabilityForUser = async (userId, fallbackTimeZone = 'Asia/Shanghai') => {
+    try {
+        const rows = await (0, db_1.query)('SELECT availability_json FROM account_settings WHERE user_id = ? LIMIT 1', [userId]);
+        return parseAvailabilityPayload(rows?.[0]?.availability_json, fallbackTimeZone) || (0, availabilityBusy_1.buildEmptyAvailability)(fallbackTimeZone);
+    }
+    catch (error) {
+        if (!isMissingAvailabilityColumnError(error))
+            throw error;
+        return (0, availabilityBusy_1.buildEmptyAvailability)(fallbackTimeZone);
+    }
 };
 const safeJsonParse = (value) => {
     if (typeof value !== 'string' || !value.trim())
@@ -710,6 +812,54 @@ router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (re
             conn.release();
         }
         catch { }
+    }
+});
+router.get('/threads/:threadId/availability', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const threadId = Number(req.params.threadId);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+        return res.status(400).json({ error: '无效会话ID' });
+    }
+    try {
+        const threadRows = await (0, db_1.query)(`
+      SELECT id, student_user_id, mentor_user_id
+      FROM message_threads
+      WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
+      LIMIT 1
+      `, [threadId, req.user.id, req.user.id]);
+        const thread = threadRows?.[0];
+        if (!thread)
+            return res.status(404).json({ error: '会话不存在或无权限' });
+        const studentUserId = Number(thread?.student_user_id);
+        const mentorUserId = Number(thread?.mentor_user_id);
+        if (!Number.isFinite(studentUserId) || studentUserId <= 0 || !Number.isFinite(mentorUserId) || mentorUserId <= 0) {
+            return res.status(404).json({ error: '会话参与者无效' });
+        }
+        const mentorProfileRows = await (0, db_1.query)('SELECT timezone FROM mentor_profiles WHERE user_id = ? LIMIT 1', [mentorUserId]).catch(() => []);
+        const mentorFallbackTimeZone = typeof mentorProfileRows?.[0]?.timezone === 'string' && mentorProfileRows[0].timezone.trim()
+            ? mentorProfileRows[0].timezone.trim()
+            : 'Asia/Shanghai';
+        const studentAvailability = await fetchAccountAvailabilityForUser(studentUserId, 'Asia/Shanghai');
+        const mentorAvailability = await fetchAccountAvailabilityForUser(mentorUserId, mentorFallbackTimeZone);
+        const busySelectionsByUser = await (0, availabilityBusy_1.getBusySelectionsForUsers)([studentUserId, mentorUserId], new Map([
+            [studentUserId, studentAvailability.timeZone],
+            [mentorUserId, mentorAvailability.timeZone],
+        ]));
+        return res.json({
+            threadId: String(threadId),
+            studentAvailability,
+            mentorAvailability,
+            studentBusySelections: busySelectionsByUser.get(studentUserId) || {},
+            mentorBusySelections: busySelectionsByUser.get(mentorUserId) || {},
+        });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Fetch thread availability error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
 router.get('/threads', auth_1.requireAuth, async (req, res) => {

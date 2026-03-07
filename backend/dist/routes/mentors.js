@@ -5,6 +5,7 @@ const db_1 = require("../db");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
+const availabilityBusy_1 = require("../services/availabilityBusy");
 const router = (0, express_1.Router)();
 const hrNow = () => process.hrtime.bigint();
 const msSince = (start) => Number(hrNow() - start) / 1e6;
@@ -770,7 +771,10 @@ router.get('/:mentorId/availability', async (req, res) => {
             throw e;
         }
         const availability = parseAvailability(settingsRows?.[0]?.availability_json);
-        return res.json({ availability });
+        const busySelections = availability
+            ? await (0, availabilityBusy_1.getBusySelectionsForUser)(userId, availability.timeZone)
+            : {};
+        return res.json({ availability, busySelections });
     }
     catch (e) {
         console.error('Fetch mentor availability error:', e);

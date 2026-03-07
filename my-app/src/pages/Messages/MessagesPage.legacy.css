@@ -838,6 +838,12 @@
   color: #0f5132;
 }
 
+.reschedule-slot.busy {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #9a3412;
+}
+
 .reschedule-common-layer {
   position: absolute;
   left: var(--rs-time-col-width);

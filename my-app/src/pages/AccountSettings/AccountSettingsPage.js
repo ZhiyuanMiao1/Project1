@@ -143,6 +143,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone; } catch {}
     return { timeZone, sessionDurationHours: 2, daySelections: {} };
   });
+  const [availabilityBusySelections, setAvailabilityBusySelections] = useState({});
   const [savingAvailability, setSavingAvailability] = useState(false);
   const [studentClassCount, setStudentClassCount] = useState(null);
   const [mentorClassCount, setMentorClassCount] = useState(null);
@@ -201,6 +202,7 @@ function AccountSettingsPage({ mode = 'student' }) {
         try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || timeZone; } catch {}
         return { timeZone, sessionDurationHours: 2, daySelections: {} };
       });
+      setAvailabilityBusySelections({});
       setSavingAvailability(false);
       setStudentClassCount(null);
       setMentorClassCount(null);
@@ -314,6 +316,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       .then((res) => {
         if (!alive) return;
         const data = res?.data?.availability;
+        const busySelections = res?.data?.busySelections;
         if (data && typeof data === 'object') {
           let fallbackTimeZone = 'Asia/Shanghai';
           try { fallbackTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || fallbackTimeZone; } catch {}
@@ -324,10 +327,16 @@ function AccountSettingsPage({ mode = 'student' }) {
             : {};
           setAvailability({ timeZone, sessionDurationHours, daySelections });
         }
+        setAvailabilityBusySelections(
+          busySelections && typeof busySelections === 'object' && !Array.isArray(busySelections)
+            ? busySelections
+            : {}
+        );
         setAvailabilityStatus('loaded');
       })
       .catch(() => {
         if (!alive) return;
+        setAvailabilityBusySelections({});
         setAvailabilityStatus('error');
       });
 
@@ -658,6 +667,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     try {
       const res = await api.put('/api/account/availability', nextAvailability);
       const serverAvailability = res?.data?.availability || nextAvailability;
+      const serverBusySelections = res?.data?.busySelections;
       const timeZone = typeof serverAvailability?.timeZone === 'string' ? serverAvailability.timeZone : (nextAvailability?.timeZone || prev.timeZone);
       const sessionDurationHours = typeof serverAvailability?.sessionDurationHours === 'number'
         ? serverAvailability.sessionDurationHours
@@ -666,6 +676,11 @@ function AccountSettingsPage({ mode = 'student' }) {
         ? serverAvailability.daySelections
         : (nextAvailability?.daySelections || prev.daySelections || {});
       setAvailability({ timeZone, sessionDurationHours, daySelections });
+      setAvailabilityBusySelections(
+        serverBusySelections && typeof serverBusySelections === 'object' && !Array.isArray(serverBusySelections)
+          ? serverBusySelections
+          : {}
+      );
       setAvailabilityStatus('loaded');
       showToast(successMessage, 'success');
       return true;
@@ -826,6 +841,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   accountProfile={accountProfile}
                   onSaveAccountProfilePatch={saveAccountProfilePatch}
                   availability={availability}
+                  availabilityBusySelections={availabilityBusySelections}
                   availabilityStatus={availabilityStatus}
                   savingAvailability={savingAvailability}
                   availabilitySummary={availabilitySummary}

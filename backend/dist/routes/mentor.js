@@ -7,6 +7,7 @@ const express_validator_1 = require("express-validator");
 const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const mentorCourseAsync_1 = require("../services/mentorCourseAsync");
+const availabilityBusy_1 = require("../services/availabilityBusy");
 const router = (0, express_1.Router)();
 // GET /api/mentor/permissions
 // Check mentor permissions (e.g., can edit profile card)
@@ -231,6 +232,7 @@ router.get('/requests/:id', auth_1.requireAuth, async (req, res) => {
             console.error('Fetch request attachments error:', e);
             return res.status(500).json({ error: '服务器错误，请稍后再试' });
         }
+        const busySelections = await (0, availabilityBusy_1.getBusySelectionsForUser)(Number(row.student_user_id), row.time_zone || row.student_timezone || 'Asia/Shanghai');
         return res.json({
             request: {
                 id: Number(row.request_id),
@@ -247,6 +249,7 @@ router.get('/requests/:id', auth_1.requireAuth, async (req, res) => {
                 timeZone: row.time_zone || row.student_timezone || '',
                 sessionDurationHours: row.session_duration_hours,
                 daySelections,
+                busySelections,
                 student: {
                     publicId: String(row.student_public_id || '').toUpperCase(),
                     degree: row.student_degree || '',

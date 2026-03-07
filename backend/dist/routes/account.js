@@ -9,6 +9,7 @@ const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const refreshTokens_1 = require("../auth/refreshTokens");
+const availabilityBusy_1 = require("../services/availabilityBusy");
 const toInt = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
     return Number.isFinite(n) ? n : fallback;
@@ -721,7 +722,10 @@ router.get('/availability', auth_1.requireAuth, async (req, res) => {
             rows = await (0, db_1.query)('SELECT availability_json FROM account_settings WHERE user_id = ? LIMIT 1', [req.user.id]);
         }
         const availability = parseAvailability(rows[0]?.availability_json);
-        return res.json({ availability });
+        const busySelections = availability
+            ? await (0, availabilityBusy_1.getBusySelectionsForUser)(req.user.id, availability.timeZone)
+            : {};
+        return res.json({ availability, busySelections });
     }
     catch (e) {
         console.error('Account availability fetch error:', e);
@@ -763,7 +767,8 @@ router.put('/availability', auth_1.requireAuth, [
             }
             await write();
         }
-        return res.json({ message: '保存成功', availability: payload });
+        const busySelections = await (0, availabilityBusy_1.getBusySelectionsForUser)(userId, payload.timeZone);
+        return res.json({ message: '保存成功', availability: payload, busySelections });
     }
     catch (e) {
         console.error('Account availability save error:', e);

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth';
 import { query as dbQuery } from '../db';
 import { body, validationResult } from 'express-validator';
 import { clearRefreshTokenCookie, revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
+import { getBusySelectionsForUser } from '../services/availabilityBusy';
 
 type Role = 'student' | 'mentor';
 
@@ -884,7 +885,10 @@ router.get('/availability', requireAuth, async (req: Request, res: Response) => 
     }
 
     const availability = parseAvailability(rows[0]?.availability_json);
-    return res.json({ availability });
+    const busySelections = availability
+      ? await getBusySelectionsForUser(req.user.id, availability.timeZone)
+      : {};
+    return res.json({ availability, busySelections });
   } catch (e) {
     console.error('Account availability fetch error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
@@ -936,7 +940,8 @@ router.put(
         await write();
       }
 
-      return res.json({ message: '保存成功', availability: payload });
+      const busySelections = await getBusySelectionsForUser(userId, payload.timeZone);
+      return res.json({ message: '保存成功', availability: payload, busySelections });
     } catch (e) {
       console.error('Account availability save error:', e);
       return res.status(500).json({ error: '服务器错误，请稍后再试' });
