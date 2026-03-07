@@ -1,157 +1,153 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
-import tutor1 from '../../assets/images/tutor1.jpg';
-import tutor2 from '../../assets/images/tutor2.jpg';
-import tutor3 from '../../assets/images/tutor3.jpg';
-import tutor4 from '../../assets/images/tutor4.jpg';
-import tutor5 from '../../assets/images/tutor5.jpg';
-import tutor6 from '../../assets/images/tutor6.jpg';
-import { getAuthToken } from '../../utils/authStorage';
+import StudentListingCard from '../../components/ListingCard/StudentListingCard';
+import { fetchFavoriteItems } from '../../api/favorites';
+import { deleteRecentVisit, fetchRecentVisits } from '../../api/recentVisits';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import './RecentVisitsPage.css';
 
-const RECENT_SECTIONS = [
-  {
-    id: 'sec-1113',
-    dateLabel: '11月13日 星期四',
-    visits: [
-      {
-        id: 'rv-mentor-01',
-        name: 'Kelly · 系统设计',
-        discipline: '系统设计 / 全栈',
-        location: '远程 · 中英双语',
-        time: '下午 3:20',
-        rating: 4.9,
-        students: 182,
-        cover: tutor4,
-        degree: '硕士',
-        school: '斯坦福大学',
-        timezone: 'UTC+8 (上海)',
-        languages: '中文, 英语',
-        studentId: 1,
-        courseType: '选课指导',
-        expectedDuration: '2小时',
-        tagline: '用真实分布式案例演练面试思路，输出可落地的设计文档。',
-        tags: ['系统设计', '面试模拟'],
-        defaultLiked: true,
-      },
-      {
-        id: 'rv-mentor-02',
-        name: '李老师 · 算法刷题',
-        discipline: '算法 / 代码质量',
-        location: '远程 · 每周 Evening',
-        time: '上午 10:40',
-        rating: 4.8,
-        students: 236,
-        cover: tutor2,
-        degree: '硕士',
-        school: '麻省理工学院',
-        timezone: 'UTC-7 (加州)',
-        languages: '英语, 中文',
-        studentId: 2,
-        courseType: '课前预习',
-        expectedDuration: '1.5小时',
-        tagline: '一小时拆 3 题，讲解思路和高频坑位，附带代码点评。',
-        tags: ['LeetCode', '算法班'],
-      },
-    ],
-  },
-  {
-    id: 'sec-1110',
-    dateLabel: '11月10日 星期一',
-    visits: [
-      {
-        id: 'rv-mentor-03',
-        name: 'Mia · 产品运营',
-        discipline: '产品策略 / 增长',
-        location: '可约周末 · 线上',
-        time: '晚上 8:05',
-        rating: 4.7,
-        students: 143,
-        cover: tutor3,
-        degree: '硕士',
-        school: '哥伦比亚大学',
-        timezone: 'UTC+8 (上海)',
-        languages: '中文, 英语',
-        studentId: 3,
-        courseType: '作业项目',
-        expectedDuration: '2小时',
-        tagline: '把课题拆成复盘、实验和汇报三步走，帮你拿出能说服团队的方案。',
-        tags: ['案例拆解', '增长策略'],
-      },
-      {
-        id: 'rv-mentor-04',
-        name: '陈老师 · 数据科学',
-        discipline: '数据分析 / 可视化',
-        location: '远程 · GMT+8',
-        time: '下午 2:10',
-        rating: 4.9,
-        students: 201,
-        cover: tutor1,
-        degree: 'PhD',
-        school: '哈佛大学',
-        timezone: 'UTC+8 (上海)',
-        languages: '中文, 英语',
-        studentId: 4,
-        courseType: '课前预习',
-        expectedDuration: '2小时',
-        tagline: '用真实业务数据演示 A/B 测试与指标监控，提供仪表盘模板。',
-        tags: ['数据分析', '商业案例'],
-        defaultLiked: true,
-      },
-      {
-        id: 'rv-mentor-05',
-        name: 'Alex · 全栈工程',
-        discipline: '前端 / 系统设计',
-        location: '可中英文',
-        time: '上午 9:15',
-        rating: 4.6,
-        students: 118,
-        cover: tutor5,
-        degree: '硕士',
-        school: '加州大学伯克利分校',
-        timezone: 'UTC+8 (上海)',
-        languages: '中文, 英语',
-        studentId: 5,
-        courseType: '作业项目',
-        expectedDuration: '2小时',
-        tagline: '前后端联调、性能优化与上线方案复盘，附带代码走查。',
-        tags: ['前端性能', '系统演练'],
-      },
-      {
-        id: 'rv-mentor-06',
-        name: 'Joyce · 求职辅导',
-        discipline: '面试 / 职业规划',
-        location: '远程 · 快速约',
-        time: '凌晨 12:20',
-        rating: 4.7,
-        students: 167,
-        cover: tutor6,
-        degree: '硕士',
-        school: '芝加哥大学',
-        timezone: 'UTC+8 (上海)',
-        languages: '中文, 英语',
-        studentId: 6,
-        courseType: '求职辅导',
-        expectedDuration: '1.5小时',
-        tagline: '一对一简历精修 + 行业故事库演练，准备即将到来的面试。',
-        tags: ['求职', '模拟面试'],
-      },
-    ],
-  },
-];
+const PAGE_SIZE = 10;
+const TEXT = {
+  older: '\u66f4\u65e9',
+  today: '\u4eca\u5929',
+  yesterday: '\u6628\u5929',
+  heroTitle: '\u6700\u8fd1\u6d4f\u89c8',
+  moreMenu: '\u66f4\u591a\u83dc\u5355',
+  backToFavorites: '\u8fd4\u56de\u6536\u85cf',
+  done: '\u5b8c\u6210',
+  edit: '\u7f16\u8f91',
+  removeRecord: '\u79fb\u9664\u6b64\u8bb0\u5f55',
+  loading: '\u52a0\u8f7d\u4e2d...',
+  loginRequired: '\u8bf7\u767b\u5f55\u540e\u67e5\u770b\u6700\u8fd1\u6d4f\u89c8',
+  noPermission: '\u5f53\u524d\u8eab\u4efd\u6682\u65e0\u6743\u9650\u67e5\u770b\u6700\u8fd1\u6d4f\u89c8',
+  loadFailed: '\u52a0\u8f7d\u6700\u8fd1\u6d4f\u89c8\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5',
+  deleteFailed: '\u5220\u9664\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u518d\u8bd5',
+  mentorHero: '',
+  studentHero: '',
+  mentorEmpty: '\u8fd8\u6ca1\u6709\u5b66\u751f\u6d4f\u89c8\u8bb0\u5f55',
+  studentEmpty: '\u8fd8\u6ca1\u6709\u5bfc\u5e08\u6d4f\u89c8\u8bb0\u5f55',
+};
+
+const getPreferredRole = (location) => {
+  try {
+    const params = new URLSearchParams(location?.search || '');
+    const queryRole = params.get('role');
+    if (queryRole === 'mentor' || queryRole === 'student') return queryRole;
+  } catch {}
+
+  const fromState = location?.state?.fromRole || location?.state?.from;
+  if (fromState === 'mentor' || fromState === 'student') return fromState;
+
+  try {
+    const lastRole = sessionStorage.getItem('favorites:lastRole');
+    if (lastRole === 'mentor' || lastRole === 'student') return lastRole;
+  } catch {}
+
+  const user = getAuthUser() || {};
+  return user?.role === 'mentor' ? 'mentor' : 'student';
+};
+
+const getDateKey = (value) => {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return 'older';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const formatSectionLabel = (value) => {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return TEXT.older;
+
+  const now = new Date();
+  const todayKey = getDateKey(now);
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const yesterdayKey = getDateKey(yesterday);
+  const targetKey = getDateKey(date);
+
+  if (targetKey === todayKey) return TEXT.today;
+  if (targetKey === yesterdayKey) return TEXT.yesterday;
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
+};
+
+const buildStudentCardData = (item) => {
+  const payload = item?.payload && typeof item.payload === 'object' ? item.payload : {};
+  const itemId = String(payload?.id ?? item?.itemId ?? '').trim();
+  return {
+    id: itemId,
+    name: payload?.name || itemId || 'Mentor',
+    gender: payload?.gender || '',
+    degree: payload?.degree || '',
+    school: payload?.school || '',
+    rating: payload?.rating || 0,
+    reviewCount: payload?.reviewCount || 0,
+    courses: Array.isArray(payload?.courses) ? payload.courses : [],
+    timezone: payload?.timezone || '',
+    languages: payload?.languages || '',
+    imageUrl: payload?.imageUrl || payload?.avatarUrl || payload?.avatar_url || null,
+  };
+};
+
+const buildMentorCardData = (item) => {
+  const payload = item?.payload && typeof item.payload === 'object' ? item.payload : {};
+  const itemId = String(payload?.id ?? item?.itemId ?? '').trim();
+  return {
+    ...payload,
+    id: itemId,
+    name: payload?.name || '',
+  };
+};
+
+const mergeItems = (prev, next) => {
+  const merged = Array.isArray(prev) ? [...prev] : [];
+  const seen = new Set(merged.map((item) => String(item?.id)));
+  next.forEach((item) => {
+    const key = String(item?.id);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  });
+  return merged;
+};
 
 function RecentVisitsPage() {
+  const location = useLocation();
   const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
+  const sentinelRef = useRef(null);
+  const nextOffsetRef = useRef(0);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!getAuthToken();
-  });
+  const [items, setItems] = useState([]);
+  const [favoriteIds, setFavoriteIds] = useState(() => new Set());
+  const [loading, setLoading] = useState(() => !!getAuthToken());
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const [deletingIds, setDeletingIds] = useState(() => new Set());
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const preferredRole = useMemo(() => getPreferredRole(location), [location]);
+  const favoriteItemType = preferredRole === 'mentor' ? 'student_request' : 'tutor';
+  const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
+  const heroCopy = preferredRole === 'mentor' ? TEXT.mentorHero : TEXT.studentHero;
+  const emptyCopy = preferredRole === 'mentor' ? TEXT.mentorEmpty : TEXT.studentEmpty;
+
+  useEffect(() => {
+    if (!preferredRole) return;
+    try {
+      sessionStorage.setItem('favorites:lastRole', preferredRole);
+    } catch {}
+  }, [preferredRole]);
 
   useEffect(() => {
     const handler = (event) => {
@@ -165,54 +161,179 @@ function RecentVisitsPage() {
     return () => window.removeEventListener('auth:changed', handler);
   }, []);
 
-  const sections = useMemo(() => RECENT_SECTIONS, []);
+  const loadVisits = useCallback(async (reset = false) => {
+    if (!isLoggedIn) {
+      setItems([]);
+      setFavoriteIds(new Set());
+      setErrorMessage(TEXT.loginRequired);
+      setLoading(false);
+      setLoadingMore(false);
+      setHasMore(false);
+      nextOffsetRef.current = 0;
+      return;
+    }
+
+    const requestOffset = reset ? 0 : nextOffsetRef.current;
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
+    setErrorMessage('');
+
+    try {
+      const res = await fetchRecentVisits({
+        role: preferredRole,
+        limit: PAGE_SIZE,
+        offset: requestOffset,
+      });
+      const list = Array.isArray(res?.data?.items) ? res.data.items : [];
+      const pagination = res?.data?.pagination || {};
+      const resolvedNextOffset = Number.isFinite(Number(pagination.nextOffset))
+        ? Number(pagination.nextOffset)
+        : requestOffset + list.length;
+
+      setItems((prev) => (reset ? list : mergeItems(prev, list)));
+      setHasMore(!!pagination.hasMore);
+      nextOffsetRef.current = resolvedNextOffset;
+    } catch (e) {
+      const status = e?.response?.status;
+      const msg = e?.response?.data?.error;
+      if (status === 401) {
+        setErrorMessage(TEXT.loginRequired);
+      } else if (status === 403) {
+        setErrorMessage(msg || TEXT.noPermission);
+      } else {
+        setErrorMessage(msg || TEXT.loadFailed);
+      }
+      if (reset) {
+        setItems([]);
+        setHasMore(false);
+        nextOffsetRef.current = 0;
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [isLoggedIn, preferredRole]);
+
+  useEffect(() => {
+    setEditMode(false);
+    setItems([]);
+    setFavoriteIds(new Set());
+    nextOffsetRef.current = 0;
+    setHasMore(false);
+    loadVisits(true);
+  }, [loadVisits, preferredRole]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!isLoggedIn) {
+      setFavoriteIds(new Set());
+      return () => { alive = false; };
+    }
+
+    fetchFavoriteItems({ role: preferredRole, itemType: favoriteItemType, idsOnly: true })
+      .then((res) => {
+        if (!alive) return;
+        const ids = Array.isArray(res?.data?.ids) ? res.data.ids : [];
+        setFavoriteIds(new Set(ids.map(String)));
+      })
+      .catch(() => {
+        if (!alive) return;
+        setFavoriteIds(new Set());
+      });
+
+    return () => { alive = false; };
+  }, [favoriteItemType, isLoggedIn, preferredRole]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !hasMore || loading || loadingMore || errorMessage) return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      const first = entries[0];
+      if (!first?.isIntersecting) return;
+      loadVisits(false);
+    }, { rootMargin: '240px 0px' });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [errorMessage, hasMore, loadVisits, loading, loadingMore]);
+
+  const sections = useMemo(() => {
+    const groups = [];
+    const indexMap = new Map();
+
+    items.forEach((item) => {
+      const visitedAt = item?.visitedAt || item?.updatedAt || item?.createdAt;
+      const key = getDateKey(visitedAt);
+      if (!indexMap.has(key)) {
+        const section = {
+          id: key,
+          dateLabel: formatSectionLabel(visitedAt),
+          visits: [],
+        };
+        indexMap.set(key, section);
+        groups.push(section);
+      }
+      indexMap.get(key).visits.push(item);
+    });
+
+    return groups;
+  }, [items]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate('/student/favorites');
+      navigate(`/student/favorites?role=${preferredRole}`, {
+        state: { from: preferredRole, fromRole: preferredRole },
+      });
     }
   };
 
-  const normalizeCardData = (visit, idx) => {
-    const numericId = (() => {
-      if (typeof visit.studentId !== 'undefined') return visit.studentId;
-      const match = String(visit.id || '').match(/\d+/);
-      return match ? match[0] : idx + 1;
-    })();
-    const studentName = `S${numericId}`;
-    return {
-      name: studentName,
-      degree: visit.degree || '硕士',
-      school: visit.school || '测试大学',
-      courses: visit.discipline ? [visit.discipline] : [],
-      timezone: visit.timezone || 'UTC+8 (上海)',
-      courseType: visit.courseType || '',
-      expectedDuration: visit.expectedDuration || '',
-      requirements: '',
-    };
+  const openAuthModal = () => {
+    if (preferredRole === 'mentor') {
+      setShowMentorAuth(true);
+    } else {
+      setShowStudentAuth(true);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!id) return;
+    if (!isLoggedIn) {
+      openAuthModal();
+      return;
+    }
+
+    setDeletingIds((prev) => new Set(prev).add(id));
+    try {
+      await deleteRecentVisit(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (e) {
+      const msg = e?.response?.data?.error || TEXT.deleteFailed;
+      alert(msg);
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   };
 
   return (
     <div className="recent-page">
       <div className="container">
         <header className="recent-header">
-          <BrandMark className="nav-logo-text" to="/student" />
+          <BrandMark className="nav-logo-text" to={logoTo} />
           <button
             type="button"
             className="icon-circle recent-menu"
-            aria-label="更多菜单"
+            aria-label={TEXT.moreMenu}
             ref={menuAnchorRef}
-            onClick={() => setShowStudentAuth(true)}
+            onClick={openAuthModal}
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -222,26 +343,30 @@ function RecentVisitsPage() {
 
         <section className="recent-hero">
           <div className="recent-hero-left">
-            <button
-              type="button"
-              className="recent-back"
-              aria-label="返回收藏"
-              onClick={handleBack}
-            >
+            <button type="button" className="recent-back" aria-label={TEXT.backToFavorites} onClick={handleBack}>
               <FiChevronLeft size={20} />
             </button>
             <div className="recent-hero-text">
-              <h1>最近浏览</h1>
+              <h1>{TEXT.heroTitle}</h1>
+              <p className="recent-hero-sub">{heroCopy}</p>
             </div>
           </div>
           <button
             type="button"
             className="recent-edit-link recent-hero-edit"
-            onClick={() => setEditMode((v) => !v)}
+            onClick={() => setEditMode((value) => !value)}
           >
-            {editMode ? '完成' : '编辑'}
+            {editMode ? TEXT.done : TEXT.edit}
           </button>
         </section>
+
+        {errorMessage ? <div className="recent-alert">{errorMessage}</div> : null}
+
+        {!loading && !errorMessage && sections.length === 0 ? (
+          <section className="recent-empty" aria-live="polite">
+            {emptyCopy}
+          </section>
+        ) : null}
 
         <section className="recent-sections">
           {sections.map((section) => (
@@ -250,25 +375,65 @@ function RecentVisitsPage() {
                 <div className="recent-date">{section.dateLabel}</div>
               </div>
               <div className="recent-grid" role="list">
-                {section.visits.map((visit, idx) => {
-                  const cardData = normalizeCardData(visit, idx);
+                {section.visits.map((visit) => {
+                  const cardData = preferredRole === 'mentor'
+                    ? buildMentorCardData(visit)
+                    : buildStudentCardData(visit);
+                  const isDeleting = deletingIds.has(visit.id);
+
                   return (
                     <div
-                      className={`recent-card-shell ${editMode ? 'is-editing' : ''}`}
+                      className={`recent-card-shell ${editMode ? 'is-editing' : ''} ${isDeleting ? 'is-deleting' : ''}`}
                       key={visit.id}
                       role="listitem"
                     >
-                      {editMode && (
+                      {editMode ? (
                         <button
                           type="button"
                           className="recent-edit-remove"
-                          aria-label="移除此记录"
-                          onClick={(e) => e.stopPropagation()}
+                          aria-label={TEXT.removeRecord}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleDelete(visit.id);
+                          }}
                         >
                           <span className="recent-edit-remove-icon" aria-hidden="true" />
                         </button>
+                      ) : null}
+
+                      {preferredRole === 'mentor' ? (
+                        <MentorListingCard
+                          data={cardData}
+                          favoriteRole="mentor"
+                          favoriteItemType="student_request"
+                          favoriteItemId={visit?.itemId}
+                          initialFavorited={favoriteIds.has(String(visit?.itemId))}
+                          onFavoriteChange={(itemId, favorited) => {
+                            setFavoriteIds((prev) => {
+                              const next = new Set(prev);
+                              if (favorited) next.add(String(itemId));
+                              else next.delete(String(itemId));
+                              return next;
+                            });
+                          }}
+                        />
+                      ) : (
+                        <StudentListingCard
+                          data={cardData}
+                          favoriteRole="student"
+                          favoriteItemType="tutor"
+                          favoriteItemId={visit?.itemId}
+                          initialFavorited={favoriteIds.has(String(visit?.itemId))}
+                          onFavoriteChange={(itemId, favorited) => {
+                            setFavoriteIds((prev) => {
+                              const next = new Set(prev);
+                              if (favorited) next.add(String(itemId));
+                              else next.delete(String(itemId));
+                              return next;
+                            });
+                          }}
+                        />
                       )}
-                      <MentorListingCard data={cardData} />
                     </div>
                   );
                 })}
@@ -276,9 +441,17 @@ function RecentVisitsPage() {
             </div>
           ))}
         </section>
+
+        {(loading || loadingMore) && !errorMessage ? (
+          <div className="recent-loading-more" aria-live="polite">
+            {TEXT.loading}
+          </div>
+        ) : null}
+
+        <div ref={sentinelRef} className="recent-sentinel" aria-hidden="true" />
       </div>
 
-      {showStudentAuth && (
+      {showStudentAuth ? (
         <StudentAuthModal
           onClose={() => setShowStudentAuth(false)}
           anchorRef={menuAnchorRef}
@@ -288,7 +461,18 @@ function RecentVisitsPage() {
           align="right"
           alignOffset={23}
         />
-      )}
+      ) : null}
+
+      {showMentorAuth ? (
+        <MentorAuthModal
+          onClose={() => setShowMentorAuth(false)}
+          anchorRef={menuAnchorRef}
+          leftAlignRef={menuAnchorRef}
+          forceLogin={false}
+          align="right"
+          alignOffset={23}
+        />
+      ) : null}
     </div>
   );
 }

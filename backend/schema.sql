@@ -167,6 +167,24 @@ CREATE TABLE IF NOT EXISTS `favorite_items` (
   CONSTRAINT `fk_fav_items_collection` FOREIGN KEY (`collection_id`) REFERENCES `favorite_collections`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 7b) Recent visits (isolated by role; stores latest unique card views)
+CREATE TABLE IF NOT EXISTS `recent_visits` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `role` ENUM('mentor','student') NOT NULL,
+  `item_type` VARCHAR(50) NOT NULL,
+  `item_id` VARCHAR(100) NOT NULL,
+  `payload_json` LONGTEXT NULL,
+  `visited_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_recent_visit_user_role_item` (`user_id`, `role`, `item_type`, `item_id`),
+  KEY `idx_recent_visits_user_role_time` (`user_id`, `role`, `visited_at`, `id`),
+  CONSTRAINT `fk_recent_visits_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_recent_visits_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 8) Course embeddings (DashScope text-embedding-v4)
 CREATE TABLE IF NOT EXISTS `course_embeddings` (
   `id` INT NOT NULL AUTO_INCREMENT,

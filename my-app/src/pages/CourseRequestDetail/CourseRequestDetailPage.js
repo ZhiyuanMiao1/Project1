@@ -6,6 +6,7 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
 import api from '../../api/client';
 import { fetchFavoriteItems } from '../../api/favorites';
+import { recordRecentVisit } from '../../api/recentVisits';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
@@ -394,6 +395,7 @@ const normalizeRequestToCardData = (request) => {
 
 function CourseRequestDetailPage() {
   const menuAnchorRef = useRef(null);
+  const recordedRecentVisitRef = useRef('');
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
@@ -625,6 +627,25 @@ function CourseRequestDetailPage() {
 
   const favoriteTargetId = previewCardData?.id ?? requestId;
   const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
+  useEffect(() => {
+    if (!previewCardData || loading || errorMessage) return;
+    if (!getAuthToken()) return;
+
+    const itemId = String(previewCardData?.id || requestId || '').trim();
+    if (!itemId) return;
+
+    const payload = { ...previewCardData, id: itemId };
+    const signature = `mentor:student_request:${itemId}:${JSON.stringify(payload)}`;
+    if (recordedRecentVisitRef.current === signature) return;
+    recordedRecentVisitRef.current = signature;
+
+    recordRecentVisit({
+      role: 'mentor',
+      itemType: 'student_request',
+      itemId,
+      payload,
+    }).catch(() => {});
+  }, [errorMessage, loading, previewCardData, requestId]);
   const requestAttachments = useMemo(() => {
     const raw = request && typeof request === 'object' && Array.isArray(request.attachments) ? request.attachments : [];
     return raw.filter((item) => item && typeof item === 'object');

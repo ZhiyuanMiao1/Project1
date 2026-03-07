@@ -5,24 +5,17 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection, fetchFavoriteItems } from '../../api/favorites';
-import tutor1 from '../../assets/images/tutor1.jpg';
-import tutor2 from '../../assets/images/tutor2.jpg';
-import tutor3 from '../../assets/images/tutor3.jpg';
-import tutor4 from '../../assets/images/tutor4.jpg';
-import tutor5 from '../../assets/images/tutor5.jpg';
-import tutor6 from '../../assets/images/tutor6.jpg';
+import { fetchRecentVisits } from '../../api/recentVisits';
 import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import './FavoritesPage.css';
-
-const COVER_POOL = [tutor1, tutor2, tutor3, tutor4, tutor5, tutor6];
 
 const RECENT_COLLECTION = {
   id: 'recent',
   title: '最近浏览',
   meta: '今天',
   description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
-  images: [tutor1, tutor2, tutor3, tutor4],
+  images: [],
 };
 const FAVORITES_SKELETON_CARDS = [0, 1, 2];
 
@@ -52,6 +45,29 @@ const formatCreatedAt = (value) => {
   return `创建于 ${d.toLocaleDateString()}`;
 };
 
+const getRecentVisitMeta = (value) => {
+  const d = new Date(value || '');
+  if (Number.isNaN(d.getTime())) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((today - target) / (24 * 60 * 60 * 1000));
+
+  if (diffDays === 0) return '\u4eca\u5929';
+  if (diffDays === 1) return '\u6628\u5929';
+  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+};
+
+const normalizeRecentMetaText = (value) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
+  if (/^(閺|鎏|鏆|鏈€|杩戞祻瑙)/.test(raw)) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
+  if (/^(娴|浠)/.test(raw)) return '\u4eca\u5929';
+  if (/^(閺勩劌|鏄)/.test(raw)) return '\u6628\u5929';
+  return raw;
+};
+
 function FavoritesPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,6 +79,8 @@ function FavoritesPage() {
   const [newCollectionName, setNewCollectionName] = useState('');
   const [userCollections, setUserCollections] = useState([]);
   const [collectionCovers, setCollectionCovers] = useState(() => ({}));
+  const [recentVisitMetaLabel, setRecentVisitMetaLabel] = useState('\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
+  const [recentVisitCover, setRecentVisitCover] = useState([]);
   const [recentVisitLabel] = useState(RECENT_COLLECTION.meta || '今天');
   const [loading, setLoading] = useState(() => !!getAuthToken());
   const [errorMessage, setErrorMessage] = useState('');
@@ -193,19 +211,48 @@ function FavoritesPage() {
     loadCollections();
   }, [loadCollections]);
 
-  const normalizedCollections = useMemo(() => {
-    const source = Array.isArray(RECENT_COLLECTION.images) && RECENT_COLLECTION.images.length > 0
-      ? RECENT_COLLECTION.images
-      : COVER_POOL;
-    const filled = [...source];
-    while (filled.length < 4) {
-      filled.push(source[filled.length % source.length]);
+  useEffect(() => {
+    let alive = true;
+
+    if (!isLoggedIn) {
+      setRecentVisitMetaLabel(recentVisitLabel);
+      setRecentVisitCover([]);
+      return () => { alive = false; };
     }
+
+    fetchRecentVisits({ role: preferredRole, limit: 4, offset: 0 })
+      .then((res) => {
+        if (!alive) return;
+        const list = Array.isArray(res?.data?.items) ? res.data.items : [];
+        if (!list.length) {
+          setRecentVisitMetaLabel('\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
+          setRecentVisitCover([]);
+          return;
+        }
+
+        const cover = list
+          .map((item) => getCoverImageUrl(item?.payload) || defaultAvatar)
+          .slice(0, 4);
+        const latestVisitedAt = list[0]?.visitedAt || list[0]?.updatedAt || list[0]?.createdAt;
+
+        setRecentVisitMetaLabel(getRecentVisitMeta(latestVisitedAt));
+        setRecentVisitCover(cover);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setRecentVisitMetaLabel(recentVisitLabel);
+        setRecentVisitCover([]);
+      });
+
+    return () => { alive = false; };
+  }, [isLoggedIn, preferredRole, recentVisitLabel]);
+
+  const normalizedCollections = useMemo(() => {
     const recentCard = {
       id: RECENT_COLLECTION.id,
       title: RECENT_COLLECTION.title,
-      cover: filled.slice(0, 4),
-      metaText: `${recentVisitLabel}`,
+      cover: Array.isArray(recentVisitCover) ? recentVisitCover : [],
+      metaText: normalizeRecentMetaText(recentVisitMetaLabel),
       isRecent: true,
     };
 
@@ -219,7 +266,7 @@ function FavoritesPage() {
     }));
 
     return [recentCard, ...mapped];
-  }, [collectionCovers, recentVisitLabel, userCollections]);
+  }, [collectionCovers, recentVisitCover, recentVisitMetaLabel, userCollections]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
@@ -387,7 +434,9 @@ function FavoritesPage() {
                   tabIndex={0}
                   onClick={() => {
                     if (isRecent) {
-                      navigate('/student/recent-visits', { state: { from: preferredRole, fromRole: preferredRole } });
+                      navigate(`/student/recent-visits?role=${preferredRole}`, {
+                        state: { from: preferredRole, fromRole: preferredRole },
+                      });
                       return;
                     }
                     if (!requireAuth()) return;
@@ -400,7 +449,9 @@ function FavoritesPage() {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
                     if (isRecent) {
-                      navigate('/student/recent-visits', { state: { from: preferredRole, fromRole: preferredRole } });
+                      navigate(`/student/recent-visits?role=${preferredRole}`, {
+                        state: { from: preferredRole, fromRole: preferredRole },
+                      });
                       return;
                     }
                     if (!requireAuth()) return;

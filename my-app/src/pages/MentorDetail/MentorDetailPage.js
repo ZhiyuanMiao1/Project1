@@ -17,6 +17,7 @@ import CourseOnboardingModal from '../../components/CourseOnboardingModal/Course
 import api from '../../api/client';
 import { fetchMentorAvailability, fetchMentorDetail } from '../../api/mentors';
 import { fetchFavoriteItems } from '../../api/favorites';
+import { recordRecentVisit } from '../../api/recentVisits';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
@@ -316,6 +317,7 @@ const normalizeMentorReviewSummary = (raw) => {
 
 function MentorDetailPage() {
   const menuAnchorRef = useRef(null);
+  const recordedRecentVisitRef = useRef('');
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
@@ -730,6 +732,7 @@ function MentorDetailPage() {
         : []);
 
     return {
+      id: mentor?.id || mentorId,
       name: mentor?.name || '导师',
       gender: mentor?.gender || '',
       degree: mentor?.degree || '',
@@ -741,10 +744,29 @@ function MentorDetailPage() {
       courses,
       imageUrl: mentor?.imageUrl || mentor?.avatarUrl || null,
     };
-  }, [mentor, ratingValue, reviewCount]);
+  }, [mentor, mentorId, ratingValue, reviewCount]);
 
   const favoriteTargetId = mentor?.id ?? mentorId;
   const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
+  useEffect(() => {
+    if (!reviewSummaryLoaded) return;
+    if (!getAuthToken()) return;
+
+    const itemId = String(previewCardData?.id || mentorId || '').trim();
+    if (!itemId) return;
+
+    const payload = { ...previewCardData, id: itemId };
+    const signature = `student:tutor:${itemId}:${JSON.stringify(payload)}`;
+    if (recordedRecentVisitRef.current === signature) return;
+    recordedRecentVisitRef.current = signature;
+
+    recordRecentVisit({
+      role: 'student',
+      itemType: 'tutor',
+      itemId,
+      payload,
+    }).catch(() => {});
+  }, [mentorId, previewCardData, reviewSummaryLoaded]);
 
   const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
   const monthLabel = useMemo(() => {
