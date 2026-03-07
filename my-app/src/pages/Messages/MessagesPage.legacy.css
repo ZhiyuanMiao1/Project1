@@ -487,15 +487,16 @@
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
-  padding: 18px 18px 24px;
+  padding: 16px 18px 10px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   width: 360px;
   max-width: 100%;
-  height: 228px;
+  height: auto;
+  min-height: 214px;
   margin-left: -8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   position: relative;
   box-sizing: border-box;
   flex: 0 0 auto;
@@ -537,6 +538,7 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+  padding-right: 34px;
 }
 
 .schedule-card-top-row {
@@ -560,7 +562,7 @@
 }
 
 .schedule-card-title {
-  margin-top: 5px;
+  margin-top: 4px;
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
@@ -617,7 +619,7 @@
 }
 
 .schedule-time-row > span,
-.schedule-link-row > a {
+.schedule-link-row > .schedule-link {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -635,6 +637,16 @@
 
 .schedule-link:hover {
   text-decoration: underline;
+}
+
+.schedule-link--disabled {
+  color: #0f172a;
+  cursor: default;
+  text-decoration: none;
+}
+
+.schedule-link--disabled:hover {
+  text-decoration: none;
 }
 
 .schedule-meeting-id {
@@ -661,10 +673,11 @@
 }
 
 .schedule-card-bottom {
-  margin-top: auto;
+  margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding-bottom: 8px;
 }
 
 .schedule-actions {
@@ -1060,10 +1073,11 @@
 .schedule-hover-time {
   position: absolute;
   right: 14px;
-  bottom: 6px;
+  bottom: 4px;
   font-size: 12px;
   color: #94a3b8;
   letter-spacing: 0.01em;
+  line-height: 1;
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.16s ease, transform 0.16s ease;

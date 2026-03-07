@@ -32,6 +32,7 @@ const formatUtcDatetime = (date) => {
     const ss = pad2(date.getUTCSeconds());
     return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
 };
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const parseTimezoneOffsetMinutes = (raw) => {
     const s = String(raw || '')
         .trim()
@@ -136,6 +137,36 @@ const buildDefaultMeetingId = () => {
     const n = Math.floor(100000000 + Math.random() * 900000000);
     return `会议号：${formatZoomMeetingId(n)}`;
 };
+const normalizeCourseSessionStartsAt = (raw) => {
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+        return formatUtcDatetime(raw);
+    }
+    const text = safeText(raw);
+    if (!text)
+        return '';
+    const canonical = text
+        .replace('T', ' ')
+        .replace(/Z$/i, '')
+        .replace(/\.\d+$/, '')
+        .trim();
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(canonical)) {
+        return canonical;
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime()))
+        return '';
+    return formatUtcDatetime(parsed);
+};
+const buildCourseSessionLookupKey = (studentUserId, mentorUserId, startsAtText) => {
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0)
+        return '';
+    if (!Number.isFinite(mentorUserId) || mentorUserId <= 0)
+        return '';
+    const normalizedStartsAt = normalizeCourseSessionStartsAt(startsAtText);
+    if (!normalizedStartsAt)
+        return '';
+    return `${studentUserId}:${mentorUserId}:${normalizedStartsAt}`;
+};
 const safeJsonParse = (value) => {
     if (typeof value !== 'string' || !value.trim())
         return null;
@@ -193,6 +224,47 @@ const normalizeDecisionStatus = (value) => {
 const toPositiveIntOrNull = (value) => {
     const n = Number.parseInt(String(value ?? '').trim(), 10);
     return Number.isFinite(n) && n > 0 ? n : null;
+};
+const ensureCourseSessionForAcceptedAppointment = async ({ studentUserId, mentorUserId, payload, createdAt, }) => {
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0)
+        return '';
+    if (!Number.isFinite(mentorUserId) || mentorUserId <= 0)
+        return '';
+    const parsed = parseCourseWindowText(payload?.windowText, createdAt);
+    if (!parsed)
+        return '';
+    const startsAt = formatUtcDatetime(parsed.startsAtUtc);
+    const existingRows = await (0, db_1.query)(`
+    SELECT id
+    FROM course_sessions
+    WHERE student_user_id = ? AND mentor_user_id = ? AND starts_at = ?
+    ORDER BY id ASC
+    LIMIT 1
+    `, [studentUserId, mentorUserId, startsAt]);
+    const existingId = toPositiveIntOrNull(existingRows?.[0]?.id);
+    if (existingId != null)
+        return String(existingId);
+    const sessionStatus = parsed.endsAtUtc.getTime() <= Date.now() ? 'completed' : 'scheduled';
+    const insertResult = await (0, db_1.query)(`
+    INSERT INTO course_sessions
+      (student_user_id, mentor_user_id, course_direction, course_type, starts_at, duration_hours, status)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?)
+    `, [
+        studentUserId,
+        mentorUserId,
+        typeof payload?.courseDirectionId === 'string' && payload.courseDirectionId.trim()
+            ? payload.courseDirectionId.trim()
+            : null,
+        typeof payload?.courseTypeId === 'string' && payload.courseTypeId.trim()
+            ? payload.courseTypeId.trim()
+            : null,
+        startsAt,
+        parsed.durationHours,
+        sessionStatus,
+    ]);
+    const insertedId = toPositiveIntOrNull(insertResult?.insertId);
+    return insertedId != null ? String(insertedId) : '';
 };
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
@@ -620,7 +692,14 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
       ORDER BY COALESCE(t.last_message_at, t.updated_at) DESC
       LIMIT 100
       `, [req.user.id, req.user.id]);
+        const threadParticipantsById = new Map();
         const threads = (rows || []).map((r) => {
+            const threadId = String(r.thread_id);
+            const studentUserId = Number(r.student_user_id);
+            const mentorUserId = Number(r.mentor_user_id);
+            if (Number.isFinite(studentUserId) && studentUserId > 0 && Number.isFinite(mentorUserId) && mentorUserId > 0) {
+                threadParticipantsById.set(threadId, { studentUserId, mentorUserId });
+            }
             const isStudentSide = Number(r.student_user_id) === req.user.id;
             const myRole = isStudentSide ? 'student' : 'mentor';
             const counterpart = isStudentSide
@@ -632,7 +711,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 : String(r.student_avatar_url || '');
             const lastAt = r.last_message_at || r.updated_at;
             return {
-                id: String(r.thread_id),
+                id: threadId,
                 subject: '日程',
                 myRole,
                 counterpart,
@@ -687,6 +766,37 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
           AND mi.message_type = 'appointment_card'
         ORDER BY mi.thread_id ASC, mi.id ASC
         `, threadIds);
+            const courseSessionLookup = new Map();
+            const pairParams = [];
+            const pairClauses = [];
+            const seenPairs = new Set();
+            for (const threadId of threadIds) {
+                const participants = threadParticipantsById.get(String(threadId));
+                if (!participants)
+                    continue;
+                const pairKey = `${participants.studentUserId}:${participants.mentorUserId}`;
+                if (seenPairs.has(pairKey))
+                    continue;
+                seenPairs.add(pairKey);
+                pairClauses.push('(student_user_id = ? AND mentor_user_id = ?)');
+                pairParams.push(participants.studentUserId, participants.mentorUserId);
+            }
+            if (pairClauses.length > 0) {
+                const sessionRows = await (0, db_1.query)(`
+          SELECT id, student_user_id, mentor_user_id, starts_at
+          FROM course_sessions
+          WHERE ${pairClauses.join(' OR ')}
+          `, pairParams);
+                for (const sessionRow of sessionRows || []) {
+                    const lookupKey = buildCourseSessionLookupKey(Number(sessionRow?.student_user_id), Number(sessionRow?.mentor_user_id), normalizeCourseSessionStartsAt(sessionRow?.starts_at));
+                    const sessionId = toPositiveIntOrNull(sessionRow?.id);
+                    if (!lookupKey || sessionId == null)
+                        continue;
+                    if (!courseSessionLookup.has(lookupKey)) {
+                        courseSessionLookup.set(lookupKey, String(sessionId));
+                    }
+                }
+            }
             const byThread = new Map();
             for (const row of items || []) {
                 const appointmentId = toPositiveIntOrNull(row?.id);
@@ -710,13 +820,40 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 const recentRows = rowsForThread.length > MAX_PER_THREAD
                     ? rowsForThread.slice(-MAX_PER_THREAD)
                     : rowsForThread;
+                const participants = threadParticipantsById.get(String(tid));
                 const cards = recentRows
-                    .map((row) => toScheduleCard(row, req.user.id))
-                    .filter(Boolean);
-                if (cards.length === 0)
+                    .map(async (row) => {
+                    const card = toScheduleCard(row, req.user.id);
+                    if (!card || !participants)
+                        return card;
+                    const payload = parseAppointmentPayload(row?.payload_json);
+                    const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
+                    const parsed = parseCourseWindowText(payload?.windowText, createdAt);
+                    const lookupKey = parsed
+                        ? buildCourseSessionLookupKey(participants.studentUserId, participants.mentorUserId, formatUtcDatetime(parsed.startsAtUtc))
+                        : '';
+                    let courseSessionId = lookupKey ? courseSessionLookup.get(lookupKey) || '' : '';
+                    if (!courseSessionId && card.status === 'accepted') {
+                        courseSessionId = await ensureCourseSessionForAcceptedAppointment({
+                            studentUserId: participants.studentUserId,
+                            mentorUserId: participants.mentorUserId,
+                            payload,
+                            createdAt,
+                        });
+                        if (lookupKey && courseSessionId) {
+                            courseSessionLookup.set(lookupKey, courseSessionId);
+                        }
+                    }
+                    return {
+                        ...card,
+                        courseSessionId,
+                    };
+                });
+                const resolvedCards = (await Promise.all(cards)).filter(Boolean);
+                if (resolvedCards.length === 0)
                     continue;
-                const last = cards[cards.length - 1];
-                const history = cards.slice(0, -1);
+                const last = resolvedCards[resolvedCards.length - 1];
+                const history = resolvedCards.slice(0, -1);
                 thread.schedule = last;
                 thread.scheduleHistory = history;
                 thread.courseDirectionId = String(last.courseDirectionId || '');

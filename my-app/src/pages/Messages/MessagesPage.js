@@ -6,9 +6,9 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
+import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
 import { getCourseTitleParts, normalizeScheduleStatus } from './appointmentCardUtils';
-import './MessagesPage.css';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -237,7 +237,6 @@ const toMiddayDate = (value = new Date()) => {
 };
 
 const DEFAULT_SCHEDULE_WINDOW = '11月11日 周二 14:00-15:00 (GMT+8)';
-const DEFAULT_MEETING_ID = '会议号：123 456 789';
 const MESSAGE_ACTION_EXIT_MS = 220;
 
 const waitFor = (ms) => new Promise((resolve) => {
@@ -490,9 +489,6 @@ function MessagesPage() {
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
     : DEFAULT_SCHEDULE_WINDOW;
-  const meetingId = (typeof activeSchedule?.meetingId === 'string' && activeSchedule.meetingId.trim())
-    ? activeSchedule.meetingId
-    : DEFAULT_MEETING_ID;
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
@@ -928,7 +924,7 @@ function MessagesPage() {
 
       const courseDirectionId = String(sourceCard?.courseDirectionId || activeThread?.courseDirectionId || '');
       const courseTypeId = String(sourceCard?.courseTypeId || activeThread?.courseTypeId || '');
-      const meetingIdText = String(sourceCard?.meetingId || meetingId || '');
+      const meetingIdText = String(sourceCard?.meetingId || '');
 
       await api.post(`/api/messages/threads/${encodeURIComponent(String(activeThread.id))}/appointments`, {
         windowText: nextWindow,
@@ -1184,9 +1180,6 @@ function MessagesPage() {
                     const windowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
                       ? scheduleCard.window
                       : (isPrimary ? scheduleWindow : DEFAULT_SCHEDULE_WINDOW);
-                    const meetingText = (typeof scheduleCard?.meetingId === 'string' && scheduleCard.meetingId.trim())
-                      ? scheduleCard.meetingId
-                      : (isPrimary ? meetingId : DEFAULT_MEETING_ID);
 
                     const isSendingCard = Boolean(
                       isScheduleCardSending
@@ -1205,7 +1198,6 @@ function MessagesPage() {
                         activeAvatarUrl={activeAvatarUrl}
                         scheduleTitle={scheduleTitle}
                         windowText={windowText}
-                        meetingText={meetingText}
                         cardHoverTime={cardHoverTime}
                         isSendingCard={isSendingCard}
                         isExiting={isExiting}

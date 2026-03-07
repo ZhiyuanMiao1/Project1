@@ -8,6 +8,8 @@ import {
 } from './appointmentCardUtils';
 import './AppointmentCard.css';
 
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
 function AppointmentCard({
   thread,
   scheduleCard,
@@ -15,7 +17,6 @@ function AppointmentCard({
   activeAvatarUrl,
   scheduleTitle,
   windowText,
-  meetingText,
   cardHoverTime,
   isSendingCard,
   isExiting,
@@ -43,6 +44,9 @@ function AppointmentCard({
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
   const canEditDecision = !isScheduleExpired && statusKey !== 'pending';
+  const courseSessionId = safeText(scheduleCard?.courseSessionId);
+  const classroomHref = courseSessionId ? `/classroom/${encodeURIComponent(courseSessionId)}` : '';
+  const canJoinClassroom = statusKey === 'accepted' && !isScheduleExpired && Boolean(classroomHref);
   const canRecallByStatus = isOutgoing && statusKey === 'pending';
   const canRecall = canRecallByStatus
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
@@ -225,10 +229,16 @@ function AppointmentCard({
 
         <div className="schedule-link-row">
           <FiVideo size={16} aria-hidden="true" />
-          <a className="schedule-link" href="https://zoom.us" target="_blank" rel="noreferrer">加入Zoom视频会议</a>
+          {canJoinClassroom ? (
+            <a className="schedule-link" href={classroomHref} target="_blank" rel="noreferrer">
+              加入视频会议
+            </a>
+          ) : (
+            <span className="schedule-link schedule-link--disabled" aria-disabled="true">
+              加入视频会议
+            </span>
+          )}
         </div>
-
-        <div className="schedule-meeting-id">{meetingText}</div>
 
         <div className="schedule-card-bottom">
           {showActions ? (
