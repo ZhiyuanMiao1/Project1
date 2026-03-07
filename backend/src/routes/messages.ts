@@ -198,6 +198,8 @@ type AppointmentPayload = {
   meetingId?: unknown;
   courseDirectionId?: unknown;
   courseTypeId?: unknown;
+  courseRequestId?: unknown;
+  sourceAppointmentId?: unknown;
 };
 
 type AppointmentDecisionPayload = {
@@ -416,6 +418,7 @@ router.post('/threads/:threadId/appointments', requireAuth, async (req: Request,
   const courseTypeId = typeof req.body?.courseTypeId === 'string' ? req.body.courseTypeId.trim() : '';
   const courseRequestIdRaw = req.body?.courseRequestId;
   const courseRequestId = Number.isFinite(Number(courseRequestIdRaw)) ? Number(courseRequestIdRaw) : null;
+  const sourceAppointmentId = toPositiveIntOrNull(req.body?.sourceAppointmentId);
   const meetingId = typeof req.body?.meetingId === 'string' && req.body.meetingId.trim()
     ? String(req.body.meetingId).trim()
     : buildDefaultMeetingId();
@@ -436,13 +439,71 @@ router.post('/threads/:threadId/appointments', requireAuth, async (req: Request,
     const thread = threadRows?.[0];
     if (!thread) return res.status(404).json({ error: '会话不存在或无权限' });
 
+    let effectiveCourseDirectionId = courseDirectionId;
+    let effectiveCourseTypeId = courseTypeId;
+    let effectiveCourseRequestId = courseRequestId;
+
+    if (sourceAppointmentId != null) {
+      const sourceRows = await query<any[]>(
+        `
+        SELECT
+          mi.id,
+          mi.thread_id,
+          mi.sender_user_id,
+          mi.payload_json,
+          mi.created_at,
+          COALESCE(ast.status, 'pending') AS appointment_status
+        FROM message_items mi
+        LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+        WHERE mi.id = ?
+          AND mi.thread_id = ?
+          AND mi.message_type = 'appointment_card'
+        LIMIT 1
+        `,
+        [sourceAppointmentId, threadId]
+      );
+
+      const sourceRow = sourceRows?.[0];
+      if (!sourceRow) return res.status(404).json({ error: '来源预约不存在或无权限' });
+      if (Number(sourceRow.sender_user_id) !== req.user.id) {
+        return res.status(403).json({ error: '只能基于自己发送的预约安排下节课' });
+      }
+
+      const sourceStatus = normalizeDecisionStatus(sourceRow.appointment_status) || 'pending';
+      if (sourceStatus !== 'pending' && sourceStatus !== 'accepted') {
+        return res.status(409).json({ error: '该预约当前不能用于安排下节课' });
+      }
+
+      const sourcePayload = parseAppointmentPayload(sourceRow.payload_json);
+      if (!sourcePayload) return res.status(400).json({ error: '来源预约数据无效' });
+
+      if (!effectiveCourseDirectionId && typeof sourcePayload.courseDirectionId === 'string') {
+        effectiveCourseDirectionId = sourcePayload.courseDirectionId.trim();
+      }
+      if (!effectiveCourseTypeId && typeof sourcePayload.courseTypeId === 'string') {
+        effectiveCourseTypeId = sourcePayload.courseTypeId.trim();
+      }
+      if (effectiveCourseRequestId == null) {
+        effectiveCourseRequestId = toPositiveIntOrNull(sourcePayload.courseRequestId);
+      }
+
+      const sourceCreatedAt = sourceRow?.created_at ? new Date(sourceRow.created_at) : new Date();
+      const sourceWindow = parseCourseWindowText(sourcePayload.windowText, sourceCreatedAt);
+      const nextWindow = parseCourseWindowText(windowText, new Date());
+      if (!nextWindow) return res.status(400).json({ error: '预约时间格式无效' });
+      if (sourceWindow && nextWindow.startsAtUtc.getTime() <= sourceWindow.endsAtUtc.getTime()) {
+        return res.status(400).json({ error: '下节课时间需晚于原预约结束时间' });
+      }
+    }
+
     const payload = {
       kind: 'appointment_card',
-      courseDirectionId,
-      courseTypeId,
-      courseRequestId,
+      courseDirectionId: effectiveCourseDirectionId,
+      courseTypeId: effectiveCourseTypeId,
+      courseRequestId: effectiveCourseRequestId,
       windowText,
       meetingId,
+      ...(sourceAppointmentId != null ? { sourceAppointmentId: String(sourceAppointmentId) } : {}),
     };
 
     const msgInsert = await query<InsertResult>(

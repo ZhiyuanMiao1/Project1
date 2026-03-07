@@ -8,7 +8,11 @@ import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
-import { getCourseTitleParts, normalizeScheduleStatus } from './appointmentCardUtils';
+import {
+  getCourseTitleParts,
+  normalizeScheduleStatus,
+  parseScheduleWindowRange,
+} from './appointmentCardUtils';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -236,6 +240,18 @@ const toMiddayDate = (value = new Date()) => {
   return base;
 };
 
+const maxMiddayDate = (...values) => {
+  const candidates = values
+    .map((value) => {
+      if (!value) return null;
+      const date = toMiddayDate(value);
+      return Number.isFinite(date.getTime()) ? date : null;
+    })
+    .filter(Boolean);
+  if (candidates.length === 0) return toMiddayDate();
+  return candidates.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+};
+
 const DEFAULT_SCHEDULE_WINDOW = '11月11日 周二 14:00-15:00 (GMT+8)';
 const MESSAGE_ACTION_EXIT_MS = 220;
 
@@ -343,6 +359,7 @@ function MessagesPage() {
   const [messageActionBusyId, setMessageActionBusyId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
+  const [rescheduleIntent, setRescheduleIntent] = useState('reschedule');
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [myAvailabilityStatus, setMyAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
@@ -407,6 +424,7 @@ function MessagesPage() {
     }
     setRescheduleSelection(null);
     setRescheduleSourceId(null);
+    setRescheduleIntent('reschedule');
   }, [rescheduleOpen]);
 
   useEffect(() => {
@@ -492,6 +510,19 @@ function MessagesPage() {
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
+  const rescheduleSourceCard = useMemo(() => {
+    if (!rescheduleSourceId) return null;
+    return scheduleCards.find((card) => String(card?.id) === String(rescheduleSourceId)) || null;
+  }, [rescheduleSourceId, scheduleCards]);
+  const rescheduleSourceRange = useMemo(() => {
+    if (!rescheduleSourceCard) return null;
+    return parseScheduleWindowRange(rescheduleSourceCard.window, rescheduleSourceCard.time);
+  }, [rescheduleSourceCard]);
+  const rescheduleMinDate = useMemo(() => {
+    const today = toMiddayDate();
+    if (rescheduleIntent !== 'next_lesson') return today;
+    return maxMiddayDate(today, rescheduleSourceRange?.endMs ?? null);
+  }, [rescheduleIntent, rescheduleSourceRange]);
 
   const decisionNotices = useMemo(() => {
     const rows = Array.isArray(activeThread?.decisionMessages) ? activeThread.decisionMessages : [];
@@ -572,6 +603,7 @@ function MessagesPage() {
     setActionError('');
     setRescheduleOpen(false);
     setRescheduleSourceId(null);
+    setRescheduleIntent('reschedule');
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
     setMessageActionBusyId(null);
@@ -698,11 +730,28 @@ function MessagesPage() {
     }
   };
 
-  const openRescheduleFor = (appointmentId) => {
+  const openScheduleDrawerFor = (appointmentId, intent = 'reschedule') => {
     if (!appointmentId) return;
+    const sourceCard = scheduleCards.find((card) => String(card?.id) === String(appointmentId)) || null;
+    const sourceRange = sourceCard
+      ? parseScheduleWindowRange(sourceCard.window, sourceCard.time)
+      : null;
+    const initialDate = intent === 'next_lesson'
+      ? maxMiddayDate(toMiddayDate(), sourceRange?.endMs ?? null)
+      : toMiddayDate();
     setActionError('');
+    setRescheduleIntent(intent);
     setRescheduleSourceId(String(appointmentId));
+    setRescheduleDate(initialDate);
     setRescheduleOpen(true);
+  };
+
+  const openRescheduleFor = (appointmentId) => {
+    openScheduleDrawerFor(appointmentId, 'reschedule');
+  };
+
+  const openNextLessonFor = (appointmentId) => {
+    openScheduleDrawerFor(appointmentId, 'next_lesson');
   };
 
   useEffect(() => {
@@ -721,6 +770,13 @@ function MessagesPage() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [rescheduleOpen]);
+
+  useEffect(() => {
+    setRescheduleDate((prev) => {
+      if (!(prev instanceof Date) || Number.isNaN(prev.getTime())) return rescheduleMinDate;
+      return prev.getTime() < rescheduleMinDate.getTime() ? rescheduleMinDate : prev;
+    });
+  }, [rescheduleMinDate]);
 
   const timelineConfig = useMemo(() => ({
     startHour: 0,
@@ -851,10 +907,9 @@ function MessagesPage() {
 
   const shiftRescheduleDate = (deltaDays) => {
     setRescheduleDate((prev) => {
-      const today = toMiddayDate();
       const next = toMiddayDate(prev);
       next.setDate(next.getDate() + deltaDays);
-      return next < today ? today : next;
+      return next < rescheduleMinDate ? rescheduleMinDate : next;
     });
   };
 
@@ -887,6 +942,29 @@ function MessagesPage() {
       const primaryIndex = prev.findIndex((item) => Boolean(item?.__primary));
       if (primaryIndex < 0) return prev;
       const primary = prev[primaryIndex];
+      const draftSource = sourceCard || primary;
+      const provisionalId = `pending-${Date.now()}`;
+
+      if (rescheduleIntent === 'next_lesson') {
+        return [
+          ...prev.map((card) => ({
+            ...card,
+            __primary: false,
+          })),
+          {
+            ...draftSource,
+            id: provisionalId,
+            time: new Date().toISOString(),
+            direction: 'outgoing',
+            status: 'pending',
+            window: nextWindow,
+            __primary: true,
+            __pendingReschedule: true,
+            __key: provisionalId,
+          },
+        ];
+      }
+
       const rest = prev.filter((_, index) => index !== primaryIndex);
 
       const primaryDirection = primary?.direction === 'outgoing' ? 'outgoing' : 'incoming';
@@ -917,7 +995,7 @@ function MessagesPage() {
     });
 
     try {
-      if (sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
+      if (rescheduleIntent === 'reschedule' && sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
         // Mark the original proposal as "rescheduling" so both parties see the state.
         await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
       }
@@ -931,6 +1009,9 @@ function MessagesPage() {
         meetingId: meetingIdText,
         courseDirectionId,
         courseTypeId,
+        ...(rescheduleIntent === 'next_lesson' && sourceAppointmentId
+          ? { sourceAppointmentId: String(sourceAppointmentId) }
+          : {}),
       });
 
       await reloadThreads();
@@ -940,6 +1021,7 @@ function MessagesPage() {
     } finally {
       setRescheduleOpen(false);
       setRescheduleSourceId(null);
+      setRescheduleIntent('reschedule');
     }
   };
 
@@ -949,7 +1031,6 @@ function MessagesPage() {
     return { mySlots, counterpartSlots };
   }, [availability.mentorSlots, availability.studentSlots, isMentorInThread]);
 
-  const rescheduleMinDate = toMiddayDate();
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
 
   useEffect(() => {
@@ -1205,6 +1286,7 @@ function MessagesPage() {
                         messageActionBusyId={messageActionBusyId}
                         onDecision={handleAppointmentDecision}
                         onReschedule={openRescheduleFor}
+                        onScheduleNextLesson={openNextLessonFor}
                         onDeleteForMe={handleDeleteForMe}
                         onRecall={handleRecall}
                       />
@@ -1255,7 +1337,7 @@ function MessagesPage() {
             className="reschedule-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="修改时间"
+            aria-label={rescheduleIntent === 'next_lesson' ? '预约下节课' : '修改时间'}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="reschedule-header">

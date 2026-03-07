@@ -24,6 +24,7 @@ function AppointmentCard({
   messageActionBusyId,
   onDecision,
   onReschedule,
+  onScheduleNextLesson,
   onDeleteForMe,
   onRecall,
 }) {
@@ -50,6 +51,7 @@ function AppointmentCard({
   const canRecallByStatus = isOutgoing && statusKey === 'pending';
   const canRecall = canRecallByStatus
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
+  const canScheduleNextLesson = isOutgoing && (statusKey === 'pending' || statusKey === 'accepted');
   const recallDisabledTitle = !isOutgoing
     ? '仅可撤回自己发出的日程'
     : statusKey === 'expired'
@@ -164,6 +166,19 @@ function AppointmentCard({
           </button>
           {messageMenuOpen && (
             <div className="schedule-card-more-menu" role="menu">
+              {canScheduleNextLesson ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item"
+                  onClick={() => {
+                    setMessageMenuOpen(false);
+                    onScheduleNextLesson?.(scheduleCard?.id);
+                  }}
+                  disabled={isMessageActionBusy || isExiting || isBusy}
+                >
+                  预约下节课
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="schedule-card-more-item"
