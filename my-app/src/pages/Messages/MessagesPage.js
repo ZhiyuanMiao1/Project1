@@ -21,6 +21,12 @@ import {
   selectionFitsWithinSlots,
   subtractAvailabilityBlocks,
 } from '../../utils/availabilityBusy';
+import {
+  buildShortUTC,
+  convertSelectionsBetweenTimeZones,
+  getDefaultTimeZone,
+  getZonedParts,
+} from '../StudentCourseRequest/steps/timezoneUtils';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -273,6 +279,31 @@ const toYmdKey = (dateLike) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const getAvailabilityTimeZone = (payload, fallback = getDefaultTimeZone()) => {
+  const timeZone = typeof payload?.timeZone === 'string' ? payload.timeZone.trim() : '';
+  return timeZone || fallback;
+};
+
+const buildCalendarDateInTimeZone = (value = new Date(), timeZone = getDefaultTimeZone()) => {
+  const reference = value instanceof Date ? value : new Date(value);
+  const safeReference = Number.isFinite(reference.getTime()) ? reference : new Date();
+  const parts = getZonedParts(timeZone, safeReference);
+  return new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
+};
+
+const buildGmtLabel = (timeZone) => {
+  const utcLabel = buildShortUTC(timeZone);
+  const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
+  if (!match) {
+    if (utcLabel === 'UTC±0') return 'GMT+00';
+    return utcLabel.replace(/^UTC/, 'GMT');
+  }
+  const [, sign, hoursRaw, minutesRaw] = match;
+  const hours = String(hoursRaw).padStart(2, '0');
+  const minutes = minutesRaw ? `:${minutesRaw}` : '';
+  return `GMT${sign}${hours}${minutes}`;
+};
+
 const availabilityBlocksToSlots = (blocks) => {
   if (!Array.isArray(blocks)) return [];
   return blocks
@@ -470,6 +501,18 @@ function MessagesPage() {
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
     : DEFAULT_SCHEDULE_WINDOW;
+  const currentStudentAvailability = threadAvailability?.studentAvailability || null;
+  const currentMentorAvailability = threadAvailability?.mentorAvailability || null;
+  const currentStudentBusySelections = threadAvailability?.studentBusySelections || {};
+  const currentMentorBusySelections = threadAvailability?.mentorBusySelections || {};
+  const myAvailabilityPayload = isMentorInThread ? (currentMentorAvailability || myAvailability) : (currentStudentAvailability || myAvailability);
+  const counterpartAvailabilityPayload = isMentorInThread ? currentStudentAvailability : currentMentorAvailability;
+  const myBusySelectionsForThread = isMentorInThread ? currentMentorBusySelections : currentStudentBusySelections;
+  const counterpartBusySelectionsForThread = isMentorInThread ? currentStudentBusySelections : currentMentorBusySelections;
+  const scheduleViewTimeZone = getAvailabilityTimeZone(
+    myAvailabilityPayload,
+    getAvailabilityTimeZone(counterpartAvailabilityPayload, getDefaultTimeZone()),
+  );
 
   useEffect(() => {
     let alive = true;
@@ -511,10 +554,13 @@ function MessagesPage() {
     return parseScheduleWindowRange(rescheduleSourceCard.window, rescheduleSourceCard.time);
   }, [rescheduleSourceCard]);
   const rescheduleMinDate = useMemo(() => {
-    const today = toMiddayDate();
+    const today = buildCalendarDateInTimeZone(new Date(), scheduleViewTimeZone);
     if (rescheduleIntent !== 'next_lesson') return today;
-    return maxMiddayDate(today, rescheduleSourceRange?.endMs ?? null);
-  }, [rescheduleIntent, rescheduleSourceRange]);
+    const sourceEndDate = rescheduleSourceRange?.endMs
+      ? buildCalendarDateInTimeZone(rescheduleSourceRange.endMs, scheduleViewTimeZone)
+      : null;
+    return maxMiddayDate(today, sourceEndDate);
+  }, [rescheduleIntent, rescheduleSourceRange, scheduleViewTimeZone]);
 
   const decisionNotices = useMemo(() => {
     const rows = Array.isArray(activeThread?.decisionMessages) ? activeThread.decisionMessages : [];
@@ -729,9 +775,13 @@ function MessagesPage() {
     const sourceRange = sourceCard
       ? parseScheduleWindowRange(sourceCard.window, sourceCard.time)
       : null;
+    const today = buildCalendarDateInTimeZone(new Date(), scheduleViewTimeZone);
+    const sourceEndDate = sourceRange?.endMs
+      ? buildCalendarDateInTimeZone(sourceRange.endMs, scheduleViewTimeZone)
+      : null;
     const initialDate = intent === 'next_lesson'
-      ? maxMiddayDate(toMiddayDate(), sourceRange?.endMs ?? null)
-      : toMiddayDate();
+      ? maxMiddayDate(today, sourceEndDate)
+      : today;
     setActionError('');
     setRescheduleIntent(intent);
     setRescheduleSourceId(String(appointmentId));
@@ -777,8 +827,8 @@ function MessagesPage() {
     rowHeight: 56,
     timeColumnWidth: 74,
     bodyPaddingTop: 0,
-    timezoneLabel: 'GMT+08',
-  }), []);
+    timezoneLabel: buildGmtLabel(scheduleViewTimeZone),
+  }), [scheduleViewTimeZone]);
 
   const handleRescheduleTimelineClick = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -886,65 +936,72 @@ function MessagesPage() {
 
   const selectionDayKey = useMemo(() => toYmdKey(rescheduleDate), [rescheduleDate]);
 
-  const currentStudentAvailability = threadAvailability?.studentAvailability || null;
-  const currentMentorAvailability = threadAvailability?.mentorAvailability || null;
-  const currentStudentBusySelections = useMemo(
-    () => threadAvailability?.studentBusySelections || {},
-    [threadAvailability?.studentBusySelections]
-  );
-  const currentMentorBusySelections = useMemo(
-    () => threadAvailability?.mentorBusySelections || {},
-    [threadAvailability?.mentorBusySelections]
-  );
+  const mySelectionsInViewTimeZone = useMemo(() => {
+    const daySelections = myAvailabilityPayload?.daySelections || {};
+    const sourceTimeZone = getAvailabilityTimeZone(myAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(daySelections, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [myAvailabilityPayload, scheduleViewTimeZone]);
 
-  const myAvailabilityPayload = useMemo(() => {
-    if (isMentorInThread) return currentMentorAvailability || myAvailability;
-    return currentStudentAvailability || myAvailability;
-  }, [currentMentorAvailability, currentStudentAvailability, isMentorInThread, myAvailability]);
+  const counterpartSelectionsInViewTimeZone = useMemo(() => {
+    const daySelections = counterpartAvailabilityPayload?.daySelections || {};
+    const sourceTimeZone = getAvailabilityTimeZone(counterpartAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(daySelections, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [counterpartAvailabilityPayload, scheduleViewTimeZone]);
 
-  const counterpartAvailabilityPayload = useMemo(() => {
-    return isMentorInThread ? currentStudentAvailability : currentMentorAvailability;
-  }, [currentMentorAvailability, currentStudentAvailability, isMentorInThread]);
+  const myBusySelectionsInViewTimeZone = useMemo(() => {
+    const sourceTimeZone = getAvailabilityTimeZone(myAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(myBusySelectionsForThread, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [myAvailabilityPayload, myBusySelectionsForThread, scheduleViewTimeZone]);
 
-  const myBusySelectionsForThread = useMemo(() => {
-    return isMentorInThread ? currentMentorBusySelections : currentStudentBusySelections;
-  }, [currentMentorBusySelections, currentStudentBusySelections, isMentorInThread]);
-
-  const counterpartBusySelectionsForThread = useMemo(() => {
-    return isMentorInThread ? currentStudentBusySelections : currentMentorBusySelections;
-  }, [currentMentorBusySelections, currentStudentBusySelections, isMentorInThread]);
+  const counterpartBusySelectionsInViewTimeZone = useMemo(() => {
+    const sourceTimeZone = getAvailabilityTimeZone(counterpartAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(counterpartBusySelectionsForThread, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [counterpartAvailabilityPayload, counterpartBusySelectionsForThread, scheduleViewTimeZone]);
 
   const myAvailabilitySlots = useMemo(() => {
     if (myAvailabilityPayload && typeof myAvailabilityPayload === 'object') {
       const freeBlocks = subtractAvailabilityBlocks(
-        myAvailabilityPayload.daySelections?.[selectionDayKey],
-        myBusySelectionsForThread?.[selectionDayKey]
+        mySelectionsInViewTimeZone?.[selectionDayKey],
+        myBusySelectionsInViewTimeZone?.[selectionDayKey]
       );
       return availabilityBlocksToSlots(freeBlocks);
     }
     if (myAvailabilityStatus === 'idle' || myAvailabilityStatus === 'loading' || threadAvailabilityStatus === 'loading') return null;
     return [];
-  }, [myAvailabilityPayload, myAvailabilityStatus, myBusySelectionsForThread, selectionDayKey, threadAvailabilityStatus]);
+  }, [
+    myAvailabilityPayload,
+    myAvailabilityStatus,
+    myBusySelectionsInViewTimeZone,
+    mySelectionsInViewTimeZone,
+    selectionDayKey,
+    threadAvailabilityStatus,
+  ]);
 
   const counterpartAvailabilitySlots = useMemo(() => {
     if (counterpartAvailabilityPayload && typeof counterpartAvailabilityPayload === 'object') {
       const freeBlocks = subtractAvailabilityBlocks(
-        counterpartAvailabilityPayload.daySelections?.[selectionDayKey],
-        counterpartBusySelectionsForThread?.[selectionDayKey]
+        counterpartSelectionsInViewTimeZone?.[selectionDayKey],
+        counterpartBusySelectionsInViewTimeZone?.[selectionDayKey]
       );
       return availabilityBlocksToSlots(freeBlocks);
     }
     if (threadAvailabilityStatus === 'idle' || threadAvailabilityStatus === 'loading') return null;
     return [];
-  }, [counterpartAvailabilityPayload, counterpartBusySelectionsForThread, selectionDayKey, threadAvailabilityStatus]);
+  }, [
+    counterpartAvailabilityPayload,
+    counterpartBusySelectionsInViewTimeZone,
+    counterpartSelectionsInViewTimeZone,
+    selectionDayKey,
+    threadAvailabilityStatus,
+  ]);
 
   const myBusySlots = useMemo(() => {
-    return availabilityBlocksToSlots(myBusySelectionsForThread?.[selectionDayKey]);
-  }, [myBusySelectionsForThread, selectionDayKey]);
+    return availabilityBlocksToSlots(myBusySelectionsInViewTimeZone?.[selectionDayKey]);
+  }, [myBusySelectionsInViewTimeZone, selectionDayKey]);
 
   const counterpartBusySlots = useMemo(() => {
-    return availabilityBlocksToSlots(counterpartBusySelectionsForThread?.[selectionDayKey]);
-  }, [counterpartBusySelectionsForThread, selectionDayKey]);
+    return availabilityBlocksToSlots(counterpartBusySelectionsInViewTimeZone?.[selectionDayKey]);
+  }, [counterpartBusySelectionsInViewTimeZone, selectionDayKey]);
 
   const availability = useMemo(() => {
     const mySlots = Array.isArray(myAvailabilitySlots) ? myAvailabilitySlots : [];
