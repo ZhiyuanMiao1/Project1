@@ -470,14 +470,27 @@
   text-overflow: ellipsis;
 }
 
+.mentor-detail-times-panel .reschedule-slot.availability {
+  cursor: pointer;
+}
+
 .mentor-detail-times-panel .reschedule-slot.busy {
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.28);
   color: #9a3412;
+  cursor: default;
 }
 
 .mentor-detail-times-panel .reschedule-slot.selection {
   padding: 6px 8px;
+}
+
+.mentor-detail-times-panel .reschedule-common-layer {
+  z-index: 3;
+}
+
+.mentor-detail-times-panel .reschedule-slot.common {
+  cursor: pointer;
 }
 
 .mentor-detail-times-panel .reschedule-timeline-scroll {

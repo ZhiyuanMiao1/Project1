@@ -14,11 +14,10 @@ import {
   parseScheduleWindowRange,
 } from './appointmentCardUtils';
 import {
-  buildSelectionFromPoint,
-  findMinuteSlotContainingRange,
+  buildSelectionFromMinutePoint,
+  findFirstSlotStartMinutes,
   intersectMinuteSlots,
   normalizeBlockMap,
-  selectionFitsWithinSlots,
   subtractAvailabilityBlocks,
 } from '../../utils/availabilityBusy';
 import {
@@ -334,7 +333,6 @@ function MessagesPage() {
   const scheduleCardSendTimeoutRef = useRef(null);
   const entryAnimatedThreadRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
-  const rescheduleInitialScrollSet = useRef(false);
   const rescheduleResizeRef = useRef(null);
   const timelineAutoScrollMetaRef = useRef({ threadId: null, length: 0 });
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -835,11 +833,29 @@ function MessagesPage() {
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
     const rawMinutes = timelineConfig.startHour * 60 + offsetY / pixelsPerMinute;
-    const snappedStart = Math.round(rawMinutes / 15) * 15;
-    const minStart = timelineConfig.startHour * 60;
-    const maxStart = timelineConfig.endHour * 60 - 60;
-    const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
-    const nextSelection = buildSelectionFromPoint(availability.commonSlots, startMinutes, 60, 15);
+    const nextSelection = buildSelectionFromMinutePoint(
+      rawMinutes,
+      60,
+      15,
+      timelineConfig.startHour * 60,
+      timelineConfig.endHour * 60,
+    );
+    setRescheduleSelection(nextSelection);
+  };
+
+  const handleRescheduleSlotClick = (slot) => (event) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
+    const clampedRatio = Math.max(0, Math.min(0.999, ratio));
+    const pointMinutes = slot.startMinutes + clampedRatio * (slot.endMinutes - slot.startMinutes);
+    const nextSelection = buildSelectionFromMinutePoint(
+      pointMinutes,
+      60,
+      15,
+      slot.startMinutes,
+      slot.endMinutes,
+    );
     setRescheduleSelection(nextSelection);
   };
 
@@ -860,19 +876,12 @@ function MessagesPage() {
     const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
     const snappedDelta = Math.round(deltaMinutes / 15) * 15;
     const minDuration = 15;
-    const slotBounds = findMinuteSlotContainingRange(availability.commonSlots, {
-      startMinutes: state.startMinutes,
-      endMinutes: state.endMinutes,
-    });
-    if (!slotBounds) {
-      setRescheduleSelection(null);
-      clearRescheduleResizeState();
-      return;
-    }
+    const minStart = timelineConfig.startHour * 60;
+    const maxEnd = timelineConfig.endHour * 60;
 
     if (state.edge === 'start') {
       const startMinutes = Math.max(
-        slotBounds.startMinutes,
+        minStart,
         Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
       );
       setRescheduleSelection({ startMinutes, endMinutes: state.endMinutes });
@@ -881,7 +890,7 @@ function MessagesPage() {
 
     const endMinutes = Math.max(
       state.startMinutes + minDuration,
-      Math.min(slotBounds.endMinutes, state.endMinutes + snappedDelta),
+      Math.min(maxEnd, state.endMinutes + snappedDelta),
     );
     setRescheduleSelection({ startMinutes: state.startMinutes, endMinutes });
   };
@@ -1018,12 +1027,6 @@ function MessagesPage() {
       commonSlots: intersectMinuteSlots(studentSlots, mentorSlots),
     };
   }, [counterpartAvailabilitySlots, counterpartBusySlots, isMentorInThread, myAvailabilitySlots, myBusySlots]);
-
-  useEffect(() => {
-    if (!rescheduleSelection) return;
-    if (selectionFitsWithinSlots(rescheduleSelection, availability.commonSlots)) return;
-    setRescheduleSelection(null);
-  }, [availability.commonSlots, rescheduleSelection]);
 
   const shiftRescheduleDate = (deltaDays) => {
     setRescheduleDate((prev) => {
@@ -1163,20 +1166,29 @@ function MessagesPage() {
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
 
   useEffect(() => {
-    if (!rescheduleOpen) {
-      rescheduleInitialScrollSet.current = false;
-      return;
-    }
-    if (rescheduleInitialScrollSet.current) return;
-
+    if (!rescheduleOpen) return;
     const scrollEl = rescheduleScrollRef.current;
     if (!scrollEl) return;
-
-    rescheduleInitialScrollSet.current = true;
-    const targetMinutes = 11 * 60;
+    const focusMinutes = findFirstSlotStartMinutes(
+      columns.counterpartSlots,
+      columns.mySlots,
+      isMentorInThread ? availability.studentBusySlots : availability.mentorBusySlots,
+      isMentorInThread ? availability.mentorBusySlots : availability.studentBusySlots,
+    );
+    const targetMinutes = focusMinutes == null ? 11 * 60 : Math.max(0, focusMinutes - 60);
     const top = (targetMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60);
     scrollEl.scrollTop = Math.max(0, top);
-  }, [rescheduleOpen, timelineConfig.rowHeight, timelineConfig.startHour]);
+  }, [
+    availability.mentorBusySlots,
+    availability.studentBusySlots,
+    columns.counterpartSlots,
+    columns.mySlots,
+    isMentorInThread,
+    rescheduleDate,
+    rescheduleOpen,
+    timelineConfig.rowHeight,
+    timelineConfig.startHour,
+  ]);
 
   return (
     <div className="messages-page">
@@ -1557,6 +1569,7 @@ function MessagesPage() {
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                         className="reschedule-slot availability"
+                        onClick={handleRescheduleSlotClick(slot)}
                         style={{
                           top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
                           height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
@@ -1588,6 +1601,7 @@ function MessagesPage() {
                       <div
                         key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                         className="reschedule-slot availability"
+                        onClick={handleRescheduleSlotClick(slot)}
                         style={{
                           top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
                           height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,

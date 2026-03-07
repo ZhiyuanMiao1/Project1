@@ -23,12 +23,10 @@ import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import {
   buildAvailabilityDaySet,
-  buildSelectionFromPoint,
-  findMinuteSlotContainingRange,
-  intersectMinuteSlots,
+  buildSelectionFromMinutePoint,
+  findFirstSlotStartMinutes,
   mergeAvailabilityBlocks,
   normalizeBlockMap,
-  selectionFitsWithinSlots,
   subtractAvailabilityBlocks,
 } from '../../utils/availabilityBusy';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
@@ -1024,7 +1022,6 @@ function MentorDetailPage() {
     return blocksToMinuteSlots(mentorBusySelectionsInViewTz?.[selectedDayKey]);
   }, [mentorBusySelectionsInViewTz, multiDayMentorBusyBlocks, selectedDayKey, selectedKeys.length]);
 
-  const commonAvailableSlots = useMemo(() => intersectMinuteSlots(mySlots, mentorSlots), [mentorSlots, mySlots]);
   const columns = useMemo(() => ({ mySlots, counterpartSlots: mentorSlots }), [mentorSlots, mySlots]);
 
   useEffect(() => {
@@ -1032,18 +1029,26 @@ function MentorDetailPage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    if (!scheduleSelection) return;
-    if (selectionFitsWithinSlots(scheduleSelection, commonAvailableSlots)) return;
-    setScheduleSelection(null);
-  }, [commonAvailableSlots, scheduleSelection]);
-
-  useEffect(() => {
     const scrollEl = scheduleScrollRef.current;
     if (!scrollEl) return;
-    const targetMinutes = 11 * 60;
+    const focusMinutes = findFirstSlotStartMinutes(
+      mentorSlots,
+      mySlots,
+      mentorBusySlots,
+      myBusySlots,
+    );
+    const targetMinutes = focusMinutes == null ? 11 * 60 : Math.max(0, focusMinutes - 60);
     const top = (targetMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60);
     scrollEl.scrollTop = Math.max(0, top);
-  }, [selectedDate, timelineConfig.rowHeight, timelineConfig.startHour]);
+  }, [
+    mentorBusySlots,
+    mentorSlots,
+    myBusySlots,
+    mySlots,
+    selectedDate,
+    timelineConfig.rowHeight,
+    timelineConfig.startHour,
+  ]);
 
   const shiftSelectedDate = (deltaDays) => {
     setSelectedDate((prev) => {
@@ -1080,11 +1085,29 @@ function MentorDetailPage() {
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
     const rawMinutes = timelineConfig.startHour * 60 + offsetY / pixelsPerMinute;
-    const snappedStart = Math.round(rawMinutes / 15) * 15;
-    const minStart = timelineConfig.startHour * 60;
-    const maxStart = timelineConfig.endHour * 60 - 60;
-    const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
-    const nextSelection = buildSelectionFromPoint(commonAvailableSlots, startMinutes, 60, 15);
+    const nextSelection = buildSelectionFromMinutePoint(
+      rawMinutes,
+      60,
+      15,
+      timelineConfig.startHour * 60,
+      timelineConfig.endHour * 60,
+    );
+    setScheduleSelection(nextSelection);
+  };
+
+  const handleAvailabilitySlotClick = (slot) => (event) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
+    const clampedRatio = Math.max(0, Math.min(0.999, ratio));
+    const pointMinutes = slot.startMinutes + clampedRatio * (slot.endMinutes - slot.startMinutes);
+    const nextSelection = buildSelectionFromMinutePoint(
+      pointMinutes,
+      60,
+      15,
+      slot.startMinutes,
+      slot.endMinutes,
+    );
     setScheduleSelection(nextSelection);
   };
 
@@ -1115,19 +1138,12 @@ function MentorDetailPage() {
     const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
     const snappedDelta = Math.round(deltaMinutes / 15) * 15;
     const minDuration = 15;
-    const slotBounds = findMinuteSlotContainingRange(commonAvailableSlots, {
-      startMinutes: state.startMinutes,
-      endMinutes: state.endMinutes,
-    });
-    if (!slotBounds) {
-      setScheduleSelection(null);
-      clearResizeState();
-      return;
-    }
+    const minStart = timelineConfig.startHour * 60;
+    const maxEnd = timelineConfig.endHour * 60;
 
     if (state.edge === 'start') {
       const startMinutes = Math.max(
-        slotBounds.startMinutes,
+        minStart,
         Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
       );
       setScheduleSelection({ startMinutes, endMinutes: state.endMinutes });
@@ -1136,7 +1152,7 @@ function MentorDetailPage() {
 
     const endMinutes = Math.max(
       state.startMinutes + minDuration,
-      Math.min(slotBounds.endMinutes, state.endMinutes + snappedDelta),
+      Math.min(maxEnd, state.endMinutes + snappedDelta),
     );
     setScheduleSelection({ startMinutes: state.startMinutes, endMinutes });
   };
@@ -1481,6 +1497,7 @@ function MentorDetailPage() {
                                   <div
                                     key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                                     className="reschedule-slot availability"
+                                    onClick={handleAvailabilitySlotClick(slot)}
                                     style={{
                                       top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
                                       height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
@@ -1512,6 +1529,7 @@ function MentorDetailPage() {
                                   <div
                                     key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
                                     className="reschedule-slot availability"
+                                    onClick={handleAvailabilitySlotClick(slot)}
                                     style={{
                                       top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
                                       height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,

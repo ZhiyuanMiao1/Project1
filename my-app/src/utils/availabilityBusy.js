@@ -148,3 +148,35 @@ export const buildSelectionFromPoint = (slots = [], pointMinutes, preferredDurat
 
   return { startMinutes, endMinutes };
 };
+
+export const buildSelectionFromMinutePoint = (
+  pointMinutes,
+  preferredDuration = 60,
+  minDuration = 15,
+  minStartMinutes = 0,
+  maxEndMinutes = 24 * 60,
+) => {
+  const point = Number(pointMinutes);
+  const minStart = Number.isFinite(minStartMinutes) ? minStartMinutes : 0;
+  const maxEnd = Number.isFinite(maxEndMinutes) ? maxEndMinutes : 24 * 60;
+  const duration = Number.isFinite(preferredDuration) ? preferredDuration : 60;
+  const minDurationSafe = Number.isFinite(minDuration) ? Math.max(1, minDuration) : 15;
+  const availableDuration = Math.max(minDurationSafe, Math.min(duration, maxEnd - minStart));
+  if (!Number.isFinite(point) || maxEnd - minStart < minDurationSafe) return null;
+
+  const snappedStart = Math.round(point / minDurationSafe) * minDurationSafe;
+  const maxStart = maxEnd - availableDuration;
+  const startMinutes = Math.max(minStart, Math.min(maxStart, snappedStart));
+  const endMinutes = startMinutes + availableDuration;
+  if (endMinutes - startMinutes < minDurationSafe) return null;
+
+  return { startMinutes, endMinutes };
+};
+
+export const findFirstSlotStartMinutes = (...slotGroups) => {
+  for (const group of slotGroups) {
+    const normalized = normalizeMinuteSlots(group);
+    if (normalized.length > 0) return normalized[0].startMinutes;
+  }
+  return null;
+};
