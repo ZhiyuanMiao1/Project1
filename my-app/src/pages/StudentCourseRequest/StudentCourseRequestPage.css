@@ -702,6 +702,16 @@
 .date-cell.selected.range-preview .date-number,
 .date-cell.multi-selected.range-preview .date-number { color: #ffffff; }
 
+.date-cell.has-busy .date-number,
+.date-cell.has-busy.range-preview .date-number { color: #f59e0b; }
+
+.date-cell.past.has-busy .date-number { color: #9ca3af; }
+
+.date-cell.selected.has-busy .date-number,
+.date-cell.multi-selected.has-busy .date-number,
+.date-cell.selected.has-busy.range-preview .date-number,
+.date-cell.multi-selected.has-busy.range-preview .date-number { color: #ffffff; }
+
 /* 日历右上角“当天有选择”的小标记点 */
 .date-marker {
   position: absolute;
@@ -715,22 +725,6 @@
 }
 .date-cell.selected .date-marker, /* 单日选中为白点 */
 .date-cell.multi-selected .date-marker { background: #ffffff; } /* 多日选中同样为白点 */
-
-.date-busy-marker {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #f59e0b;
-  pointer-events: none;
-}
-.date-cell.selected .date-busy-marker,
-.date-cell.multi-selected .date-busy-marker {
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55);
-}
 
 .schedule-right-panel {
   align-self: stretch;

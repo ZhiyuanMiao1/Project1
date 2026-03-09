@@ -610,22 +610,20 @@
 .mentor-detail-schedule .date-cell.range-preview .date-number { color: #111827; }
 .mentor-detail-schedule .date-cell.selected.range-preview .date-number,
 .mentor-detail-schedule .date-cell.multi-selected.range-preview .date-number { color: #ffffff; }
-
-.mentor-detail-schedule .date-busy-marker {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #f59e0b;
-  pointer-events: none;
+.mentor-detail-schedule .date-cell.has-busy .date-number,
+.mentor-detail-schedule .date-cell.has-busy.range-preview .date-number {
+  color: #f59e0b;
 }
 
-.mentor-detail-schedule .date-cell.selected .date-busy-marker,
-.mentor-detail-schedule .date-cell.multi-selected .date-busy-marker {
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.55);
+.mentor-detail-schedule .date-cell.past.has-busy .date-number {
+  color: #9ca3af;
+}
+
+.mentor-detail-schedule .date-cell.selected.has-busy .date-number,
+.mentor-detail-schedule .date-cell.multi-selected.has-busy .date-number,
+.mentor-detail-schedule .date-cell.selected.has-busy.range-preview .date-number,
+.mentor-detail-schedule .date-cell.multi-selected.has-busy.range-preview .date-number {
+  color: #ffffff;
 }
 
 .mentor-detail-schedule .availability-dots {

@@ -1337,6 +1337,7 @@ function MentorDetailPage() {
                             isToday ? 'today' : '',
                             selected ? 'selected' : '',
                             isPast ? 'past' : '',
+                            hasBusy ? 'has-busy' : '',
                             inMultiSelected ? 'multi-selected' : '',
                             inPreview ? 'range-preview' : '',
                           ].filter(Boolean).join(' ');
@@ -1392,7 +1393,6 @@ function MentorDetailPage() {
                               }}
                             >
                             <span className="date-number">{date.getDate()}</span>
-                            {hasBusy ? <span className="date-busy-marker" aria-hidden="true" /> : null}
                             {(hasMyAvailability || hasMentorAvailability) ? (
                               <span className="availability-dots" aria-hidden="true">
                                 {(hasMyAvailability && hasMentorAvailability) ? (

@@ -410,6 +410,7 @@ function AvailabilityEditor({
                 isToday ? 'today' : '',
                 selected ? 'selected' : '',
                 isPast ? 'past' : '',
+                hasBusy ? 'has-busy' : '',
                 inMultiSelected ? 'multi-selected' : '',
                 inPreview ? 'range-preview' : '',
               ].filter(Boolean).join(' ');
@@ -466,7 +467,6 @@ function AvailabilityEditor({
                 >
                   <span className="date-number">{date.getDate()}</span>
                   {hasSelection && <span className="date-marker" aria-hidden />}
-                  {hasBusy && <span className="date-busy-marker" aria-hidden />}
                 </button>
               );
             })}

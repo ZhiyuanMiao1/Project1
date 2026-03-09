@@ -1265,6 +1265,7 @@ function CourseRequestDetailPage() {
                           isToday ? 'today' : '',
                           selected ? 'selected' : '',
                           isPast ? 'past' : '',
+                          hasBusy ? 'has-busy' : '',
                           inMultiSelected ? 'multi-selected' : '',
                           inPreview ? 'range-preview' : '',
                         ].filter(Boolean).join(' ');
@@ -1320,7 +1321,6 @@ function CourseRequestDetailPage() {
                             }}
                           >
                             <span className="date-number">{date.getDate()}</span>
-                            {hasBusy ? <span className="date-busy-marker" aria-hidden="true" /> : null}
                             {(hasMyAvailability || hasRequestAvailability) ? (
                               <span className="availability-dots" aria-hidden="true">
                                 {(hasMyAvailability && hasRequestAvailability) ? (
