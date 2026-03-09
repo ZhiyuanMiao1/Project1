@@ -1,7 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { query as dbQuery } from '../db';
 import { requireAuth } from '../middleware/auth';
-import { createAliRtcAuthInfo, getAliyunRtcRuntimeConfig } from '../services/aliyunRtc';
+import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
 
 const router = Router();
 
@@ -15,10 +15,13 @@ type CourseSessionRow = {
 };
 
 type RolePublicIdRow = {
+  user_id: number | string;
+  role: string | null;
   public_id: string | null;
 };
 
 type UserNameRow = {
+  id: number | string;
   username: string | null;
 };
 
@@ -54,9 +57,9 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
     return res.status(400).json({ error: '无效课程ID' });
   }
 
-  const runtime = getAliyunRtcRuntimeConfig();
+  const runtime = getAliyunLiveRuntimeConfig();
   if (!runtime) {
-    return res.status(500).json({ error: 'RTC 配置缺失，请检查 ALIYUN_RTC_APP_ID / ALIYUN_RTC_APP_KEY' });
+    return res.status(500).json({ error: '实时音视频配置缺失，请检查 ALIYUN_LIVE_ARTC_APP_ID / ALIYUN_LIVE_ARTC_APP_KEY' });
   }
 
   try {
@@ -93,51 +96,99 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
 
     const roleRows = await dbQuery<RolePublicIdRow[]>(
       `
-      SELECT public_id
+      SELECT user_id, role, public_id
       FROM user_roles
-      WHERE user_id = ? AND role = ?
-      LIMIT 1
+      WHERE (user_id = ? AND role = 'student')
+         OR (user_id = ? AND role = 'mentor')
       `,
-      [req.user.id, req.user.role]
+      [studentUserId, mentorUserId]
     );
-    const rtcUserId = safeText(roleRows?.[0]?.public_id) || `u${req.user.id}`;
 
     const userRows = await dbQuery<UserNameRow[]>(
-      'SELECT username FROM users WHERE id = ? LIMIT 1',
-      [req.user.id]
+      `
+      SELECT id, username
+      FROM users
+      WHERE id IN (?, ?)
+      `,
+      [studentUserId, mentorUserId]
     );
-    const userName = safeText(userRows?.[0]?.username) || rtcUserId;
 
-    const channelId = `course_${courseId}`;
-    const timestamp = Math.floor(Date.now() / 1000) + 3600;
-    const authInfo = createAliRtcAuthInfo({
+    const rolePublicIdMap = new Map<string, string>();
+    roleRows.forEach((row) => {
+      const userId = toNumber(row.user_id, 0);
+      const role = safeText(row.role).toLowerCase();
+      const publicId = safeText(row.public_id);
+      if (!userId || !role || !publicId) return;
+      rolePublicIdMap.set(`${userId}:${role}`, publicId);
+    });
+
+    const studentPublicId = rolePublicIdMap.get(`${studentUserId}:student`) || `s${studentUserId}`;
+    const mentorPublicId = rolePublicIdMap.get(`${mentorUserId}:mentor`) || `m${mentorUserId}`;
+
+    const userNameMap = new Map<number, string>();
+    userRows.forEach((row) => {
+      const userId = toNumber(row.id, 0);
+      const userName = safeText(row.username);
+      if (!userId || !userName) return;
+      userNameMap.set(userId, userName);
+    });
+
+    const roleInSession = isMentorInSession ? 'mentor' : 'student';
+    const remoteRole = isMentorInSession ? 'student' : 'mentor';
+    const selfUserId = isMentorInSession ? mentorPublicId : studentPublicId;
+    const remoteUserId = isMentorInSession ? studentPublicId : mentorPublicId;
+    const selfUserName = userNameMap.get(req.user.id) || selfUserId;
+    const remoteUserName = isMentorInSession
+      ? (userNameMap.get(studentUserId) || studentPublicId)
+      : (userNameMap.get(mentorUserId) || mentorPublicId);
+
+    const roomId = `course_${courseId}`;
+    const timestamp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+    const selfStreamAuth = createAliyunLiveStreamAuthInfo({
       appId: runtime.appId,
       appKey: runtime.appKey,
-      channelId,
-      userId: rtcUserId,
+      roomId,
+      userId: selfUserId,
       timestamp,
-      role: 'pub',
+    });
+    const remoteStreamAuth = createAliyunLiveStreamAuthInfo({
+      appId: runtime.appId,
+      appKey: runtime.appKey,
+      roomId,
+      userId: remoteUserId,
+      timestamp,
     });
 
     const durationHours = Number((Math.round(toNumber(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2));
-    const roleInSession = isMentorInSession ? 'mentor' : 'student';
 
     return res.json({
-      authInfo,
-      userName,
+      liveAuth: {
+        mode: 'aliyun-live-artc',
+        sdkAppId: runtime.appId,
+        roomId: selfStreamAuth.roomId,
+        selfUserId: selfStreamAuth.userId,
+        remoteUserId: remoteStreamAuth.userId,
+        pushUrl: selfStreamAuth.pushUrl,
+        selfPlayUrl: selfStreamAuth.playUrl,
+        remotePlayUrl: remoteStreamAuth.playUrl,
+        expiresAt: new Date(timestamp * 1000).toISOString(),
+      },
+      userName: selfUserName,
       session: {
         courseId: String(courseId),
         status,
         startsAt: toIsoString(sessionRow.starts_at),
         durationHours,
         roleInSession,
+        remoteRole,
+        remoteUserName,
       },
     });
   } catch (e) {
     if (isMissingSchemaError(e)) {
       return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
     }
-    console.error('RTC classroom auth error:', e);
+    console.error('Live classroom auth error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });

@@ -39,6 +39,11 @@ OSS_REGION=cn-hongkong
 OSS_BUCKET=your_bucket
 OSS_ACCESS_KEY_ID=your_access_key_id
 OSS_ACCESS_KEY_SECRET=your_access_key_secret
+
+# 阿里云视频直播实时音视频（课堂）
+# 优先读取新的直播实时音视频变量名，也兼容旧的 ALIYUN_RTC_APP_ID / ALIYUN_RTC_APP_KEY
+ALIYUN_LIVE_ARTC_APP_ID=your_live_artc_app_id
+ALIYUN_LIVE_ARTC_APP_KEY=your_live_artc_app_key
 ```
 
 注意：请在阿里云 RDS 控制台配置「白名单/安全组」，放行你的后端服务器出口 IP（或本机 IP）访问 `DB_PORT`。
