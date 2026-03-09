@@ -4,6 +4,7 @@ import {
   DIRECTION_ICON_MAP,
   DIRECTION_ID_TO_LABEL,
 } from '../../constants/courseMappings';
+import { buildShortUTC, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 
 export const SCHEDULE_STATUS_META = {
   pending: { label: '待确认', tone: 'pending' },
@@ -18,6 +19,8 @@ export const normalizeScheduleStatus = (value) => {
   if (key in SCHEDULE_STATUS_META) return key;
   return 'pending';
 };
+
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 const parseTimezoneOffsetMinutes = (raw) => {
   const text = String(raw || '')
@@ -114,6 +117,41 @@ export const parseScheduleWindowRange = (windowText, referenceTime) => {
 
 const parseWindowStartMs = (windowText, referenceTime) => {
   return parseScheduleWindowRangeInternal(windowText, referenceTime)?.startMs ?? null;
+};
+
+const buildGmtLabel = (timeZone, referenceTime = new Date()) => {
+  const utcLabel = buildShortUTC(timeZone, referenceTime);
+  const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
+  if (!match) {
+    if (utcLabel === 'UTC±0') return 'GMT+00';
+    return utcLabel.replace(/^UTC/, 'GMT');
+  }
+  const [, sign, hoursRaw, minutesRaw] = match;
+  const hours = String(hoursRaw).padStart(2, '0');
+  const minutes = minutesRaw ? `:${minutesRaw}` : '';
+  return `GMT${sign}${hours}${minutes}`;
+};
+
+const formatTimeLabel = (hour, minute) => {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
+export const formatScheduleWindowForTimeZone = (windowText, referenceTime, timeZone) => {
+  const targetTimeZone = typeof timeZone === 'string' ? timeZone.trim() : '';
+  if (!targetTimeZone) return typeof windowText === 'string' ? windowText : '';
+
+  const parsed = parseScheduleWindowRangeInternal(windowText, referenceTime);
+  if (!parsed) return typeof windowText === 'string' ? windowText : '';
+
+  const startDate = new Date(parsed.startMs);
+  const endDate = new Date(parsed.endMs);
+  const startParts = getZonedParts(targetTimeZone, startDate);
+  const endParts = getZonedParts(targetTimeZone, endDate);
+  const zonedDate = new Date(startParts.year, startParts.month - 1, startParts.day);
+  const weekdayLabel = weekdayLabels[zonedDate.getDay()] || '';
+  const gmtLabel = buildGmtLabel(targetTimeZone, startDate);
+
+  return `${startParts.month}月${startParts.day}日 ${weekdayLabel} ${formatTimeLabel(startParts.hour, startParts.minute)}-${formatTimeLabel(endParts.hour, endParts.minute)} (${gmtLabel})`;
 };
 
 export const isScheduleWindowExpired = ({ windowText, referenceTime, nowMs = Date.now() }) => {

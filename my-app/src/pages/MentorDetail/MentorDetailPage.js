@@ -864,7 +864,7 @@ function MentorDetailPage() {
   }, [endDragSelection, isDraggingRange]);
 
   const scheduleGmtLabel = useMemo(() => {
-    const utcLabel = buildShortUTC(selectedTimeZone);
+    const utcLabel = buildShortUTC(selectedTimeZone, selectedDate);
     const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
     if (!match) {
       if (utcLabel === 'UTC±0') return 'GMT+00';
@@ -874,7 +874,7 @@ function MentorDetailPage() {
     const hours = String(hoursRaw).padStart(2, '0');
     const minutes = minutesRaw ? `:${minutesRaw}` : '';
     return `GMT${sign}${hours}${minutes}`;
-  }, [selectedTimeZone]);
+  }, [selectedDate, selectedTimeZone]);
 
   const timelineConfig = useMemo(() => ({
     startHour: 0,
@@ -1213,7 +1213,7 @@ function MentorDetailPage() {
     const startLabel = minutesToTimeLabel(scheduleSelection.startMinutes);
     const endLabel = minutesToTimeLabel(scheduleSelection.endMinutes);
     const windowLabel = `${startLabel} - ${endLabel}`;
-    const tzShort = buildShortUTC(selectedTimeZone);
+    const tzShort = buildShortUTC(selectedTimeZone, selectedDate);
     const windowText = `${formatFullDate(selectedDate)} ${windowLabel} (${tzShort})`;
 
     try {
@@ -1292,7 +1292,7 @@ function MentorDetailPage() {
                 </div>
                 <aside className="mentor-detail-schedule" aria-label="导师可约时间">
                   <div className="mentor-detail-schedule-meta">
-                    <span>时区：{buildShortUTC(selectedTimeZone)} {selectedTimeZone}</span>
+                    <span>时区：{buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                   </div>
                   <div className="mentor-detail-schedule-body" aria-label="选择日期">
                     <div className="calendar-card" aria-label="可约日期日历">
@@ -1721,7 +1721,7 @@ function MentorDetailPage() {
           appointment={scheduleSelection ? {
             date: selectedDate,
             windowLabel: `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`,
-            timeZoneLabel: `${buildShortUTC(selectedTimeZone)} ${selectedTimeZone}`,
+            timeZoneLabel: `${buildShortUTC(selectedTimeZone, selectedDate)} ${selectedTimeZone}`,
           } : null}
           onConfirm={handleConfirmAppointmentCourse}
           onCreateCourse={() => {

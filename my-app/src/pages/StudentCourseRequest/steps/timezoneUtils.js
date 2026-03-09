@@ -295,10 +295,10 @@ const buildDateFromTimeZoneNow = (timeZone) => {
   return new Date(parts.year, parts.month - 1, parts.day);
 };
 
-const buildShortUTC = (timeZone) => {
+const buildShortUTC = (timeZone, referenceDate = new Date()) => {
   if (!timeZone) return 'UTC±0';
   try {
-    const offMin = getTimeZoneOffsetMinutes(timeZone, new Date());
+    const offMin = getTimeZoneOffsetMinutes(timeZone, referenceDate);
     const sign = offMin >= 0 ? '+' : '-';
     const hours = Math.floor(Math.abs(offMin) / 60);
     const mins = Math.abs(offMin) % 60;

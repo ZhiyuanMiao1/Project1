@@ -811,7 +811,7 @@ function CourseRequestDetailPage() {
   }, [endDragSelection, isDraggingRange]);
 
   const scheduleGmtLabel = useMemo(() => {
-    const utcLabel = buildShortUTC(selectedTimeZone);
+    const utcLabel = buildShortUTC(selectedTimeZone, selectedDate);
     const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
     if (!match) {
       if (utcLabel === 'UTC±0') return 'GMT+00';
@@ -821,7 +821,7 @@ function CourseRequestDetailPage() {
     const hours = String(hoursRaw).padStart(2, '0');
     const minutes = minutesRaw ? `:${minutesRaw}` : '';
     return `GMT${sign}${hours}${minutes}`;
-  }, [selectedTimeZone]);
+  }, [selectedDate, selectedTimeZone]);
 
   const timelineConfig = useMemo(() => ({
     startHour: 0,
@@ -1220,7 +1220,7 @@ function CourseRequestDetailPage() {
 
               <aside className="mentor-detail-schedule" aria-label="可约时间">
                 <div className="mentor-detail-schedule-meta">
-                  <span>时区：{buildShortUTC(selectedTimeZone)} {selectedTimeZone}</span>
+                  <span>时区：{buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                 </div>
                 <div className="mentor-detail-schedule-body" aria-label="选择日期">
                   <div className="calendar-card" aria-label="可约日期日历">

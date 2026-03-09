@@ -9,6 +9,7 @@ import { getAuthToken } from '../../utils/authStorage';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
 import {
+  formatScheduleWindowForTimeZone,
   getCourseTitleParts,
   normalizeScheduleStatus,
   parseScheduleWindowRange,
@@ -290,8 +291,8 @@ const buildCalendarDateInTimeZone = (value = new Date(), timeZone = getDefaultTi
   return new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
 };
 
-const buildGmtLabel = (timeZone) => {
-  const utcLabel = buildShortUTC(timeZone);
+const buildGmtLabel = (timeZone, referenceDate = new Date()) => {
+  const utcLabel = buildShortUTC(timeZone, referenceDate);
   const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
   if (!match) {
     if (utcLabel === 'UTC±0') return 'GMT+00';
@@ -389,7 +390,7 @@ function MessagesPage() {
 
   useEffect(() => {
     let alive = true;
-    if (!isLoggedIn || !rescheduleOpen) return () => { alive = false; };
+    if (!isLoggedIn) return () => { alive = false; };
 
     setMyAvailabilityStatus('loading');
     api.get('/api/account/availability')
@@ -507,10 +508,8 @@ function MessagesPage() {
   const counterpartAvailabilityPayload = isMentorInThread ? currentStudentAvailability : currentMentorAvailability;
   const myBusySelectionsForThread = isMentorInThread ? currentMentorBusySelections : currentStudentBusySelections;
   const counterpartBusySelectionsForThread = isMentorInThread ? currentStudentBusySelections : currentMentorBusySelections;
-  const scheduleViewTimeZone = getAvailabilityTimeZone(
-    myAvailabilityPayload,
-    getAvailabilityTimeZone(counterpartAvailabilityPayload, getDefaultTimeZone()),
-  );
+  const currentUserTimeZone = getAvailabilityTimeZone(myAvailability, getDefaultTimeZone());
+  const scheduleViewTimeZone = currentUserTimeZone;
 
   useEffect(() => {
     let alive = true;
@@ -825,8 +824,8 @@ function MessagesPage() {
     rowHeight: 56,
     timeColumnWidth: 74,
     bodyPaddingTop: 0,
-    timezoneLabel: buildGmtLabel(scheduleViewTimeZone),
-  }), [scheduleViewTimeZone]);
+    timezoneLabel: buildGmtLabel(scheduleViewTimeZone, rescheduleDate),
+  }), [rescheduleDate, scheduleViewTimeZone]);
 
   const handleRescheduleTimelineClick = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1399,9 +1398,14 @@ function MessagesPage() {
                     const isPrimary = Boolean(scheduleCard?.__primary);
                     const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '');
 
-                    const windowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
+                    const rawWindowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
                       ? scheduleCard.window
                       : (isPrimary ? scheduleWindow : DEFAULT_SCHEDULE_WINDOW);
+                    const windowText = formatScheduleWindowForTimeZone(
+                      rawWindowText,
+                      scheduleCard?.time || activeThread?.time || '',
+                      scheduleViewTimeZone,
+                    );
 
                     const isSendingCard = Boolean(
                       isScheduleCardSending
