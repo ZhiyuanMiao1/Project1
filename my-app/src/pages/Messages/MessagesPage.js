@@ -775,12 +775,15 @@ function MessagesPage() {
       ? parseScheduleWindowRange(sourceCard.window, sourceCard.time)
       : null;
     const today = buildCalendarDateInTimeZone(new Date(), scheduleViewTimeZone);
+    const sourceStartDate = sourceRange?.startMs
+      ? buildCalendarDateInTimeZone(sourceRange.startMs, scheduleViewTimeZone)
+      : null;
     const sourceEndDate = sourceRange?.endMs
       ? buildCalendarDateInTimeZone(sourceRange.endMs, scheduleViewTimeZone)
       : null;
     const initialDate = intent === 'next_lesson'
       ? maxMiddayDate(today, sourceEndDate)
-      : today;
+      : (sourceStartDate || today);
     setActionError('');
     setRescheduleIntent(intent);
     setRescheduleSourceId(String(appointmentId));
