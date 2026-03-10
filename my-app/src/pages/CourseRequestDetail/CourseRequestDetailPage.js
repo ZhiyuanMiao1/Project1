@@ -1598,7 +1598,7 @@ function CourseRequestDetailPage() {
         description={(() => {
           if (!scheduleSelection) return '未选择预约时间';
           const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
-          return `已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}\n确认发送后将跳转到消息页继续沟通。`;
+          return `已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}`;
         })()}
         cancelText="取消"
         confirmText="确认发送"
