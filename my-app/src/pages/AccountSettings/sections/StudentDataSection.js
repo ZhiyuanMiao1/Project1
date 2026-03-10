@@ -33,10 +33,11 @@ function StudentDataSection({
   const reviewCountDisplay = reviewsLoading
     ? '...'
     : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
+  const avatarDisplayName = 'S';
   const avatarSeed = studentIdValue || studentAvatarName || schoolValue || 'student';
   const avatarSrc = resolveAvatarSrc({
     src: studentAvatarUrl,
-    name: studentAvatarName,
+    name: avatarDisplayName,
     seed: avatarSeed,
     size: 280,
   });
@@ -58,7 +59,7 @@ function StudentDataSection({
                 src={avatarSrc}
                 alt=""
                 onError={(event) => applyAvatarFallback(event, {
-                  name: studentAvatarName,
+                  name: avatarDisplayName,
                   seed: avatarSeed,
                   size: 280,
                 })}
