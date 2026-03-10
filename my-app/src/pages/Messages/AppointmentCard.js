@@ -54,7 +54,7 @@ function AppointmentCard({
   const canRecallByStatus = isOutgoing && statusKey === 'pending';
   const canRecall = canRecallByStatus
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
-  const canScheduleNextLesson = isOutgoing && (statusKey === 'pending' || statusKey === 'accepted');
+  const canScheduleNextLesson = statusKey === 'pending' || statusKey === 'accepted';
   const scheduleCardId = String(scheduleCard?.id || '');
   const recallDisabledTitle = !isOutgoing
     ? '仅可撤回自己发出的日程'

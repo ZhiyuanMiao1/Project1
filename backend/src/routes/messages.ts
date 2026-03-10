@@ -671,10 +671,6 @@ router.post('/threads/:threadId/appointments', requireAuth, async (req: Request,
 
       const sourceRow = sourceRows?.[0];
       if (!sourceRow) return res.status(404).json({ error: '来源预约不存在或无权限' });
-      if (Number(sourceRow.sender_user_id) !== req.user.id) {
-        return res.status(403).json({ error: '只能基于自己发送的预约安排下节课' });
-      }
-
       const sourceStatus = normalizeDecisionStatus(sourceRow.appointment_status) || 'pending';
       if (sourceStatus !== 'pending' && sourceStatus !== 'accepted') {
         return res.status(409).json({ error: '该预约当前不能用于安排下节课' });
