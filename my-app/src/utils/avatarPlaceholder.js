@@ -51,11 +51,15 @@ export const buildAvatarPlaceholderSrc = ({
   name = '',
   seed = '',
   size = 256,
+  borderRadius,
 } = {}) => {
   const normalizedName = normalizeText(name);
   const normalizedSeed = normalizeText(seed) || normalizedName || 'avatar';
   const normalizedSize = Number.isFinite(Number(size)) ? Math.max(64, Math.floor(Number(size))) : 256;
-  const cacheKey = `${normalizedName}::${normalizedSeed}::${normalizedSize}`;
+  const normalizedRadius = Number.isFinite(Number(borderRadius))
+    ? Math.max(0, Math.min(normalizedSize / 2, Math.floor(Number(borderRadius))))
+    : Math.round(normalizedSize / 2);
+  const cacheKey = `${normalizedName}::${normalizedSeed}::${normalizedSize}::${normalizedRadius}`;
 
   if (avatarDataUrlCache.has(cacheKey)) {
     return avatarDataUrlCache.get(cacheKey);
@@ -70,7 +74,7 @@ export const buildAvatarPlaceholderSrc = ({
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${normalizedSize}" height="${normalizedSize}" viewBox="0 0 ${normalizedSize} ${normalizedSize}">
-      <rect width="${normalizedSize}" height="${normalizedSize}" rx="${Math.round(normalizedSize / 2)}" fill="${palette.background}" />
+      <rect width="${normalizedSize}" height="${normalizedSize}" rx="${normalizedRadius}" fill="${palette.background}" />
       ${textMarkup}
     </svg>
   `.trim();

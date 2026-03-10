@@ -24,11 +24,20 @@ const getCoverImageUrl = (payload) => {
   const candidates = [
     payload.imageUrl,
     payload.avatarUrl,
+    payload.counterpartAvatarUrl,
+    payload.studentAvatar,
+    payload.mentorAvatar,
     payload.avatar_url,
     payload.photoUrl,
     payload.photo_url,
     payload.image,
     payload.avatar,
+    payload.student?.imageUrl,
+    payload.student?.avatarUrl,
+    payload.student?.avatar_url,
+    payload.mentor?.imageUrl,
+    payload.mentor?.avatarUrl,
+    payload.mentor?.avatar_url,
   ];
   for (const val of candidates) {
     if (typeof val === 'string' && val.trim()) return val.trim();
@@ -46,12 +55,24 @@ const getFallbackCoverImageUrl = (payload, seed = '') => {
     payload?.studentName,
     payload?.target,
     payload?.counterpart,
-  ].find((value) => typeof value === 'string' && value.trim()) || '';
+    payload?.publicId,
+    payload?.counterpartPublicId,
+    payload?.student?.name,
+    payload?.student?.displayName,
+    payload?.student?.publicId,
+    payload?.mentor?.name,
+    payload?.mentor?.displayName,
+    payload?.mentor?.publicId,
+    payload?.studentId,
+    payload?.mentorId,
+    payload?.id,
+  ].map((value) => (value == null ? '' : String(value).trim())).find(Boolean) || '';
 
   return buildAvatarPlaceholderSrc({
     name: displayName,
-    seed: seed || payload?.id || payload?.mentorId || payload?.studentId || displayName || 'favorite-cover',
+    seed: seed || payload?.publicId || payload?.counterpartPublicId || payload?.id || payload?.mentorId || payload?.studentId || displayName || 'favorite-cover',
     size: 240,
+    borderRadius: 0,
   });
 };
 
