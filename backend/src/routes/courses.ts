@@ -189,17 +189,28 @@ const normalizeReviewComment = (raw: unknown) => {
   return text;
 };
 
-const isCourseEligibleForReview = (row: any) => {
-  const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
-  if (status === 'completed') return true;
-  if (status !== 'scheduled') return false;
-
+const getCourseEndTimestamp = (row: any) => {
   const startsAt = row?.starts_at instanceof Date ? row.starts_at : new Date(String(row?.starts_at ?? ''));
-  if (Number.isNaN(startsAt.getTime())) return false;
+  if (Number.isNaN(startsAt.getTime())) return NaN;
 
-  const durationHours = toNumber(row?.duration_hours) ?? 0;
-  const durationMs = Math.max(durationHours, 0) * 60 * 60 * 1000;
-  return startsAt.getTime() + durationMs <= Date.now();
+  const durationHours = Math.max(toNumber(row?.duration_hours) ?? 0, 0);
+  return startsAt.getTime() + durationHours * 60 * 60 * 1000;
+};
+
+const getEffectiveCourseStatus = (row: any) => {
+  const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
+  if (status !== 'scheduled') return status;
+
+  const endTimestamp = getCourseEndTimestamp(row);
+  if (Number.isFinite(endTimestamp) && endTimestamp <= Date.now()) {
+    return 'completed';
+  }
+
+  return status;
+};
+
+const isCourseEligibleForReview = (row: any) => {
+  return getEffectiveCourseStatus(row) === 'completed';
 };
 
 const buildReviewPayload = (row: any) => {
@@ -358,7 +369,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         date: toDateKey(row?.starts_at),
         startsAt: toIsoString(row?.starts_at),
         durationHours,
-        status: typeof row?.status === 'string' ? row.status.trim() : '',
+        status: getEffectiveCourseStatus(row),
         counterpartName: typeof row?.counterpart_name === 'string' ? row.counterpart_name.trim() : '',
         counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',
         counterpartAvatarUrl: typeof row?.counterpart_avatar_url === 'string' ? row.counterpart_avatar_url.trim() : '',

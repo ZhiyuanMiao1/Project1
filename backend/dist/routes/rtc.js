@@ -22,6 +22,19 @@ const toIsoString = (raw) => {
         return '';
     return parsed.toISOString();
 };
+const getEffectiveCourseStatus = (row) => {
+    const status = safeText(row?.status).toLowerCase();
+    if (status !== 'scheduled')
+        return status;
+    const startsAt = row?.starts_at instanceof Date ? row.starts_at : new Date(String(row?.starts_at ?? ''));
+    if (Number.isNaN(startsAt.getTime()))
+        return status;
+    const durationHours = Math.max(toNumber(row?.duration_hours, 0), 0);
+    const endTimestamp = startsAt.getTime() + durationHours * 60 * 60 * 1000;
+    if (endTimestamp <= Date.now())
+        return 'completed';
+    return status;
+};
 const isMissingSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
     if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR')
@@ -63,7 +76,7 @@ router.get('/classrooms/:courseId/auth', auth_1.requireAuth, async (req, res) =>
         if (!isStudentInSession && !isMentorInSession) {
             return res.status(403).json({ error: '无权限进入该课程课堂' });
         }
-        const status = safeText(sessionRow.status).toLowerCase();
+        const status = getEffectiveCourseStatus(sessionRow);
         if (status !== 'scheduled') {
             return res.status(409).json({ error: '非 scheduled 课程不可进入课堂' });
         }

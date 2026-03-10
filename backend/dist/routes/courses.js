@@ -168,18 +168,25 @@ const normalizeReviewComment = (raw) => {
         return null;
     return text;
 };
-const isCourseEligibleForReview = (row) => {
-    const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
-    if (status === 'completed')
-        return true;
-    if (status !== 'scheduled')
-        return false;
+const getCourseEndTimestamp = (row) => {
     const startsAt = row?.starts_at instanceof Date ? row.starts_at : new Date(String(row?.starts_at ?? ''));
     if (Number.isNaN(startsAt.getTime()))
-        return false;
-    const durationHours = toNumber(row?.duration_hours) ?? 0;
-    const durationMs = Math.max(durationHours, 0) * 60 * 60 * 1000;
-    return startsAt.getTime() + durationMs <= Date.now();
+        return NaN;
+    const durationHours = Math.max(toNumber(row?.duration_hours) ?? 0, 0);
+    return startsAt.getTime() + durationHours * 60 * 60 * 1000;
+};
+const getEffectiveCourseStatus = (row) => {
+    const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
+    if (status !== 'scheduled')
+        return status;
+    const endTimestamp = getCourseEndTimestamp(row);
+    if (Number.isFinite(endTimestamp) && endTimestamp <= Date.now()) {
+        return 'completed';
+    }
+    return status;
+};
+const isCourseEligibleForReview = (row) => {
+    return getEffectiveCourseStatus(row) === 'completed';
 };
 const buildReviewPayload = (row) => {
     const reviewSubmittedAt = toIsoString(row?.review_submitted_at);
@@ -321,7 +328,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 date: toDateKey(row?.starts_at),
                 startsAt: toIsoString(row?.starts_at),
                 durationHours,
-                status: typeof row?.status === 'string' ? row.status.trim() : '',
+                status: getEffectiveCourseStatus(row),
                 counterpartName: typeof row?.counterpart_name === 'string' ? row.counterpart_name.trim() : '',
                 counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',
                 counterpartAvatarUrl: typeof row?.counterpart_avatar_url === 'string' ? row.counterpart_avatar_url.trim() : '',

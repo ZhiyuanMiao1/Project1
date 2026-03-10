@@ -23,15 +23,6 @@ const formatDate = (value) => {
   return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
 };
 
-const isCoursePast = (value) => {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime() < today.getTime();
-};
-
 const toDateKey = (rawDate, rawStartsAt) => {
   const direct = safeText(rawDate);
   const directMatch = direct.match(/\d{4}-\d{2}-\d{2}/);
@@ -58,6 +49,12 @@ const toDurationText = (durationHours, fallback) => {
   return '1h';
 };
 
+const toDurationHours = (value) => {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+};
+
 const normalizeMentorCourse = (row) => {
   const directionId = safeText(row?.courseDirectionId || row?.course_direction || row?.title);
   const courseTypeId = safeText(row?.courseTypeId || row?.course_type);
@@ -81,6 +78,7 @@ const normalizeMentorCourse = (row) => {
     type,
     date,
     startsAt,
+    durationHours: toDurationHours(row?.durationHours ?? row?.duration_hours),
     duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
     studentName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
     studentAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
@@ -101,6 +99,32 @@ const toDateTimestamp = (course) => {
 };
 
 const isScheduledCourse = (course) => safeText(course?.status).toLowerCase() === 'scheduled';
+
+const getCourseEndTimestamp = (course) => {
+  const startsAt = safeText(course?.startsAt);
+  const startsAtTimestamp = Date.parse(startsAt);
+  if (!Number.isNaN(startsAtTimestamp)) {
+    const durationHours = toDurationHours(course?.durationHours);
+    const durationMs = (durationHours ?? 0) * 60 * 60 * 1000;
+    return startsAtTimestamp + durationMs;
+  }
+
+  const date = safeText(course?.date);
+  if (date) {
+    const fallback = Date.parse(`${date}T23:59:59`);
+    if (!Number.isNaN(fallback)) return fallback;
+  }
+
+  return NaN;
+};
+
+const isCompletedCourse = (course) => {
+  const status = safeText(course?.status).toLowerCase();
+  if (status === 'completed') return true;
+  if (status && status !== 'scheduled') return false;
+  const endTimestamp = getCourseEndTimestamp(course);
+  return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
+};
 
 function MentorCoursesPage() {
   const menuAnchorRef = useRef(null);
@@ -267,7 +291,7 @@ function MentorCoursesPage() {
   };
   const handleOpenClassroom = (course) => {
     const courseId = safeText(course?.id);
-    if (!courseId || !isScheduledCourse(course)) return;
+    if (!courseId || !isScheduledCourse(course) || isCompletedCourse(course)) return;
     window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
   };
 
@@ -327,7 +351,7 @@ function MentorCoursesPage() {
                       const typeLabel = safeText(course.type) || '其它课程类型';
                       const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                       const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-                      const isPast = isCoursePast(course.date || course.startsAt);
+                      const isPast = isCompletedCourse(course);
                       return (
                         <article
                           className="course-card"
@@ -482,7 +506,7 @@ function MentorCoursesPage() {
         const typeLabel = safeText(activeCourse.type) || '其它课程类型';
         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-        const canEnterClassroom = isScheduledCourse(activeCourse);
+        const canEnterClassroom = isScheduledCourse(activeCourse) && !isCompletedCourse(activeCourse);
 
         return (
           <CourseDetailModal
