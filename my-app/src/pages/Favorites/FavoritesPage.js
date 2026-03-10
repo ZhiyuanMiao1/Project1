@@ -47,8 +47,17 @@ const getCoverImageUrl = (payload) => {
   return firstImage ? firstImage.trim() : null;
 };
 
-const getFallbackCoverImageUrl = (payload, seed = '') => {
-  const displayName = [
+const getFallbackCoverImageUrl = (payload, seed = '', role = 'student') => {
+  const fallbackId = [payload?.publicId, payload?.counterpartPublicId, payload?.studentId, payload?.mentorId, payload?.id]
+    .map((value) => (value == null ? '' : String(value).trim()))
+    .find(Boolean) || '';
+  const roleAwareFallbackName = (() => {
+    if (!fallbackId) return '';
+    if (role !== 'mentor') return fallbackId;
+    return /^[a-z]/i.test(fallbackId) ? fallbackId : `S${fallbackId}`;
+  })();
+
+  const displayName = ([
     payload?.name,
     payload?.displayName,
     payload?.mentorName,
@@ -64,13 +73,24 @@ const getFallbackCoverImageUrl = (payload, seed = '') => {
     payload?.mentor?.displayName,
     payload?.mentor?.publicId,
     payload?.studentId,
+  ].map((value) => (value == null ? '' : String(value).trim())).find(Boolean))
+    || roleAwareFallbackName;
+  const paletteSeed = [
+    payload?.publicId,
+    payload?.counterpartPublicId,
+    payload?.student?.publicId,
+    payload?.mentor?.publicId,
+    payload?.studentId,
     payload?.mentorId,
     payload?.id,
-  ].map((value) => (value == null ? '' : String(value).trim())).find(Boolean) || '';
+    seed,
+    displayName,
+    'favorite-cover',
+  ].map((value) => (value == null ? '' : String(value).trim())).find(Boolean) || 'favorite-cover';
 
   return buildAvatarPlaceholderSrc({
     name: displayName,
-    seed: seed || payload?.publicId || payload?.counterpartPublicId || payload?.id || payload?.mentorId || payload?.studentId || displayName || 'favorite-cover',
+    seed: paletteSeed,
     size: 240,
     borderRadius: 0,
   });
@@ -218,7 +238,7 @@ function FavoritesPage() {
             const items = Array.isArray(itemsRes?.data?.items) ? itemsRes.data.items : [];
             const cover = items
               .slice(0, 4)
-              .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, collectionId));
+              .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, collectionId, preferredRole));
             return [String(collectionId), cover];
           } catch {
             return [String(collectionId), []];
@@ -271,7 +291,7 @@ function FavoritesPage() {
         }
 
         const cover = list
-          .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, item?.id))
+          .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, item?.id, preferredRole))
           .slice(0, 4);
         const latestVisitedAt = list[0]?.visitedAt || list[0]?.updatedAt || list[0]?.createdAt;
 
