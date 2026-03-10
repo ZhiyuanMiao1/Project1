@@ -10,15 +10,37 @@ const toNumber = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(n) ? n : fallback;
 };
-const toIsoString = (raw) => {
+const normalizeDbDateAsUtc = (value) => new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds()));
+const parseStoredUtcDate = (raw) => {
     if (raw instanceof Date && !Number.isNaN(raw.getTime()))
-        return raw.toISOString();
+        return normalizeDbDateAsUtc(raw);
     const text = safeText(raw);
     if (!text)
-        return '';
-    const normalized = text.includes('T') ? text : text.replace(' ', 'T');
-    const parsed = new Date(normalized);
-    if (Number.isNaN(parsed.getTime()))
+        return null;
+    const canonical = text
+        .replace('T', ' ')
+        .replace(/Z$/i, '')
+        .replace(/\.\d+$/, '')
+        .trim();
+    const match = canonical.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
+    if (match) {
+        const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00'] = match;
+        const year = Number.parseInt(yearText, 10);
+        const month = Number.parseInt(monthText, 10);
+        const day = Number.parseInt(dayText, 10);
+        const hour = Number.parseInt(hourText, 10);
+        const minute = Number.parseInt(minuteText, 10);
+        const second = Number.parseInt(secondText, 10);
+        if ([year, month, day, hour, minute, second].every(Number.isFinite)) {
+            return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+        }
+    }
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+const toIsoString = (raw) => {
+    const parsed = parseStoredUtcDate(raw);
+    if (!parsed)
         return '';
     return parsed.toISOString();
 };
@@ -26,8 +48,8 @@ const getEffectiveCourseStatus = (row) => {
     const status = safeText(row?.status).toLowerCase();
     if (status !== 'scheduled')
         return status;
-    const startsAt = row?.starts_at instanceof Date ? row.starts_at : new Date(String(row?.starts_at ?? ''));
-    if (Number.isNaN(startsAt.getTime()))
+    const startsAt = parseStoredUtcDate(row?.starts_at);
+    if (!startsAt || Number.isNaN(startsAt.getTime()))
         return status;
     const durationHours = Math.max(toNumber(row?.duration_hours, 0), 0);
     const endTimestamp = startsAt.getTime() + durationHours * 60 * 60 * 1000;

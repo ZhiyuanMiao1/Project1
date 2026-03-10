@@ -42,31 +42,56 @@ const normalizeView = (raw: unknown): CourseView | '' => {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-const toDateKey = (raw: unknown) => {
-  if (typeof raw === 'string') {
-    const text = raw.trim();
-    const match = text.match(/\d{4}-\d{2}-\d{2}/);
-    if (match) return match[0];
-    const parsed = new Date(text);
-    if (Number.isNaN(parsed.getTime())) return '';
-    return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}`;
+const normalizeDbDateAsUtc = (value: Date) => new Date(Date.UTC(
+  value.getFullYear(),
+  value.getMonth(),
+  value.getDate(),
+  value.getHours(),
+  value.getMinutes(),
+  value.getSeconds(),
+  value.getMilliseconds(),
+));
+
+const parseStoredUtcDate = (raw: unknown) => {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return normalizeDbDateAsUtc(raw);
+  if (typeof raw !== 'string') return null;
+  const text = raw.trim();
+  if (!text) return null;
+
+  const canonical = text
+    .replace('T', ' ')
+    .replace(/Z$/i, '')
+    .replace(/\.\d+$/, '')
+    .trim();
+
+  const match = canonical.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00'] = match;
+    const year = Number.parseInt(yearText, 10);
+    const month = Number.parseInt(monthText, 10);
+    const day = Number.parseInt(dayText, 10);
+    const hour = Number.parseInt(hourText, 10);
+    const minute = Number.parseInt(minuteText, 10);
+    const second = Number.parseInt(secondText, 10);
+    if ([year, month, day, hour, minute, second].every(Number.isFinite)) {
+      return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+    }
   }
 
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-    return `${raw.getFullYear()}-${pad2(raw.getMonth() + 1)}-${pad2(raw.getDate())}`;
-  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toDateKey = (raw: unknown) => {
+  const parsed = parseStoredUtcDate(raw);
+  if (parsed) return `${parsed.getFullYear()}-${pad2(parsed.getMonth() + 1)}-${pad2(parsed.getDate())}`;
 
   return '';
 };
 
 const toIsoString = (raw: unknown) => {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString();
-  if (typeof raw !== 'string') return '';
-  const text = raw.trim();
-  if (!text) return '';
-  const normalized = text.includes('T') ? text : text.replace(' ', 'T');
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return text;
+  const parsed = parseStoredUtcDate(raw);
+  if (!parsed) return '';
   return parsed.toISOString();
 };
 
@@ -190,8 +215,8 @@ const normalizeReviewComment = (raw: unknown) => {
 };
 
 const getCourseEndTimestamp = (row: any) => {
-  const startsAt = row?.starts_at instanceof Date ? row.starts_at : new Date(String(row?.starts_at ?? ''));
-  if (Number.isNaN(startsAt.getTime())) return NaN;
+  const startsAt = parseStoredUtcDate(row?.starts_at);
+  if (!startsAt || Number.isNaN(startsAt.getTime())) return NaN;
 
   const durationHours = Math.max(toNumber(row?.duration_hours) ?? 0, 0);
   return startsAt.getTime() + durationHours * 60 * 60 * 1000;

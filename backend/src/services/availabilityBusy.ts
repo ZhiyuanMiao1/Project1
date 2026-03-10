@@ -169,7 +169,17 @@ const parseCourseWindowText = (windowText: unknown, createdAt: Date) => {
 };
 
 const parseStoredUtcDate = (value: unknown) => {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(Date.UTC(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+      value.getHours(),
+      value.getMinutes(),
+      value.getSeconds(),
+      value.getMilliseconds(),
+    ));
+  }
   const raw = safeText(value);
   if (!raw) return null;
 

@@ -144,8 +144,9 @@ const parseCourseWindowText = (windowText, createdAt) => {
     return acceptable[0] || candidates.sort((a, b) => Math.abs(a.diffMs) - Math.abs(b.diffMs))[0] || null;
 };
 const parseStoredUtcDate = (value) => {
-    if (value instanceof Date && !Number.isNaN(value.getTime()))
-        return value;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds()));
+    }
     const raw = safeText(value);
     if (!raw)
         return null;

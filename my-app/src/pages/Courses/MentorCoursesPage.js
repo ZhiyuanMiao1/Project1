@@ -11,16 +11,61 @@ import {
   DIRECTION_LABEL_ICON_MAP,
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
+import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import './CoursesPage.css';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
-const formatDate = (value) => {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())}`;
+const buildDateTextFromParts = (parts) => {
+  if (!parts) return '';
+  return `${parts.year}/${pad2(parts.month)}/${pad2(parts.day)}`;
+};
+
+const parseDateParts = (value) => {
+  const text = safeText(value);
+  const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3]),
+    };
+  }
+
+  const d = new Date(text);
+  if (Number.isNaN(d.getTime())) return null;
+
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+  };
+};
+
+const getCourseDisplayDateParts = (course, timeZone = getDefaultTimeZone()) => {
+  const startsAt = safeText(course?.startsAt);
+  if (startsAt) {
+    const parsed = new Date(startsAt);
+    if (!Number.isNaN(parsed.getTime())) {
+      const parts = getZonedParts(timeZone, parsed);
+      if (Number.isFinite(parts?.year) && Number.isFinite(parts?.month) && Number.isFinite(parts?.day)) {
+        return {
+          year: parts.year,
+          month: parts.month,
+          day: parts.day,
+        };
+      }
+    }
+  }
+
+  return parseDateParts(course?.date);
+};
+
+const getCourseDisplayDateText = (course, timeZone = getDefaultTimeZone()) => {
+  const parts = getCourseDisplayDateParts(course, timeZone);
+  return buildDateTextFromParts(parts) || safeText(course?.date) || safeText(course?.startsAt);
 };
 
 const toDateKey = (rawDate, rawStartsAt) => {
@@ -137,6 +182,7 @@ function MentorCoursesPage() {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
+  const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
 
   useEffect(() => {
     const handler = (e) => {
@@ -212,6 +258,32 @@ function MentorCoursesPage() {
   useEffect(() => {
     let alive = true;
 
+    if (!getAuthToken()) {
+      setUserTimeZone(getDefaultTimeZone());
+      return () => {
+        alive = false;
+      };
+    }
+
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        const nextTimeZone = safeText(res?.data?.availability?.timeZone) || getDefaultTimeZone();
+        setUserTimeZone(nextTimeZone);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setUserTimeZone(getDefaultTimeZone());
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    let alive = true;
+
     if (status !== 'ok') {
       setCourses([]);
       setCoursesLoading(false);
@@ -251,12 +323,10 @@ function MentorCoursesPage() {
     const yearMap = new Map();
 
     sorted.forEach((course) => {
-      const key = safeText(course.date) || safeText(course.startsAt);
-      const date = new Date(key);
-      if (Number.isNaN(date.getTime())) return;
+      const displayDateParts = getCourseDisplayDateParts(course, userTimeZone);
+      if (!displayDateParts) return;
 
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
+      const { year, month } = displayDateParts;
 
       if (!yearMap.has(year)) yearMap.set(year, new Map());
       const monthMap = yearMap.get(year);
@@ -264,7 +334,7 @@ function MentorCoursesPage() {
       monthMap.get(month).push({
         ...course,
         month,
-        dateText: formatDate(course.date || course.startsAt),
+        dateText: buildDateTextFromParts(displayDateParts),
       });
     });
 
@@ -279,7 +349,7 @@ function MentorCoursesPage() {
             courses: monthCourses.sort((a, b) => toDateTimestamp(b) - toDateTimestamp(a)),
           })),
       }));
-  }, [courses]);
+  }, [courses, userTimeZone]);
 
   const handleCourseOpen = (course) => setActiveCourse(course);
   const handleCourseClose = () => setActiveCourse(null);
@@ -516,7 +586,7 @@ function MentorCoursesPage() {
             TitleIcon={TitleIcon}
             typeLabel={typeLabel}
             TypeIcon={TypeIcon}
-            dateLabel={formatDate(activeCourse.date || activeCourse.startsAt)}
+            dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
             actions={(

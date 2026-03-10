@@ -34,6 +34,7 @@ const formatUtcDatetime = (date) => {
     const ss = pad2(date.getUTCSeconds());
     return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
 };
+const normalizeDbDateAsUtc = (value) => new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds()));
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const parseTimezoneOffsetMinutes = (raw) => {
     const s = String(raw || '')
@@ -141,7 +142,7 @@ const buildDefaultMeetingId = () => {
 };
 const normalizeCourseSessionStartsAt = (raw) => {
     if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
-        return formatUtcDatetime(raw);
+        return formatUtcDatetime(normalizeDbDateAsUtc(raw));
     }
     const text = safeText(raw);
     if (!text)
