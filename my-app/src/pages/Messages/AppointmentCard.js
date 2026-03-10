@@ -7,14 +7,15 @@ import {
   SCHEDULE_STATUS_META,
 } from './appointmentCardUtils';
 import './AppointmentCard.css';
+import { applyAvatarFallback } from '../../utils/avatarPlaceholder';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 
 function AppointmentCard({
   thread,
   scheduleCard,
-  detailAvatarInitial,
-  activeAvatarUrl,
+  activeAvatarSrc,
+  activeAvatarName,
   scheduleTitle,
   windowText,
   cardHoverTime,
@@ -155,18 +156,17 @@ function AppointmentCard({
     <div className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''} ${isExiting ? 'is-exiting' : ''}`}>
       {!isOutgoing && (
         <div className="message-detail-avatar schedule-avatar" aria-hidden="true">
-          <span className="message-avatar-fallback">{detailAvatarInitial}</span>
-          {activeAvatarUrl ? (
-            <img
-              className="message-avatar-img"
-              src={activeAvatarUrl}
-              alt=""
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          ) : null}
+          <img
+            className="message-avatar-img"
+            src={activeAvatarSrc}
+            alt=""
+            loading="lazy"
+            onError={(event) => applyAvatarFallback(event, {
+              name: activeAvatarName,
+              seed: thread?.id || activeAvatarName || 'appointment-card',
+              size: 192,
+            })}
+          />
         </div>
       )}
       <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>

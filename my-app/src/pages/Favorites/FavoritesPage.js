@@ -6,8 +6,8 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection, fetchFavoriteItems } from '../../api/favorites';
 import { fetchRecentVisits } from '../../api/recentVisits';
-import defaultAvatar from '../../assets/images/default-avatar.jpg';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { buildAvatarPlaceholderSrc } from '../../utils/avatarPlaceholder';
 import './FavoritesPage.css';
 
 const RECENT_COLLECTION = {
@@ -36,6 +36,23 @@ const getCoverImageUrl = (payload) => {
   const images = Array.isArray(payload.images) ? payload.images : [];
   const firstImage = images.find((img) => typeof img === 'string' && img.trim());
   return firstImage ? firstImage.trim() : null;
+};
+
+const getFallbackCoverImageUrl = (payload, seed = '') => {
+  const displayName = [
+    payload?.name,
+    payload?.displayName,
+    payload?.mentorName,
+    payload?.studentName,
+    payload?.target,
+    payload?.counterpart,
+  ].find((value) => typeof value === 'string' && value.trim()) || '';
+
+  return buildAvatarPlaceholderSrc({
+    name: displayName,
+    seed: seed || payload?.id || payload?.mentorId || payload?.studentId || displayName || 'favorite-cover',
+    size: 240,
+  });
 };
 
 const formatCreatedAt = (value) => {
@@ -178,7 +195,9 @@ function FavoritesPage() {
           try {
             const itemsRes = await fetchFavoriteItems({ role: preferredRole, collectionId, limit: 4 });
             const items = Array.isArray(itemsRes?.data?.items) ? itemsRes.data.items : [];
-            const cover = items.slice(0, 4).map((item) => getCoverImageUrl(item?.payload) || defaultAvatar);
+            const cover = items
+              .slice(0, 4)
+              .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, collectionId));
             return [String(collectionId), cover];
           } catch {
             return [String(collectionId), []];
@@ -231,7 +250,7 @@ function FavoritesPage() {
         }
 
         const cover = list
-          .map((item) => getCoverImageUrl(item?.payload) || defaultAvatar)
+          .map((item) => getCoverImageUrl(item?.payload) || getFallbackCoverImageUrl(item?.payload, item?.id))
           .slice(0, 4);
         const latestVisitedAt = list[0]?.visitedAt || list[0]?.updatedAt || list[0]?.createdAt;
 

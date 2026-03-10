@@ -27,6 +27,7 @@ import {
   getDefaultTimeZone,
   getZonedParts,
 } from '../StudentCourseRequest/steps/timezoneUtils';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -489,12 +490,13 @@ function MessagesPage() {
   const isMentorInThread = useMemo(() => getThreadMyRole(activeThread) === 'mentor', [activeThread]);
   const activeAvatarUrl = useMemo(() => {
     const url = typeof activeThread?.counterpartAvatarUrl === 'string' ? activeThread.counterpartAvatarUrl.trim() : '';
-    return url;
-  }, [activeThread]);
-  const detailAvatarInitial = useMemo(() => {
-    const name = activeCounterpartDisplayName || '';
-    return name.trim().charAt(0) || '·';
-  }, [activeCounterpartDisplayName]);
+    return resolveAvatarSrc({
+      src: url,
+      name: activeCounterpartDisplayName,
+      seed: activeThread?.id || activeCounterpartDisplayName || 'message-thread',
+      size: 192,
+    });
+  }, [activeCounterpartDisplayName, activeThread]);
   const scheduleTitle = activeThread?.subject || '日程';
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
@@ -1240,8 +1242,12 @@ function MessagesPage() {
                 ? null
                 : threads.map((thread) => {
                     const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
-                    const initial = threadCounterpartDisplayName.trim().charAt(0) || '·';
-                    const avatarUrl = typeof thread?.counterpartAvatarUrl === 'string' ? thread.counterpartAvatarUrl.trim() : '';
+                    const avatarUrl = resolveAvatarSrc({
+                      src: typeof thread?.counterpartAvatarUrl === 'string' ? thread.counterpartAvatarUrl.trim() : '',
+                      name: threadCounterpartDisplayName,
+                      seed: thread?.id || threadCounterpartDisplayName || 'message-list',
+                      size: 192,
+                    });
                     const isActive = thread.id === activeThread?.id;
                     const timeLabel = formatThreadTimeLabel(thread.time || '');
                     const timeParts = timeLabel.split(/\s+/).filter(Boolean);
@@ -1267,18 +1273,17 @@ function MessagesPage() {
                       >
                           <div className="message-item-shell">
                             <div className="message-avatar" aria-hidden="true">
-                              <span className="message-avatar-fallback">{String(initial || '').toUpperCase()}</span>
-                              {avatarUrl ? (
-                                <img
-                                  className="message-avatar-img"
-                                  src={avatarUrl}
-                                  alt=""
-                                  loading="lazy"
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              ) : null}
+                              <img
+                                className="message-avatar-img"
+                                src={avatarUrl}
+                                alt=""
+                                loading="lazy"
+                                onError={(event) => applyAvatarFallback(event, {
+                                  name: threadCounterpartDisplayName,
+                                  seed: thread?.id || threadCounterpartDisplayName || 'message-list',
+                                  size: 192,
+                                })}
+                              />
                             </div>
                             <div className="message-content">
                               <div className="message-name">{threadCounterpartDisplayName}</div>
@@ -1364,18 +1369,17 @@ function MessagesPage() {
                 <div className="message-detail-head">
                   <div className="message-detail-identity">
                     <div className="message-detail-avatar" aria-hidden="true">
-                      <span className="message-avatar-fallback">{String(detailAvatarInitial || '').toUpperCase()}</span>
-                      {activeAvatarUrl ? (
-                        <img
-                          className="message-avatar-img"
-                          src={activeAvatarUrl}
-                          alt=""
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
+                      <img
+                        className="message-avatar-img"
+                        src={activeAvatarUrl}
+                        alt=""
+                        loading="lazy"
+                        onError={(event) => applyAvatarFallback(event, {
+                          name: activeCounterpartDisplayName,
+                          seed: activeThread?.id || activeCounterpartDisplayName || 'message-detail',
+                          size: 192,
+                        })}
+                      />
                     </div>
                     <div className="message-detail-name">{activeCounterpartDisplayName}</div>
                   </div>
@@ -1420,8 +1424,8 @@ function MessagesPage() {
                         key={item.key}
                         thread={activeThread}
                         scheduleCard={scheduleCard}
-                        detailAvatarInitial={detailAvatarInitial}
-                        activeAvatarUrl={activeAvatarUrl}
+                        activeAvatarSrc={activeAvatarUrl}
+                        activeAvatarName={activeCounterpartDisplayName}
                         scheduleTitle={scheduleTitle}
                         windowText={windowText}
                         cardHoverTime={cardHoverTime}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
 
 function StudentDataSection({
   studentAvatarUrl,
@@ -9,7 +10,7 @@ function StudentDataSection({
   onPickStudentAvatar,
   studentAvatarInputRef,
   onStudentAvatarChange,
-  studentAvatarInitial,
+  studentAvatarName,
   studentIdValue,
   schoolValue,
   joinedMentoryDaysDisplay,
@@ -32,6 +33,13 @@ function StudentDataSection({
   const reviewCountDisplay = reviewsLoading
     ? '...'
     : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
+  const avatarSeed = studentIdValue || studentAvatarName || schoolValue || 'student';
+  const avatarSrc = resolveAvatarSrc({
+    src: studentAvatarUrl,
+    name: studentAvatarName,
+    seed: avatarSeed,
+    size: 280,
+  });
 
   return (
     <div className="settings-data-section" aria-label="学生数据">
@@ -45,11 +53,16 @@ function StudentDataSection({
               onClick={onPickStudentAvatar}
               disabled={studentAvatarUploading}
             >
-              {studentAvatarUrl ? (
-                <img className="settings-student-avatar-img" src={studentAvatarUrl} alt="" />
-              ) : (
-                <span className="settings-student-avatar-initial" aria-hidden="true">{studentAvatarInitial}</span>
-              )}
+              <img
+                className="settings-student-avatar-img"
+                src={avatarSrc}
+                alt=""
+                onError={(event) => applyAvatarFallback(event, {
+                  name: studentAvatarName,
+                  seed: avatarSeed,
+                  size: 280,
+                })}
+              />
             </button>
             {studentAvatarUploading && (
               <span className="settings-student-avatar-uploading" aria-live="polite">上传中…</span>

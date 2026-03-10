@@ -7,6 +7,7 @@ import { DIRECTION_OPTIONS, DIRECTION_ID_TO_LABEL, DIRECTION_ICON_MAP, COURSE_TY
 import { fetchAccountProfile } from '../../api/account';
 import api from '../../api/client';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
 import UploadStep from './steps/UploadStep';
@@ -1197,7 +1198,18 @@ function StudentCourseRequestPage() {
     ? (typeof accountProfile.school === 'string' ? accountProfile.school : '')
     : mockStudent.school;
   const previewSchool = (previewSchoolRaw || '').trim();
-  const previewAvatarInitial = (accountProfile.studentId || mockStudent.name || 'S').slice(0, 1).toUpperCase();
+  const previewAvatarName = (() => {
+    const user = getAuthUser() || {};
+    if (typeof user?.name === 'string' && user.name.trim()) return user.name.trim();
+    if (typeof user?.username === 'string' && user.username.trim()) return user.username.trim();
+    if (typeof mockStudent?.name === 'string' && mockStudent.name.trim()) return mockStudent.name.trim();
+    return '';
+  })();
+  const previewAvatarSrc = resolveAvatarSrc({
+    name: previewAvatarName,
+    seed: accountProfile.studentId || previewAvatarName || previewSchool || 'student-preview',
+    size: 192,
+  });
   const previewDirectionLabel = useMemo(() => {
     const directionId = String(formData.courseDirection || '').trim();
     return DIRECTION_ID_TO_LABEL[directionId] || formData.learningGoal || '未选择方向';
@@ -1477,7 +1489,18 @@ function StudentCourseRequestPage() {
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
-                    <div className="avatar" aria-hidden="true">{previewAvatarInitial}</div>
+                    <div className="avatar" aria-hidden="true">
+                      <img
+                        className="avatar-img"
+                        src={previewAvatarSrc}
+                        alt=""
+                        onError={(event) => applyAvatarFallback(event, {
+                          name: previewAvatarName,
+                          seed: accountProfile.studentId || previewAvatarName || previewSchool || 'student-preview',
+                          size: 192,
+                        })}
+                      />
+                    </div>
                     <div className="header-texts">
                       <div className="name">{previewStudentId}</div>
                       <div className="chips">
@@ -1610,7 +1633,18 @@ function StudentCourseRequestPage() {
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
-                    <div className="avatar" aria-hidden="true">{previewAvatarInitial}</div>
+                    <div className="avatar" aria-hidden="true">
+                      <img
+                        className="avatar-img"
+                        src={previewAvatarSrc}
+                        alt=""
+                        onError={(event) => applyAvatarFallback(event, {
+                          name: previewAvatarName,
+                          seed: accountProfile.studentId || previewAvatarName || previewSchool || 'student-preview',
+                          size: 192,
+                        })}
+                      />
+                    </div>
                     <div className="header-texts">
                       <div className="name">{previewStudentId}</div>
                       <div className="chips">

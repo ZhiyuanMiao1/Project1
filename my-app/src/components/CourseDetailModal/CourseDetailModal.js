@@ -1,7 +1,8 @@
 import React from 'react';
-import { FaRegStar, FaStar, FaUserCircle } from 'react-icons/fa';
+import { FaRegStar, FaStar } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
 import './CourseDetailModal.css';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
 function CourseDetailModal({
   participantName,
@@ -16,6 +17,14 @@ function CourseDetailModal({
   onClose,
   actions,
 }) {
+  const avatarSeed = title || participantName || 'course-detail';
+  const avatarSrc = resolveAvatarSrc({
+    src: avatarUrl,
+    name: participantName,
+    seed: avatarSeed,
+    size: 240,
+  });
+
   const renderStars = (value) => {
     const normalized = typeof value === 'number' && !Number.isNaN(value) ? value : 0;
     const starSize = 14;
@@ -48,11 +57,17 @@ function CourseDetailModal({
         </button>
 
         <div className="course-detail-modal__mentor">
-          <div
-            className="course-detail-modal__avatar"
-            style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : {}}
-          >
-            {!avatarUrl && <FaUserCircle size={36} />}
+          <div className="course-detail-modal__avatar" aria-hidden="true">
+            <img
+              className="course-detail-modal__avatar-img"
+              src={avatarSrc}
+              alt=""
+              onError={(event) => applyAvatarFallback(event, {
+                name: participantName,
+                seed: avatarSeed,
+                size: 240,
+              })}
+            />
           </div>
           <div className="course-detail-modal__mentor-info">
             <span className="course-detail-modal__mentor-name">{participantName}</span>

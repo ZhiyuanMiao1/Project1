@@ -5,6 +5,7 @@ import { FaHeart, FaGlobe, FaFileAlt, FaGraduationCap, FaClock, FaCalendarAlt, F
 import { DIRECTION_LABEL_ICON_MAP, normalizeCourseLabel, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_LABEL_ICON_MAP } from '../../constants/courseMappings';
 import { toggleFavoriteItem } from '../../api/favorites';
 import { getAuthToken } from '../../utils/authStorage';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
 // 时区城市映射，与时区选择下拉一致
 const TZ_CITY_MAP = {
@@ -187,6 +188,14 @@ function MentorListingCard({
 
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
+  const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
+  const avatarSeed = rawId || name || school || timezoneLabel || 'mentor';
+  const avatarSrc = resolveAvatarSrc({
+    src: avatarUrl,
+    name,
+    seed: avatarSeed,
+    size: 256,
+  });
   const expectedDurationLabel = (() => {
     const raw = data?.expectedDuration;
     if (typeof raw === 'string') return raw.trim();
@@ -208,7 +217,6 @@ function MentorListingCard({
     return String(raw).trim();
   })();
 
-  const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
   const detailHref = rawId ? `/mentor/requests/${encodeURIComponent(rawId)}` : '';
   const WrapperTag = disableNavigation ? 'div' : 'a';
   const wrapperProps = disableNavigation
@@ -246,7 +254,16 @@ function MentorListingCard({
 
       <div className="card-header">
         <div className="avatar" aria-hidden="true">
-          {avatarUrl ? <img className="avatar-img" src={avatarUrl} alt="" /> : (name.slice(0, 1).toUpperCase() || 'S')}
+          <img
+            className="avatar-img"
+            src={avatarSrc}
+            alt=""
+            onError={(event) => applyAvatarFallback(event, {
+              name,
+              seed: avatarSeed,
+              size: 256,
+            })}
+          />
         </div>
         <div className="header-texts">
           <div className="name">{name}</div>

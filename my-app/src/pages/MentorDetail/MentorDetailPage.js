@@ -21,6 +21,7 @@ import { recordRecentVisit } from '../../api/recentVisits';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 import {
   buildAvailabilityDaySet,
   buildSelectionFromMinutePoint,
@@ -520,7 +521,20 @@ function MentorDetailPage() {
           <article className="review-modal-card">
             <div className="review-head">
               <div className="review-avatar" aria-hidden="true">
-                {String(authorLabel || 'S').slice(0, 1).toUpperCase()}
+                <img
+                  className="review-avatar-img"
+                  src={resolveAvatarSrc({
+                    name: authorLabel,
+                    seed: review?.id || authorLabel || 'review-modal',
+                    size: 192,
+                  })}
+                  alt=""
+                  onError={(event) => applyAvatarFallback(event, {
+                    name: authorLabel,
+                    seed: review?.id || authorLabel || 'review-modal',
+                    size: 192,
+                  })}
+                />
               </div>
               <div className="review-author">{authorLabel}</div>
               <div className="review-sub">
@@ -1644,7 +1658,20 @@ function MentorDetailPage() {
                       >
                         <div className="review-head">
                           <div className="review-avatar" aria-hidden="true">
-                            {String(normalizeStudentIdLabel(review.author) || 'S').slice(0, 1).toUpperCase()}
+                            <img
+                              className="review-avatar-img"
+                              src={resolveAvatarSrc({
+                                name: normalizeStudentIdLabel(review.author),
+                                seed: review.id || review.author || 'review-card',
+                                size: 192,
+                              })}
+                              alt=""
+                              onError={(event) => applyAvatarFallback(event, {
+                                name: normalizeStudentIdLabel(review.author),
+                                seed: review.id || review.author || 'review-card',
+                                size: 192,
+                              })}
+                            />
                           </div>
                           <div className="review-author">{normalizeStudentIdLabel(review.author)}</div>
                           <div className="review-sub">

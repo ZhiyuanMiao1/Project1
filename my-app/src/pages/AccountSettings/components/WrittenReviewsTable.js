@@ -1,5 +1,5 @@
 import React from 'react';
-import defaultAvatar from '../../../assets/images/default-avatar.jpg';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
 
 const STAR_PATH =
   'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
@@ -35,19 +35,26 @@ function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFal
         const reviewContent = typeof review.content === 'string' && review.content.trim()
           ? review.content.trim()
           : '未填写文字评价';
-        const avatarUrl = typeof review.avatarUrl === 'string' && review.avatarUrl.trim()
-          ? review.avatarUrl.trim()
-          : defaultAvatar;
+        const avatarSeed = review.id || displayName || nameFallback;
+        const avatarSrc = resolveAvatarSrc({
+          src: review.avatarUrl,
+          name: displayName,
+          seed: avatarSeed,
+          size: 176,
+        });
 
         return (
           <li key={review.id} className="settings-written-review-item">
             <img
               className="settings-written-review-avatar"
-              src={avatarUrl}
+              src={avatarSrc}
               alt=""
               onError={(event) => {
-                event.currentTarget.onerror = null;
-                event.currentTarget.src = defaultAvatar;
+                applyAvatarFallback(event, {
+                  name: displayName,
+                  seed: avatarSeed,
+                  size: 176,
+                });
               }}
             />
             <div className="settings-written-review-body">

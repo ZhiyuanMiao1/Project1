@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
-import defaultAvatar from '../../../assets/images/default-avatar.jpg';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
 
 function MentorDataSection({
   mentorAvatarUrl,
@@ -11,6 +11,7 @@ function MentorDataSection({
   mentorAvatarInputRef,
   onMentorAvatarChange,
   mentorIdValue,
+  mentorAvatarName,
   schoolValue,
   mentorJoinedMentoryDaysDisplay,
   classCount = null,
@@ -32,6 +33,13 @@ function MentorDataSection({
   const reviewCountDisplay = reviewsLoading
     ? '...'
     : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
+  const avatarSeed = mentorIdValue || mentorAvatarName || schoolValue || 'mentor';
+  const avatarSrc = resolveAvatarSrc({
+    src: mentorAvatarUrl,
+    name: mentorAvatarName,
+    seed: avatarSeed,
+    size: 280,
+  });
 
   return (
     <div className="settings-data-section" aria-label="导师数据">
@@ -45,11 +53,16 @@ function MentorDataSection({
               onClick={onPickMentorAvatar}
               disabled={mentorAvatarUploading}
             >
-              {mentorAvatarUrl ? (
-                <img className="settings-mentor-avatar-img" src={mentorAvatarUrl} alt="" />
-              ) : (
-                <img className="settings-mentor-avatar-img" src={defaultAvatar} alt="" />
-              )}
+              <img
+                className="settings-mentor-avatar-img"
+                src={avatarSrc}
+                alt=""
+                onError={(event) => applyAvatarFallback(event, {
+                  name: mentorAvatarName,
+                  seed: avatarSeed,
+                  size: 280,
+                })}
+              />
             </button>
             {mentorAvatarUploading && (
               <span className="settings-mentor-avatar-uploading" aria-live="polite">上传中…</span>

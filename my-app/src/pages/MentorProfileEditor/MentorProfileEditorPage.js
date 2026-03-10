@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
-import defaultAvatar from '../../assets/images/default-avatar.jpg';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
 // ===== Time zone helpers (shared style/logic with student step 3) =====
 const TIMEZONE_NAME_OVERRIDES = {
@@ -477,6 +477,13 @@ function MentorProfileEditorPage() {
     courses,
     imageUrl: avatarPreviewUrl || avatarUrl || null,
   }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl, teachingLanguageLabel]);
+  const editorAvatarSeed = school || timezone || 'mentor-editor';
+  const editorAvatarSrc = resolveAvatarSrc({
+    src: avatarPreviewUrl || avatarUrl,
+    name,
+    seed: editorAvatarSeed,
+    size: 320,
+  });
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
@@ -748,8 +755,13 @@ function MentorProfileEditorPage() {
             >
               <img
                 className="mx-editor-avatar-img"
-                src={avatarPreviewUrl || avatarUrl || defaultAvatar}
+                src={editorAvatarSrc}
                 alt="头像"
+                onError={(event) => applyAvatarFallback(event, {
+                  name,
+                  seed: editorAvatarSeed,
+                  size: 320,
+                })}
               />
               {!avatarPreviewUrl && !avatarUrl && (
                 <span className="mx-editor-avatar-placeholder">头像</span>

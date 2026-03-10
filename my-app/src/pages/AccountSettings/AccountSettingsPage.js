@@ -440,10 +440,12 @@ function AccountSettingsPage({ mode = 'student' }) {
   }, [accountProfile.mentorCreatedAt]);
 
   const mentorJoinedMentoryDaysDisplay = idsStatus === 'loading' ? '...' : (mentorJoinedMentoryDays ?? '--');
-  const studentAvatarInitial = (() => {
-    const raw = typeof accountProfile.studentId === 'string' ? accountProfile.studentId.trim() : '';
-    return (raw ? raw.slice(0, 1) : 'S').toUpperCase();
-  })();
+  const authUser = useMemo(() => getAuthUser() || {}, []);
+  const authDisplayName = typeof authUser?.name === 'string' && authUser.name.trim()
+    ? authUser.name.trim()
+    : (typeof authUser?.username === 'string' ? authUser.username.trim() : '');
+  const studentAvatarName = authUser?.role === 'student' ? authDisplayName : '';
+  const mentorAvatarName = authUser?.role === 'mentor' ? authDisplayName : '';
 
   const onPickStudentAvatar = () => {
     if (!isLoggedIn) {
@@ -859,7 +861,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   onPickStudentAvatar={onPickStudentAvatar}
                   studentAvatarInputRef={studentAvatarInputRef}
                   onStudentAvatarChange={onStudentAvatarChange}
-                  studentAvatarInitial={studentAvatarInitial}
+                  studentAvatarName={studentAvatarName}
                   studentIdValue={studentIdValue}
                   schoolValue={schoolValue}
                   joinedMentoryDaysDisplay={joinedMentoryDaysDisplay}
@@ -880,6 +882,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   mentorAvatarInputRef={mentorAvatarInputRef}
                   onMentorAvatarChange={onMentorAvatarChange}
                   mentorIdValue={mentorIdValue}
+                  mentorAvatarName={mentorAvatarName}
                   schoolValue={schoolValue}
                   mentorJoinedMentoryDaysDisplay={mentorJoinedMentoryDaysDisplay}
                   classCount={mentorClassCount}

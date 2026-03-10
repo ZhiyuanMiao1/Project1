@@ -953,6 +953,13 @@
   overflow: hidden;
 }
 
+.review-avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
 .review-author {
   grid-column: 2;
   grid-row: 1;

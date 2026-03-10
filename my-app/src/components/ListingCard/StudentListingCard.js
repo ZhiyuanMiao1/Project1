@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import './StudentListingCard.css';
-import defaultImage from '../../assets/images/default-avatar.jpg'; // 默认头像路径
 import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { toggleFavoriteItem } from '../../api/favorites';
 import { getAuthToken } from '../../utils/authStorage';
+import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
 // 统一时区城市显示（与时区下拉一致）
 const TZ_CITY_MAP = {
@@ -154,7 +154,7 @@ function StudentListingCard({
   })();
 
   const school = typeof data?.school === 'string' ? data.school.trim() : '';
-
+  const displayName = typeof data?.name === 'string' ? data.name.trim() : '';
   const timezoneLabel = formatTimezoneWithCity(data.timezone);
   const courses = Array.isArray(data?.courses) ? data.courses : [];
   const coursesLabel = courses.map((c) => String(c ?? '').trim()).filter(Boolean).join(' | ');
@@ -169,6 +169,13 @@ function StudentListingCard({
 
   const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
   const profileHref = id ? `/student/mentors/${encodeURIComponent(id)}` : '';
+  const avatarSeed = id || displayName || school || timezoneLabel || 'student';
+  const avatarSrc = resolveAvatarSrc({
+    src: data?.imageUrl,
+    name: displayName,
+    seed: avatarSeed,
+    size: 320,
+  });
 
   return (
     <a
@@ -202,8 +209,13 @@ function StudentListingCard({
       )}
       <img
         className="listing-avatar"
-        src={data.imageUrl ? data.imageUrl : defaultImage} // 如果没有头像，使用默认头像
+        src={avatarSrc}
         alt={data.name}
+        onError={(event) => applyAvatarFallback(event, {
+          name: displayName,
+          seed: avatarSeed,
+          size: 320,
+        })}
       />
       <h3 className="listing-name">
         {data.name}{' '}
