@@ -411,9 +411,9 @@ function CoursesPage() {
 
     if (!timelineData.length) {
       return (
-        <div className="courses-guard">
+        <div className="courses-guard courses-guard--empty-state">
           <p className="courses-guard-title">暂无课程</p>
-          <p className="courses-guard-subtitle">接受课程邀请后，课程会显示在这里。</p>
+          <p className="courses-guard-subtitle">接受课程邀请后，课程会显示在这里</p>
         </div>
       );
     }
