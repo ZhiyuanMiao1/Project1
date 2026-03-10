@@ -1,8 +1,13 @@
 import express, { Request, Response } from 'express';
+import type { PoolConnection } from 'mysql2/promise';
 import type { InsertResult } from '../db';
 import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { buildEmptyAvailability, getBusySelectionsForUsers } from '../services/availabilityBusy';
+import {
+  ensureMentorResponseTimeColumn,
+  recomputeMentorResponseTimeAverage,
+} from '../services/mentorResponseTime';
 
 const router = express.Router();
 
@@ -358,6 +363,22 @@ const normalizeDecisionStatus = (value: unknown) => {
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending') return raw;
   return '';
+};
+
+const refreshMentorResponseTimeMetricIfNeeded = async (
+  conn: PoolConnection,
+  row: any,
+  actingUserId: number
+) => {
+  const mentorUserId = Number(row?.mentor_user_id);
+  const studentUserId = Number(row?.student_user_id);
+  const senderUserId = Number(row?.sender_user_id);
+  if (!Number.isFinite(mentorUserId) || mentorUserId <= 0) return;
+  if (!Number.isFinite(studentUserId) || studentUserId <= 0) return;
+  if (!Number.isFinite(senderUserId) || senderUserId <= 0) return;
+  if (actingUserId !== mentorUserId) return;
+  if (senderUserId !== studentUserId) return;
+  await recomputeMentorResponseTimeAverage(conn, mentorUserId);
 };
 
 const toPositiveIntOrNull = (value: unknown) => {
@@ -737,6 +758,8 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
     return res.status(400).json({ error: '无效状态' });
   }
 
+  await ensureMentorResponseTimeColumn();
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -783,6 +806,8 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
       `,
       [appointmentId, status, req.user.id]
     );
+
+    await refreshMentorResponseTimeMetricIfNeeded(conn, row, req.user.id);
 
     if (status === 'accepted') {
       const payload = parseAppointmentPayload(row?.payload_json);

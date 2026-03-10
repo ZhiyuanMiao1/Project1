@@ -131,12 +131,29 @@ CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `teaching_languages_json` TEXT NULL, -- JSON array of language codes (e.g. ["zh","en"])
   `rating` DECIMAL(3,2) NOT NULL DEFAULT 0,
   `review_count` INT NOT NULL DEFAULT 0,
+  `avg_appointment_response_minutes` DECIMAL(10,2) NULL DEFAULT NULL,
   `avatar_url` VARCHAR(500) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   CONSTRAINT `fk_mentor_profiles_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_mentor_avg_response := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'mentor_profiles'
+    AND COLUMN_NAME = 'avg_appointment_response_minutes'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_avg_response = 0,
+  'ALTER TABLE `mentor_profiles` ADD COLUMN `avg_appointment_response_minutes` DECIMAL(10,2) NULL DEFAULT NULL AFTER `review_count`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 -- 7) Favorites (isolated by role but owned by the same user_id)
 CREATE TABLE IF NOT EXISTS `favorite_collections` (
@@ -356,6 +373,25 @@ CREATE TABLE IF NOT EXISTS `appointment_statuses` (
   CONSTRAINT `fk_appointment_statuses_message` FOREIGN KEY (`appointment_message_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_appointment_statuses_user` FOREIGN KEY (`updated_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+UPDATE `mentor_profiles` mp
+LEFT JOIN (
+  SELECT
+    t.mentor_user_id,
+    ROUND(AVG(TIMESTAMPDIFF(SECOND, mi.created_at, ast.updated_at)) / 60, 2) AS avg_response_minutes
+  FROM `appointment_statuses` ast
+  INNER JOIN `message_items` mi
+    ON mi.id = ast.appointment_message_id
+   AND mi.message_type = 'appointment_card'
+  INNER JOIN `message_threads` t
+    ON t.id = mi.thread_id
+  WHERE mi.sender_user_id = t.student_user_id
+    AND ast.updated_by_user_id = t.mentor_user_id
+    AND ast.status IN ('accepted', 'rejected', 'rescheduling')
+  GROUP BY t.mentor_user_id
+) agg
+  ON agg.mentor_user_id = mp.user_id
+SET mp.avg_appointment_response_minutes = agg.avg_response_minutes;
 
 -- 12) Billing / top-up orders (used by wallet)
 CREATE TABLE IF NOT EXISTS `billing_orders` (

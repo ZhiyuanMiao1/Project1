@@ -6,6 +6,12 @@ import {
   isMissingTeachingLanguagesColumnError,
   parseTeachingLanguagesJson,
 } from '../services/mentorTeachingLanguages';
+import {
+  backfillMentorResponseTimeAverages,
+  ensureMentorResponseTimeColumn,
+  isMissingMentorResponseTimeColumnError,
+  normalizeMentorResponseMinutes,
+} from '../services/mentorResponseTime';
 import { ensureMentorDirectionScoresTable } from '../services/mentorDirectionScores';
 import { ensureMentorCourseEmbeddingsVectorIndex } from '../services/rdsVectorIndex';
 import { getBusySelectionsForUser } from '../services/availabilityBusy';
@@ -122,6 +128,7 @@ type ApprovedMentorRow = {
   avatar_url: string | null;
   rating: any;
   review_count: any;
+  avg_appointment_response_minutes?: any;
   updated_at?: Date | string | null;
 };
 
@@ -137,6 +144,7 @@ type ApprovedMentorCard = {
   timezone: string;
   languages: string;
   imageUrl: string | null;
+  avgResponseMinutes: number | null;
   relevanceScore?: number;
   relevanceCourse?: string;
 };
@@ -386,6 +394,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
           mp.avatar_url,
           mp.rating,
           mp.review_count,
+          mp.avg_appointment_response_minutes,
           mp.updated_at
         FROM user_roles ur
         JOIN users u ON u.id = ur.user_id
@@ -415,6 +424,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
         mp.avatar_url,
         mp.rating,
         mp.review_count,
+        mp.avg_appointment_response_minutes,
         mp.updated_at,
         mds.score AS relevance_score
       FROM mentor_direction_scores mds
@@ -436,6 +446,10 @@ router.get('/approved', async (_req: Request, res: Response) => {
     if (directionId) {
       await ensureMentorDirectionScoresTable();
     }
+    const responseTimeReady = await ensureMentorResponseTimeColumn();
+    if (responseTimeReady) {
+      await backfillMentorResponseTimeAverages();
+    }
 
     const tMentorsQueryStart = timingEnabled ? hrNow() : 0n;
     let rows: ApprovedMentorRow[] = [];
@@ -444,7 +458,8 @@ router.get('/approved', async (_req: Request, res: Response) => {
     } catch (e: any) {
       const missingRating = isMissingRatingColumnsError(e);
       const missingTeaching = isMissingTeachingLanguagesColumnError(e);
-      if (!missingRating && !missingTeaching) throw e;
+      const missingResponseTime = isMissingMentorResponseTimeColumnError(e);
+      if (!missingRating && !missingTeaching && !missingResponseTime) throw e;
       if (missingRating) {
         const ensured = await ensureMentorRatingColumns();
         if (!ensured) throw e;
@@ -452,6 +467,11 @@ router.get('/approved', async (_req: Request, res: Response) => {
       if (missingTeaching) {
         const ensured = await ensureMentorTeachingLanguagesColumn();
         if (!ensured) throw e;
+      }
+      if (missingResponseTime) {
+        const ensured = await ensureMentorResponseTimeColumn();
+        if (!ensured) throw e;
+        await backfillMentorResponseTimeAverages();
       }
       rows = await runQuery();
     }
@@ -486,6 +506,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
           timezone: row.timezone || '',
           languages: formatTeachingLanguageCodesForCard(parseTeachingLanguagesJson(row.teaching_languages_json)),
           imageUrl: row.avatar_url || null,
+          avgResponseMinutes: normalizeMentorResponseMinutes(row.avg_appointment_response_minutes),
           relevanceScore,
         },
       ];
@@ -731,7 +752,8 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
           mp.teaching_languages_json,
           mp.avatar_url,
           mp.rating,
-          mp.review_count
+          mp.review_count,
+          mp.avg_appointment_response_minutes
         FROM user_roles ur
         JOIN users u
           ON u.id = ur.user_id
@@ -749,13 +771,19 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
   };
 
   try {
+    const responseTimeReady = await ensureMentorResponseTimeColumn();
+    if (responseTimeReady) {
+      await backfillMentorResponseTimeAverages();
+    }
+
     let row: ApprovedMentorRow | null = null;
     try {
       row = await runMentorQuery();
     } catch (e: any) {
       const missingRating = isMissingRatingColumnsError(e);
       const missingTeaching = isMissingTeachingLanguagesColumnError(e);
-      if (!missingRating && !missingTeaching) throw e;
+      const missingResponseTime = isMissingMentorResponseTimeColumnError(e);
+      if (!missingRating && !missingTeaching && !missingResponseTime) throw e;
       if (missingRating) {
         const ensured = await ensureMentorRatingColumns();
         if (!ensured) throw e;
@@ -763,6 +791,11 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
       if (missingTeaching) {
         const ensured = await ensureMentorTeachingLanguagesColumn();
         if (!ensured) throw e;
+      }
+      if (missingResponseTime) {
+        const ensured = await ensureMentorResponseTimeColumn();
+        if (!ensured) throw e;
+        await backfillMentorResponseTimeAverages();
       }
       row = await runMentorQuery();
     }
@@ -782,6 +815,7 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
       timezone: row.timezone || '',
       languages: formatTeachingLanguageCodesForCard(parseTeachingLanguagesJson(row.teaching_languages_json)),
       imageUrl: row.avatar_url || null,
+      avgResponseMinutes: normalizeMentorResponseMinutes(row.avg_appointment_response_minutes),
     };
 
     const reviewSummary = buildEmptyMentorReviewSummary();

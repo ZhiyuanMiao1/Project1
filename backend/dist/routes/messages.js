@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const availabilityBusy_1 = require("../services/availabilityBusy");
+const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const router = express_1.default.Router();
 const isMissingMessagesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
@@ -323,6 +324,22 @@ const normalizeDecisionStatus = (value) => {
         return raw;
     return '';
 };
+const refreshMentorResponseTimeMetricIfNeeded = async (conn, row, actingUserId) => {
+    const mentorUserId = Number(row?.mentor_user_id);
+    const studentUserId = Number(row?.student_user_id);
+    const senderUserId = Number(row?.sender_user_id);
+    if (!Number.isFinite(mentorUserId) || mentorUserId <= 0)
+        return;
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0)
+        return;
+    if (!Number.isFinite(senderUserId) || senderUserId <= 0)
+        return;
+    if (actingUserId !== mentorUserId)
+        return;
+    if (senderUserId !== studentUserId)
+        return;
+    await (0, mentorResponseTime_1.recomputeMentorResponseTimeAverage)(conn, mentorUserId);
+};
 const toPositiveIntOrNull = (value) => {
     const n = Number.parseInt(String(value ?? '').trim(), 10);
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -614,6 +631,7 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
     if (!status || status === 'pending') {
         return res.status(400).json({ error: '无效状态' });
     }
+    await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -651,6 +669,7 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         updated_by_user_id = VALUES(updated_by_user_id),
         updated_at = CURRENT_TIMESTAMP
       `, [appointmentId, status, req.user.id]);
+        await refreshMentorResponseTimeMetricIfNeeded(conn, row, req.user.id);
         if (status === 'accepted') {
             const payload = parseAppointmentPayload(row?.payload_json);
             if (!payload) {

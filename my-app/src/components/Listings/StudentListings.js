@@ -100,6 +100,25 @@ const hasAnyMentorCardInfo = (mentor) => {
 
 const normalizeSearchText = (value) => String(value ?? '').trim().toLowerCase();
 
+const normalizeAvgResponseMinutes = (value) => {
+  if (value == null) return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const compareMentorIdentity = (a, b) => {
+  const nameA = normalizeSearchText(a?.name);
+  const nameB = normalizeSearchText(b?.name);
+  if (nameA && nameB && nameA !== nameB) return nameA < nameB ? -1 : 1;
+
+  const idA = normalizeSearchText(a?.id);
+  const idB = normalizeSearchText(b?.id);
+  if (idA !== idB) return idA < idB ? -1 : 1;
+
+  return 0;
+};
+
 const countTeachingLanguages = (raw) => {
   if (!raw) return 0;
   if (Array.isArray(raw)) {
@@ -211,16 +230,19 @@ function StudentListings() {
         const reviewsB = Number(b?.reviewCount) || 0;
         if (reviewsB !== reviewsA) return reviewsB - reviewsA;
 
-        const nameA = normalizeSearchText(a?.name);
-        const nameB = normalizeSearchText(b?.name);
-        if (nameA && nameB && nameA !== nameB) return nameA < nameB ? -1 : 1;
-
-        const idA = normalizeSearchText(a?.id);
-        const idB = normalizeSearchText(b?.id);
-        if (idA !== idB) return idA < idB ? -1 : 1;
-
-        return 0;
+        return compareMentorIdentity(a, b);
       });
+    }
+
+    if (courseType === '快速响应') {
+      return filtered
+        .filter((mentor) => normalizeAvgResponseMinutes(mentor?.avgResponseMinutes) != null)
+        .sort((a, b) => {
+          const minutesA = normalizeAvgResponseMinutes(a?.avgResponseMinutes) ?? Number.POSITIVE_INFINITY;
+          const minutesB = normalizeAvgResponseMinutes(b?.avgResponseMinutes) ?? Number.POSITIVE_INFINITY;
+          if (minutesA !== minutesB) return minutesA - minutesB;
+          return compareMentorIdentity(a, b);
+        });
     }
 
     return filtered;
@@ -262,6 +284,7 @@ function StudentListings() {
               timezone: typeof item?.timezone === 'string' ? item.timezone : '',
               languages: typeof item?.languages === 'string' ? item.languages : '',
               imageUrl: item?.imageUrl ?? item?.avatarUrl ?? item?.avatar_url ?? null,
+              avgResponseMinutes: normalizeAvgResponseMinutes(item?.avgResponseMinutes),
             };
           })
           .filter((item) => {

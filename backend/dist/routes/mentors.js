@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../db");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
+const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
 const availabilityBusy_1 = require("../services/availabilityBusy");
@@ -307,6 +308,7 @@ router.get('/approved', async (_req, res) => {
           mp.avatar_url,
           mp.rating,
           mp.review_count,
+          mp.avg_appointment_response_minutes,
           mp.updated_at
         FROM user_roles ur
         JOIN users u ON u.id = ur.user_id
@@ -333,6 +335,7 @@ router.get('/approved', async (_req, res) => {
         mp.avatar_url,
         mp.rating,
         mp.review_count,
+        mp.avg_appointment_response_minutes,
         mp.updated_at,
         mds.score AS relevance_score
       FROM mentor_direction_scores mds
@@ -351,6 +354,10 @@ router.get('/approved', async (_req, res) => {
         if (directionId) {
             await (0, mentorDirectionScores_1.ensureMentorDirectionScoresTable)();
         }
+        const responseTimeReady = await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
+        if (responseTimeReady) {
+            await (0, mentorResponseTime_1.backfillMentorResponseTimeAverages)();
+        }
         const tMentorsQueryStart = timingEnabled ? hrNow() : 0n;
         let rows = [];
         try {
@@ -359,7 +366,8 @@ router.get('/approved', async (_req, res) => {
         catch (e) {
             const missingRating = isMissingRatingColumnsError(e);
             const missingTeaching = (0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e);
-            if (!missingRating && !missingTeaching)
+            const missingResponseTime = (0, mentorResponseTime_1.isMissingMentorResponseTimeColumnError)(e);
+            if (!missingRating && !missingTeaching && !missingResponseTime)
                 throw e;
             if (missingRating) {
                 const ensured = await ensureMentorRatingColumns();
@@ -370,6 +378,12 @@ router.get('/approved', async (_req, res) => {
                 const ensured = await (0, mentorTeachingLanguages_1.ensureMentorTeachingLanguagesColumn)();
                 if (!ensured)
                     throw e;
+            }
+            if (missingResponseTime) {
+                const ensured = await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
+                if (!ensured)
+                    throw e;
+                await (0, mentorResponseTime_1.backfillMentorResponseTimeAverages)();
             }
             rows = await runQuery();
         }
@@ -401,6 +415,7 @@ router.get('/approved', async (_req, res) => {
                     timezone: row.timezone || '',
                     languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
                     imageUrl: row.avatar_url || null,
+                    avgResponseMinutes: (0, mentorResponseTime_1.normalizeMentorResponseMinutes)(row.avg_appointment_response_minutes),
                     relevanceScore,
                 },
             ];
@@ -623,7 +638,8 @@ router.get('/:mentorId/detail', async (req, res) => {
           mp.teaching_languages_json,
           mp.avatar_url,
           mp.rating,
-          mp.review_count
+          mp.review_count,
+          mp.avg_appointment_response_minutes
         FROM user_roles ur
         JOIN users u
           ON u.id = ur.user_id
@@ -637,6 +653,10 @@ router.get('/:mentorId/detail', async (req, res) => {
         return rows?.[0] || null;
     };
     try {
+        const responseTimeReady = await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
+        if (responseTimeReady) {
+            await (0, mentorResponseTime_1.backfillMentorResponseTimeAverages)();
+        }
         let row = null;
         try {
             row = await runMentorQuery();
@@ -644,7 +664,8 @@ router.get('/:mentorId/detail', async (req, res) => {
         catch (e) {
             const missingRating = isMissingRatingColumnsError(e);
             const missingTeaching = (0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e);
-            if (!missingRating && !missingTeaching)
+            const missingResponseTime = (0, mentorResponseTime_1.isMissingMentorResponseTimeColumnError)(e);
+            if (!missingRating && !missingTeaching && !missingResponseTime)
                 throw e;
             if (missingRating) {
                 const ensured = await ensureMentorRatingColumns();
@@ -655,6 +676,12 @@ router.get('/:mentorId/detail', async (req, res) => {
                 const ensured = await (0, mentorTeachingLanguages_1.ensureMentorTeachingLanguagesColumn)();
                 if (!ensured)
                     throw e;
+            }
+            if (missingResponseTime) {
+                const ensured = await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
+                if (!ensured)
+                    throw e;
+                await (0, mentorResponseTime_1.backfillMentorResponseTimeAverages)();
             }
             row = await runMentorQuery();
         }
@@ -673,6 +700,7 @@ router.get('/:mentorId/detail', async (req, res) => {
             timezone: row.timezone || '',
             languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
             imageUrl: row.avatar_url || null,
+            avgResponseMinutes: (0, mentorResponseTime_1.normalizeMentorResponseMinutes)(row.avg_appointment_response_minutes),
         };
         const reviewSummary = buildEmptyMentorReviewSummary();
         const mentorUserId = Number(row.user_id);
