@@ -458,6 +458,7 @@ function CourseRequestDetailPage() {
   const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
   const [scheduleSelection, setScheduleSelection] = useState(null);
   const [showSendConfirm, setShowSendConfirm] = useState(false);
+  const [isSendingAppointment, setIsSendingAppointment] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
     const parts = getZonedParts(getDefaultTimeZone(), new Date());
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
@@ -1166,6 +1167,47 @@ function CourseRequestDetailPage() {
     setShowSendConfirm(true);
   };
 
+  const handleConfirmSendAppointment = async () => {
+    if (!scheduleSelection || isSendingAppointment) return;
+
+    const studentUserId = Number(request?.studentUserId);
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0) {
+      alert('Missing student information, unable to send appointment.');
+      return;
+    }
+
+    const startLabel = minutesToTimeLabel(scheduleSelection.startMinutes);
+    const endLabel = minutesToTimeLabel(scheduleSelection.endMinutes);
+    const windowLabel = `${startLabel} - ${endLabel}`;
+    const tzShort = buildShortUTC(selectedTimeZone, selectedDate);
+    const windowText = `${formatFullDate(selectedDate)} ${windowLabel} (${tzShort})`;
+
+    try {
+      setIsSendingAppointment(true);
+      const res = await api.post('/api/messages/appointments', {
+        studentUserId,
+        courseRequestId: request?.id || requestId,
+        courseDirectionId: request?.courseDirection || '',
+        courseTypeId: request?.courseType || '',
+        windowText,
+      });
+      const threadId = res?.data?.threadId;
+      setShowSendConfirm(false);
+      navigate('/mentor/messages', {
+        state: {
+          from: 'course-request-detail',
+          threadId: threadId ? String(threadId) : undefined,
+          animateKey: Date.now(),
+        },
+      });
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || 'Failed to send appointment. Please try again later.';
+      alert(String(msg));
+    } finally {
+      setIsSendingAppointment(false);
+    }
+  };
+
   return (
     <div className="mentor-detail-page">
       <div className="container">
@@ -1600,13 +1642,13 @@ function CourseRequestDetailPage() {
           const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
           return `已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}`;
         })()}
-        cancelText="取消"
-        confirmText="确认发送"
-        onCancel={() => setShowSendConfirm(false)}
-        onConfirm={() => {
+        cancelText={'\u53d6\u6d88'}
+        confirmText={isSendingAppointment ? 'Sending...' : '\u786e\u8ba4\u53d1\u9001'}
+        onCancel={() => {
+          if (isSendingAppointment) return;
           setShowSendConfirm(false);
-          try { navigate('/mentor/messages'); } catch {}
         }}
+        onConfirm={handleConfirmSendAppointment}
       />
     </div>
   );

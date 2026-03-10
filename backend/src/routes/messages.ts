@@ -426,7 +426,10 @@ const ensureCourseSessionForAcceptedAppointment = async ({
 router.post('/appointments', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
-  const mentorPublicId = typeof req.body?.mentorId === 'string' ? req.body.mentorId.trim() : '';
+  const mentorPublicId = typeof req.body?.mentorId === 'string' && req.body.mentorId.trim()
+    ? req.body.mentorId.trim()
+    : (req.user.role === 'mentor' ? '__mentor_self__' : '');
+  const studentUserIdFromBody = toPositiveIntOrNull(req.body?.studentUserId);
   const windowText = typeof req.body?.windowText === 'string' ? req.body.windowText.trim() : '';
   const courseDirectionId = typeof req.body?.courseDirectionId === 'string' ? req.body.courseDirectionId.trim() : '';
   const courseTypeId = typeof req.body?.courseTypeId === 'string' ? req.body.courseTypeId.trim() : '';
@@ -440,6 +443,78 @@ router.post('/appointments', requireAuth, async (req: Request, res: Response) =>
   if (!windowText) return res.status(400).json({ error: '缺少预约时间' });
 
   try {
+    if (req.user.role === 'mentor') {
+      let studentUserId = studentUserIdFromBody;
+      if (studentUserId == null && courseRequestId != null) {
+        const requestRows = await query<any[]>(
+          'SELECT user_id FROM course_requests WHERE id = ? LIMIT 1',
+          [courseRequestId]
+        );
+        const requestStudentUserId = Number(requestRows?.[0]?.user_id);
+        if (Number.isFinite(requestStudentUserId) && requestStudentUserId > 0) {
+          studentUserId = requestStudentUserId;
+        }
+      }
+
+      if (studentUserId == null) {
+        return res.status(400).json({ error: 'missing_student_user_id' });
+      }
+      if (studentUserId === req.user.id) {
+        return res.status(400).json({ error: 'cannot_message_self' });
+      }
+
+      const mentorRoleRows = await query<any[]>(
+        "SELECT public_id FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+        [req.user.id]
+      );
+      const currentMentorPublicId = String(mentorRoleRows?.[0]?.public_id || '').trim();
+
+      const threadInsert = await query<InsertResult>(
+        `
+        INSERT INTO message_threads (student_user_id, mentor_user_id)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE
+          id = LAST_INSERT_ID(id),
+          updated_at = CURRENT_TIMESTAMP
+        `,
+        [studentUserId, req.user.id]
+      );
+      const threadId = Number(threadInsert.insertId);
+      if (!Number.isFinite(threadId) || threadId <= 0) {
+        return res.status(500).json({ error: 'failed_to_create_thread' });
+      }
+
+      const payload = {
+        kind: 'appointment_card',
+        mentorId: currentMentorPublicId,
+        courseDirectionId,
+        courseTypeId,
+        courseRequestId,
+        windowText,
+        meetingId,
+      };
+
+      const msgInsert = await query<InsertResult>(
+        `
+        INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+        VALUES (?, ?, ?, ?)
+        `,
+        [threadId, req.user.id, 'appointment_card', JSON.stringify(payload)]
+      );
+      const messageId = Number(msgInsert.insertId);
+
+      await query(
+        `
+        UPDATE message_threads
+        SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `,
+        [Number.isFinite(messageId) && messageId > 0 ? messageId : null, threadId]
+      );
+
+      return res.json({ threadId });
+    }
+
     const mentorRows = await query<any[]>(
       "SELECT user_id FROM user_roles WHERE role = 'mentor' AND public_id = ? LIMIT 1",
       [mentorPublicId.toLowerCase()]

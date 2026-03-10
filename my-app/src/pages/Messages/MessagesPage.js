@@ -1267,7 +1267,7 @@ function MessagesPage() {
                       >
                           <div className="message-item-shell">
                             <div className="message-avatar" aria-hidden="true">
-                              <span className="message-avatar-fallback">{initial}</span>
+                              <span className="message-avatar-fallback">{String(initial || '').toUpperCase()}</span>
                               {avatarUrl ? (
                                 <img
                                   className="message-avatar-img"
@@ -1364,7 +1364,7 @@ function MessagesPage() {
                 <div className="message-detail-head">
                   <div className="message-detail-identity">
                     <div className="message-detail-avatar" aria-hidden="true">
-                      <span className="message-avatar-fallback">{detailAvatarInitial}</span>
+                      <span className="message-avatar-fallback">{String(detailAvatarInitial || '').toUpperCase()}</span>
                       {activeAvatarUrl ? (
                         <img
                           className="message-avatar-img"
