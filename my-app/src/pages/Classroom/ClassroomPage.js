@@ -16,6 +16,7 @@ const SCREEN_SHARE_PROFILE = {
 let liveSdkPromise = null;
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
 
 const parseErrorMessage = (error, fallback) => {
   const responseMessage = safeText(error?.response?.data?.error);
@@ -41,7 +42,7 @@ const looksLikeSdkErrorObject = (value) => {
 };
 
 const unwrapRuntimeErrorPayload = (value) => {
-  if (!value || typeof value !== 'object') return null;
+  if (!isObjectLike(value)) return null;
   if (looksLikeSdkErrorObject(value)) return value;
 
   const nestedCandidates = [
@@ -60,13 +61,24 @@ const unwrapRuntimeErrorPayload = (value) => {
   return null;
 };
 
+const getWindowRuntimePayloadCandidate = (event) => {
+  if (typeof event?.error !== 'undefined') return event.error;
+  if (typeof event?.reason !== 'undefined') return event.reason;
+  return null;
+};
+
 const resolveWindowRuntimePayload = (event) => {
-  const directPayload = unwrapRuntimeErrorPayload(event?.error ?? event?.reason);
+  const rawPayload = getWindowRuntimePayloadCandidate(event);
+  const directPayload = unwrapRuntimeErrorPayload(rawPayload);
   if (directPayload) return directPayload;
 
   const message = safeText(event?.message);
-  if (message === '[object Object]' && event?.error && typeof event.error === 'object') {
-    return event.error;
+  if (isObjectLike(rawPayload)) {
+    return rawPayload;
+  }
+
+  if (message === '[object Object]') {
+    return { message };
   }
 
   return null;
@@ -160,6 +172,7 @@ const isRetryableRemotePlayError = (error) => {
 };
 
 const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
+const REMOTE_RECONNECTING_TEXT = '对方网络波动，正在等待重新加入...';
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 
 const clearVideoElement = (element) => {
@@ -229,6 +242,8 @@ function ClassroomPage() {
   const cameraActionPendingRef = useRef(false);
   const cameraPermissionPrimeAttemptedRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
+  const remoteRecoveryPendingRef = useRef(false);
+  const remoteRecoveryTimestampRef = useRef(0);
   const remoteReadyRef = useRef(false);
   const remoteScreenReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
@@ -355,12 +370,13 @@ function ClassroomPage() {
     setStatusText(message);
   }, []);
 
-  const applyRemoteNotJoinedState = useCallback(() => {
+  const applyRemoteNotJoinedState = useCallback((options = {}) => {
+    const nextStatusText = safeText(options.statusText) || REMOTE_NOT_JOINED_TEXT;
     if (!mountedRef.current) return;
     setErrorMessage('');
     setRemoteReady(false);
     markRemoteScreenIdle();
-    setStatusText(REMOTE_NOT_JOINED_TEXT);
+    setStatusText(nextStatusText);
   }, [markRemoteScreenIdle]);
 
   const detachVisibleCameraPreview = useCallback(() => {
@@ -427,12 +443,45 @@ function ClassroomPage() {
     }, delayMs);
   }, [clearRemotePlaybackRetry]);
 
+  const recoverRemotePlayback = useCallback(async (options = {}) => {
+    const nextDelayMs = Number.isFinite(options.delayMs) ? options.delayMs : 2500;
+    const minIntervalMs = Number.isFinite(options.minIntervalMs) ? options.minIntervalMs : 1200;
+    const nextStatusText = safeText(options.statusText)
+      || (remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT);
+    const now = Date.now();
+
+    applyRemoteNotJoinedState({ statusText: nextStatusText });
+    if (!mountedRef.current || !joinedRef.current) return;
+
+    if (remoteRecoveryTimestampRef.current && now - remoteRecoveryTimestampRef.current < minIntervalMs) {
+      scheduleRemotePlaybackRetry(Math.max(nextDelayMs, minIntervalMs));
+      return;
+    }
+
+    if (remoteRecoveryPendingRef.current) {
+      scheduleRemotePlaybackRetry(nextDelayMs);
+      return;
+    }
+
+    remoteRecoveryTimestampRef.current = now;
+    remoteRecoveryPendingRef.current = true;
+    try {
+      await teardownRemotePlayback();
+    } finally {
+      remoteRecoveryPendingRef.current = false;
+      if (mountedRef.current && joinedRef.current) {
+        scheduleRemotePlaybackRetry(nextDelayMs);
+      }
+    }
+  }, [applyRemoteNotJoinedState, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+
   const startRemotePlayback = useCallback(async () => {
     const sdk = resolveAliyunLiveSdk();
     const liveAuth = liveAuthRef.current;
     const remotePlayUrl = safeText(liveAuth?.remotePlayUrl);
     const remoteUserId = safeText(liveAuth?.remoteUserId);
     const displayName = safeText(remoteLabelRef.current) || '对方';
+    const hadRemoteStream = remoteReadyRef.current;
 
     if (!sdk || !remotePlayUrl || !remoteUserId || !remoteVideoRef.current || !joinedRef.current) return;
 
@@ -490,7 +539,9 @@ function ClassroomPage() {
       if (!mountedRef.current || !joinedRef.current) return;
 
       if (isRetryableRemotePlayError(error)) {
-        applyRemoteNotJoinedState();
+        applyRemoteNotJoinedState({
+          statusText: hadRemoteStream ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+        });
         scheduleRemotePlaybackRetry(2500);
         return;
       }
@@ -536,6 +587,8 @@ function ClassroomPage() {
     try {
       clearRemotePlaybackRetry();
       liveAuthRef.current = null;
+      remoteRecoveryPendingRef.current = false;
+      remoteRecoveryTimestampRef.current = 0;
       screenActionPendingRef.current = false;
       cameraActionPendingRef.current = false;
       cameraPermissionPrimeAttemptedRef.current = false;
@@ -878,13 +931,39 @@ function ClassroomPage() {
   }, [courseId, leaveAndDestroy, primeCameraPermission, reportRuntimeIssue, startRemotePlayback]);
 
   useEffect(() => {
+    const isRemoteRuntimeRecoveryActive = () => (
+      joinedRef.current && (
+        Boolean(playerRef.current)
+        || Boolean(remoteRetryTimerRef.current)
+        || remoteRecoveryPendingRef.current
+      )
+    );
+
+    const shouldSuppressOpaqueRuntimeEvent = (event) => {
+      const rawPayload = getWindowRuntimePayloadCandidate(event);
+      if (isObjectLike(rawPayload)) return true;
+      return safeText(event?.message) === '[object Object]';
+    };
+
+    const shouldRecoverFromRuntimePayload = (payload) => {
+      if (!payload) return false;
+      if (isRetryableRemotePlayError(payload)) return true;
+      return isRemoteRuntimeRecoveryActive() && isObjectLike(payload);
+    };
+
     const handleUnhandledRejection = (event) => {
       const reason = resolveWindowRuntimePayload(event);
+      if (!reason && isRemoteRuntimeRecoveryActive() && shouldSuppressOpaqueRuntimeEvent(event)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        void recoverRemotePlayback();
+        return;
+      }
       if (!reason) return;
-      event.preventDefault?.();
-      event.stopImmediatePropagation?.();
-      if (isRetryableRemotePlayError(reason)) {
-        applyRemoteNotJoinedState();
+      if (shouldRecoverFromRuntimePayload(reason)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        void recoverRemotePlayback();
         return;
       }
       reportRuntimeIssue(reason, '课堂连接发生错误，请稍后重试');
@@ -892,11 +971,17 @@ function ClassroomPage() {
 
     const handleWindowError = (event) => {
       const runtimePayload = resolveWindowRuntimePayload(event);
+      if (!runtimePayload && isRemoteRuntimeRecoveryActive() && shouldSuppressOpaqueRuntimeEvent(event)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        void recoverRemotePlayback();
+        return;
+      }
       if (!runtimePayload) return;
-      event.preventDefault?.();
-      event.stopImmediatePropagation?.();
-      if (isRetryableRemotePlayError(runtimePayload)) {
-        applyRemoteNotJoinedState();
+      if (shouldRecoverFromRuntimePayload(runtimePayload)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        void recoverRemotePlayback();
         return;
       }
       reportRuntimeIssue(runtimePayload, '课堂连接发生错误，请稍后重试');
@@ -908,7 +993,7 @@ function ClassroomPage() {
       window.removeEventListener('error', handleWindowError, true);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
     };
-  }, [applyRemoteNotJoinedState, reportRuntimeIssue]);
+  }, [recoverRemotePlayback, reportRuntimeIssue]);
 
   const handleToggleMic = useCallback(() => {
     const pusher = pusherRef.current;
