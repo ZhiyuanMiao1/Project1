@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiArrowLeft, FiMic, FiMicOff, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
+import { FiMic, FiMicOff, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import api from '../../api/client';
@@ -178,7 +178,7 @@ function ClassroomPage() {
   const [statusText, setStatusText] = useState('准备进入课堂...');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(false);
-  const [cameraMuted, setCameraMuted] = useState(false);
+  const [cameraMuted, setCameraMuted] = useState(true);
   const [remoteReady, setRemoteReady] = useState(false);
 
   const backHref = useMemo(
@@ -361,7 +361,7 @@ function ClassroomPage() {
         setJoined(false);
         setRemoteReady(false);
         setMicMuted(false);
-        setCameraMuted(false);
+        setCameraMuted(true);
         setErrorMessage('');
         setStatusText('正在请求课堂鉴权...');
       }
@@ -439,7 +439,7 @@ function ClassroomPage() {
 
         const initConfig = {
           audio: true,
-          video: true,
+          video: false,
           connectRetryCount: 3,
         };
         if (sdk.AlivcResolutionEnum?.RESOLUTION_720P) {
@@ -504,13 +504,17 @@ function ClassroomPage() {
     }
   }, [micMuted]);
 
-  const handleToggleCamera = useCallback(() => {
+  const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
     if (!pusher || !joinedRef.current) return;
 
     const nextMuted = !cameraMuted;
     try {
-      pusher.muteVideo(nextMuted);
+      if (nextMuted) {
+        await pusher.stopCamera();
+      } else {
+        await pusher.startCamera();
+      }
       if (mountedRef.current) setCameraMuted(nextMuted);
     } catch (error) {
       if (!mountedRef.current) return;
@@ -525,28 +529,17 @@ function ClassroomPage() {
   }, [backHref, leaveAndDestroy, navigate]);
 
   const controlsDisabled = joining || !joined;
-  const courseIdText = safeText(session?.courseId || courseId);
 
   return (
     <div className="classroom-page">
       <div className="container">
         <header className="classroom-header">
           <BrandMark className="nav-logo-text" to={backHref} />
-          <button
-            type="button"
-            className="classroom-back-btn"
-            onClick={() => navigate(backHref)}
-            aria-label="返回课程页"
-          >
-            <FiArrowLeft size={18} />
-            <span>返回课程</span>
-          </button>
         </header>
 
         <section className="classroom-meta">
           <h1>课堂</h1>
           <div className="classroom-status">{statusText}</div>
-          {courseIdText ? <div className="classroom-course-id">课程ID：{courseIdText}</div> : null}
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
         </section>
 

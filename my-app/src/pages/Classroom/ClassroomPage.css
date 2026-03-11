@@ -1,9 +1,6 @@
 .classroom-page {
   min-height: 100vh;
-  background:
-    radial-gradient(1000px 540px at 10% -10%, rgba(15, 23, 42, 0.08), transparent 50%),
-    radial-gradient(900px 500px at 100% 0%, rgba(30, 64, 175, 0.08), transparent 55%),
-    #f8fafc;
+  background: #ffffff;
   color: #0f172a;
   font-family: "Helvetica Neue", Arial, sans-serif;
 }
@@ -17,45 +14,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 0 14px;
+  min-height: 40px;
+  padding: 24px 0 12px;
 }
 
-.classroom-back-btn {
-  border: 1px solid #dbe3ef;
-  background: #ffffff;
-  color: #0f172a;
-  border-radius: 999px;
-  height: 40px;
-  padding: 0 14px;
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.classroom-back-btn:hover {
-  background: #f8fafc;
+.classroom-meta {
+  margin: 40px 0 30px;
 }
 
 .classroom-meta h1 {
   margin: 0;
   font-size: 32px;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 .classroom-status {
   margin-top: 10px;
   font-size: 14px;
   color: #334155;
-}
-
-.classroom-course-id {
-  margin-top: 6px;
-  font-size: 12px;
-  color: #64748b;
 }
 
 .classroom-error {
