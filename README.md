@@ -7,6 +7,14 @@ Make learning go further.
 - 后端文档移至 `backend/README.md`
 - 前端（React）文档见 `my-app/README.md`
 
+## 生产环境 ECS 项目目录
+
+生产环境 ECS 上的项目目录为：
+
+```bash
+cd /opt/mentory/
+```
+
 ## 学生首页课程 Tab 与导师排序机制
 
 Mentory 支持导师在个人名片中自定义「可授课课程」，并在学生首页按课程方向（Tab）浏览导师。其核心逻辑如下：
