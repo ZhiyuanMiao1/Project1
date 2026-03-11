@@ -7,9 +7,9 @@ import './ClassroomPage.css';
 
 const LIVE_SDK_URL = 'https://g.alicdn.com/apsara-media-box/imp-web-live-push/6.4.9/alivc-live-push.js';
 const SCREEN_SHARE_PROFILE = {
-  width: 1920,
-  height: 1080,
-  bitrateKbps: 4000,
+  width: 2560,
+  height: 1440,
+  bitrateKbps: 3000,
   fps: 15,
 };
 
@@ -224,15 +224,6 @@ function ClassroomPage() {
     if (remoteScreenReady) return `等待${remoteLabel}的共享画面...`;
     return '暂未开始共享屏幕';
   }, [remoteLabel, remoteScreenReady]);
-  const localShareNotice = useMemo(() => {
-    if (remoteScreenReady) return '';
-    if (screenActionPending) return '正在准备共享屏幕...';
-    if (screenSharing || localScreenReady) {
-      return '你正在共享屏幕。为避免无限镜像，本地大预览已隐藏。';
-    }
-    return '';
-  }, [localScreenReady, remoteScreenReady, screenActionPending, screenSharing]);
-
   remoteReadyRef.current = remoteReady;
   remoteLabelRef.current = remoteLabel;
 
@@ -779,12 +770,6 @@ function ClassroomPage() {
             </div>
           </article>
         </section>
-
-        {localShareNotice ? (
-          <section className="classroom-share-notice" aria-live="polite">
-            {localShareNotice}
-          </section>
-        ) : null}
 
         <section className={`classroom-stage ${presentationVisible ? 'is-covered' : ''}`}>
           <article className="classroom-video-panel">
