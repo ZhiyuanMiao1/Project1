@@ -127,6 +127,8 @@ const isRetryableRemotePlayError = (error) => {
   return /not found|no stream|stream.*not.*exist|user.*not.*exist|timeout|wait|等待|不存在|未发布|未推流/i.test(message);
 };
 
+const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
+
 const clearVideoElement = (element) => {
   if (!element) return;
   try {
@@ -253,6 +255,13 @@ function ClassroomPage() {
     setStatusText(message);
   }, []);
 
+  const applyRemoteNotJoinedState = useCallback(() => {
+    if (!mountedRef.current) return;
+    setErrorMessage('');
+    setRemoteReady(false);
+    setStatusText(REMOTE_NOT_JOINED_TEXT);
+  }, []);
+
   const teardownRemotePlayback = useCallback(async () => {
     clearRemotePlaybackRetry();
 
@@ -355,8 +364,7 @@ function ClassroomPage() {
       if (!mountedRef.current || !joinedRef.current) return;
 
       if (isRetryableRemotePlayError(error)) {
-        setErrorMessage('');
-        setStatusText(`已进入课堂，等待${displayName}加入...`);
+        applyRemoteNotJoinedState();
         scheduleRemotePlaybackRetry(2500);
         return;
       }
@@ -365,7 +373,7 @@ function ClassroomPage() {
       setErrorMessage(message);
       setStatusText(message);
     }
-  }, [scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
@@ -617,6 +625,10 @@ function ClassroomPage() {
       const reason = event?.reason;
       if (!looksLikeSdkErrorObject(reason)) return;
       event.preventDefault?.();
+      if (isRetryableRemotePlayError(reason)) {
+        applyRemoteNotJoinedState();
+        return;
+      }
       reportRuntimeIssue(reason, '课堂连接发生错误，请稍后重试');
     };
 
@@ -624,7 +636,7 @@ function ClassroomPage() {
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
-  }, [reportRuntimeIssue]);
+  }, [applyRemoteNotJoinedState, reportRuntimeIssue]);
 
   const handleToggleMic = useCallback(() => {
     const pusher = pusherRef.current;
@@ -782,7 +794,7 @@ function ClassroomPage() {
           <article className="classroom-video-panel">
             <div className="classroom-video-title">对方画面</div>
             <div className="classroom-video-box">
-              {!remoteReady && <div className="classroom-video-placeholder">等待{remoteLabel}加入…</div>}
+              {!remoteReady && <div className="classroom-video-placeholder">{REMOTE_NOT_JOINED_TEXT}</div>}
               <video ref={remoteVideoRef} autoPlay playsInline />
             </div>
           </article>
