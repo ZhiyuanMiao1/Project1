@@ -230,8 +230,15 @@ function ClassroomPage() {
   const cameraPermissionPrimeAttemptedRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
   const remoteReadyRef = useRef(false);
+  const remoteScreenReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
   const startRemotePlaybackRef = useRef(async () => {});
+  const remoteScreenMonitorTimerRef = useRef(0);
+  const remoteScreenFrameCallbackIdRef = useRef(null);
+  const remoteScreenHeartbeatRef = useRef(0);
+  const remoteScreenLastTimeRef = useRef(0);
+  const remoteScreenObservedStreamRef = useRef(null);
+  const remoteScreenStreamCleanupRef = useRef(null);
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -245,7 +252,7 @@ function ClassroomPage() {
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenActionPending, setScreenActionPending] = useState(false);
   const [cameraActionPending, setCameraActionPending] = useState(false);
-  const [localScreenReady, setLocalScreenReady] = useState(false);
+  const [, setLocalScreenReady] = useState(false);
   const [remoteScreenReady, setRemoteScreenReady] = useState(false);
 
   const backHref = useMemo(
@@ -263,6 +270,7 @@ function ClassroomPage() {
     return '暂未开始共享屏幕';
   }, [remoteLabel, remoteScreenReady]);
   remoteReadyRef.current = remoteReady;
+  remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
 
   const clearRemotePlaybackRetry = useCallback(() => {
@@ -284,6 +292,62 @@ function ClassroomPage() {
     screenPreviewStreamRef.current = null;
   }, []);
 
+  const clearRemoteScreenStreamBindings = useCallback(() => {
+    const cleanup = remoteScreenStreamCleanupRef.current;
+    if (typeof cleanup === 'function') {
+      try {
+        cleanup();
+      } catch {}
+    }
+    remoteScreenStreamCleanupRef.current = null;
+    remoteScreenObservedStreamRef.current = null;
+  }, []);
+
+  const clearRemoteScreenFrameCallback = useCallback(() => {
+    const video = remoteScreenVideoRef.current;
+    const callbackId = remoteScreenFrameCallbackIdRef.current;
+    if (
+      video
+      && callbackId !== null
+      && typeof video.cancelVideoFrameCallback === 'function'
+    ) {
+      try {
+        video.cancelVideoFrameCallback(callbackId);
+      } catch {}
+    }
+    remoteScreenFrameCallbackIdRef.current = null;
+  }, []);
+
+  const clearRemoteScreenMonitor = useCallback(() => {
+    if (remoteScreenMonitorTimerRef.current) {
+      window.clearInterval(remoteScreenMonitorTimerRef.current);
+      remoteScreenMonitorTimerRef.current = 0;
+    }
+    clearRemoteScreenFrameCallback();
+    clearRemoteScreenStreamBindings();
+  }, [clearRemoteScreenFrameCallback, clearRemoteScreenStreamBindings]);
+
+  const markRemoteScreenReady = useCallback(() => {
+    const video = remoteScreenVideoRef.current;
+    remoteScreenHeartbeatRef.current = Date.now();
+    if (video) {
+      remoteScreenLastTimeRef.current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    }
+    if (mountedRef.current) setRemoteScreenReady(true);
+  }, []);
+
+  const markRemoteScreenIdle = useCallback((options = {}) => {
+    const { clearElement = false } = options;
+    remoteScreenHeartbeatRef.current = 0;
+    remoteScreenLastTimeRef.current = 0;
+    clearRemoteScreenFrameCallback();
+    clearRemoteScreenStreamBindings();
+    if (clearElement) {
+      clearVideoElement(remoteScreenVideoRef.current);
+    }
+    if (mountedRef.current) setRemoteScreenReady(false);
+  }, [clearRemoteScreenFrameCallback, clearRemoteScreenStreamBindings]);
+
   const reportRuntimeIssue = useCallback((error, fallback) => {
     if (!mountedRef.current) return;
     const message = parseErrorMessage(error, fallback);
@@ -295,8 +359,9 @@ function ClassroomPage() {
     if (!mountedRef.current) return;
     setErrorMessage('');
     setRemoteReady(false);
+    markRemoteScreenIdle();
     setStatusText(REMOTE_NOT_JOINED_TEXT);
-  }, []);
+  }, [markRemoteScreenIdle]);
 
   const detachVisibleCameraPreview = useCallback(() => {
     clearVideoElement(localVideoRef.current);
@@ -324,6 +389,7 @@ function ClassroomPage() {
 
   const teardownRemotePlayback = useCallback(async () => {
     clearRemotePlaybackRetry();
+    clearRemoteScreenMonitor();
 
     const player = playerRef.current;
     playerRef.current = null;
@@ -348,7 +414,7 @@ function ClassroomPage() {
       setRemoteReady(false);
       setRemoteScreenReady(false);
     }
-  }, [clearRemotePlaybackRetry]);
+  }, [clearRemotePlaybackRetry, clearRemoteScreenMonitor]);
 
   const scheduleRemotePlaybackRetry = useCallback((delayMs = 3000) => {
     clearRemotePlaybackRetry();
@@ -511,6 +577,132 @@ function ClassroomPage() {
       cleaningRef.current = false;
     }
   }, [clearRemotePlaybackRetry, stopScreenShare, teardownRemotePlayback]);
+
+  useEffect(() => {
+    if (!joined) {
+      clearRemoteScreenMonitor();
+      remoteScreenHeartbeatRef.current = 0;
+      remoteScreenLastTimeRef.current = 0;
+      return undefined;
+    }
+
+    const video = remoteScreenVideoRef.current;
+    if (!video) return undefined;
+
+    let disposed = false;
+
+    const handleTrackEnded = () => {
+      if (disposed) return;
+      markRemoteScreenIdle();
+    };
+
+    const handleTrackMuted = () => {
+      if (disposed) return;
+      markRemoteScreenIdle();
+    };
+
+    const handleTrackUnmuted = () => {
+      if (disposed) return;
+      markRemoteScreenReady();
+    };
+
+    const bindCurrentStream = () => {
+      const nextStream = video.srcObject || null;
+      if (remoteScreenObservedStreamRef.current === nextStream) return;
+
+      clearRemoteScreenStreamBindings();
+
+      if (!nextStream || typeof nextStream.getVideoTracks !== 'function') {
+        if (!nextStream && remoteScreenReadyRef.current) {
+          markRemoteScreenIdle();
+        }
+        return;
+      }
+
+      const removers = [];
+      const addListener = (target, eventName, handler) => {
+        if (!target || typeof target.addEventListener !== 'function') return;
+        try {
+          target.addEventListener(eventName, handler);
+          removers.push(() => {
+            try {
+              target.removeEventListener(eventName, handler);
+            } catch {}
+          });
+        } catch {}
+      };
+
+      nextStream.getVideoTracks().forEach((track) => {
+        addListener(track, 'ended', handleTrackEnded);
+        addListener(track, 'mute', handleTrackMuted);
+        addListener(track, 'unmute', handleTrackUnmuted);
+      });
+      addListener(nextStream, 'removetrack', handleTrackEnded);
+      addListener(nextStream, 'inactive', handleTrackEnded);
+
+      remoteScreenObservedStreamRef.current = nextStream;
+      remoteScreenStreamCleanupRef.current = () => {
+        removers.forEach((remove) => remove());
+      };
+      scheduleFrameWatch();
+    };
+
+    const scheduleFrameWatch = () => {
+      if (disposed || typeof video.requestVideoFrameCallback !== 'function') return;
+      try {
+        remoteScreenFrameCallbackIdRef.current = video.requestVideoFrameCallback(() => {
+          remoteScreenFrameCallbackIdRef.current = null;
+          if (disposed) return;
+          markRemoteScreenReady();
+          scheduleFrameWatch();
+        });
+      } catch {}
+    };
+
+    const inspectRemoteScreen = () => {
+      if (disposed) return;
+
+      bindCurrentStream();
+
+      const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      if (currentTime > remoteScreenLastTimeRef.current) {
+        markRemoteScreenReady();
+      }
+
+      const stream = remoteScreenObservedStreamRef.current;
+      const liveTracks = stream?.getVideoTracks?.().filter((track) => track.readyState === 'live') || [];
+      const hasMutedTrack = liveTracks.some((track) => track.muted);
+      const hasSource = Boolean(stream || safeText(video.currentSrc) || safeText(video.src));
+      const hasUsableTracks = stream ? liveTracks.length > 0 : true;
+
+      if (!hasSource || !hasUsableTracks || hasMutedTrack) {
+        if (remoteScreenReadyRef.current) {
+          markRemoteScreenIdle();
+        }
+        return;
+      }
+
+      const staleForMs = Date.now() - remoteScreenHeartbeatRef.current;
+      if (
+        remoteScreenReadyRef.current
+        && remoteScreenHeartbeatRef.current
+        && staleForMs > 4000
+        && (video.readyState === 0 || video.ended)
+      ) {
+        markRemoteScreenIdle();
+      }
+    };
+
+    bindCurrentStream();
+    scheduleFrameWatch();
+    remoteScreenMonitorTimerRef.current = window.setInterval(inspectRemoteScreen, 1000);
+    inspectRemoteScreen();
+
+    return () => {
+      disposed = true;
+      clearRemoteScreenMonitor();
+    };
+  }, [joined, clearRemoteScreenMonitor, clearRemoteScreenStreamBindings, markRemoteScreenIdle, markRemoteScreenReady]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -861,11 +1053,12 @@ function ClassroomPage() {
                 autoPlay
                 playsInline
                 className={`classroom-presentation-video ${remoteScreenReady ? 'is-active' : ''}`}
-                onLoadedData={() => setRemoteScreenReady(true)}
-                onCanPlay={() => setRemoteScreenReady(true)}
-                onPlaying={() => setRemoteScreenReady(true)}
-                onEmptied={() => setRemoteScreenReady(false)}
-                onEnded={() => setRemoteScreenReady(false)}
+                onLoadedData={markRemoteScreenReady}
+                onCanPlay={markRemoteScreenReady}
+                onPlaying={markRemoteScreenReady}
+                onEmptied={() => markRemoteScreenIdle()}
+                onEnded={() => markRemoteScreenIdle()}
+                onAbort={() => markRemoteScreenIdle()}
               />
               {!remoteScreenReady ? (
                 <div className="classroom-video-placeholder">{presentationPlaceholder}</div>
