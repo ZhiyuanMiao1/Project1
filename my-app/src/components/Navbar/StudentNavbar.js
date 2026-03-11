@@ -8,10 +8,12 @@ import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StudentAuthModal from '../AuthModal/StudentAuthModal';
 import CourseOnboardingModal from '../CourseOnboardingModal/CourseOnboardingModal';
 import BrandMark from '../common/BrandMark/BrandMark';
+import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 
@@ -47,6 +49,7 @@ function StudentNavbar() {
   const isMentorActive = location.pathname.startsWith('/mentor');
 
   const [isExactAnimating, setIsExactAnimating] = useState(false);
+  const { totalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
 
   // 初始化登录状态与监听登录变化
   useEffect(() => {
@@ -259,7 +262,7 @@ function StudentNavbar() {
             发布课程需求
           </button>
           <span
-            className="icon-circle"
+            className="icon-circle nav-menu-trigger"
             ref={userIconRef}
             onClick={() => {
               setShowAuthModal(true);
@@ -280,6 +283,14 @@ function StudentNavbar() {
             ) : (
               <i className="fa fa-user"></i>
             )}
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalUnreadCount}
+                variant="nav"
+                className="nav-unread-badge"
+                ariaLabel="未读消息"
+              />
+            ) : null}
           </span>
         </div>
       </div>
@@ -407,6 +418,7 @@ function StudentNavbar() {
           leftAlignRef={publishBtnRef}
           forceLogin={forceLogin}
           isLoggedIn={isLoggedIn}
+          unreadCount={totalUnreadCount}
         />
       )}
 

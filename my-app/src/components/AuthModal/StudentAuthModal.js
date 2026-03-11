@@ -9,6 +9,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiCreditCard, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 
 const StudentAuthModal = ({
   onClose,
@@ -20,6 +21,7 @@ const StudentAuthModal = ({
   forceLogin = false,
   align = 'left',
   alignOffset = 0,
+  unreadCount = 0,
 }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
@@ -171,11 +173,14 @@ const StudentAuthModal = ({
                 课程
               </button>
               <button
-                className="auth-modal-option-button"
+                className="auth-modal-option-button auth-modal-option-button--with-badge"
                 onClick={() => handleAuthAction('messages')}
               >
-                <i className="far fa-comment auth-icon" aria-hidden="true"></i>
-                消息
+                <span className="auth-modal-option-main">
+                  <i className="far fa-comment auth-icon" aria-hidden="true"></i>
+                  消息
+                </span>
+                <UnreadBadge count={unreadCount} variant="menu" ariaLabel="未读消息" />
               </button>
               <button
                 className="auth-modal-option-button auth-divider"

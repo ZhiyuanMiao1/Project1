@@ -10,8 +10,9 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 
-const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0 }) => {
+const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = 0 }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -216,11 +217,14 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                 课程
               </button>
               <button
-                className="auth-modal-option-button auth-divider"
+                className="auth-modal-option-button auth-divider auth-modal-option-button--with-badge"
                 onClick={() => handleAuthAction('messages')}
               >
-                <i className="far fa-comment auth-icon" aria-hidden="true"></i>
-                消息
+                <span className="auth-modal-option-main">
+                  <i className="far fa-comment auth-icon" aria-hidden="true"></i>
+                  消息
+                </span>
+                <UnreadBadge count={unreadCount} variant="menu" ariaLabel="未读消息" />
               </button>
               <button
                 className="auth-modal-option-button"

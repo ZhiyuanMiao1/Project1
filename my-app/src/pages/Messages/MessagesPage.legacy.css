@@ -271,6 +271,20 @@
   justify-content: flex-start;
 }
 
+.message-thread-unread-badge {
+  margin: 2px 2px 0 0;
+}
+
+.message-viewport-item {
+  display: block;
+  width: 100%;
+}
+
+.message-viewport-item--decision {
+  display: flex;
+  justify-content: center;
+}
+
 
 .message-more {
   display: inline-flex;

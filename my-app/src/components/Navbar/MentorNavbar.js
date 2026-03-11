@@ -8,11 +8,13 @@ import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 import StartDateModal from '../StartDateModal/StartDateModal';
 import MentorAuthModal from '../AuthModal/MentorAuthModal'; // 引入学生版本的注册和登录弹窗组件
 import BrandMark from '../common/BrandMark/BrandMark';
+import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import { courseTypeToCnLabel } from '../../constants/courseMappings';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -44,6 +46,7 @@ function MentorNavbar() {
   const location = useLocation(); // 获取当前路径
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 无权限（审核中/非导师）
+  const { totalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
@@ -211,7 +214,7 @@ function MentorNavbar() {
             编辑个人名片
           </button>
           <span
-            className="icon-circle"
+            className="icon-circle nav-menu-trigger"
             ref={userIconRef}
             onClick={() => {
               setShowAuthModal(true);
@@ -232,6 +235,14 @@ function MentorNavbar() {
             ) : (
               <i className="fa fa-user"></i>
             )}
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalUnreadCount}
+                variant="nav"
+                className="nav-unread-badge"
+                ariaLabel="未读消息"
+              />
+            ) : null}
           </span>
         </div>
       </div>
@@ -345,6 +356,7 @@ function MentorNavbar() {
           anchorRef={userIconRef}
           leftAlignRef={editProfileBtnRef}
           forceLogin={forceLogin}
+          unreadCount={totalUnreadCount}
         />
       )}
     </header>

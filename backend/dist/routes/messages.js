@@ -17,6 +17,7 @@ const isMissingMessagesSchemaError = (err) => {
     return (message.includes('message_threads')
         || message.includes('message_items')
         || message.includes('message_item_hidden_for_users')
+        || message.includes('message_item_reads')
         || message.includes('appointment_statuses')
         || message.includes('course_sessions'));
 };
@@ -315,6 +316,7 @@ const toScheduleCard = (row, currentUserId) => {
         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
         status: normalizedStatus,
         canRecall: Number(row?.sender_user_id) === currentUserId && normalizedStatus === 'pending',
+        isRead: Number(row?.is_read_by_me) === 1,
         courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
         courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
     };
@@ -981,6 +983,85 @@ router.get('/threads/:threadId/availability', auth_1.requireAuth, async (req, re
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
+router.get('/unread-summary', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    try {
+        const rows = await (0, db_1.query)(`
+      SELECT COUNT(*) AS unread_count
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN message_item_hidden_for_users mihfu
+        ON mihfu.message_item_id = mi.id
+       AND mihfu.user_id = ?
+      LEFT JOIN message_item_reads mir
+        ON mir.message_item_id = mi.id
+       AND mir.user_id = ?
+      WHERE (t.student_user_id = ? OR t.mentor_user_id = ?)
+        AND mi.sender_user_id <> ?
+        AND mihfu.message_item_id IS NULL
+        AND mir.message_item_id IS NULL
+      `, [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]);
+        return res.json({
+            totalUnreadCount: Math.max(0, Number(rows?.[0]?.unread_count || 0)),
+        });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Fetch unread summary error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/read', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const rawMessageIds = Array.isArray(req.body?.messageIds) ? req.body.messageIds : [];
+    const messageIds = Array.from(new Set(rawMessageIds
+        .map((value) => toPositiveIntOrNull(value))
+        .filter((value) => value != null))).slice(0, 100);
+    if (messageIds.length === 0) {
+        return res.json({ readMessageIds: [] });
+    }
+    const placeholders = messageIds.map(() => '?').join(',');
+    try {
+        const eligibleRows = await (0, db_1.query)(`
+      SELECT mi.id
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN message_item_hidden_for_users mihfu
+        ON mihfu.message_item_id = mi.id
+       AND mihfu.user_id = ?
+      WHERE mi.id IN (${placeholders})
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+        AND mi.sender_user_id <> ?
+        AND mihfu.message_item_id IS NULL
+      `, [req.user.id, ...messageIds, req.user.id, req.user.id, req.user.id]);
+        const readableIds = Array.from(new Set((eligibleRows || [])
+            .map((row) => toPositiveIntOrNull(row?.id))
+            .filter((value) => value != null)));
+        if (readableIds.length === 0) {
+            return res.json({ readMessageIds: [] });
+        }
+        const valuesSql = readableIds.map(() => '(?, ?)').join(',');
+        const params = readableIds.flatMap((messageId) => [messageId, req.user.id]);
+        await (0, db_1.query)(`
+      INSERT IGNORE INTO message_item_reads (message_item_id, user_id)
+      VALUES ${valuesSql}
+      `, params);
+        return res.json({
+            readMessageIds: readableIds.map((id) => String(id)),
+        });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Mark messages read error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
 router.get('/threads', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -1046,6 +1127,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 decisionMessages: [],
                 latestDecision: null,
                 messages: [],
+                unreadCount: 0,
             };
         });
         const threadIds = threads
@@ -1054,6 +1136,28 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         let hiddenAppointmentIds = new Set();
         if (threadIds.length > 0) {
             const placeholders = threadIds.map(() => '?').join(',');
+            const unreadCountRows = await (0, db_1.query)(`
+        SELECT mi.thread_id, COUNT(*) AS unread_count
+        FROM message_items mi
+        LEFT JOIN message_item_hidden_for_users mihfu
+          ON mihfu.message_item_id = mi.id
+         AND mihfu.user_id = ?
+        LEFT JOIN message_item_reads mir
+          ON mir.message_item_id = mi.id
+         AND mir.user_id = ?
+        WHERE mi.thread_id IN (${placeholders})
+          AND mi.sender_user_id <> ?
+          AND mihfu.message_item_id IS NULL
+          AND mir.message_item_id IS NULL
+        GROUP BY mi.thread_id
+        `, [req.user.id, req.user.id, ...threadIds, req.user.id]);
+            const unreadCountByThread = new Map((unreadCountRows || []).map((row) => [
+                String(row?.thread_id || ''),
+                Math.max(0, Number(row?.unread_count || 0)),
+            ]));
+            for (const thread of threads) {
+                thread.unreadCount = unreadCountByThread.get(String(thread.id)) || 0;
+            }
             const hiddenRows = await (0, db_1.query)(`
         SELECT message_item_id
         FROM message_item_hidden_for_users
@@ -1063,12 +1167,25 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 .map((row) => toPositiveIntOrNull(row?.message_item_id))
                 .filter((id) => id != null));
             const decisionRows = await (0, db_1.query)(`
-        SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at
+        SELECT
+          mi.id,
+          mi.thread_id,
+          mi.sender_user_id,
+          mi.payload_json,
+          mi.created_at,
+          CASE
+            WHEN mi.sender_user_id = ? THEN 1
+            WHEN mir.message_item_id IS NULL THEN 0
+            ELSE 1
+          END AS is_read_by_me
         FROM message_items mi
+        LEFT JOIN message_item_reads mir
+          ON mir.message_item_id = mi.id
+         AND mir.user_id = ?
         WHERE mi.thread_id IN (${placeholders})
           AND mi.message_type = 'appointment_decision'
         ORDER BY mi.thread_id ASC, mi.id ASC
-        `, threadIds);
+        `, [req.user.id, req.user.id, ...threadIds]);
             const decisionByThread = new Map();
             for (const row of decisionRows || []) {
                 const tid = String(row?.thread_id || '').trim();
@@ -1079,14 +1196,28 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 decisionByThread.get(tid).push(row);
             }
             const items = await (0, db_1.query)(`
-        SELECT mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at,
+        SELECT
+          mi.id,
+          mi.thread_id,
+          mi.sender_user_id,
+          mi.payload_json,
+          mi.created_at,
           COALESCE(ast.status, 'pending') AS appointment_status
+          ,
+          CASE
+            WHEN mi.sender_user_id = ? THEN 1
+            WHEN mir.message_item_id IS NULL THEN 0
+            ELSE 1
+          END AS is_read_by_me
         FROM message_items mi
         LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+        LEFT JOIN message_item_reads mir
+          ON mir.message_item_id = mi.id
+         AND mir.user_id = ?
         WHERE mi.thread_id IN (${placeholders})
           AND mi.message_type = 'appointment_card'
         ORDER BY mi.thread_id ASC, mi.id ASC
-        `, threadIds);
+        `, [req.user.id, req.user.id, ...threadIds]);
             const courseSessionLookup = new Map();
             const pairParams = [];
             const pairClauses = [];
@@ -1209,6 +1340,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                         status,
                         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
                         isByMe: Number(row?.sender_user_id) === req.user.id,
+                        isRead: Number(row?.is_read_by_me) === 1,
                     };
                 })
                     .filter(Boolean);
@@ -1223,7 +1355,8 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 }
             }
         }
-        return res.json({ threads });
+        const totalUnreadCount = threads.reduce((sum, thread) => sum + Math.max(0, Number(thread?.unreadCount || 0)), 0);
+        return res.json({ threads, totalUnreadCount });
     }
     catch (e) {
         if (isMissingMessagesSchemaError(e)) {

@@ -153,6 +153,18 @@
     color: #000; /* 默认图标颜色 */
     transition: color 0.3s ease; /* 为图标颜色添加过渡效果 */
   }
+
+  .nav-menu-trigger {
+    position: relative;
+    overflow: visible;
+  }
+
+  .nav-unread-badge {
+    position: absolute;
+    top: -6px;
+    right: -8px;
+    pointer-events: none;
+  }
   
   .icon-circle:hover i, .icon-circle:hover svg {
     color: #333; /* 鼠标悬停时更改图标颜色 */

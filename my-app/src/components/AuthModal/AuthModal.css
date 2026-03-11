@@ -49,6 +49,17 @@
     position: relative;
 }
 
+.auth-modal-option-main {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.auth-modal-option-button--with-badge {
+    justify-content: space-between;
+    gap: 12px;
+}
+
 /* Leading icon spacing */
 .auth-modal-option-button .auth-icon {
     width: 16px;

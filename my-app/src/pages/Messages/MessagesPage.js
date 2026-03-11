@@ -1,11 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
+import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
 import {
@@ -337,6 +339,9 @@ function MessagesPage() {
   const rescheduleScrollRef = useRef(null);
   const rescheduleResizeRef = useRef(null);
   const timelineAutoScrollMetaRef = useRef({ threadId: null, length: 0 });
+  const pendingReadItemsRef = useRef(new Map());
+  const scheduledReadIdsRef = useRef(new Set());
+  const readFlushTimerRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -426,6 +431,139 @@ function MessagesPage() {
   }, [rescheduleDate]);
 
   const hasThreads = threads.length > 0;
+  const totalUnreadCount = useMemo(() => {
+    return threads.reduce((sum, thread) => sum + Math.max(0, Number(thread?.unreadCount || 0)), 0);
+  }, [threads]);
+
+  const emitUnreadSummaryFromThreads = useCallback((threadRows, explicitTotalUnreadCount = null) => {
+    const nextTotal = typeof explicitTotalUnreadCount === 'number'
+      ? Math.max(0, Number(explicitTotalUnreadCount || 0))
+      : (Array.isArray(threadRows)
+        ? threadRows.reduce((sum, thread) => sum + Math.max(0, Number(thread?.unreadCount || 0)), 0)
+        : 0);
+    emitMessageUnreadChanged({ totalUnreadCount: nextTotal });
+    return nextTotal;
+  }, []);
+
+  const applyThreadsPayload = useCallback((payload) => {
+    const nextThreads = Array.isArray(payload?.threads) ? payload.threads : [];
+    setThreads(nextThreads);
+    setThreadsStatus('loaded');
+    setThreadsError('');
+    emitUnreadSummaryFromThreads(nextThreads, payload?.totalUnreadCount);
+    return nextThreads;
+  }, [emitUnreadSummaryFromThreads]);
+
+  const applyReadStateToThreads = useCallback((sourceThreads, readMessageIdsByThread) => {
+    if (!Array.isArray(sourceThreads) || !(readMessageIdsByThread instanceof Map) || readMessageIdsByThread.size === 0) {
+      return sourceThreads;
+    }
+
+    return sourceThreads.map((thread) => {
+      const threadId = String(thread?.id || '');
+      const readIds = readMessageIdsByThread.get(threadId);
+      if (!(readIds instanceof Set) || readIds.size === 0) return thread;
+
+      let newlyReadCount = 0;
+
+      const markScheduleCardRead = (card) => {
+        if (!card || typeof card !== 'object') return card;
+        const cardId = String(card?.id || '');
+        const isIncomingUnread = card?.direction === 'incoming' && !card?.isRead;
+        if (!cardId || !isIncomingUnread || !readIds.has(cardId)) return card;
+        newlyReadCount += 1;
+        return { ...card, isRead: true };
+      };
+
+      const markDecisionRead = (decision) => {
+        if (!decision || typeof decision !== 'object') return decision;
+        const decisionId = String(decision?.id || '');
+        const isIncomingUnread = !decision?.isByMe && !decision?.isRead;
+        if (!decisionId || !isIncomingUnread || !readIds.has(decisionId)) return decision;
+        newlyReadCount += 1;
+        return { ...decision, isRead: true };
+      };
+
+      const nextSchedule = markScheduleCardRead(thread?.schedule);
+      const nextScheduleHistory = Array.isArray(thread?.scheduleHistory)
+        ? thread.scheduleHistory.map(markScheduleCardRead)
+        : [];
+      const nextDecisionMessages = Array.isArray(thread?.decisionMessages)
+        ? thread.decisionMessages.map(markDecisionRead)
+        : [];
+
+      if (newlyReadCount === 0) return thread;
+
+      return {
+        ...thread,
+        schedule: nextSchedule,
+        scheduleHistory: nextScheduleHistory,
+        decisionMessages: nextDecisionMessages,
+        unreadCount: Math.max(0, Number(thread?.unreadCount || 0) - newlyReadCount),
+      };
+    });
+  }, []);
+
+  const flushPendingReadItems = useCallback(async () => {
+    if (readFlushTimerRef.current) {
+      window.clearTimeout(readFlushTimerRef.current);
+      readFlushTimerRef.current = null;
+    }
+
+    const pendingEntries = Array.from(pendingReadItemsRef.current.entries());
+    if (pendingEntries.length === 0) return;
+    pendingReadItemsRef.current = new Map();
+
+    try {
+      const res = await api.post('/api/messages/read', {
+        messageIds: pendingEntries.map(([messageId]) => messageId),
+      });
+      const readMessageIds = Array.isArray(res?.data?.readMessageIds)
+        ? res.data.readMessageIds.map((id) => String(id))
+        : pendingEntries.map(([messageId]) => String(messageId));
+
+      const readIdsSet = new Set(readMessageIds);
+      const readMessageIdsByThread = new Map();
+
+      pendingEntries.forEach(([messageId, threadId]) => {
+        const normalizedMessageId = String(messageId || '');
+        const normalizedThreadId = String(threadId || '');
+        if (!normalizedMessageId || !normalizedThreadId || !readIdsSet.has(normalizedMessageId)) {
+          scheduledReadIdsRef.current.delete(normalizedMessageId);
+          return;
+        }
+        if (!readMessageIdsByThread.has(normalizedThreadId)) {
+          readMessageIdsByThread.set(normalizedThreadId, new Set());
+        }
+        readMessageIdsByThread.get(normalizedThreadId).add(normalizedMessageId);
+      });
+
+      setThreads((prev) => {
+        const nextThreads = applyReadStateToThreads(prev, readMessageIdsByThread);
+        emitUnreadSummaryFromThreads(nextThreads);
+        return nextThreads;
+      });
+    } catch {
+      pendingEntries.forEach(([messageId]) => {
+        scheduledReadIdsRef.current.delete(String(messageId || ''));
+      });
+    }
+  }, [applyReadStateToThreads, emitUnreadSummaryFromThreads]);
+
+  const queueVisibleMessageRead = useCallback((messageId, threadId) => {
+    const normalizedMessageId = String(messageId || '').trim();
+    const normalizedThreadId = String(threadId || '').trim();
+    if (!normalizedMessageId || !normalizedThreadId) return;
+    if (scheduledReadIdsRef.current.has(normalizedMessageId)) return;
+
+    scheduledReadIdsRef.current.add(normalizedMessageId);
+    pendingReadItemsRef.current.set(normalizedMessageId, normalizedThreadId);
+
+    if (readFlushTimerRef.current) return;
+    readFlushTimerRef.current = window.setTimeout(() => {
+      flushPendingReadItems();
+    }, 140);
+  }, [flushPendingReadItems]);
 
   useEffect(() => {
     let alive = true;
@@ -433,6 +571,13 @@ function MessagesPage() {
       setThreads([]);
       setThreadsStatus('idle');
       setThreadsError('');
+      pendingReadItemsRef.current = new Map();
+      scheduledReadIdsRef.current = new Set();
+      if (readFlushTimerRef.current) {
+        window.clearTimeout(readFlushTimerRef.current);
+        readFlushTimerRef.current = null;
+      }
+      emitMessageUnreadChanged({ totalUnreadCount: 0 });
       return () => { alive = false; };
     }
 
@@ -441,9 +586,7 @@ function MessagesPage() {
     api.get('/api/messages/threads')
       .then((res) => {
         if (!alive) return;
-        const next = Array.isArray(res?.data?.threads) ? res.data.threads : [];
-        setThreads(next);
-        setThreadsStatus('loaded');
+        applyThreadsPayload(res?.data);
       })
       .catch((err) => {
         if (!alive) return;
@@ -454,7 +597,7 @@ function MessagesPage() {
       });
 
     return () => { alive = false; };
-  }, [isLoggedIn]);
+  }, [applyThreadsPayload, isLoggedIn]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [openMoreId, setOpenMoreId] = useState(null);
@@ -612,6 +755,10 @@ function MessagesPage() {
       clearTimeout(scheduleCardSendTimeoutRef.current);
       scheduleCardSendTimeoutRef.current = null;
     }
+    if (readFlushTimerRef.current) {
+      window.clearTimeout(readFlushTimerRef.current);
+      readFlushTimerRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -672,12 +819,52 @@ function MessagesPage() {
 
   const reloadThreads = async () => {
     const res = await api.get('/api/messages/threads');
-    const nextThreads = Array.isArray(res?.data?.threads) ? res.data.threads : [];
-    setThreads(nextThreads);
-    setThreadsStatus('loaded');
-    setThreadsError('');
-    return nextThreads;
+    return applyThreadsPayload(res?.data);
   };
+
+  useEffect(() => {
+    if (!isLoggedIn || !activeThread?.id) return undefined;
+
+    const scrollRoot = messageBodyScrollRef.current;
+    if (!scrollRoot) return undefined;
+
+    const unreadTargets = Array.from(
+      scrollRoot.querySelectorAll('[data-message-id][data-unread="true"]')
+    );
+    if (unreadTargets.length === 0) return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+
+        const ratio = Number(entry.intersectionRatio || 0);
+        const rootBounds = entry.rootBounds;
+        const rect = entry.boundingClientRect;
+        const fullyInsideRoot = Boolean(
+          rootBounds
+          && rect.top >= rootBounds.top + 4
+          && rect.bottom <= rootBounds.bottom - 4
+        );
+        if (ratio < 0.55 && !fullyInsideRoot) return;
+
+        const target = entry.target;
+        const messageId = target.getAttribute('data-message-id');
+        const threadId = target.getAttribute('data-thread-id') || String(activeThread.id);
+        if (!messageId) return;
+
+        queueVisibleMessageRead(messageId, threadId);
+        observer.unobserve(target);
+      });
+    }, {
+      root: scrollRoot,
+      threshold: [0.35, 0.55, 0.75, 1],
+      rootMargin: '-4% 0px -4% 0px',
+    });
+
+    unreadTargets.forEach((target) => observer.observe(target));
+
+    return () => observer.disconnect();
+  }, [activeThread?.id, isLoggedIn, queueVisibleMessageRead, timelineItems]);
 
   const persistAppointmentDecision = async (appointmentId, status) => {
     if (!appointmentId || !status) return false;
@@ -1243,11 +1430,12 @@ function MessagesPage() {
             <div className="messages-list">
               {threads.length === 0
                 ? null
-                : threads.map((thread) => {
-                    const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
-                    const avatarUrl = resolveAvatarSrc({
-                      src: typeof thread?.counterpartAvatarUrl === 'string' ? thread.counterpartAvatarUrl.trim() : '',
-                      name: threadCounterpartDisplayName,
+                  : threads.map((thread) => {
+                      const threadCounterpartDisplayName = getThreadCounterpartDisplayName(thread);
+                      const threadUnreadCount = Math.max(0, Number(thread?.unreadCount || 0));
+                      const avatarUrl = resolveAvatarSrc({
+                        src: typeof thread?.counterpartAvatarUrl === 'string' ? thread.counterpartAvatarUrl.trim() : '',
+                        name: threadCounterpartDisplayName,
                       seed: thread?.id || threadCounterpartDisplayName || 'message-list',
                       size: 192,
                     });
@@ -1294,6 +1482,12 @@ function MessagesPage() {
                             </div>
                           <div className="message-meta-col">
                             <div className="message-time">{displayDate}</div>
+                            <UnreadBadge
+                              count={threadUnreadCount}
+                              variant="thread"
+                              className="message-thread-unread-badge"
+                              ariaLabel="该会话未读消息"
+                            />
                             <div
                               className="message-more"
                               aria-label="更多操作"
@@ -1394,9 +1588,18 @@ function MessagesPage() {
                       const decisionStatus = item?.decision?.status;
                       if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected') return null;
                       const verb = decisionStatus === 'accepted' ? '\u63a5\u53d7' : '\u62d2\u7edd';
+                      const isUnreadIncoming = !item?.decision?.isByMe && !item?.decision?.isRead;
                       return (
-                        <div key={item.key} className="message-decision-notice" role="status">
-                          {`${activeCounterpartDisplayName}${verb}\u4e86\u4f60\u7684\u9080\u8bf7`}
+                        <div
+                          key={item.key}
+                          className={`message-viewport-item message-viewport-item--decision ${isUnreadIncoming ? 'is-unread' : ''}`}
+                          data-message-id={item?.decision?.id || ''}
+                          data-thread-id={activeThread?.id ? String(activeThread.id) : ''}
+                          data-unread={isUnreadIncoming ? 'true' : 'false'}
+                        >
+                          <div className="message-decision-notice" role="status">
+                            {`${activeCounterpartDisplayName}${verb}\u4e86\u4f60\u7684\u9080\u8bf7`}
+                          </div>
                         </div>
                       );
                     }
@@ -1421,29 +1624,37 @@ function MessagesPage() {
                       && normalizeScheduleStatus(scheduleCard?.status) === 'pending'
                     );
                     const isExiting = exitingMessageActionIds.includes(String(scheduleCard?.id));
+                    const isUnreadIncoming = scheduleCard?.direction === 'incoming' && !scheduleCard?.isRead;
 
                     return (
-                      <AppointmentCard
+                      <div
                         key={item.key}
-                        thread={activeThread}
-                        scheduleCard={scheduleCard}
-                        activeAvatarSrc={activeAvatarUrl}
-                        activeAvatarName={activeCounterpartDisplayName}
-                        scheduleTitle={scheduleTitle}
-                        windowText={windowText}
-                        cardHoverTime={cardHoverTime}
-                        isSendingCard={isSendingCard}
-                        isExiting={isExiting}
-                        appointmentBusyId={appointmentBusyId}
-                        messageActionBusyId={messageActionBusyId}
-                        openMessageMenuId={openScheduleMessageMenuId}
-                        onOpenMessageMenuChange={setOpenScheduleMessageMenuId}
-                        onDecision={handleAppointmentDecision}
-                        onReschedule={openRescheduleFor}
-                        onScheduleNextLesson={openNextLessonFor}
-                        onDeleteForMe={handleDeleteForMe}
-                        onRecall={handleRecall}
-                      />
+                        className={`message-viewport-item message-viewport-item--card ${isUnreadIncoming ? 'is-unread' : ''}`}
+                        data-message-id={scheduleCard?.id || ''}
+                        data-thread-id={activeThread?.id ? String(activeThread.id) : ''}
+                        data-unread={isUnreadIncoming ? 'true' : 'false'}
+                      >
+                        <AppointmentCard
+                          thread={activeThread}
+                          scheduleCard={scheduleCard}
+                          activeAvatarSrc={activeAvatarUrl}
+                          activeAvatarName={activeCounterpartDisplayName}
+                          scheduleTitle={scheduleTitle}
+                          windowText={windowText}
+                          cardHoverTime={cardHoverTime}
+                          isSendingCard={isSendingCard}
+                          isExiting={isExiting}
+                          appointmentBusyId={appointmentBusyId}
+                          messageActionBusyId={messageActionBusyId}
+                          openMessageMenuId={openScheduleMessageMenuId}
+                          onOpenMessageMenuChange={setOpenScheduleMessageMenuId}
+                          onDecision={handleAppointmentDecision}
+                          onReschedule={openRescheduleFor}
+                          onScheduleNextLesson={openNextLessonFor}
+                          onDeleteForMe={handleDeleteForMe}
+                          onRecall={handleRecall}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -1465,6 +1676,7 @@ function MessagesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           isLoggedIn={isLoggedIn}
+          unreadCount={totalUnreadCount}
           align="right"
           alignOffset={23}
         />
@@ -1476,6 +1688,7 @@ function MessagesPage() {
           anchorRef={menuAnchorRef}
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
+          unreadCount={totalUnreadCount}
           align="right"
           alignOffset={23}
         />
