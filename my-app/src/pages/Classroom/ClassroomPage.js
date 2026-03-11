@@ -29,6 +29,26 @@ const parseErrorMessage = (error, fallback) => {
   return fallback;
 };
 
+const getErrorCode = (error) => {
+  const code = Number(error?.code ?? error?.errorCode ?? error?.response?.data?.code);
+  return Number.isFinite(code) ? code : null;
+};
+
+const isUserCancelledScreenShareError = (error) => {
+  const message = [
+    safeText(error?.message),
+    safeText(error?.reason),
+    safeText(error?.description),
+    safeText(error?.msg),
+    safeText(error?.name),
+    safeText(error?.response?.data?.error),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (getErrorCode(error) === 10013) return true;
+
+  return /permission denied by user|denied by user|permission dismissed|notallowederror|aborterror|cancelled|canceled/.test(message);
+};
+
 const looksLikeSdkErrorObject = (value) => {
   if (!value || typeof value !== 'object') return false;
   return [
@@ -239,6 +259,7 @@ function ClassroomPage() {
   const mountedRef = useRef(true);
   const cleaningRef = useRef(false);
   const screenActionPendingRef = useRef(false);
+  const screenShareCancelSilenceUntilRef = useRef(0);
   const cameraActionPendingRef = useRef(false);
   const cameraPermissionPrimeAttemptedRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
@@ -363,12 +384,21 @@ function ClassroomPage() {
     if (mountedRef.current) setRemoteScreenReady(false);
   }, [clearRemoteScreenFrameCallback, clearRemoteScreenStreamBindings]);
 
+  const shouldSilenceScreenShareCancelError = useCallback((error) => {
+    if (!isUserCancelledScreenShareError(error)) return false;
+    return screenActionPendingRef.current || Date.now() <= screenShareCancelSilenceUntilRef.current;
+  }, []);
+
   const reportRuntimeIssue = useCallback((error, fallback) => {
     if (!mountedRef.current) return;
+    if (shouldSilenceScreenShareCancelError(error)) {
+      setErrorMessage('');
+      return;
+    }
     const message = parseErrorMessage(error, fallback);
     setErrorMessage(message);
     setStatusText(message);
-  }, []);
+  }, [shouldSilenceScreenShareCancelError]);
 
   const applyRemoteNotJoinedState = useCallback((options = {}) => {
     const nextStatusText = safeText(options.statusText) || REMOTE_NOT_JOINED_TEXT;
@@ -572,6 +602,7 @@ function ClassroomPage() {
     if (mountedRef.current) {
       setScreenSharing(false);
       setLocalScreenReady(false);
+      screenShareCancelSilenceUntilRef.current = 0;
       if (!silent) {
         setErrorMessage('');
         setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已停止共享屏幕，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
@@ -590,6 +621,7 @@ function ClassroomPage() {
       remoteRecoveryPendingRef.current = false;
       remoteRecoveryTimestampRef.current = 0;
       screenActionPendingRef.current = false;
+      screenShareCancelSilenceUntilRef.current = 0;
       cameraActionPendingRef.current = false;
       cameraPermissionPrimeAttemptedRef.current = false;
 
@@ -987,6 +1019,12 @@ function ClassroomPage() {
         return;
       }
       if (!reason) return;
+      if (shouldSilenceScreenShareCancelError(reason)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        if (mountedRef.current) setErrorMessage('');
+        return;
+      }
       if (shouldRecoverFromRuntimePayload(reason)) {
         event.preventDefault?.();
         event.stopImmediatePropagation?.();
@@ -1005,6 +1043,12 @@ function ClassroomPage() {
         return;
       }
       if (!runtimePayload) return;
+      if (shouldSilenceScreenShareCancelError(runtimePayload)) {
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        if (mountedRef.current) setErrorMessage('');
+        return;
+      }
       if (shouldRecoverFromRuntimePayload(runtimePayload)) {
         event.preventDefault?.();
         event.stopImmediatePropagation?.();
@@ -1020,7 +1064,7 @@ function ClassroomPage() {
       window.removeEventListener('error', handleWindowError, true);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
     };
-  }, [recoverRemotePlayback, reportRuntimeIssue]);
+  }, [recoverRemotePlayback, reportRuntimeIssue, shouldSilenceScreenShareCancelError]);
 
   const handleToggleMic = useCallback(() => {
     const pusher = pusherRef.current;
@@ -1088,7 +1132,9 @@ function ClassroomPage() {
         throw new Error('当前阿里云音视频 SDK 不支持共享屏幕');
       }
 
+      screenShareCancelSilenceUntilRef.current = Date.now() + 3000;
       await pusher.startScreenShare();
+      screenShareCancelSilenceUntilRef.current = 0;
       if (typeof pusher.updateScreenVideoProfile === 'function') {
         try {
           await pusher.updateScreenVideoProfile(
@@ -1124,6 +1170,11 @@ function ClassroomPage() {
       }
     } catch (error) {
       await stopScreenShare({ silent: true });
+      if (isUserCancelledScreenShareError(error)) {
+        if (mountedRef.current) setErrorMessage('');
+        return;
+      }
+      screenShareCancelSilenceUntilRef.current = 0;
       if (mountedRef.current) {
         setErrorMessage(parseErrorMessage(error, '共享屏幕失败'));
       }
