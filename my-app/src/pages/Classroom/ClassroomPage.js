@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiMic, FiMicOff, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
+import { FiMic, FiMicOff, FiMonitor, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import api from '../../api/client';
@@ -160,13 +160,19 @@ function ClassroomPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
   const localVideoRef = useRef(null);
+  const localScreenVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteScreenVideoRef = useRef(null);
   const pusherRef = useRef(null);
   const playerRef = useRef(null);
   const liveAuthRef = useRef(null);
+  const screenPreviewStreamRef = useRef(null);
+  const screenTrackRef = useRef(null);
+  const screenTrackEndedHandlerRef = useRef(null);
   const joinedRef = useRef(false);
   const mountedRef = useRef(true);
   const cleaningRef = useRef(false);
+  const screenActionPendingRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
   const remoteReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
@@ -180,12 +186,37 @@ function ClassroomPage() {
   const [micMuted, setMicMuted] = useState(false);
   const [cameraMuted, setCameraMuted] = useState(true);
   const [remoteReady, setRemoteReady] = useState(false);
+  const [screenShareSupported, setScreenShareSupported] = useState(false);
+  const [screenSharing, setScreenSharing] = useState(false);
+  const [screenActionPending, setScreenActionPending] = useState(false);
+  const [localScreenReady, setLocalScreenReady] = useState(false);
+  const [remoteScreenReady, setRemoteScreenReady] = useState(false);
 
   const backHref = useMemo(
     () => (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses'),
     [session?.roleInSession]
   );
   const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || '对方', [session?.remoteUserName]);
+  const presentationMode = useMemo(() => {
+    if (remoteScreenReady) return 'remote';
+    if (screenSharing || localScreenReady) return 'local';
+    return '';
+  }, [localScreenReady, remoteScreenReady, screenSharing]);
+  const presentationVisible = useMemo(
+    () => Boolean(presentationMode) || screenActionPending,
+    [presentationMode, screenActionPending]
+  );
+  const presentationTitle = useMemo(() => {
+    if (presentationMode === 'remote') return `${remoteLabel}正在共享屏幕`;
+    if (presentationMode === 'local') return '正在共享屏幕';
+    if (screenActionPending) return '正在准备共享屏幕';
+    return '共享屏幕';
+  }, [presentationMode, remoteLabel, screenActionPending]);
+  const presentationPlaceholder = useMemo(() => {
+    if (presentationMode === 'remote') return `等待${remoteLabel}的共享画面...`;
+    if (presentationMode === 'local' || screenActionPending) return '正在准备共享屏幕...';
+    return '暂未开始共享屏幕';
+  }, [presentationMode, remoteLabel, screenActionPending]);
 
   remoteReadyRef.current = remoteReady;
   remoteLabelRef.current = remoteLabel;
@@ -194,6 +225,19 @@ function ClassroomPage() {
     if (!remoteRetryTimerRef.current) return;
     window.clearTimeout(remoteRetryTimerRef.current);
     remoteRetryTimerRef.current = 0;
+  }, []);
+
+  const clearScreenTrackListener = useCallback(() => {
+    const track = screenTrackRef.current;
+    const handler = screenTrackEndedHandlerRef.current;
+    if (track && handler) {
+      try {
+        track.removeEventListener('ended', handler);
+      } catch {}
+    }
+    screenTrackRef.current = null;
+    screenTrackEndedHandlerRef.current = null;
+    screenPreviewStreamRef.current = null;
   }, []);
 
   const teardownRemotePlayback = useCallback(async () => {
@@ -216,8 +260,12 @@ function ClassroomPage() {
     }
 
     clearVideoElement(remoteVideoRef.current);
+    clearVideoElement(remoteScreenVideoRef.current);
 
-    if (mountedRef.current) setRemoteReady(false);
+    if (mountedRef.current) {
+      setRemoteReady(false);
+      setRemoteScreenReady(false);
+    }
   }, [clearRemotePlaybackRetry]);
 
   const scheduleRemotePlaybackRetry = useCallback((delayMs = 3000) => {
@@ -246,7 +294,11 @@ function ClassroomPage() {
       const player = new sdk.AlivcLivePlayer();
       playerRef.current = player;
 
-      const playInfo = await player.startPlay(remotePlayUrl, remoteVideoRef.current);
+      const playInfo = await player.startPlay(
+        remotePlayUrl,
+        remoteVideoRef.current,
+        remoteScreenVideoRef.current || undefined
+      );
       if (!mountedRef.current || playerRef.current !== player) {
         try {
           if (typeof player.stopPlay === 'function') await player.stopPlay();
@@ -304,6 +356,31 @@ function ClassroomPage() {
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
+  const stopScreenShare = useCallback(async (options = {}) => {
+    const { silent = false } = options;
+    const pusher = pusherRef.current;
+
+    clearScreenTrackListener();
+    clearVideoElement(localScreenVideoRef.current);
+
+    if (pusher && joinedRef.current) {
+      try {
+        if (typeof pusher.stopScreenShare === 'function') {
+          await pusher.stopScreenShare();
+        }
+      } catch {}
+    }
+
+    if (mountedRef.current) {
+      setScreenSharing(false);
+      setLocalScreenReady(false);
+      if (!silent) {
+        setErrorMessage('');
+        setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已停止共享屏幕，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
+      }
+    }
+  }, [clearScreenTrackListener]);
+
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) return;
     cleaningRef.current = true;
@@ -312,6 +389,9 @@ function ClassroomPage() {
     try {
       clearRemotePlaybackRetry();
       liveAuthRef.current = null;
+      screenActionPendingRef.current = false;
+
+      await stopScreenShare({ silent: true });
 
       await teardownRemotePlayback();
 
@@ -330,16 +410,23 @@ function ClassroomPage() {
       }
 
       clearVideoElement(localVideoRef.current);
+      clearVideoElement(localScreenVideoRef.current);
       clearVideoElement(remoteVideoRef.current);
+      clearVideoElement(remoteScreenVideoRef.current);
 
       if (mountedRef.current) {
         setJoined(false);
         setRemoteReady(false);
+        setScreenShareSupported(false);
+        setScreenSharing(false);
+        setScreenActionPending(false);
+        setLocalScreenReady(false);
+        setRemoteScreenReady(false);
       }
     } finally {
       cleaningRef.current = false;
     }
-  }, [clearRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [clearRemotePlaybackRetry, stopScreenShare, teardownRemotePlayback]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -362,6 +449,11 @@ function ClassroomPage() {
         setRemoteReady(false);
         setMicMuted(false);
         setCameraMuted(true);
+        setScreenShareSupported(false);
+        setScreenSharing(false);
+        setScreenActionPending(false);
+        setLocalScreenReady(false);
+        setRemoteScreenReady(false);
         setErrorMessage('');
         setStatusText('正在请求课堂鉴权...');
       }
@@ -397,6 +489,11 @@ function ClassroomPage() {
         }
 
         setStatusText('正在初始化本地设备...');
+        setScreenShareSupported(
+          typeof sdk.AlivcLivePusher?.checkScreenShareSupported === 'function'
+            ? Boolean(sdk.AlivcLivePusher.checkScreenShareSupported())
+            : typeof navigator?.mediaDevices?.getDisplayMedia === 'function'
+        );
 
         const pusher = new sdk.AlivcLivePusher();
         pusherRef.current = pusher;
@@ -522,6 +619,65 @@ function ClassroomPage() {
     }
   }, [cameraMuted]);
 
+  const handleToggleScreenShare = useCallback(async () => {
+    const pusher = pusherRef.current;
+    if (!pusher || !joinedRef.current || screenActionPendingRef.current) return;
+
+    if (!screenShareSupported) {
+      if (mountedRef.current) {
+        setErrorMessage('当前浏览器不支持共享屏幕');
+      }
+      return;
+    }
+
+    screenActionPendingRef.current = true;
+    if (mountedRef.current) setScreenActionPending(true);
+
+    try {
+      if (screenSharing) {
+        await stopScreenShare();
+        return;
+      }
+
+      if (typeof pusher.startScreenShare !== 'function') {
+        throw new Error('当前阿里云音视频 SDK 不支持共享屏幕');
+      }
+
+      await pusher.startScreenShare();
+
+      if (localScreenVideoRef.current && typeof pusher.startPreview === 'function') {
+        const previewStream = await pusher.startPreview(localScreenVideoRef.current, true);
+        screenPreviewStreamRef.current = previewStream || null;
+
+        const screenTrack = previewStream?.getVideoTracks?.()?.[0] || null;
+        if (screenTrack) {
+          const endedHandler = () => {
+            void stopScreenShare();
+          };
+          screenTrackRef.current = screenTrack;
+          screenTrackEndedHandlerRef.current = endedHandler;
+          try {
+            screenTrack.addEventListener('ended', endedHandler, { once: true });
+          } catch {}
+        }
+      }
+
+      if (mountedRef.current) {
+        setScreenSharing(true);
+        setErrorMessage('');
+        setStatusText('正在共享屏幕');
+      }
+    } catch (error) {
+      await stopScreenShare({ silent: true });
+      if (mountedRef.current) {
+        setErrorMessage(parseErrorMessage(error, '共享屏幕失败'));
+      }
+    } finally {
+      screenActionPendingRef.current = false;
+      if (mountedRef.current) setScreenActionPending(false);
+    }
+  }, [screenShareSupported, screenSharing, stopScreenShare]);
+
   const handleLeaveClassroom = useCallback(async () => {
     if (mountedRef.current) setStatusText('正在离开课堂...');
     await leaveAndDestroy();
@@ -529,6 +685,7 @@ function ClassroomPage() {
   }, [backHref, leaveAndDestroy, navigate]);
 
   const controlsDisabled = joining || !joined;
+  const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
 
   return (
     <div className="classroom-page">
@@ -543,7 +700,41 @@ function ClassroomPage() {
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
         </section>
 
-        <section className="classroom-stage">
+        <section className={`classroom-presentation-stage ${presentationVisible ? 'is-visible' : ''}`}>
+          <article className="classroom-video-panel classroom-video-panel--presentation">
+            <div className="classroom-video-title">{presentationTitle}</div>
+            <div className="classroom-video-box classroom-video-box--presentation">
+              <video
+                ref={localScreenVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`classroom-presentation-video ${presentationMode === 'local' ? 'is-active' : ''}`}
+                onLoadedData={() => setLocalScreenReady(true)}
+                onCanPlay={() => setLocalScreenReady(true)}
+                onPlaying={() => setLocalScreenReady(true)}
+                onEmptied={() => setLocalScreenReady(false)}
+                onEnded={() => setLocalScreenReady(false)}
+              />
+              <video
+                ref={remoteScreenVideoRef}
+                autoPlay
+                playsInline
+                className={`classroom-presentation-video ${presentationMode === 'remote' ? 'is-active' : ''}`}
+                onLoadedData={() => setRemoteScreenReady(true)}
+                onCanPlay={() => setRemoteScreenReady(true)}
+                onPlaying={() => setRemoteScreenReady(true)}
+                onEmptied={() => setRemoteScreenReady(false)}
+                onEnded={() => setRemoteScreenReady(false)}
+              />
+              {!presentationMode ? (
+                <div className="classroom-video-placeholder">{presentationPlaceholder}</div>
+              ) : null}
+            </div>
+          </article>
+        </section>
+
+        <section className={`classroom-stage ${presentationVisible ? 'is-covered' : ''}`}>
           <article className="classroom-video-panel">
             <div className="classroom-video-title">我的画面</div>
             <div className="classroom-video-box">
@@ -579,6 +770,17 @@ function ClassroomPage() {
           >
             {cameraMuted ? <FiVideoOff size={16} /> : <FiVideo size={16} />}
             <span>{cameraMuted ? '开启摄像头' : '关闭摄像头'}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`classroom-control-btn ${screenSharing ? 'active' : ''}`}
+            disabled={screenControlDisabled}
+            onClick={handleToggleScreenShare}
+            title={!screenShareSupported ? '当前浏览器不支持共享屏幕' : ''}
+          >
+            <FiMonitor size={16} />
+            <span>{screenSharing ? '停止共享' : '共享屏幕'}</span>
           </button>
 
           <button
