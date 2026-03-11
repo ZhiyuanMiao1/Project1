@@ -341,7 +341,7 @@ export const getBusySelectionsForUsers = async (
 
     for (const row of appointmentRows || []) {
       const status = normalizeDecisionStatus(row?.appointment_status) || 'pending';
-      if (status !== 'pending' && status !== 'accepted' && status !== 'rescheduling') continue;
+      if (status !== 'pending' && status !== 'accepted') continue;
 
       const payload = parseAppointmentPayload(row?.payload_json);
       const createdAt = row?.created_at ? new Date(row.created_at) : new Date();

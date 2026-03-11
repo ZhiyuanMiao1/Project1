@@ -282,7 +282,7 @@ const getBusySelectionsForUsers = async (userIds, timeZoneByUserId = new Map()) 
       `, [...normalizedUserIds, ...normalizedUserIds]);
         for (const row of appointmentRows || []) {
             const status = normalizeDecisionStatus(row?.appointment_status) || 'pending';
-            if (status !== 'pending' && status !== 'accepted' && status !== 'rescheduling')
+            if (status !== 'pending' && status !== 'accepted')
                 continue;
             const payload = parseAppointmentPayload(row?.payload_json);
             const createdAt = row?.created_at ? new Date(row.created_at) : new Date();

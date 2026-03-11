@@ -386,6 +386,96 @@ const ensureCourseSessionForAcceptedAppointment = async ({ studentUserId, mentor
     const insertedId = toPositiveIntOrNull(insertResult?.insertId);
     return insertedId != null ? String(insertedId) : '';
 };
+const normalizeCourseSessionStatus = (value) => {
+    const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+    return raw;
+};
+const isCancelledCourseSessionStatus = (value) => {
+    const status = normalizeCourseSessionStatus(value);
+    return status === 'cancelled' || status === 'canceled';
+};
+const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
+    const payload = parseAppointmentPayload(row?.payload_json);
+    if (!payload) {
+        if (status === 'accepted')
+            throw new Error('Invalid appointment payload');
+        return;
+    }
+    const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
+    const parsed = parseCourseWindowText(payload?.windowText, createdAt);
+    if (!parsed) {
+        if (status === 'accepted')
+            throw new Error('Invalid schedule windowText');
+        return;
+    }
+    const studentUserId = Number(row?.student_user_id);
+    const mentorUserId = Number(row?.mentor_user_id);
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0 || !Number.isFinite(mentorUserId) || mentorUserId <= 0) {
+        if (status === 'accepted')
+            throw new Error('Invalid thread users');
+        return;
+    }
+    const startsAt = formatUtcDatetime(parsed.startsAtUtc);
+    const sessionStatus = parsed.endsAtUtc.getTime() <= Date.now() ? 'completed' : 'scheduled';
+    const [existingRows] = await conn.execute('SELECT id, status FROM course_sessions WHERE student_user_id = ? AND mentor_user_id = ? AND starts_at = ? LIMIT 1', [studentUserId, mentorUserId, startsAt]);
+    const existingRow = existingRows?.[0];
+    if (status === 'accepted') {
+        if (!existingRow) {
+            await conn.execute(`
+        INSERT INTO course_sessions
+          (student_user_id, mentor_user_id, course_direction, course_type, starts_at, duration_hours, status)
+        VALUES
+          (?, ?, ?, ?, ?, ?, ?)
+        `, [
+                studentUserId,
+                mentorUserId,
+                typeof payload?.courseDirectionId === 'string' && payload.courseDirectionId.trim()
+                    ? payload.courseDirectionId.trim()
+                    : null,
+                typeof payload?.courseTypeId === 'string' && payload.courseTypeId.trim()
+                    ? payload.courseTypeId.trim()
+                    : null,
+                startsAt,
+                parsed.durationHours,
+                sessionStatus,
+            ]);
+            return;
+        }
+        const existingId = toPositiveIntOrNull(existingRow?.id);
+        if (existingId == null)
+            return;
+        await conn.execute(`
+      UPDATE course_sessions
+      SET course_direction = ?,
+          course_type = ?,
+          duration_hours = ?,
+          status = ?
+      WHERE id = ?
+      `, [
+            typeof payload?.courseDirectionId === 'string' && payload.courseDirectionId.trim()
+                ? payload.courseDirectionId.trim()
+                : null,
+            typeof payload?.courseTypeId === 'string' && payload.courseTypeId.trim()
+                ? payload.courseTypeId.trim()
+                : null,
+            parsed.durationHours,
+            sessionStatus,
+            existingId,
+        ]);
+        return;
+    }
+    const existingId = toPositiveIntOrNull(existingRow?.id);
+    if (existingId == null)
+        return;
+    const existingStatus = normalizeCourseSessionStatus(existingRow?.status);
+    if (existingStatus === 'completed' || isCancelledCourseSessionStatus(existingStatus))
+        return;
+    await conn.execute(`
+    UPDATE course_sessions
+    SET status = 'cancelled'
+    WHERE id = ?
+    `, [existingId]);
+};
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -553,9 +643,6 @@ router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, r
             const sourceRow = sourceRows?.[0];
             if (!sourceRow)
                 return res.status(404).json({ error: '来源预约不存在或无权限' });
-            if (Number(sourceRow.sender_user_id) !== req.user.id) {
-                return res.status(403).json({ error: '只能基于自己发送的预约安排下节课' });
-            }
             const sourceStatus = normalizeDecisionStatus(sourceRow.appointment_status) || 'pending';
             if (sourceStatus !== 'pending' && sourceStatus !== 'accepted') {
                 return res.status(409).json({ error: '该预约当前不能用于安排下节课' });
@@ -643,10 +730,12 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         mi.sender_user_id,
         mi.payload_json,
         mi.created_at,
+        COALESCE(ast.status, 'pending') AS appointment_status,
         t.student_user_id,
         t.mentor_user_id
       FROM message_items mi
       INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
       WHERE mi.id = ?
         AND mi.message_type = 'appointment_card'
         AND (t.student_user_id = ? OR t.mentor_user_id = ?)
@@ -671,61 +760,19 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         updated_at = CURRENT_TIMESTAMP
       `, [appointmentId, status, req.user.id]);
         await refreshMentorResponseTimeMetricIfNeeded(conn, row, req.user.id);
-        if (status === 'accepted') {
-            const payload = parseAppointmentPayload(row?.payload_json);
-            if (!payload) {
-                throw new Error('Invalid appointment payload');
+        try {
+            await syncCourseSessionForAppointmentDecision(conn, row, status);
+        }
+        catch (e) {
+            const code = String(e?.code || '');
+            const message = String(e?.message || '');
+            const isMissingCourseSessions = code === 'ER_NO_SUCH_TABLE' || message.includes('course_sessions');
+            if (isMissingCourseSessions) {
+                throw e;
+                return res.status(500).json({ error: '鏁版嵁搴撴湭鍗囩骇锛岃鍏堟墽琛宐ackend/schema.sql' });
             }
-            const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
-            const parsed = parseCourseWindowText(payload?.windowText, createdAt);
-            if (!parsed) {
-                throw new Error('Invalid schedule windowText');
-            }
-            else {
-                const studentUserId = Number(row?.student_user_id);
-                const mentorUserId = Number(row?.mentor_user_id);
-                if (!Number.isFinite(studentUserId) || studentUserId <= 0 || !Number.isFinite(mentorUserId) || mentorUserId <= 0) {
-                    throw new Error('Invalid thread users');
-                }
-                else {
-                    const startsAt = formatUtcDatetime(parsed.startsAtUtc);
-                    const sessionStatus = parsed.endsAtUtc.getTime() <= Date.now() ? 'completed' : 'scheduled';
-                    try {
-                        const [existing] = await conn.execute('SELECT id FROM course_sessions WHERE student_user_id = ? AND mentor_user_id = ? AND starts_at = ? LIMIT 1', [studentUserId, mentorUserId, startsAt]);
-                        if (!existing || existing.length === 0) {
-                            await conn.execute(`
-                INSERT INTO course_sessions
-                  (student_user_id, mentor_user_id, course_direction, course_type, starts_at, duration_hours, status)
-                VALUES
-                  (?, ?, ?, ?, ?, ?, ?)
-                `, [
-                                studentUserId,
-                                mentorUserId,
-                                typeof payload?.courseDirectionId === 'string' && payload.courseDirectionId.trim()
-                                    ? payload.courseDirectionId.trim()
-                                    : null,
-                                typeof payload?.courseTypeId === 'string' && payload.courseTypeId.trim()
-                                    ? payload.courseTypeId.trim()
-                                    : null,
-                                startsAt,
-                                parsed.durationHours,
-                                sessionStatus,
-                            ]);
-                        }
-                    }
-                    catch (e) {
-                        const code = String(e?.code || '');
-                        const message = String(e?.message || '');
-                        const isMissingCourseSessions = code === 'ER_NO_SUCH_TABLE' || message.includes('course_sessions');
-                        if (isMissingCourseSessions) {
-                            throw e;
-                            return res.status(500).json({ error: '鏁版嵁搴撴湭鍗囩骇锛岃鍏堟墽琛宐ackend/schema.sql' });
-                        }
-                        console.error('Insert course session error:', e);
-                        throw e;
-                    }
-                }
-            }
+            console.error('Sync course session error:', e);
+            throw e;
         }
         const shouldEmitDecisionMessage = status === 'accepted' || status === 'rejected';
         if (shouldEmitDecisionMessage) {
