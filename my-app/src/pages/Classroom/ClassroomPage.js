@@ -40,6 +40,38 @@ const looksLikeSdkErrorObject = (value) => {
   ].some((key) => typeof value?.[key] !== 'undefined');
 };
 
+const unwrapRuntimeErrorPayload = (value) => {
+  if (!value || typeof value !== 'object') return null;
+  if (looksLikeSdkErrorObject(value)) return value;
+
+  const nestedCandidates = [
+    value.error,
+    value.reason,
+    value.detail,
+    value.details,
+    value.data,
+    value.payload,
+  ];
+
+  for (const candidate of nestedCandidates) {
+    if (looksLikeSdkErrorObject(candidate)) return candidate;
+  }
+
+  return null;
+};
+
+const resolveWindowRuntimePayload = (event) => {
+  const directPayload = unwrapRuntimeErrorPayload(event?.error ?? event?.reason);
+  if (directPayload) return directPayload;
+
+  const message = safeText(event?.message);
+  if (message === '[object Object]' && event?.error && typeof event.error === 'object') {
+    return event.error;
+  }
+
+  return null;
+};
+
 const resolveAliyunLiveSdk = () => {
   if (typeof window === 'undefined') return null;
   const sdk = window.AlivcLivePush;
@@ -128,6 +160,7 @@ const isRetryableRemotePlayError = (error) => {
 };
 
 const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
+const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 
 const clearVideoElement = (element) => {
   if (!element) return;
@@ -193,6 +226,8 @@ function ClassroomPage() {
   const mountedRef = useRef(true);
   const cleaningRef = useRef(false);
   const screenActionPendingRef = useRef(false);
+  const cameraActionPendingRef = useRef(false);
+  const cameraPermissionPrimeAttemptedRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
   const remoteReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
@@ -209,6 +244,7 @@ function ClassroomPage() {
   const [screenShareSupported, setScreenShareSupported] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenActionPending, setScreenActionPending] = useState(false);
+  const [cameraActionPending, setCameraActionPending] = useState(false);
   const [localScreenReady, setLocalScreenReady] = useState(false);
   const [remoteScreenReady, setRemoteScreenReady] = useState(false);
 
@@ -260,6 +296,30 @@ function ClassroomPage() {
     setErrorMessage('');
     setRemoteReady(false);
     setStatusText(REMOTE_NOT_JOINED_TEXT);
+  }, []);
+
+  const detachVisibleCameraPreview = useCallback(() => {
+    clearVideoElement(localVideoRef.current);
+  }, []);
+
+  const primeCameraPermission = useCallback(async () => {
+    if (cameraPermissionPrimeAttemptedRef.current) return;
+    cameraPermissionPrimeAttemptedRef.current = true;
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+
+    let stream = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    } catch {
+      return;
+    } finally {
+      stream?.getTracks?.().forEach((track) => {
+        try {
+          track.stop();
+        } catch {}
+      });
+    }
   }, []);
 
   const teardownRemotePlayback = useCallback(async () => {
@@ -411,6 +471,8 @@ function ClassroomPage() {
       clearRemotePlaybackRetry();
       liveAuthRef.current = null;
       screenActionPendingRef.current = false;
+      cameraActionPendingRef.current = false;
+      cameraPermissionPrimeAttemptedRef.current = false;
 
       await stopScreenShare({ silent: true });
 
@@ -441,6 +503,7 @@ function ClassroomPage() {
         setScreenShareSupported(false);
         setScreenSharing(false);
         setScreenActionPending(false);
+        setCameraActionPending(false);
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
       }
@@ -473,6 +536,7 @@ function ClassroomPage() {
         setScreenShareSupported(false);
         setScreenSharing(false);
         setScreenActionPending(false);
+        setCameraActionPending(false);
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
         setErrorMessage('');
@@ -599,6 +663,7 @@ function ClassroomPage() {
         setJoining(false);
         setStatusText(`已进入课堂，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
 
+        void primeCameraPermission().catch(() => {});
         void startRemotePlayback();
       } catch (error) {
         const message = parseErrorMessage(error, '进入课堂失败，请稍后重试');
@@ -618,13 +683,14 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [courseId, leaveAndDestroy, reportRuntimeIssue, startRemotePlayback]);
+  }, [courseId, leaveAndDestroy, primeCameraPermission, reportRuntimeIssue, startRemotePlayback]);
 
   useEffect(() => {
     const handleUnhandledRejection = (event) => {
-      const reason = event?.reason;
-      if (!looksLikeSdkErrorObject(reason)) return;
+      const reason = resolveWindowRuntimePayload(event);
+      if (!reason) return;
       event.preventDefault?.();
+      event.stopImmediatePropagation?.();
       if (isRetryableRemotePlayError(reason)) {
         applyRemoteNotJoinedState();
         return;
@@ -632,9 +698,23 @@ function ClassroomPage() {
       reportRuntimeIssue(reason, '课堂连接发生错误，请稍后重试');
     };
 
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    const handleWindowError = (event) => {
+      const runtimePayload = resolveWindowRuntimePayload(event);
+      if (!runtimePayload) return;
+      event.preventDefault?.();
+      event.stopImmediatePropagation?.();
+      if (isRetryableRemotePlayError(runtimePayload)) {
+        applyRemoteNotJoinedState();
+        return;
+      }
+      reportRuntimeIssue(runtimePayload, '课堂连接发生错误，请稍后重试');
+    };
+
+    window.addEventListener('error', handleWindowError, true);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection, true);
     return () => {
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleWindowError, true);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
     };
   }, [applyRemoteNotJoinedState, reportRuntimeIssue]);
 
@@ -654,21 +734,31 @@ function ClassroomPage() {
 
   const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
-    if (!pusher || !joinedRef.current) return;
+    if (!pusher || !joinedRef.current || cameraActionPendingRef.current) return;
 
     const nextMuted = !cameraMuted;
+    cameraActionPendingRef.current = true;
+    if (mountedRef.current) setCameraActionPending(true);
+
     try {
       if (nextMuted) {
         await pusher.stopCamera();
+        detachVisibleCameraPreview();
       } else {
         await pusher.startCamera();
+        if (typeof pusher.startPreview === 'function' && localVideoRef.current) {
+          await pusher.startPreview(localVideoRef.current);
+        }
       }
       if (mountedRef.current) setCameraMuted(nextMuted);
     } catch (error) {
       if (!mountedRef.current) return;
       setErrorMessage(parseErrorMessage(error, '摄像头切换失败'));
+    } finally {
+      cameraActionPendingRef.current = false;
+      if (mountedRef.current) setCameraActionPending(false);
     }
-  }, [cameraMuted]);
+  }, [cameraMuted, detachVisibleCameraPreview]);
 
   const handleToggleScreenShare = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -746,6 +836,7 @@ function ClassroomPage() {
   }, [backHref, leaveAndDestroy, navigate]);
 
   const controlsDisabled = joining || !joined;
+  const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
 
   return (
@@ -787,6 +878,7 @@ function ClassroomPage() {
           <article className="classroom-video-panel">
             <div className="classroom-video-title">我的画面</div>
             <div className="classroom-video-box">
+              {cameraMuted ? <div className="classroom-video-placeholder">{LOCAL_CAMERA_OFF_TEXT}</div> : null}
               <video ref={localVideoRef} autoPlay playsInline muted />
             </div>
           </article>
@@ -814,7 +906,7 @@ function ClassroomPage() {
           <button
             type="button"
             className="classroom-control-btn"
-            disabled={controlsDisabled}
+            disabled={cameraControlDisabled}
             onClick={handleToggleCamera}
           >
             {cameraMuted ? <FiVideoOff size={16} /> : <FiVideo size={16} />}
