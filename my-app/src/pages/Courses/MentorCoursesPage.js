@@ -122,6 +122,7 @@ const normalizeMentorCourse = (row) => {
 
   return {
     id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
+    roleInCourse: 'mentor',
     title,
     type,
     date,
@@ -130,8 +131,54 @@ const normalizeMentorCourse = (row) => {
     duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
     studentName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
     studentAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
+    counterpartName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
+    counterpartAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
     status: safeText(row?.status).toLowerCase(),
   };
+};
+
+const normalizeStudentCourse = (row) => {
+  const directionId = safeText(row?.courseDirectionId || row?.course_direction || row?.title);
+  const courseTypeId = safeText(row?.courseTypeId || row?.course_type);
+  const fallbackTitle = safeText(row?.title);
+
+  const title = normalizeCourseLabel(directionId)
+    || normalizeCourseLabel(fallbackTitle)
+    || fallbackTitle
+    || '其它课程方向';
+
+  const type = COURSE_TYPE_ID_TO_LABEL[courseTypeId]
+    || safeText(row?.type)
+    || '其它课程类型';
+
+  const date = toDateKey(row?.date, row?.startsAt || row?.starts_at);
+  const startsAt = safeText(row?.startsAt || row?.starts_at);
+
+  return {
+    id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
+    roleInCourse: 'student',
+    title,
+    type,
+    date,
+    startsAt,
+    durationHours: toDurationHours(row?.durationHours ?? row?.duration_hours),
+    duration: toDurationText(row?.durationHours ?? row?.duration_hours, row?.duration),
+    studentName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
+    studentAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
+    counterpartName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
+    counterpartAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
+    status: safeText(row?.status).toLowerCase(),
+  };
+};
+
+const mergeCoursesById = (...courseGroups) => {
+  const map = new Map();
+  courseGroups.flat().forEach((course) => {
+    const key = safeText(course?.id);
+    if (!key || map.has(key)) return;
+    map.set(key, course);
+  });
+  return Array.from(map.values());
 };
 
 const toDateTimestamp = (course) => {
@@ -184,11 +231,14 @@ function MentorCoursesPage() {
   const [courses, setCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState('');
+  const [coursesNotice, setCoursesNotice] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
-  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
-  const totalBadgeCount = messageUnreadCount + newCourseCount;
+  const { newCourseCount: studentNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
+  const { newCourseCount: mentorNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
+  const totalCourseCount = studentNewCourseCount + mentorNewCourseCount;
+  const totalBadgeCount = messageUnreadCount + totalCourseCount;
 
   useEffect(() => {
     const handler = (e) => {
@@ -294,6 +344,7 @@ function MentorCoursesPage() {
       setCourses([]);
       setCoursesLoading(false);
       setCoursesError('');
+      setCoursesNotice('');
       return () => {
         alive = false;
       };
@@ -301,14 +352,44 @@ function MentorCoursesPage() {
 
     setCoursesLoading(true);
     setCoursesError('');
+    setCoursesNotice('');
 
-    api.get('/api/courses', { params: { view: 'mentor' } })
-      .then((res) => {
+    Promise.allSettled([
+      api.get('/api/courses', { params: { view: 'student' } }),
+      api.get('/api/courses', { params: { view: 'mentor' } }),
+    ])
+      .then(([studentResult, mentorResult]) => {
         if (!alive) return;
-        const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        const normalizedRows = rows.map(normalizeMentorCourse);
-        setCourses(normalizedRows);
-        markCoursesAsSeen({ view: 'mentor', courses: normalizedRows });
+
+        const nextGroups = [];
+        const errors = [];
+
+        if (studentResult.status === 'fulfilled') {
+          const studentRows = Array.isArray(studentResult.value?.data?.courses) ? studentResult.value.data.courses : [];
+          const normalizedStudentRows = studentRows.map(normalizeStudentCourse);
+          nextGroups.push(normalizedStudentRows);
+          markCoursesAsSeen({ view: 'student', courses: normalizedStudentRows });
+        } else {
+          errors.push(studentResult.reason?.response?.data?.error || studentResult.reason?.message || '学生课程加载失败');
+        }
+
+        if (mentorResult.status === 'fulfilled') {
+          const mentorRows = Array.isArray(mentorResult.value?.data?.courses) ? mentorResult.value.data.courses : [];
+          const normalizedMentorRows = mentorRows.map(normalizeMentorCourse);
+          nextGroups.push(normalizedMentorRows);
+          markCoursesAsSeen({ view: 'mentor', courses: normalizedMentorRows });
+        } else {
+          errors.push(mentorResult.reason?.response?.data?.error || mentorResult.reason?.message || '导师课程加载失败');
+        }
+
+        if (!nextGroups.length) {
+          setCourses([]);
+          setCoursesError(String(errors[0] || '加载课程失败，请稍后重试'));
+          return;
+        }
+
+        setCourses(mergeCoursesById(...nextGroups));
+        setCoursesNotice(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程。' : '');
       })
       .catch((err) => {
         if (!alive) return;
@@ -404,7 +485,7 @@ function MentorCoursesPage() {
       return (
         <div className="courses-guard courses-guard--empty-state">
           <p className="courses-guard-title">暂无课程</p>
-          <p className="courses-guard-subtitle">学生接受课程邀请后，课程会显示在这里</p>
+          <p className="courses-guard-subtitle">创建或接受课程后，课程会显示在这里</p>
         </div>
       );
     }
@@ -568,6 +649,8 @@ function MentorCoursesPage() {
           <h1>课程</h1>
         </section>
 
+        {status === 'ok' && coursesNotice ? <div className="courses-alert">{coursesNotice}</div> : null}
+
         {status === 'ok' ? renderTimeline() : renderStatusGuard()}
       </div>
 
@@ -578,7 +661,7 @@ function MentorCoursesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           unreadCount={messageUnreadCount}
-          courseCount={newCourseCount}
+          courseCount={totalCourseCount}
           align="right"
           alignOffset={23}
         />
@@ -593,8 +676,8 @@ function MentorCoursesPage() {
 
         return (
           <CourseDetailModal
-            participantName={activeCourse.studentName}
-            avatarUrl={activeCourse.studentAvatar}
+            participantName={activeCourse.counterpartName || activeCourse.studentName}
+            avatarUrl={activeCourse.counterpartAvatar || activeCourse.studentAvatar}
             title={normalizedTitle}
             TitleIcon={TitleIcon}
             typeLabel={typeLabel}

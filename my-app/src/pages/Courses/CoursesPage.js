@@ -152,6 +152,7 @@ const normalizeStudentCourse = (row) => {
 
   return {
     id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
+    roleInCourse: 'student',
     title,
     type,
     date,
@@ -161,7 +162,10 @@ const normalizeStudentCourse = (row) => {
     mentorName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
     mentorAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
     mentorPublicId: safeText(row?.counterpartPublicId || row?.mentorPublicId),
+    counterpartName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
+    counterpartAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
     rating: toRating(row?.counterpartRating ?? row?.rating),
+    counterpartRating: toRating(row?.counterpartRating ?? row?.rating),
     replayUrl: safeText(row?.replayUrl || row?.replay_url),
     reviewSubmittedAt: safeText(row?.reviewSubmittedAt || row?.review_submitted_at),
     reviewUpdatedAt: safeText(row?.reviewUpdatedAt || row?.review_updated_at),
@@ -170,6 +174,61 @@ const normalizeStudentCourse = (row) => {
     reviewComment: normalizeReviewComment(row?.reviewComment ?? row?.review_comment),
     status: safeText(row?.status).toLowerCase(),
   };
+};
+
+const normalizeMentorCourse = (row) => {
+  const directionId = safeText(row?.courseDirectionId || row?.course_direction || row?.title);
+  const courseTypeId = safeText(row?.courseTypeId || row?.course_type);
+  const fallbackTitle = safeText(row?.title);
+
+  const title = normalizeCourseLabel(directionId)
+    || normalizeCourseLabel(fallbackTitle)
+    || fallbackTitle
+    || '其他课程方向';
+
+  const type = COURSE_TYPE_ID_TO_LABEL[courseTypeId]
+    || safeText(row?.type)
+    || '其他课程类型';
+
+  const date = toDateKey(row?.date, row?.startsAt || row?.starts_at);
+  const startsAt = safeText(row?.startsAt || row?.starts_at);
+  const durationHours = toDurationHours(row?.durationHours ?? row?.duration_hours);
+  const counterpartName = safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生';
+  const counterpartAvatar = safeText(row?.counterpartAvatarUrl || row?.studentAvatar);
+
+  return {
+    id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
+    roleInCourse: 'mentor',
+    title,
+    type,
+    date,
+    startsAt,
+    duration: toDurationText(durationHours, row?.duration),
+    durationHours,
+    mentorName: counterpartName,
+    mentorAvatar: counterpartAvatar,
+    counterpartName,
+    counterpartAvatar,
+    rating: null,
+    counterpartRating: null,
+    replayUrl: safeText(row?.replayUrl || row?.replay_url),
+    reviewSubmittedAt: '',
+    reviewUpdatedAt: '',
+    reviewScores: null,
+    reviewOverallScore: null,
+    reviewComment: '',
+    status: safeText(row?.status).toLowerCase(),
+  };
+};
+
+const mergeCoursesById = (...courseGroups) => {
+  const map = new Map();
+  courseGroups.flat().forEach((course) => {
+    const key = safeText(course?.id);
+    if (!key || map.has(key)) return;
+    map.set(key, course);
+  });
+  return Array.from(map.values());
 };
 
 const toDateTimestamp = (course) => {
@@ -242,8 +301,10 @@ function CoursesPage() {
   const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
-  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
-  const totalBadgeCount = messageUnreadCount + newCourseCount;
+  const { newCourseCount: studentNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
+  const { newCourseCount: mentorNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
+  const totalCourseCount = studentNewCourseCount + mentorNewCourseCount;
+  const totalBadgeCount = messageUnreadCount + totalCourseCount;
 
   useEffect(() => {
     const handler = (e) => {
@@ -305,13 +366,43 @@ function CoursesPage() {
     setLoadFailed(false);
     setErrorMessage('');
 
-    api.get('/api/courses', { params: { view: 'student' } })
-      .then((res) => {
+    Promise.allSettled([
+      api.get('/api/courses', { params: { view: 'student' } }),
+      api.get('/api/courses', { params: { view: 'mentor' } }),
+    ])
+      .then(([studentResult, mentorResult]) => {
         if (!alive) return;
-        const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        const normalizedRows = rows.map(normalizeStudentCourse);
-        setCourses(normalizedRows);
-        markCoursesAsSeen({ view: 'student', courses: normalizedRows });
+
+        const nextGroups = [];
+        const errors = [];
+
+        if (studentResult.status === 'fulfilled') {
+          const studentRows = Array.isArray(studentResult.value?.data?.courses) ? studentResult.value.data.courses : [];
+          const normalizedStudentRows = studentRows.map(normalizeStudentCourse);
+          nextGroups.push(normalizedStudentRows);
+          markCoursesAsSeen({ view: 'student', courses: normalizedStudentRows });
+        } else {
+          errors.push(studentResult.reason?.response?.data?.error || studentResult.reason?.message || '学生课程加载失败');
+        }
+
+        if (mentorResult.status === 'fulfilled') {
+          const mentorRows = Array.isArray(mentorResult.value?.data?.courses) ? mentorResult.value.data.courses : [];
+          const normalizedMentorRows = mentorRows.map(normalizeMentorCourse);
+          nextGroups.push(normalizedMentorRows);
+          markCoursesAsSeen({ view: 'mentor', courses: normalizedMentorRows });
+        } else {
+          errors.push(mentorResult.reason?.response?.data?.error || mentorResult.reason?.message || '导师课程加载失败');
+        }
+
+        if (!nextGroups.length) {
+          setCourses([]);
+          setLoadFailed(true);
+          setErrorMessage(String(errors[0] || '加载课程失败，请稍后重试'));
+          return;
+        }
+
+        setCourses(mergeCoursesById(...nextGroups));
+        setErrorMessage(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程。' : '');
       })
       .catch((err) => {
         if (!alive) return;
@@ -372,7 +463,7 @@ function CoursesPage() {
     const nextUpdatedAt = safeText(payload?.reviewUpdatedAt) || nextSubmittedAt;
     const nextScores = normalizeReviewScores(payload?.reviewScores) || normalizeReviewScores(course?.reviewScores);
     const nextOverallScore = toRating(payload?.reviewOverallScore ?? course?.reviewOverallScore);
-    const nextRating = toRating(payload?.mentorRating ?? course?.rating);
+    const nextRating = toRating(payload?.mentorRating ?? course?.rating ?? course?.counterpartRating);
     const nextComment = normalizeReviewComment(payload?.reviewComment ?? course?.reviewComment);
 
     return {
@@ -383,6 +474,7 @@ function CoursesPage() {
       reviewOverallScore: nextOverallScore,
       reviewComment: nextComment,
       rating: nextRating ?? course?.rating ?? null,
+      counterpartRating: nextRating ?? course?.counterpartRating ?? null,
     };
   };
 
@@ -432,13 +524,14 @@ function CoursesPage() {
   const handleReviewThanksClose = () => setShowReviewThanks(false);
 
   const handleOpenReview = (course) => {
+    if (course?.roleInCourse && course.roleInCourse !== 'student') return;
     setReviewSubmitError('');
     setReviewCourse(course);
   };
 
   const handleReviewSubmit = async (reviewForm) => {
     const courseId = safeText(reviewCourse?.id);
-    if (!courseId || reviewSubmitting) return;
+    if (!courseId || reviewSubmitting || reviewCourse?.roleInCourse === 'mentor') return;
 
     setReviewSubmitting(true);
     setReviewSubmitError('');
@@ -491,7 +584,7 @@ function CoursesPage() {
       return (
         <div className="courses-guard courses-guard--empty-state">
           <p className="courses-guard-title">暂无课程</p>
-          <p className="courses-guard-subtitle">接受课程邀请后，课程会显示在这里</p>
+          <p className="courses-guard-subtitle">创建或接受课程后，课程会显示在这里</p>
         </div>
       );
     }
@@ -605,7 +698,7 @@ function CoursesPage() {
           forceLogin={false}
           isLoggedIn={isLoggedIn}
           unreadCount={messageUnreadCount}
-          courseCount={newCourseCount}
+          courseCount={totalCourseCount}
           align="right"
           alignOffset={23}
         />
@@ -616,15 +709,17 @@ function CoursesPage() {
         const typeLabel = safeText(activeCourse.type) || '其他课程类型';
         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
-        const ratingValue = toRating(activeCourse.rating);
-        const canEnterClassroom = isScheduledCourse(activeCourse);
+        const ratingValue = activeCourse.roleInCourse === 'student'
+          ? toRating(activeCourse.counterpartRating ?? activeCourse.rating)
+          : null;
+        const canEnterClassroom = isScheduledCourse(activeCourse) && !isCompletedCourse(activeCourse);
         const isCompleted = isCompletedCourse(activeCourse);
-        const isReviewed = hasSubmittedReview(activeCourse);
+        const isReviewed = activeCourse.roleInCourse === 'student' && hasSubmittedReview(activeCourse);
 
         return (
           <CourseDetailModal
-            participantName={activeCourse.mentorName}
-            avatarUrl={activeCourse.mentorAvatar}
+            participantName={activeCourse.counterpartName || activeCourse.mentorName}
+            avatarUrl={activeCourse.counterpartAvatar || activeCourse.mentorAvatar}
             ratingValue={ratingValue}
             title={normalizedTitle}
             TitleIcon={TitleIcon}
@@ -633,7 +728,7 @@ function CoursesPage() {
             dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
-            actions={isCompleted ? (
+            actions={isCompleted && activeCourse.roleInCourse === 'student' ? (
               <div className="course-detail-action-row">
                 <button
                   type="button"

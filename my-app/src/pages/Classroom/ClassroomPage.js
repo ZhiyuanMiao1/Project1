@@ -758,6 +758,33 @@ function ClassroomPage() {
   }, [joined, clearRemoteScreenMonitor, clearRemoteScreenStreamBindings, markRemoteScreenIdle, markRemoteScreenReady]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleOpaqueRuntimeError = () => {
+      void recoverRemotePlayback();
+    };
+
+    const previousGuard = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__;
+    window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ = {
+      ...(previousGuard && typeof previousGuard === 'object' ? previousGuard : {}),
+      active: true,
+      suppressOpaqueRuntimeErrors: true,
+      handleOpaqueRuntimeError,
+    };
+
+    return () => {
+      const currentGuard = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__;
+      if (!currentGuard || currentGuard.handleOpaqueRuntimeError !== handleOpaqueRuntimeError) return;
+      window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ = {
+        ...currentGuard,
+        active: false,
+        suppressOpaqueRuntimeErrors: false,
+        handleOpaqueRuntimeError: null,
+      };
+    };
+  }, [recoverRemotePlayback]);
+
+  useEffect(() => {
     mountedRef.current = true;
     let cancelled = false;
 

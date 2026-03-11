@@ -4,6 +4,45 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
+
+const getClassroomRuntimeGuard = () => {
+  if (typeof window === 'undefined') return null;
+  return window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ || null;
+};
+
+const isOpaqueClassroomRuntimeEvent = (event) => {
+  const guard = getClassroomRuntimeGuard();
+  if (!guard?.active || !guard?.suppressOpaqueRuntimeErrors) return false;
+
+  const rawPayload = typeof event?.error !== 'undefined'
+    ? event.error
+    : event?.reason;
+
+  if (isObjectLike(rawPayload)) return true;
+  return String(event?.message || '').trim() === '[object Object]';
+};
+
+const forwardClassroomRuntimeEvent = (event) => {
+  const guard = getClassroomRuntimeGuard();
+  if (typeof guard?.handleOpaqueRuntimeError !== 'function') return;
+  try {
+    guard.handleOpaqueRuntimeError(event);
+  } catch {}
+};
+
+if (typeof window !== 'undefined') {
+  const handleClassroomOpaqueRuntimeEvent = (event) => {
+    if (!isOpaqueClassroomRuntimeEvent(event)) return;
+    event.preventDefault?.();
+    event.stopImmediatePropagation?.();
+    forwardClassroomRuntimeEvent(event);
+  };
+
+  window.addEventListener('error', handleClassroomOpaqueRuntimeEvent, true);
+  window.addEventListener('unhandledrejection', handleClassroomOpaqueRuntimeEvent, true);
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
