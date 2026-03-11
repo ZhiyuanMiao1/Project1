@@ -10,6 +10,8 @@ import { FiBookOpen, FiCreditCard, FiSettings } from 'react-icons/fi';
 import { RiMegaphoneLine } from 'react-icons/ri';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
+import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const StudentAuthModal = ({
   onClose,
@@ -21,13 +23,18 @@ const StudentAuthModal = ({
   forceLogin = false,
   align = 'left',
   alignOffset = 0,
-  unreadCount = 0,
+  unreadCount = null,
+  courseCount = null,
 }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
+  const { totalUnreadCount: internalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount: internalCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
+  const resolvedUnreadCount = typeof unreadCount === 'number' ? unreadCount : internalUnreadCount;
+  const resolvedCourseCount = typeof courseCount === 'number' ? courseCount : internalCourseCount;
 
   // Position the dropdown next to the avatar/menu icon
   useLayoutEffect(() => {
@@ -166,11 +173,14 @@ const StudentAuthModal = ({
                 收藏
               </button>
               <button
-                className="auth-modal-option-button"
+                className="auth-modal-option-button auth-modal-option-button--with-badge"
                 onClick={() => handleAuthAction('courses')}
               >
-                <FiBookOpen className="auth-icon" />
-                课程
+                <span className="auth-modal-option-main">
+                  <FiBookOpen className="auth-icon" />
+                  课程
+                </span>
+                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel="新课程提醒" />
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
@@ -180,7 +190,7 @@ const StudentAuthModal = ({
                   <i className="far fa-comment auth-icon" aria-hidden="true"></i>
                   消息
                 </span>
-                <UnreadBadge count={unreadCount} variant="menu" ariaLabel="未读消息" />
+                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel="未读消息" />
               </button>
               <button
                 className="auth-modal-option-button auth-divider"

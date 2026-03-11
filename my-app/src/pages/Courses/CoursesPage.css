@@ -34,6 +34,18 @@
   height: 20px;
 }
 
+.nav-menu-trigger {
+  position: relative;
+  overflow: visible;
+}
+
+.nav-unread-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  pointer-events: none;
+}
+
 .courses-hero {
   margin: 40px 0 30px;
 }

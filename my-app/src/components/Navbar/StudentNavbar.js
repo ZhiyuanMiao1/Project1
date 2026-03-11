@@ -13,6 +13,7 @@ import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
@@ -49,7 +50,9 @@ function StudentNavbar() {
   const isMentorActive = location.pathname.startsWith('/mentor');
 
   const [isExactAnimating, setIsExactAnimating] = useState(false);
-  const { totalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
+  const totalBadgeCount = messageUnreadCount + newCourseCount;
 
   // 初始化登录状态与监听登录变化
   useEffect(() => {
@@ -285,10 +288,10 @@ function StudentNavbar() {
             )}
             {isLoggedIn ? (
               <UnreadBadge
-                count={totalUnreadCount}
+                count={totalBadgeCount}
                 variant="nav"
                 className="nav-unread-badge"
-                ariaLabel="未读消息"
+                ariaLabel="待处理提醒"
               />
             ) : null}
           </span>
@@ -418,7 +421,8 @@ function StudentNavbar() {
           leftAlignRef={publishBtnRef}
           forceLogin={forceLogin}
           isLoggedIn={isLoggedIn}
-          unreadCount={totalUnreadCount}
+          unreadCount={messageUnreadCount}
+          courseCount={newCourseCount}
         />
       )}
 

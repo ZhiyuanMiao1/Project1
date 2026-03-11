@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
+import useCourseAlertSummary, { markCoursesAsSeen } from '../../hooks/useCourseAlertSummary';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import {
   COURSE_TYPE_ID_TO_LABEL,
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -183,6 +186,9 @@ function MentorCoursesPage() {
   const [coursesError, setCoursesError] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
+  const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
+  const totalBadgeCount = messageUnreadCount + newCourseCount;
 
   useEffect(() => {
     const handler = (e) => {
@@ -300,7 +306,9 @@ function MentorCoursesPage() {
       .then((res) => {
         if (!alive) return;
         const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        setCourses(rows.map(normalizeMentorCourse));
+        const normalizedRows = rows.map(normalizeMentorCourse);
+        setCourses(normalizedRows);
+        markCoursesAsSeen({ view: 'mentor', courses: normalizedRows });
       })
       .catch((err) => {
         if (!alive) return;
@@ -534,7 +542,7 @@ function MentorCoursesPage() {
           <BrandMark className="nav-logo-text" to="/mentor" />
           <button
             type="button"
-            className="icon-circle courses-menu"
+            className="icon-circle courses-menu nav-menu-trigger"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={() => setShowMentorAuth(true)}
@@ -550,6 +558,9 @@ function MentorCoursesPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge count={totalBadgeCount} variant="nav" className="nav-unread-badge" ariaLabel="待处理提醒" />
+            ) : null}
           </button>
         </header>
 
@@ -566,6 +577,8 @@ function MentorCoursesPage() {
           anchorRef={menuAnchorRef}
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
+          unreadCount={messageUnreadCount}
+          courseCount={newCourseCount}
           align="right"
           alignOffset={23}
         />

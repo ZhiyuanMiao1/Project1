@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import api from '../../api/client';
+import useCourseAlertSummary, { markCoursesAsSeen } from '../../hooks/useCourseAlertSummary';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import {
   COURSE_TYPE_ID_TO_LABEL,
   COURSE_TYPE_LABEL_ICON_MAP,
@@ -238,6 +241,9 @@ function CoursesPage() {
   const [showReviewThanks, setShowReviewThanks] = useState(false);
   const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
+  const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
+  const totalBadgeCount = messageUnreadCount + newCourseCount;
 
   useEffect(() => {
     const handler = (e) => {
@@ -303,7 +309,9 @@ function CoursesPage() {
       .then((res) => {
         if (!alive) return;
         const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        setCourses(rows.map(normalizeStudentCourse));
+        const normalizedRows = rows.map(normalizeStudentCourse);
+        setCourses(normalizedRows);
+        markCoursesAsSeen({ view: 'student', courses: normalizedRows });
       })
       .catch((err) => {
         if (!alive) return;
@@ -564,7 +572,7 @@ function CoursesPage() {
           <BrandMark className="nav-logo-text" to="/student" />
           <button
             type="button"
-            className="icon-circle courses-menu"
+            className="icon-circle courses-menu nav-menu-trigger"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={() => setShowStudentAuth(true)}
@@ -574,6 +582,9 @@ function CoursesPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge count={totalBadgeCount} variant="nav" className="nav-unread-badge" ariaLabel="待处理提醒" />
+            ) : null}
           </button>
         </header>
 
@@ -593,6 +604,8 @@ function CoursesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           isLoggedIn={isLoggedIn}
+          unreadCount={messageUnreadCount}
+          courseCount={newCourseCount}
           align="right"
           alignOffset={23}
         />

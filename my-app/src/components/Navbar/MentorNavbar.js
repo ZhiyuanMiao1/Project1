@@ -14,6 +14,7 @@ import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
@@ -46,7 +47,9 @@ function MentorNavbar() {
   const location = useLocation(); // 获取当前路径
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 无权限（审核中/非导师）
-  const { totalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
+  const totalBadgeCount = messageUnreadCount + newCourseCount;
 
   // 判断当前路由，确定哪个按钮应该高亮
   const isStudentActive = location.pathname.startsWith('/student');
@@ -237,10 +240,10 @@ function MentorNavbar() {
             )}
             {isLoggedIn ? (
               <UnreadBadge
-                count={totalUnreadCount}
+                count={totalBadgeCount}
                 variant="nav"
                 className="nav-unread-badge"
-                ariaLabel="未读消息"
+                ariaLabel="待处理提醒"
               />
             ) : null}
           </span>
@@ -356,7 +359,8 @@ function MentorNavbar() {
           anchorRef={userIconRef}
           leftAlignRef={editProfileBtnRef}
           forceLogin={forceLogin}
-          unreadCount={totalUnreadCount}
+          unreadCount={messageUnreadCount}
+          courseCount={newCourseCount}
         />
       )}
     </header>

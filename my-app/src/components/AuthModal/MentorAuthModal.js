@@ -11,8 +11,10 @@ import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
+import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
+import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
-const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = 0 }) => {
+const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = null, courseCount = null }) => {
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -22,6 +24,10 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   });
   const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 审核中/非导师
   const navigate = useNavigate();
+  const { totalUnreadCount: internalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
+  const { newCourseCount: internalCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
+  const resolvedUnreadCount = typeof unreadCount === 'number' ? unreadCount : internalUnreadCount;
+  const resolvedCourseCount = typeof courseCount === 'number' ? courseCount : internalCourseCount;
 
   useEffect(() => {
     const sync = (e) => {
@@ -207,14 +213,17 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                 收藏
               </button>
               <button
-                className="auth-modal-option-button"
+                className="auth-modal-option-button auth-modal-option-button--with-badge"
                 disabled={isPendingMentor}
                 aria-disabled={isPendingMentor}
                 title={isPendingMentor ? '导师审核中，暂不可用' : undefined}
                 onClick={() => handleAuthAction('courses')}
               >
-                <FiBookOpen className="auth-icon" />
-                课程
+                <span className="auth-modal-option-main">
+                  <FiBookOpen className="auth-icon" />
+                  课程
+                </span>
+                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel="新课程提醒" />
               </button>
               <button
                 className="auth-modal-option-button auth-divider auth-modal-option-button--with-badge"
@@ -224,7 +233,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                   <i className="far fa-comment auth-icon" aria-hidden="true"></i>
                   消息
                 </span>
-                <UnreadBadge count={unreadCount} variant="menu" ariaLabel="未读消息" />
+                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel="未读消息" />
               </button>
               <button
                 className="auth-modal-option-button"
