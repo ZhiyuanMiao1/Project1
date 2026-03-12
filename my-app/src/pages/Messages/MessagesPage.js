@@ -716,6 +716,8 @@ function MessagesPage() {
           id: String(item.id || `decision-${index}`),
           status,
           time: String(item.time || ''),
+          isRead: Boolean(item.isRead),
+          isByMe: Boolean(item.isByMe),
         };
       })
       .filter(Boolean);
@@ -727,7 +729,13 @@ function MessagesPage() {
     if (latest.isByMe) return [];
     const status = typeof latest.status === 'string' ? latest.status.trim().toLowerCase() : '';
     if (status !== 'accepted' && status !== 'rejected') return [];
-    return [{ id: 'latest-decision', status, time: String(latest.time || '') }];
+    return [{
+      id: 'latest-decision',
+      status,
+      time: String(latest.time || ''),
+      isRead: true,
+      isByMe: Boolean(latest.isByMe),
+    }];
   }, [activeThread?.decisionMessages, activeThread?.latestDecision]);
 
   const timelineItems = useMemo(() => {
@@ -865,6 +873,34 @@ function MessagesPage() {
 
     return () => observer.disconnect();
   }, [activeThread?.id, isLoggedIn, queueVisibleMessageRead, timelineItems]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !activeThread?.id) return;
+
+    const unreadIds = [];
+    const maybeQueueCard = (card) => {
+      if (!card || typeof card !== 'object') return;
+      if (card?.direction !== 'incoming' || card?.isRead) return;
+      const messageId = String(card?.id || '').trim();
+      if (!messageId) return;
+      unreadIds.push(messageId);
+    };
+    const maybeQueueDecision = (decision) => {
+      if (!decision || typeof decision !== 'object') return;
+      if (decision?.isByMe || decision?.isRead) return;
+      const messageId = String(decision?.id || '').trim();
+      if (!messageId || messageId === 'latest-decision') return;
+      unreadIds.push(messageId);
+    };
+
+    maybeQueueCard(activeThread?.schedule);
+    if (Array.isArray(activeThread?.scheduleHistory)) activeThread.scheduleHistory.forEach(maybeQueueCard);
+    if (Array.isArray(activeThread?.decisionMessages)) activeThread.decisionMessages.forEach(maybeQueueDecision);
+
+    unreadIds.forEach((messageId) => {
+      queueVisibleMessageRead(messageId, String(activeThread.id));
+    });
+  }, [activeThread, isLoggedIn, queueVisibleMessageRead]);
 
   const persistAppointmentDecision = async (appointmentId, status) => {
     if (!appointmentId || !status) return false;
