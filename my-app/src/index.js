@@ -4,7 +4,10 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
+const OPAQUE_RUNTIME_PLACEHOLDER = '[object Object]';
+const isOpaqueRuntimePlaceholder = (value) => safeText(value) === OPAQUE_RUNTIME_PLACEHOLDER;
 
 const getClassroomRuntimeGuard = () => {
   if (typeof window === 'undefined') return null;
@@ -20,7 +23,8 @@ const isOpaqueClassroomRuntimeEvent = (event) => {
     : event?.reason;
 
   if (isObjectLike(rawPayload)) return true;
-  return String(event?.message || '').trim() === '[object Object]';
+  if (isOpaqueRuntimePlaceholder(rawPayload)) return true;
+  return isOpaqueRuntimePlaceholder(event?.message);
 };
 
 const forwardClassroomRuntimeEvent = (event) => {

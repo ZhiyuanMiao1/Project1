@@ -17,14 +17,16 @@ let liveSdkPromise = null;
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
+const OPAQUE_RUNTIME_PLACEHOLDER = '[object Object]';
+const isOpaqueRuntimePlaceholder = (value) => safeText(value) === OPAQUE_RUNTIME_PLACEHOLDER;
 
 const parseErrorMessage = (error, fallback) => {
   const responseMessage = safeText(error?.response?.data?.error);
-  if (responseMessage) return responseMessage;
+  if (responseMessage && !isOpaqueRuntimePlaceholder(responseMessage)) return responseMessage;
   const rawMessage = safeText(error?.message || error?.reason || error?.description || error?.msg);
   const code = Number(error?.code ?? error?.errorCode);
-  if (rawMessage && Number.isFinite(code)) return `${rawMessage} (code: ${code})`;
-  if (rawMessage) return rawMessage;
+  if (rawMessage && !isOpaqueRuntimePlaceholder(rawMessage) && Number.isFinite(code)) return `${rawMessage} (code: ${code})`;
+  if (rawMessage && !isOpaqueRuntimePlaceholder(rawMessage)) return rawMessage;
   if (Number.isFinite(code)) return `${fallback} (code: ${code})`;
   return fallback;
 };
@@ -93,11 +95,14 @@ const resolveWindowRuntimePayload = (event) => {
   if (directPayload) return directPayload;
 
   const message = safeText(event?.message);
+  if (isOpaqueRuntimePlaceholder(rawPayload)) {
+    return { message: OPAQUE_RUNTIME_PLACEHOLDER };
+  }
   if (isObjectLike(rawPayload)) {
     return rawPayload;
   }
 
-  if (message === '[object Object]') {
+  if (isOpaqueRuntimePlaceholder(message)) {
     return { message };
   }
 
@@ -275,6 +280,7 @@ function ClassroomPage() {
   const remoteScreenLastTimeRef = useRef(0);
   const remoteScreenObservedStreamRef = useRef(null);
   const remoteScreenStreamCleanupRef = useRef(null);
+  const remotePlayerSessionRef = useRef(0);
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -433,6 +439,20 @@ function ClassroomPage() {
     }
   }, []);
 
+  const destroyRemotePlayerInstance = useCallback(async (player) => {
+    if (!player) return;
+    try {
+      if (typeof player.stopPlay === 'function') {
+        await player.stopPlay();
+      }
+    } catch {}
+    try {
+      if (typeof player.destroy === 'function') {
+        player.destroy();
+      }
+    } catch {}
+  }, []);
+
   const teardownRemotePlayback = useCallback(async () => {
     clearRemotePlaybackRetry();
     clearRemoteScreenMonitor();
@@ -440,18 +460,7 @@ function ClassroomPage() {
     const player = playerRef.current;
     playerRef.current = null;
 
-    if (player) {
-      try {
-        if (typeof player.stopPlay === 'function') {
-          await player.stopPlay();
-        }
-      } catch {}
-      try {
-        if (typeof player.destroy === 'function') {
-          player.destroy();
-        }
-      } catch {}
-    }
+    await destroyRemotePlayerInstance(player);
 
     clearVideoElement(remoteVideoRef.current);
     clearVideoElement(remoteScreenVideoRef.current);
@@ -460,7 +469,7 @@ function ClassroomPage() {
       setRemoteReady(false);
       setRemoteScreenReady(false);
     }
-  }, [clearRemotePlaybackRetry, clearRemoteScreenMonitor]);
+  }, [clearRemotePlaybackRetry, clearRemoteScreenMonitor, destroyRemotePlayerInstance]);
 
   const scheduleRemotePlaybackRetry = useCallback((delayMs = 3000) => {
     clearRemotePlaybackRetry();
@@ -512,13 +521,22 @@ function ClassroomPage() {
     const remoteUserId = safeText(liveAuth?.remoteUserId);
     const displayName = safeText(remoteLabelRef.current) || '对方';
     const hadRemoteStream = remoteReadyRef.current;
+    let player = null;
+    let sessionId = 0;
+    const isActivePlayerSession = () => (
+      Boolean(player)
+      && playerRef.current === player
+      && remotePlayerSessionRef.current === sessionId
+    );
 
     if (!sdk || !remotePlayUrl || !remoteUserId || !remoteVideoRef.current || !joinedRef.current) return;
 
     await teardownRemotePlayback();
 
     try {
-      const player = new sdk.AlivcLivePlayer();
+      player = new sdk.AlivcLivePlayer();
+      sessionId = remotePlayerSessionRef.current + 1;
+      remotePlayerSessionRef.current = sessionId;
       playerRef.current = player;
 
       const playInfo = await player.startPlay(
@@ -526,13 +544,8 @@ function ClassroomPage() {
         remoteVideoRef.current,
         remoteScreenVideoRef.current || undefined
       );
-      if (!mountedRef.current || playerRef.current !== player) {
-        try {
-          if (typeof player.stopPlay === 'function') await player.stopPlay();
-        } catch {}
-        try {
-          if (typeof player.destroy === 'function') player.destroy();
-        } catch {}
+      if (!mountedRef.current || !isActivePlayerSession()) {
+        await destroyRemotePlayerInstance(player);
         return;
       }
 
@@ -542,31 +555,36 @@ function ClassroomPage() {
       }
 
       bindEmitter(playInfo, 'canplay', () => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || !isActivePlayerSession()) return;
         setRemoteReady(true);
         setErrorMessage('');
         setStatusText('双方已进入课堂');
       });
 
       bindEmitter(playInfo, 'update', () => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || !isActivePlayerSession()) return;
         setRemoteReady(true);
         setErrorMessage('');
         if (joinedRef.current) setStatusText('双方已进入课堂');
       });
 
       bindEmitter(playInfo, 'userleft', () => {
-        if (!mountedRef.current) return;
-        setStatusText(`${displayName}已离开课堂`);
+        if (!mountedRef.current || !isActivePlayerSession()) return;
+        applyRemoteNotJoinedState({ statusText: `${displayName}已离开课堂` });
         void (async () => {
+          if (!isActivePlayerSession()) return;
           await teardownRemotePlayback();
-          if (!mountedRef.current || !joinedRef.current) return;
-          scheduleRemotePlaybackRetry(2500);
+          if (!mountedRef.current || !joinedRef.current || remotePlayerSessionRef.current !== sessionId) return;
+          scheduleRemotePlaybackRetry(5000);
         })();
       });
     } catch (error) {
+      if (player && !isActivePlayerSession()) {
+        await destroyRemotePlayerInstance(player);
+        return;
+      }
       await teardownRemotePlayback();
-      if (!mountedRef.current || !joinedRef.current) return;
+      if (!mountedRef.current || !joinedRef.current || (sessionId && remotePlayerSessionRef.current !== sessionId)) return;
 
       if (isRetryableRemotePlayError(error)) {
         applyRemoteNotJoinedState({
@@ -580,7 +598,7 @@ function ClassroomPage() {
       setErrorMessage(message);
       setStatusText(message);
     }
-  }, [applyRemoteNotJoinedState, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, destroyRemotePlayerInstance, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
@@ -1001,7 +1019,8 @@ function ClassroomPage() {
     const shouldSuppressOpaqueRuntimeEvent = (event) => {
       const rawPayload = getWindowRuntimePayloadCandidate(event);
       if (isObjectLike(rawPayload)) return true;
-      return safeText(event?.message) === '[object Object]';
+      if (isOpaqueRuntimePlaceholder(rawPayload)) return true;
+      return isOpaqueRuntimePlaceholder(event?.message);
     };
 
     const shouldRecoverFromRuntimePayload = (payload) => {
