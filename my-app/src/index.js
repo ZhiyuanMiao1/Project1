@@ -6,25 +6,74 @@ import reportWebVitals from './reportWebVitals';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
+const isErrorLike = (value) => value instanceof Error;
 const OPAQUE_RUNTIME_PLACEHOLDER = '[object Object]';
+const hasOpaqueRuntimePlaceholder = (value) => safeText(value).includes(OPAQUE_RUNTIME_PLACEHOLDER);
 const isOpaqueRuntimePlaceholder = (value) => safeText(value) === OPAQUE_RUNTIME_PLACEHOLDER;
+
+const getRuntimeEventPayload = (event) => (
+  typeof event?.error !== 'undefined'
+    ? event.error
+    : event?.reason
+);
+
+const isSuppressibleRuntimePayload = (value) => {
+  if (typeof value === 'undefined' || value === null) return false;
+  if (isErrorLike(value)) return hasOpaqueRuntimePlaceholder(value?.message);
+  if (isObjectLike(value)) return true;
+  if (typeof value === 'string') return true;
+  return typeof value === 'number' || typeof value === 'boolean';
+};
 
 const getClassroomRuntimeGuard = () => {
   if (typeof window === 'undefined') return null;
   return window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ || null;
 };
 
+const suppressClassroomOverlayRuntimeError = (error) => {
+  const guard = getClassroomRuntimeGuard();
+  if (!guard?.active || !guard?.suppressOpaqueRuntimeErrors) return false;
+
+  const message = safeText(error?.message);
+  const stack = safeText(error?.stack);
+  const isOpaqueClassroomRuntimeError = hasOpaqueRuntimePlaceholder(message)
+    || stack.includes('alivc-live-push.js');
+
+  if (!isOpaqueClassroomRuntimeError) return false;
+
+  try {
+    guard.handleOpaqueRuntimeError?.({
+      error,
+      reason: error,
+      message: message || OPAQUE_RUNTIME_PLACEHOLDER,
+    });
+  } catch {}
+  return true;
+};
+
+const patchReactRefreshRuntimeOverlay = () => {
+  if (typeof window === 'undefined') return false;
+  const overlay = window.__react_refresh_error_overlay__;
+  if (!overlay || overlay.__MENTORY_CLASSROOM_PATCHED__) return Boolean(overlay);
+  if (typeof overlay.handleRuntimeError !== 'function') return false;
+
+  const originalHandleRuntimeError = overlay.handleRuntimeError.bind(overlay);
+  overlay.handleRuntimeError = (error) => {
+    if (suppressClassroomOverlayRuntimeError(error)) return;
+    originalHandleRuntimeError(error);
+  };
+  overlay.__MENTORY_CLASSROOM_PATCHED__ = true;
+  return true;
+};
+
 const isOpaqueClassroomRuntimeEvent = (event) => {
   const guard = getClassroomRuntimeGuard();
   if (!guard?.active || !guard?.suppressOpaqueRuntimeErrors) return false;
 
-  const rawPayload = typeof event?.error !== 'undefined'
-    ? event.error
-    : event?.reason;
-
-  if (isObjectLike(rawPayload)) return true;
+  const rawPayload = getRuntimeEventPayload(event);
+  if (isSuppressibleRuntimePayload(rawPayload)) return true;
   if (isOpaqueRuntimePlaceholder(rawPayload)) return true;
-  return isOpaqueRuntimePlaceholder(event?.message);
+  return hasOpaqueRuntimePlaceholder(event?.message);
 };
 
 const forwardClassroomRuntimeEvent = (event) => {
@@ -36,6 +85,11 @@ const forwardClassroomRuntimeEvent = (event) => {
 };
 
 if (typeof window !== 'undefined') {
+  patchReactRefreshRuntimeOverlay();
+  window.setTimeout(() => {
+    patchReactRefreshRuntimeOverlay();
+  }, 0);
+
   const handleClassroomOpaqueRuntimeEvent = (event) => {
     if (!isOpaqueClassroomRuntimeEvent(event)) return;
     event.preventDefault?.();

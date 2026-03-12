@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FiMic, FiMicOff, FiMonitor, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
@@ -12,21 +12,30 @@ const SCREEN_SHARE_PROFILE = {
   bitrateKbps: 3000,
   fps: 15,
 };
+const REMOTE_STOPPLAY_NOOP = async () => undefined;
 
 let liveSdkPromise = null;
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 const isObjectLike = (value) => Boolean(value) && typeof value === 'object';
+const isErrorLike = (value) => value instanceof Error;
 const OPAQUE_RUNTIME_PLACEHOLDER = '[object Object]';
-const isOpaqueRuntimePlaceholder = (value) => safeText(value) === OPAQUE_RUNTIME_PLACEHOLDER;
+const hasOpaqueRuntimePlaceholder = (value) => safeText(value).includes(OPAQUE_RUNTIME_PLACEHOLDER);
+const resolveAliyunSdkLogLevelNone = (sdk) => (
+  sdk?.LogLevel?.NONE
+  || sdk?.LogLevel?.none
+  || sdk?.AlivcLogLevel?.NONE
+  || sdk?.AlivcLogLevel?.none
+  || 'none'
+);
 
 const parseErrorMessage = (error, fallback) => {
   const responseMessage = safeText(error?.response?.data?.error);
-  if (responseMessage && !isOpaqueRuntimePlaceholder(responseMessage)) return responseMessage;
+  if (responseMessage && !hasOpaqueRuntimePlaceholder(responseMessage)) return responseMessage;
   const rawMessage = safeText(error?.message || error?.reason || error?.description || error?.msg);
   const code = Number(error?.code ?? error?.errorCode);
-  if (rawMessage && !isOpaqueRuntimePlaceholder(rawMessage) && Number.isFinite(code)) return `${rawMessage} (code: ${code})`;
-  if (rawMessage && !isOpaqueRuntimePlaceholder(rawMessage)) return rawMessage;
+  if (rawMessage && !hasOpaqueRuntimePlaceholder(rawMessage) && Number.isFinite(code)) return `${rawMessage} (code: ${code})`;
+  if (rawMessage && !hasOpaqueRuntimePlaceholder(rawMessage)) return rawMessage;
   if (Number.isFinite(code)) return `${fallback} (code: ${code})`;
   return fallback;
 };
@@ -49,6 +58,78 @@ const isUserCancelledScreenShareError = (error) => {
   if (getErrorCode(error) === 10013) return true;
 
   return /permission denied by user|denied by user|permission dismissed|notallowederror|aborterror|cancelled|canceled/.test(message);
+};
+
+const isInterruptedMediaPlayError = (error) => {
+  const message = [
+    safeText(error?.message),
+    safeText(error?.reason),
+    safeText(error?.description),
+    safeText(error?.msg),
+    safeText(error?.name),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return (
+    /the play\(\) request was interrupted by a call to pause\(\)/.test(message)
+    || (getErrorCode(error) === 20 && /play\(\).*pause\(\)/.test(message))
+  );
+};
+
+const isAlreadyLoggedInPushError = (error) => {
+  const message = [
+    safeText(error?.message),
+    safeText(error?.reason),
+    safeText(error?.description),
+    safeText(error?.msg),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return getErrorCode(error) === 20103 || /already logged in/.test(message);
+};
+
+const hasActiveLocalPushSession = (pusher) => {
+  if (!pusher) return false;
+
+  try {
+    const channelId = safeText(typeof pusher.getChannelId === 'function' ? pusher.getChannelId() : '');
+    const userId = safeText(typeof pusher.getUserId === 'function' ? pusher.getUserId() : '');
+    return Boolean(channelId && userId);
+  } catch {
+    return false;
+  }
+};
+
+const hasLiveVideoTrack = (stream) => {
+  const tracks = stream?.getVideoTracks?.();
+  return Array.isArray(tracks) && tracks.some((track) => track && track.readyState !== 'ended');
+};
+
+const resolvePublishMediaStream = (pusher) => {
+  if (!pusher || typeof pusher.getPublishMediaStream !== 'function') return null;
+  try {
+    return pusher.getPublishMediaStream() || null;
+  } catch {
+    return null;
+  }
+};
+
+const attachMediaStreamToVideoElement = async (element, stream) => {
+  if (!element) return;
+
+  try {
+    if (element.srcObject !== stream) {
+      element.srcObject = stream || null;
+    }
+  } catch {}
+
+  if (!stream || typeof element.play !== 'function') return;
+
+  try {
+    await Promise.resolve(element.play());
+  } catch (error) {
+    if (!isInterruptedMediaPlayError(error)) {
+      throw error;
+    }
+  }
 };
 
 const looksLikeSdkErrorObject = (value) => {
@@ -89,24 +170,45 @@ const getWindowRuntimePayloadCandidate = (event) => {
   return null;
 };
 
+const normalizeWindowRuntimePayload = (value) => {
+  if (typeof value === 'undefined' || value === null) return null;
+  if (isErrorLike(value)) {
+    return hasOpaqueRuntimePlaceholder(value?.message) ? value : null;
+  }
+  if (isObjectLike(value)) {
+    return unwrapRuntimeErrorPayload(value) || value;
+  }
+
+  const text = safeText(value);
+  if (text) return { message: text };
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return { message: String(value) };
+  }
+  return null;
+};
+
 const resolveWindowRuntimePayload = (event) => {
   const rawPayload = getWindowRuntimePayloadCandidate(event);
+  const normalizedPayload = normalizeWindowRuntimePayload(rawPayload);
+  if (normalizedPayload) return normalizedPayload;
   const directPayload = unwrapRuntimeErrorPayload(rawPayload);
   if (directPayload) return directPayload;
 
   const message = safeText(event?.message);
-  if (isOpaqueRuntimePlaceholder(rawPayload)) {
-    return { message: OPAQUE_RUNTIME_PLACEHOLDER };
-  }
-  if (isObjectLike(rawPayload)) {
-    return rawPayload;
-  }
-
-  if (isOpaqueRuntimePlaceholder(message)) {
+  if (hasOpaqueRuntimePlaceholder(message)) {
     return { message };
   }
 
   return null;
+};
+
+const isAliyunLogprodWebSocketErrorEvent = (event) => {
+  if (event?.type !== 'error' || typeof WebSocket !== 'function') return false;
+
+  const socketTarget = [event?.target, event?.srcElement].find((candidate) => candidate instanceof WebSocket);
+  const socketUrl = safeText(socketTarget?.url);
+
+  return Boolean(socketTarget) && socketUrl.includes('logprod.aliyuncs.com/binlog');
 };
 
 const resolveAliyunLiveSdk = () => {
@@ -196,21 +298,50 @@ const isRetryableRemotePlayError = (error) => {
   return /not found|no stream|stream.*not.*exist|user.*not.*exist|timeout|wait|等待|不存在|未发布|未推流/i.test(message);
 };
 
+const isIgnorableRemoteStopPlayError = (error) => {
+  const message = [
+    safeText(error?.message),
+    safeText(error?.reason),
+    safeText(error?.description),
+    safeText(error?.msg),
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return getErrorCode(error) === 20701
+    || (
+      /remote stream stop play failed/.test(message)
+      && /remote user does not exist|remote user.*not.*exist|user does not exist/.test(message)
+    );
+};
+
+const hasRemoteUserForPlayer = (player, remoteUserId) => {
+  if (!player || !remoteUserId) return false;
+
+  const getRemoteUser = player?.userManager?.getRemoteUser;
+  if (typeof getRemoteUser !== 'function') return true;
+
+  try {
+    return Boolean(getRemoteUser.call(player.userManager, remoteUserId));
+  } catch {
+    return false;
+  }
+};
+
 const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
 const REMOTE_RECONNECTING_TEXT = '对方网络波动，正在等待重新加入...';
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 
-const clearVideoElement = (element) => {
+const clearVideoElement = (element, options = {}) => {
+  const { pause = true, reload = true } = options;
   if (!element) return;
   try {
-    if (typeof element.pause === 'function') element.pause();
+    if (pause && typeof element.pause === 'function') element.pause();
   } catch {}
   try {
     element.srcObject = null;
   } catch {}
   try {
     element.removeAttribute('src');
-    if (typeof element.load === 'function') element.load();
+    if (reload && typeof element.load === 'function') element.load();
   } catch {}
 };
 
@@ -251,6 +382,7 @@ function ClassroomPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
   const localVideoRef = useRef(null);
+  const localCameraPreviewRef = useRef(null);
   const localScreenVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const remoteScreenVideoRef = useRef(null);
@@ -266,7 +398,6 @@ function ClassroomPage() {
   const screenActionPendingRef = useRef(false);
   const screenShareCancelSilenceUntilRef = useRef(0);
   const cameraActionPendingRef = useRef(false);
-  const cameraPermissionPrimeAttemptedRef = useRef(false);
   const remoteRetryTimerRef = useRef(0);
   const remoteRecoveryPendingRef = useRef(false);
   const remoteRecoveryTimestampRef = useRef(0);
@@ -281,13 +412,21 @@ function ClassroomPage() {
   const remoteScreenObservedStreamRef = useRef(null);
   const remoteScreenStreamCleanupRef = useRef(null);
   const remotePlayerSessionRef = useRef(0);
+  const remoteMediaMonitorTimerRef = useRef(0);
+  const remoteMediaHeartbeatRef = useRef(0);
+  const remoteMediaLastTimeRef = useRef(0);
+  const currentRemoteUserIdRef = useRef('');
+  const remotePlaybackActiveRef = useRef(false);
+  const remoteStopInFlightRef = useRef(false);
+  const localPushActiveRef = useRef(false);
+  const cameraMutedRef = useRef(true);
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
   const [session, setSession] = useState(null);
   const [statusText, setStatusText] = useState('准备进入课堂...');
   const [errorMessage, setErrorMessage] = useState('');
-  const [micMuted, setMicMuted] = useState(false);
+  const [micMuted, setMicMuted] = useState(true);
   const [cameraMuted, setCameraMuted] = useState(true);
   const [remoteReady, setRemoteReady] = useState(false);
   const [screenShareSupported, setScreenShareSupported] = useState(false);
@@ -314,11 +453,57 @@ function ClassroomPage() {
   remoteReadyRef.current = remoteReady;
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
+  cameraMutedRef.current = cameraMuted;
+
+  const logRemoteCleanup = useCallback((functionName, details = {}) => {
+    const player = typeof details.player === 'undefined' ? playerRef.current : details.player;
+    const videoElement = typeof details.videoElement === 'undefined'
+      ? (remoteVideoRef.current || remoteScreenVideoRef.current || null)
+      : details.videoElement;
+    const error = details.error;
+
+    console.debug('[MentoryRemoteCleanup]', {
+      functionName,
+      timestamp: new Date().toISOString(),
+      remoteUserId: safeText(details.remoteUserId) || currentRemoteUserIdRef.current,
+      currentRemoteUserId: currentRemoteUserIdRef.current,
+      remotePlaybackActive: remotePlaybackActiveRef.current,
+      playerRefExists: Boolean(playerRef.current),
+      playerExists: Boolean(player),
+      playerMatchesPlayerRef: Boolean(player && playerRef.current === player),
+      videoElementExists: Boolean(videoElement),
+      willStopPlay: Boolean(details.willStopPlay),
+      willDestroy: Boolean(details.willDestroy),
+      remoteStopInFlight: remoteStopInFlightRef.current,
+      playerHasStopPlay: Boolean(player && typeof player.stopPlay === 'function'),
+      playerHasDestroy: Boolean(player && typeof player.destroy === 'function'),
+      playerStopPlayIsNoop: Boolean(player && player.stopPlay === REMOTE_STOPPLAY_NOOP),
+      errorCode: error ? getErrorCode(error) : null,
+      errorMessage: error ? safeText(error?.message || error?.reason || error?.description || error?.msg) : '',
+      errorParams: error?.params,
+      ...details,
+      player: undefined,
+      videoElement: undefined,
+      error: undefined,
+    });
+  }, []);
 
   const clearRemotePlaybackRetry = useCallback(() => {
     if (!remoteRetryTimerRef.current) return;
     window.clearTimeout(remoteRetryTimerRef.current);
     remoteRetryTimerRef.current = 0;
+  }, []);
+
+  const clearRemoteMediaMonitor = useCallback(() => {
+    if (!remoteMediaMonitorTimerRef.current) return;
+    window.clearInterval(remoteMediaMonitorTimerRef.current);
+    remoteMediaMonitorTimerRef.current = 0;
+  }, []);
+
+  const markRemoteMediaProgress = useCallback(() => {
+    const video = remoteVideoRef.current;
+    remoteMediaHeartbeatRef.current = Date.now();
+    remoteMediaLastTimeRef.current = Number.isFinite(video?.currentTime) ? video.currentTime : 0;
   }, []);
 
   const clearScreenTrackListener = useCallback(() => {
@@ -409,6 +594,8 @@ function ClassroomPage() {
   const applyRemoteNotJoinedState = useCallback((options = {}) => {
     const nextStatusText = safeText(options.statusText) || REMOTE_NOT_JOINED_TEXT;
     if (!mountedRef.current) return;
+    remoteMediaHeartbeatRef.current = 0;
+    remoteMediaLastTimeRef.current = 0;
     setErrorMessage('');
     setRemoteReady(false);
     markRemoteScreenIdle();
@@ -416,52 +603,269 @@ function ClassroomPage() {
   }, [markRemoteScreenIdle]);
 
   const detachVisibleCameraPreview = useCallback(() => {
-    clearVideoElement(localVideoRef.current);
+    clearVideoElement(localVideoRef.current, { pause: false, reload: false });
+    clearVideoElement(localCameraPreviewRef.current, { pause: false, reload: false });
   }, []);
 
-  const primeCameraPermission = useCallback(async () => {
-    if (cameraPermissionPrimeAttemptedRef.current) return;
-    cameraPermissionPrimeAttemptedRef.current = true;
+  const startVisibleCameraPreview = useCallback(async (options = {}) => {
+    const pusher = pusherRef.current;
+    const visibleElement = localVideoRef.current;
 
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+    if (!pusher || !visibleElement) return null;
 
-    let stream = null;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    } catch {
+    const startedAt = Date.now();
+    let previewStream = resolvePublishMediaStream(pusher);
+
+    while (!hasLiveVideoTrack(previewStream) && Date.now() - startedAt < 3000) {
+      await new Promise((resolve) => window.setTimeout(resolve, 80));
+      previewStream = resolvePublishMediaStream(pusher);
+    }
+
+    if (!hasLiveVideoTrack(previewStream)) {
+      throw new Error('本地摄像头预览初始化失败');
+    }
+
+    await attachMediaStreamToVideoElement(visibleElement, previewStream);
+    return previewStream;
+  }, []);
+
+  const startLocalPush = useCallback(async () => {
+    const pusher = pusherRef.current;
+    const pushUrl = safeText(liveAuthRef.current?.pushUrl);
+    if (!pusher || !pushUrl) {
+      throw new Error('课堂推流尚未就绪');
+    }
+
+    if (localPushActiveRef.current || hasActiveLocalPushSession(pusher)) {
+      localPushActiveRef.current = true;
       return;
-    } finally {
-      stream?.getTracks?.().forEach((track) => {
-        try {
-          track.stop();
-        } catch {}
-      });
+    }
+
+    try {
+      await pusher.startPush(pushUrl);
+      localPushActiveRef.current = true;
+    } catch (error) {
+      if (isAlreadyLoggedInPushError(error) || hasActiveLocalPushSession(pusher)) {
+        localPushActiveRef.current = true;
+        return;
+      }
+      throw error;
     }
   }, []);
 
-  const destroyRemotePlayerInstance = useCallback(async (player) => {
-    if (!player) return;
+  const stopLocalPush = useCallback(async () => {
+    const pusher = pusherRef.current;
+    if (!pusher || typeof pusher.stopPush !== 'function') return;
+    if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) return;
+
     try {
-      if (typeof player.stopPlay === 'function') {
-        await player.stopPlay();
-      }
+      await pusher.stopPush();
     } catch {}
+    localPushActiveRef.current = false;
+  }, []);
+
+  const syncLocalMicMuteState = useCallback((muted) => {
+    const pusher = pusherRef.current;
+    if (!pusher || typeof pusher.mute !== 'function') return;
+
     try {
-      if (typeof player.destroy === 'function') {
-        player.destroy();
-      }
+      pusher.mute(Boolean(muted));
     } catch {}
   }, []);
+
+  const destroyRemotePlayerInstance = useCallback(async (player, options = {}) => {
+    if (!player) {
+      logRemoteCleanup('destroyRemotePlayerInstance', {
+        stage: 'skip-no-player',
+        remoteUserId: options.remoteUserId,
+        videoElement: options.videoElement || null,
+        willStopPlay: false,
+        willDestroy: false,
+      });
+      return;
+    }
+
+    const remoteUserId = safeText(options.remoteUserId);
+    const videoElement = options.videoElement || null;
+    const playbackActive = options.playbackActive === true;
+    const remoteUserExists = hasRemoteUserForPlayer(player, remoteUserId);
+    const canStopPlay = (
+      playbackActive
+      && !remoteStopInFlightRef.current
+      && typeof player.stopPlay === 'function'
+      && Boolean(videoElement)
+      && Boolean(remoteUserId)
+      && remoteUserExists
+    );
+
+    logRemoteCleanup('destroyRemotePlayerInstance', {
+      stage: 'enter',
+      player,
+      remoteUserId,
+      videoElement,
+      playbackActive,
+      remoteUserExists,
+      canStopPlay,
+      willStopPlay: canStopPlay,
+      willDestroy: typeof player.destroy === 'function',
+    });
+
+    if (canStopPlay) {
+      remoteStopInFlightRef.current = true;
+      logRemoteCleanup('destroyRemotePlayerInstance', {
+        stage: 'before-stopPlay',
+        player,
+        remoteUserId,
+        videoElement,
+        playbackActive,
+        remoteUserExists,
+        willStopPlay: true,
+        willDestroy: typeof player.destroy === 'function',
+      });
+      try {
+        await player.stopPlay();
+        logRemoteCleanup('destroyRemotePlayerInstance', {
+          stage: 'after-stopPlay',
+          player,
+          remoteUserId,
+          videoElement,
+          playbackActive,
+          remoteUserExists,
+          willStopPlay: false,
+          willDestroy: typeof player.destroy === 'function',
+        });
+      } catch (error) {
+        logRemoteCleanup('destroyRemotePlayerInstance', {
+          stage: 'stopPlay-catch',
+          player,
+          remoteUserId,
+          videoElement,
+          playbackActive,
+          remoteUserExists,
+          willStopPlay: true,
+          willDestroy: typeof player.destroy === 'function',
+          error,
+        });
+        if (!isIgnorableRemoteStopPlayError(error)) {
+          console.warn('Failed to stop remote playback', error);
+        }
+      } finally {
+        remoteStopInFlightRef.current = false;
+      }
+    } else {
+      logRemoteCleanup('destroyRemotePlayerInstance', {
+        stage: 'skip-stopPlay',
+        player,
+        remoteUserId,
+        videoElement,
+        playbackActive,
+        remoteUserExists,
+        willStopPlay: false,
+        willDestroy: typeof player.destroy === 'function',
+      });
+    }
+
+    if (typeof player.stopPlay === 'function') {
+      try {
+        player.stopPlay = REMOTE_STOPPLAY_NOOP;
+      } catch {}
+    }
+
+    logRemoteCleanup('destroyRemotePlayerInstance', {
+      stage: 'before-destroy',
+      player,
+      remoteUserId,
+      videoElement,
+      playbackActive,
+      remoteUserExists,
+      willStopPlay: false,
+      willDestroy: typeof player.destroy === 'function',
+    });
+
+    try {
+      if (typeof player.destroy === 'function') {
+        await Promise.resolve(player.destroy());
+        logRemoteCleanup('destroyRemotePlayerInstance', {
+          stage: 'after-destroy',
+          player,
+          remoteUserId,
+          videoElement,
+          playbackActive,
+          remoteUserExists,
+          willStopPlay: false,
+          willDestroy: false,
+        });
+      }
+    } catch (error) {
+      logRemoteCleanup('destroyRemotePlayerInstance', {
+        stage: 'destroy-catch',
+        player,
+        remoteUserId,
+        videoElement,
+        playbackActive,
+        remoteUserExists,
+        willStopPlay: false,
+        willDestroy: true,
+        error,
+      });
+      if (!isIgnorableRemoteStopPlayError(error)) {
+        console.warn('Failed to destroy remote playback', error);
+      }
+    }
+  }, [logRemoteCleanup]);
 
   const teardownRemotePlayback = useCallback(async () => {
     clearRemotePlaybackRetry();
     clearRemoteScreenMonitor();
 
     const player = playerRef.current;
+    const remoteUserId = currentRemoteUserIdRef.current;
+    const playbackActive = remotePlaybackActiveRef.current;
+    const videoElement = remoteVideoRef.current || remoteScreenVideoRef.current || null;
+
+    logRemoteCleanup('teardownRemotePlayback', {
+      stage: 'enter',
+      player,
+      remoteUserId,
+      videoElement,
+      playbackActive,
+      willStopPlay: playbackActive,
+      willDestroy: Boolean(player),
+    });
+
     playerRef.current = null;
+    currentRemoteUserIdRef.current = '';
+    remotePlaybackActiveRef.current = false;
 
-    await destroyRemotePlayerInstance(player);
+    logRemoteCleanup('teardownRemotePlayback', {
+      stage: 'after-ref-clear',
+      player,
+      remoteUserId,
+      videoElement,
+      playbackActive,
+      willStopPlay: playbackActive,
+      willDestroy: Boolean(player),
+    });
 
+    await destroyRemotePlayerInstance(player, {
+      remoteUserId,
+      playbackActive,
+      videoElement,
+    });
+    remoteStopInFlightRef.current = false;
+
+    logRemoteCleanup('teardownRemotePlayback', {
+      stage: 'after-destroyRemotePlayerInstance',
+      player,
+      remoteUserId,
+      videoElement,
+      playbackActive: false,
+      willStopPlay: false,
+      willDestroy: false,
+    });
+
+    remoteMediaHeartbeatRef.current = 0;
+    remoteMediaLastTimeRef.current = 0;
     clearVideoElement(remoteVideoRef.current);
     clearVideoElement(remoteScreenVideoRef.current);
 
@@ -469,7 +873,7 @@ function ClassroomPage() {
       setRemoteReady(false);
       setRemoteScreenReady(false);
     }
-  }, [clearRemotePlaybackRetry, clearRemoteScreenMonitor, destroyRemotePlayerInstance]);
+  }, [clearRemotePlaybackRetry, clearRemoteScreenMonitor, destroyRemotePlayerInstance, logRemoteCleanup]);
 
   const scheduleRemotePlaybackRetry = useCallback((delayMs = 3000) => {
     clearRemotePlaybackRetry();
@@ -489,15 +893,64 @@ function ClassroomPage() {
       || (remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT);
     const now = Date.now();
 
+    logRemoteCleanup('recoverRemotePlayback', {
+      stage: 'enter',
+      remoteUserId: currentRemoteUserIdRef.current,
+      playbackActive: remotePlaybackActiveRef.current,
+      nextDelayMs,
+      minIntervalMs,
+      nextStatusText,
+      willStopPlay: remotePlaybackActiveRef.current,
+      willDestroy: Boolean(playerRef.current),
+    });
+
+    if (!mountedRef.current || !joinedRef.current) {
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'skip-not-mounted-or-joined',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: false,
+        willDestroy: false,
+      });
+      return;
+    }
+
+    if (!remotePlaybackActiveRef.current) {
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'skip-inactive-playback',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: false,
+        willDestroy: false,
+      });
+      return;
+    }
+
     applyRemoteNotJoinedState({ statusText: nextStatusText });
-    if (!mountedRef.current || !joinedRef.current) return;
 
     if (remoteRecoveryTimestampRef.current && now - remoteRecoveryTimestampRef.current < minIntervalMs) {
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'skip-rate-limited',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        nextDelayMs,
+        minIntervalMs,
+        willStopPlay: false,
+        willDestroy: false,
+      });
       scheduleRemotePlaybackRetry(Math.max(nextDelayMs, minIntervalMs));
       return;
     }
 
     if (remoteRecoveryPendingRef.current) {
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'skip-pending',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        nextDelayMs,
+        willStopPlay: false,
+        willDestroy: false,
+      });
       scheduleRemotePlaybackRetry(nextDelayMs);
       return;
     }
@@ -505,14 +958,124 @@ function ClassroomPage() {
     remoteRecoveryTimestampRef.current = now;
     remoteRecoveryPendingRef.current = true;
     try {
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'before-teardownRemotePlayback',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: remotePlaybackActiveRef.current,
+        willDestroy: Boolean(playerRef.current),
+      });
       await teardownRemotePlayback();
     } finally {
       remoteRecoveryPendingRef.current = false;
+      logRemoteCleanup('recoverRemotePlayback', {
+        stage: 'finally',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        nextDelayMs,
+        willStopPlay: false,
+        willDestroy: false,
+      });
       if (mountedRef.current && joinedRef.current) {
         scheduleRemotePlaybackRetry(nextDelayMs);
       }
     }
-  }, [applyRemoteNotJoinedState, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, logRemoteCleanup, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+
+  const isRemoteRuntimeRecoveryActive = useCallback(() => (
+    joinedRef.current && remotePlaybackActiveRef.current && (
+      Boolean(playerRef.current)
+      || Boolean(remoteRetryTimerRef.current)
+      || remoteRecoveryPendingRef.current
+    )
+  ), []);
+
+  const hasEstablishedRemotePlayback = useCallback(() => (
+    remoteReadyRef.current || remoteMediaHeartbeatRef.current > 0
+  ), []);
+
+  const shouldSuppressOpaqueRuntimeEvent = useCallback((event) => {
+    if (isAliyunLogprodWebSocketErrorEvent(event)) return true;
+    const rawPayload = getWindowRuntimePayloadCandidate(event);
+    if (isInterruptedMediaPlayError(rawPayload)) return true;
+    if (normalizeWindowRuntimePayload(rawPayload)) return true;
+    if (isInterruptedMediaPlayError({ message: event?.message })) return true;
+    return hasOpaqueRuntimePlaceholder(event?.message);
+  }, []);
+
+  const shouldRecoverFromRuntimePayload = useCallback((payload) => {
+    if (!payload || !isRemoteRuntimeRecoveryActive()) return false;
+    if (isRetryableRemotePlayError(payload)) return hasEstablishedRemotePlayback();
+    return hasEstablishedRemotePlayback() && isObjectLike(payload);
+  }, [hasEstablishedRemotePlayback, isRemoteRuntimeRecoveryActive]);
+
+  const processRuntimeEvent = useCallback((event, options = {}) => {
+    const { alreadySuppressed = false } = options;
+    const silenceEvent = () => {
+      if (alreadySuppressed) return;
+      event.preventDefault?.();
+      event.stopImmediatePropagation?.();
+    };
+
+    if (isAliyunLogprodWebSocketErrorEvent(event)) {
+      silenceEvent();
+      if (mountedRef.current) setErrorMessage('');
+      return true;
+    }
+
+    const runtimePayload = resolveWindowRuntimePayload(event);
+    const suppressOpaqueRuntime = shouldSuppressOpaqueRuntimeEvent(event);
+
+    if (isInterruptedMediaPlayError(runtimePayload) || isInterruptedMediaPlayError({ message: event?.message })) {
+      silenceEvent();
+      if (mountedRef.current) setErrorMessage('');
+      return true;
+    }
+
+    if (!runtimePayload) {
+      if (!suppressOpaqueRuntime) return false;
+      silenceEvent();
+      if (hasEstablishedRemotePlayback() && isRemoteRuntimeRecoveryActive()) {
+        void recoverRemotePlayback({
+          statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+        });
+      } else if (mountedRef.current) {
+        setErrorMessage('');
+      }
+      return true;
+    }
+
+    if (shouldSilenceScreenShareCancelError(runtimePayload)) {
+      silenceEvent();
+      if (mountedRef.current) setErrorMessage('');
+      return true;
+    }
+
+    if (shouldRecoverFromRuntimePayload(runtimePayload)) {
+      silenceEvent();
+      void recoverRemotePlayback({
+        statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+      });
+      return true;
+    }
+
+    if (suppressOpaqueRuntime) {
+      silenceEvent();
+      if (mountedRef.current) setErrorMessage('');
+      return true;
+    }
+
+    reportRuntimeIssue(runtimePayload, '课堂连接发生错误，请稍后重试');
+    return true;
+  }, [
+    hasEstablishedRemotePlayback,
+    isRemoteRuntimeRecoveryActive,
+    recoverRemotePlayback,
+    reportRuntimeIssue,
+    shouldRecoverFromRuntimePayload,
+    shouldSilenceScreenShareCancelError,
+    shouldSuppressOpaqueRuntimeEvent,
+  ]);
 
   const startRemotePlayback = useCallback(async () => {
     const sdk = resolveAliyunLiveSdk();
@@ -523,31 +1086,103 @@ function ClassroomPage() {
     const hadRemoteStream = remoteReadyRef.current;
     let player = null;
     let sessionId = 0;
+    let playbackStarted = false;
+    let playbackCommitted = false;
+    const isLatestPlaybackAttempt = () => remotePlayerSessionRef.current === sessionId;
     const isActivePlayerSession = () => (
-      Boolean(player)
+      playbackCommitted
+      && Boolean(player)
       && playerRef.current === player
-      && remotePlayerSessionRef.current === sessionId
+      && isLatestPlaybackAttempt()
     );
+
+    logRemoteCleanup('startRemotePlayback', {
+      stage: 'enter',
+      remoteUserId,
+      playbackActive: remotePlaybackActiveRef.current,
+      hasSdk: Boolean(sdk),
+      hasRemotePlayUrl: Boolean(remotePlayUrl),
+      hasRemoteVideoElement: Boolean(remoteVideoRef.current),
+      willStopPlay: remotePlaybackActiveRef.current,
+      willDestroy: Boolean(playerRef.current),
+    });
 
     if (!sdk || !remotePlayUrl || !remoteUserId || !remoteVideoRef.current || !joinedRef.current) return;
 
+    logRemoteCleanup('startRemotePlayback', {
+      stage: 'before-initial-teardownRemotePlayback',
+      remoteUserId,
+      playbackActive: remotePlaybackActiveRef.current,
+      willStopPlay: remotePlaybackActiveRef.current,
+      willDestroy: Boolean(playerRef.current),
+    });
     await teardownRemotePlayback();
 
     try {
       player = new sdk.AlivcLivePlayer();
       sessionId = remotePlayerSessionRef.current + 1;
       remotePlayerSessionRef.current = sessionId;
-      playerRef.current = player;
+      remoteStopInFlightRef.current = false;
+
+      logRemoteCleanup('startRemotePlayback', {
+        stage: 'player-created',
+        player,
+        remoteUserId,
+        sessionId,
+        playbackActive: false,
+        willStopPlay: false,
+        willDestroy: false,
+      });
 
       const playInfo = await player.startPlay(
         remotePlayUrl,
         remoteVideoRef.current,
         remoteScreenVideoRef.current || undefined
       );
-      if (!mountedRef.current || !isActivePlayerSession()) {
-        await destroyRemotePlayerInstance(player);
+      playbackStarted = true;
+      logRemoteCleanup('startRemotePlayback', {
+        stage: 'after-startPlay',
+        player,
+        remoteUserId,
+        sessionId,
+        playbackActive: playbackStarted,
+        videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+        willStopPlay: false,
+        willDestroy: false,
+      });
+      if (!mountedRef.current || !joinedRef.current || !isLatestPlaybackAttempt()) {
+        logRemoteCleanup('startRemotePlayback', {
+          stage: 'inactive-session-destroyRemotePlayerInstance',
+          player,
+          remoteUserId,
+          sessionId,
+          playbackActive: false,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+          willStopPlay: false,
+          willDestroy: true,
+        });
+        await destroyRemotePlayerInstance(player, {
+          remoteUserId,
+          playbackActive: false,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+        });
         return;
       }
+      playerRef.current = player;
+      currentRemoteUserIdRef.current = remoteUserId;
+      remotePlaybackActiveRef.current = true;
+      playbackCommitted = true;
+
+      logRemoteCleanup('startRemotePlayback', {
+        stage: 'commit-active-session',
+        player,
+        remoteUserId,
+        sessionId,
+        playbackActive: true,
+        videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+        willStopPlay: false,
+        willDestroy: false,
+      });
 
       if (mountedRef.current) {
         setErrorMessage('');
@@ -556,6 +1191,7 @@ function ClassroomPage() {
 
       bindEmitter(playInfo, 'canplay', () => {
         if (!mountedRef.current || !isActivePlayerSession()) return;
+        markRemoteMediaProgress();
         setRemoteReady(true);
         setErrorMessage('');
         setStatusText('双方已进入课堂');
@@ -563,6 +1199,7 @@ function ClassroomPage() {
 
       bindEmitter(playInfo, 'update', () => {
         if (!mountedRef.current || !isActivePlayerSession()) return;
+        markRemoteMediaProgress();
         setRemoteReady(true);
         setErrorMessage('');
         if (joinedRef.current) setStatusText('双方已进入课堂');
@@ -570,21 +1207,78 @@ function ClassroomPage() {
 
       bindEmitter(playInfo, 'userleft', () => {
         if (!mountedRef.current || !isActivePlayerSession()) return;
+        logRemoteCleanup('startRemotePlayback.userleft', {
+          stage: 'enter',
+          player,
+          remoteUserId,
+          sessionId,
+          playbackActive: remotePlaybackActiveRef.current,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+          willStopPlay: remotePlaybackActiveRef.current,
+          willDestroy: true,
+        });
+        currentRemoteUserIdRef.current = '';
+        remotePlaybackActiveRef.current = false;
         applyRemoteNotJoinedState({ statusText: `${displayName}已离开课堂` });
         void (async () => {
           if (!isActivePlayerSession()) return;
+          logRemoteCleanup('startRemotePlayback.userleft', {
+            stage: 'before-teardownRemotePlayback',
+            player,
+            remoteUserId,
+            sessionId,
+            playbackActive: false,
+            videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+            willStopPlay: false,
+            willDestroy: true,
+          });
           await teardownRemotePlayback();
           if (!mountedRef.current || !joinedRef.current || remotePlayerSessionRef.current !== sessionId) return;
           scheduleRemotePlaybackRetry(5000);
         })();
       });
     } catch (error) {
-      if (player && !isActivePlayerSession()) {
-        await destroyRemotePlayerInstance(player);
-        return;
+      logRemoteCleanup('startRemotePlayback', {
+        stage: 'catch',
+        player,
+        remoteUserId,
+        sessionId,
+        playbackActive: playbackCommitted,
+        videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+        willStopPlay: playbackCommitted,
+        willDestroy: Boolean(player),
+        error,
+      });
+      if (player && !playbackCommitted) {
+        logRemoteCleanup('startRemotePlayback', {
+          stage: 'catch-pending-player-destroyRemotePlayerInstance',
+          player,
+          remoteUserId,
+          sessionId,
+          playbackActive: false,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+          willStopPlay: false,
+          willDestroy: true,
+        });
+        await destroyRemotePlayerInstance(player, {
+          remoteUserId,
+          playbackActive: false,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+        });
+      } else {
+        logRemoteCleanup('startRemotePlayback', {
+          stage: 'catch-before-teardownRemotePlayback',
+          player,
+          remoteUserId,
+          sessionId,
+          playbackActive: true,
+          videoElement: remoteVideoRef.current || remoteScreenVideoRef.current || null,
+          willStopPlay: true,
+          willDestroy: Boolean(playerRef.current),
+        });
+        await teardownRemotePlayback();
       }
-      await teardownRemotePlayback();
-      if (!mountedRef.current || !joinedRef.current || (sessionId && remotePlayerSessionRef.current !== sessionId)) return;
+      if (!mountedRef.current || !joinedRef.current || (sessionId && !isLatestPlaybackAttempt())) return;
 
       if (isRetryableRemotePlayError(error)) {
         applyRemoteNotJoinedState({
@@ -598,7 +1292,7 @@ function ClassroomPage() {
       setErrorMessage(message);
       setStatusText(message);
     }
-  }, [applyRemoteNotJoinedState, destroyRemotePlayerInstance, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, destroyRemotePlayerInstance, logRemoteCleanup, markRemoteMediaProgress, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
@@ -629,9 +1323,26 @@ function ClassroomPage() {
   }, [clearScreenTrackListener]);
 
   const leaveAndDestroy = useCallback(async () => {
-    if (cleaningRef.current) return;
+    if (cleaningRef.current) {
+      logRemoteCleanup('leaveAndDestroy', {
+        stage: 'skip-already-cleaning',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: false,
+        willDestroy: false,
+      });
+      return;
+    }
     cleaningRef.current = true;
     joinedRef.current = false;
+
+    logRemoteCleanup('leaveAndDestroy', {
+      stage: 'enter',
+      remoteUserId: currentRemoteUserIdRef.current,
+      playbackActive: remotePlaybackActiveRef.current,
+      willStopPlay: remotePlaybackActiveRef.current,
+      willDestroy: Boolean(playerRef.current),
+    });
 
     try {
       clearRemotePlaybackRetry();
@@ -641,18 +1352,21 @@ function ClassroomPage() {
       screenActionPendingRef.current = false;
       screenShareCancelSilenceUntilRef.current = 0;
       cameraActionPendingRef.current = false;
-      cameraPermissionPrimeAttemptedRef.current = false;
 
       await stopScreenShare({ silent: true });
 
+      logRemoteCleanup('leaveAndDestroy', {
+        stage: 'before-teardownRemotePlayback',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: remotePlaybackActiveRef.current,
+        willDestroy: Boolean(playerRef.current),
+      });
       await teardownRemotePlayback();
 
       const pusher = pusherRef.current;
-      pusherRef.current = null;
       if (pusher) {
-        try {
-          if (typeof pusher.stopPush === 'function') await pusher.stopPush();
-        } catch {}
+        await stopLocalPush();
         try {
           if (typeof pusher.stopPreview === 'function') await pusher.stopPreview();
         } catch {}
@@ -660,14 +1374,19 @@ function ClassroomPage() {
           if (typeof pusher.destroy === 'function') pusher.destroy();
         } catch {}
       }
+      pusherRef.current = null;
+      localPushActiveRef.current = false;
 
       clearVideoElement(localVideoRef.current);
+      clearVideoElement(localCameraPreviewRef.current);
       clearVideoElement(localScreenVideoRef.current);
       clearVideoElement(remoteVideoRef.current);
       clearVideoElement(remoteScreenVideoRef.current);
 
       if (mountedRef.current) {
         setJoined(false);
+        setMicMuted(true);
+        setCameraMuted(true);
         setRemoteReady(false);
         setScreenShareSupported(false);
         setScreenSharing(false);
@@ -677,12 +1396,23 @@ function ClassroomPage() {
         setRemoteScreenReady(false);
       }
     } finally {
+      localPushActiveRef.current = false;
+      logRemoteCleanup('leaveAndDestroy', {
+        stage: 'finally',
+        remoteUserId: currentRemoteUserIdRef.current,
+        playbackActive: remotePlaybackActiveRef.current,
+        willStopPlay: false,
+        willDestroy: false,
+      });
       cleaningRef.current = false;
     }
-  }, [clearRemotePlaybackRetry, stopScreenShare, teardownRemotePlayback]);
+  }, [clearRemotePlaybackRetry, logRemoteCleanup, stopLocalPush, stopScreenShare, teardownRemotePlayback]);
 
   useEffect(() => {
     if (!joined) {
+      clearRemoteMediaMonitor();
+      remoteMediaHeartbeatRef.current = 0;
+      remoteMediaLastTimeRef.current = 0;
       clearRemoteScreenMonitor();
       remoteScreenHeartbeatRef.current = 0;
       remoteScreenLastTimeRef.current = 0;
@@ -805,13 +1535,92 @@ function ClassroomPage() {
       disposed = true;
       clearRemoteScreenMonitor();
     };
-  }, [joined, clearRemoteScreenMonitor, clearRemoteScreenStreamBindings, markRemoteScreenIdle, markRemoteScreenReady]);
+  }, [joined, clearRemoteMediaMonitor, clearRemoteScreenMonitor, clearRemoteScreenStreamBindings, markRemoteScreenIdle, markRemoteScreenReady]);
 
   useEffect(() => {
+    if (!joined) return undefined;
+
+    const video = remoteVideoRef.current;
+    if (!video) return undefined;
+
+    let disposed = false;
+
+    const handleRemotePlaybackMissing = () => {
+      if (disposed || !mountedRef.current || !joinedRef.current || !remoteReadyRef.current) return;
+      void recoverRemotePlayback({
+        statusText: REMOTE_NOT_JOINED_TEXT,
+        delayMs: 5000,
+        minIntervalMs: 3500,
+      });
+    };
+
+    const handleProgress = () => {
+      if (disposed) return;
+      markRemoteMediaProgress();
+      if (mountedRef.current) {
+        setRemoteReady(true);
+      }
+    };
+
+    const inspectRemotePlayback = () => {
+      if (disposed || !remoteReadyRef.current) return;
+
+      const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      if (currentTime > remoteMediaLastTimeRef.current) {
+        handleProgress();
+        return;
+      }
+
+      const hasSource = Boolean(video.srcObject || safeText(video.currentSrc) || safeText(video.src));
+      const readyState = Number.isFinite(video.readyState) ? video.readyState : 0;
+      const networkState = Number.isFinite(video.networkState) ? video.networkState : 0;
+      const staleForMs = Date.now() - remoteMediaHeartbeatRef.current;
+
+      if (!hasSource || video.ended || networkState === 3) {
+        handleRemotePlaybackMissing();
+        return;
+      }
+
+      if (remoteMediaHeartbeatRef.current && staleForMs > 4500 && readyState < 2) {
+        handleRemotePlaybackMissing();
+      }
+    };
+
+    const handleFault = () => {
+      if (disposed) return;
+      handleRemotePlaybackMissing();
+    };
+
+    const progressEvents = ['loadeddata', 'canplay', 'playing', 'timeupdate'];
+    const faultEvents = ['emptied', 'ended', 'abort', 'error', 'stalled'];
+
+    progressEvents.forEach((eventName) => {
+      video.addEventListener(eventName, handleProgress);
+    });
+    faultEvents.forEach((eventName) => {
+      video.addEventListener(eventName, handleFault);
+    });
+
+    remoteMediaMonitorTimerRef.current = window.setInterval(inspectRemotePlayback, 1000);
+    inspectRemotePlayback();
+
+    return () => {
+      disposed = true;
+      clearRemoteMediaMonitor();
+      progressEvents.forEach((eventName) => {
+        video.removeEventListener(eventName, handleProgress);
+      });
+      faultEvents.forEach((eventName) => {
+        video.removeEventListener(eventName, handleFault);
+      });
+    };
+  }, [joined, clearRemoteMediaMonitor, markRemoteMediaProgress, recoverRemotePlayback]);
+
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    const handleOpaqueRuntimeError = () => {
-      void recoverRemotePlayback();
+    const handleOpaqueRuntimeError = (event) => {
+      processRuntimeEvent(event, { alreadySuppressed: true });
     };
 
     const previousGuard = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__;
@@ -832,7 +1641,7 @@ function ClassroomPage() {
         handleOpaqueRuntimeError: null,
       };
     };
-  }, [recoverRemotePlayback]);
+  }, [processRuntimeEvent]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -853,7 +1662,7 @@ function ClassroomPage() {
         setJoining(true);
         setJoined(false);
         setRemoteReady(false);
-        setMicMuted(false);
+        setMicMuted(true);
         setCameraMuted(true);
         setScreenShareSupported(false);
         setScreenSharing(false);
@@ -957,6 +1766,7 @@ function ClassroomPage() {
           audio: true,
           video: false,
           connectRetryCount: 3,
+          logLevel: resolveAliyunSdkLogLevelNone(sdk),
         };
         if (sdk.AlivcResolutionEnum?.RESOLUTION_720P) {
           initConfig.resolution = sdk.AlivcResolutionEnum.RESOLUTION_720P;
@@ -969,15 +1779,11 @@ function ClassroomPage() {
 
         await pusher.init(initConfig);
         if (cancelled || !mountedRef.current) return;
+        syncLocalMicMuteState(true);
 
-        if (!localVideoRef.current) {
-          throw new Error('本地预览初始化失败');
-        }
-        await pusher.startPreview(localVideoRef.current);
         if (cancelled || !mountedRef.current) return;
 
         setStatusText('正在进入课堂...');
-        await pusher.startPush(liveAuth.pushUrl);
         if (cancelled || !mountedRef.current) return;
 
         joinedRef.current = true;
@@ -985,7 +1791,6 @@ function ClassroomPage() {
         setJoining(false);
         setStatusText(`已进入课堂，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
 
-        void primeCameraPermission().catch(() => {});
         void startRemotePlayback();
       } catch (error) {
         const message = parseErrorMessage(error, '进入课堂失败，请稍后重试');
@@ -1005,99 +1810,43 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [courseId, leaveAndDestroy, primeCameraPermission, reportRuntimeIssue, startRemotePlayback]);
+  }, [courseId, leaveAndDestroy, reportRuntimeIssue, startRemotePlayback, syncLocalMicMuteState]);
 
   useEffect(() => {
-    const isRemoteRuntimeRecoveryActive = () => (
-      joinedRef.current && (
-        Boolean(playerRef.current)
-        || Boolean(remoteRetryTimerRef.current)
-        || remoteRecoveryPendingRef.current
-      )
-    );
-
-    const shouldSuppressOpaqueRuntimeEvent = (event) => {
-      const rawPayload = getWindowRuntimePayloadCandidate(event);
-      if (isObjectLike(rawPayload)) return true;
-      if (isOpaqueRuntimePlaceholder(rawPayload)) return true;
-      return isOpaqueRuntimePlaceholder(event?.message);
+    const handleWindowRuntimeEvent = (event) => {
+      processRuntimeEvent(event);
     };
 
-    const shouldRecoverFromRuntimePayload = (payload) => {
-      if (!payload) return false;
-      if (isRetryableRemotePlayError(payload)) return true;
-      return isRemoteRuntimeRecoveryActive() && isObjectLike(payload);
-    };
-
-    const handleUnhandledRejection = (event) => {
-      const reason = resolveWindowRuntimePayload(event);
-      if (!reason && isRemoteRuntimeRecoveryActive() && shouldSuppressOpaqueRuntimeEvent(event)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        void recoverRemotePlayback();
-        return;
-      }
-      if (!reason) return;
-      if (shouldSilenceScreenShareCancelError(reason)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        if (mountedRef.current) setErrorMessage('');
-        return;
-      }
-      if (shouldRecoverFromRuntimePayload(reason)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        void recoverRemotePlayback();
-        return;
-      }
-      reportRuntimeIssue(reason, '课堂连接发生错误，请稍后重试');
-    };
-
-    const handleWindowError = (event) => {
-      const runtimePayload = resolveWindowRuntimePayload(event);
-      if (!runtimePayload && isRemoteRuntimeRecoveryActive() && shouldSuppressOpaqueRuntimeEvent(event)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        void recoverRemotePlayback();
-        return;
-      }
-      if (!runtimePayload) return;
-      if (shouldSilenceScreenShareCancelError(runtimePayload)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        if (mountedRef.current) setErrorMessage('');
-        return;
-      }
-      if (shouldRecoverFromRuntimePayload(runtimePayload)) {
-        event.preventDefault?.();
-        event.stopImmediatePropagation?.();
-        void recoverRemotePlayback();
-        return;
-      }
-      reportRuntimeIssue(runtimePayload, '课堂连接发生错误，请稍后重试');
-    };
-
-    window.addEventListener('error', handleWindowError, true);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection, true);
+    window.addEventListener('error', handleWindowRuntimeEvent, true);
+    window.addEventListener('unhandledrejection', handleWindowRuntimeEvent, true);
     return () => {
-      window.removeEventListener('error', handleWindowError, true);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection, true);
+      window.removeEventListener('error', handleWindowRuntimeEvent, true);
+      window.removeEventListener('unhandledrejection', handleWindowRuntimeEvent, true);
     };
-  }, [recoverRemotePlayback, reportRuntimeIssue, shouldSilenceScreenShareCancelError]);
+  }, [processRuntimeEvent]);
 
-  const handleToggleMic = useCallback(() => {
+  const handleToggleMic = useCallback(async () => {
     const pusher = pusherRef.current;
     if (!pusher || !joinedRef.current) return;
 
     const nextMuted = !micMuted;
     try {
-      pusher.mute(nextMuted);
-      if (mountedRef.current) setMicMuted(nextMuted);
+      if (!nextMuted && !localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
+        await startLocalPush();
+      }
+
+      if (localPushActiveRef.current || hasActiveLocalPushSession(pusher) || !cameraMuted || screenSharing) {
+        syncLocalMicMuteState(nextMuted);
+      }
+      if (mountedRef.current) {
+        setMicMuted(nextMuted);
+        setErrorMessage('');
+      }
     } catch (error) {
       if (!mountedRef.current) return;
       setErrorMessage(parseErrorMessage(error, '麦克风切换失败'));
     }
-  }, [micMuted]);
+  }, [cameraMuted, micMuted, screenSharing, startLocalPush, syncLocalMicMuteState]);
 
   const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -1113,19 +1862,28 @@ function ClassroomPage() {
         detachVisibleCameraPreview();
       } else {
         await pusher.startCamera();
-        if (typeof pusher.startPreview === 'function' && localVideoRef.current) {
-          await pusher.startPreview(localVideoRef.current);
-        }
+        await startLocalPush();
+        syncLocalMicMuteState(micMuted);
+        await startVisibleCameraPreview();
       }
-      if (mountedRef.current) setCameraMuted(nextMuted);
+      if (mountedRef.current) {
+        setCameraMuted(nextMuted);
+        setErrorMessage('');
+      }
     } catch (error) {
+      if (!nextMuted) {
+        try {
+          await pusher.stopCamera();
+        } catch {}
+        detachVisibleCameraPreview();
+      }
       if (!mountedRef.current) return;
       setErrorMessage(parseErrorMessage(error, '摄像头切换失败'));
     } finally {
       cameraActionPendingRef.current = false;
       if (mountedRef.current) setCameraActionPending(false);
     }
-  }, [cameraMuted, detachVisibleCameraPreview]);
+  }, [cameraMuted, detachVisibleCameraPreview, micMuted, startLocalPush, startVisibleCameraPreview, syncLocalMicMuteState]);
 
   const handleToggleScreenShare = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -1182,6 +1940,9 @@ function ClassroomPage() {
         }
       }
 
+      syncLocalMicMuteState(micMuted);
+      await startLocalPush();
+
       if (mountedRef.current) {
         setScreenSharing(true);
         setErrorMessage('');
@@ -1201,7 +1962,7 @@ function ClassroomPage() {
       screenActionPendingRef.current = false;
       if (mountedRef.current) setScreenActionPending(false);
     }
-  }, [screenShareSupported, screenSharing, stopScreenShare]);
+  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncLocalMicMuteState]);
 
   const handleLeaveClassroom = useCallback(async () => {
     if (mountedRef.current) setStatusText('正在离开课堂...');
@@ -1210,6 +1971,7 @@ function ClassroomPage() {
   }, [backHref, leaveAndDestroy, navigate]);
 
   const controlsDisabled = joining || !joined;
+  const micControlDisabled = controlsDisabled;
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
 
@@ -1271,7 +2033,7 @@ function ClassroomPage() {
           <button
             type="button"
             className="classroom-control-btn"
-            disabled={controlsDisabled}
+            disabled={micControlDisabled}
             onClick={handleToggleMic}
           >
             {micMuted ? <FiMicOff size={16} /> : <FiMic size={16} />}
@@ -1310,6 +2072,12 @@ function ClassroomPage() {
         </section>
 
         <div className="classroom-hidden-preview" aria-hidden="true">
+          <video
+            ref={localCameraPreviewRef}
+            autoPlay
+            playsInline
+            muted
+          />
           <video
             ref={localScreenVideoRef}
             autoPlay
