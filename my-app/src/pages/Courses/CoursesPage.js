@@ -515,6 +515,10 @@ function CoursesPage() {
     window.open(replayUrl, '_blank', 'noopener,noreferrer');
   };
 
+  const toggleStudentAuthModal = () => {
+    setShowStudentAuth((prev) => !prev);
+  };
+
   const handleReviewClose = () => {
     if (reviewSubmitting) return;
     setReviewCourse(null);
@@ -668,7 +672,7 @@ function CoursesPage() {
             className="icon-circle courses-menu nav-menu-trigger"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => setShowStudentAuth(true)}
+            onClick={toggleStudentAuthModal}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

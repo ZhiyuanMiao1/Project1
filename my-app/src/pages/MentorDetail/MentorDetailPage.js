@@ -1214,6 +1214,12 @@ function MentorDetailPage() {
     setShowCourseOnboarding(true);
   };
 
+  const toggleStudentAuthModal = () => {
+    rememberPostLoginRedirect();
+    setForceLoginForAppointment(false);
+    setShowStudentAuth((prev) => !prev);
+  };
+
   const handleConfirmAppointmentCourse = async (selectedCourse) => {
     if (!scheduleSelection) {
       setShowCourseOnboarding(false);
@@ -1261,13 +1267,9 @@ function MentorDetailPage() {
           <button
             type="button"
             className="icon-circle mentor-detail-menu"
-            aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => {
-              rememberPostLoginRedirect();
-              setForceLoginForAppointment(false);
-              setShowStudentAuth(true);
-            }}
+            aria-label="更多菜单"
+            onClick={toggleStudentAuthModal}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

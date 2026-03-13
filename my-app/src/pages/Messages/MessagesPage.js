@@ -1392,6 +1392,14 @@ function MessagesPage() {
 
   const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
 
+  const toggleMenuAuthModal = () => {
+    if (isMentorView) {
+      setShowMentorAuth((prev) => !prev);
+      return;
+    }
+    setShowStudentAuth((prev) => !prev);
+  };
+
   useEffect(() => {
     if (!rescheduleOpen) return;
     const scrollEl = rescheduleScrollRef.current;
@@ -1427,7 +1435,7 @@ function MessagesPage() {
             className="icon-circle messages-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => (isMentorView ? setShowMentorAuth(true) : setShowStudentAuth(true))}
+            onClick={toggleMenuAuthModal}
           >
             <svg
               width="18"

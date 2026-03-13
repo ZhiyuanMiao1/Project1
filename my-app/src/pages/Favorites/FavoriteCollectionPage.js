@@ -163,6 +163,14 @@ function FavoriteCollectionPage() {
     }
   };
 
+  const toggleMenuAuthModal = () => {
+    if (preferredRole === 'mentor') {
+      setShowMentorAuth((prev) => !prev);
+      return;
+    }
+    setShowStudentAuth((prev) => !prev);
+  };
+
   const selectedCount = selectedEntryIds.size;
   const moveTargets = useMemo(
     () => (collections || []).filter((c) => Number(c?.id) !== Number(numericCollectionId)),
@@ -368,7 +376,7 @@ function FavoriteCollectionPage() {
             className="icon-circle recent-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={openAuthModal}
+            onClick={toggleMenuAuthModal}
           >
             <svg
               width="18"

@@ -179,6 +179,11 @@ function MentorNavbar() {
       alert(msg || '操作失败，请稍后再试');
     }
   };
+
+  const toggleAuthModal = () => {
+    setForceLogin(false);
+    setShowAuthModal((prev) => !prev);
+  };
   
   return (
     <header className="navbar">
@@ -219,9 +224,7 @@ function MentorNavbar() {
           <span
             className="icon-circle nav-menu-trigger"
             ref={userIconRef}
-            onClick={() => {
-              setShowAuthModal(true);
-            }}
+            onClick={toggleAuthModal}
           >
             {isLoggedIn ? (
               <svg

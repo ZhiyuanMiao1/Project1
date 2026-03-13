@@ -753,6 +753,14 @@ function AccountSettingsPage({ mode = 'student' }) {
     }
   };
 
+  const toggleMenuAuthModal = () => {
+    if (isMentorView) {
+      setShowMentorAuth((prev) => !prev);
+      return;
+    }
+    setShowStudentAuth((prev) => !prev);
+  };
+
   return (
     <div className="settings-page">
       {toast && (
@@ -773,7 +781,7 @@ function AccountSettingsPage({ mode = 'student' }) {
             className="icon-circle settings-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => (isMentorView ? setShowMentorAuth(true) : setShowStudentAuth(true))}
+            onClick={toggleMenuAuthModal}
           >
             <svg
               width="18"

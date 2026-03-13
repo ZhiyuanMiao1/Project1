@@ -454,6 +454,10 @@ function MentorCoursesPage() {
     window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
   };
 
+  const toggleMentorAuthModal = () => {
+    setShowMentorAuth((prev) => !prev);
+  };
+
   const renderTimeline = () => {
     if (coursesLoading) {
       return (
@@ -626,7 +630,7 @@ function MentorCoursesPage() {
             className="icon-circle courses-menu nav-menu-trigger"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => setShowMentorAuth(true)}
+            onClick={toggleMentorAuthModal}
           >
             <svg
               width="18"

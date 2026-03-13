@@ -214,6 +214,14 @@ function FavoritesPage() {
     return false;
   }, [isLoggedIn, preferredRole]);
 
+  const toggleMenuAuthModal = () => {
+    if (preferredRole === 'mentor') {
+      setShowMentorAuth((prev) => !prev);
+      return;
+    }
+    setShowStudentAuth((prev) => !prev);
+  };
+
   const loadCollections = useCallback(async () => {
     const seq = ++loadSeqRef.current;
     if (!isLoggedIn) {
@@ -422,13 +430,7 @@ function FavoritesPage() {
             className="icon-circle favorites-menu"
             aria-label="更多菜单"
             ref={menuAnchorRef}
-            onClick={() => {
-              if (preferredRole === 'mentor') {
-                setShowMentorAuth(true);
-              } else {
-                setShowStudentAuth(true);
-              }
-            }}
+            onClick={toggleMenuAuthModal}
           >
             <svg
               width="18"

@@ -298,6 +298,14 @@ function RecentVisitsPage() {
     }
   };
 
+  const toggleMenuAuthModal = () => {
+    if (preferredRole === 'mentor') {
+      setShowMentorAuth((prev) => !prev);
+      return;
+    }
+    setShowStudentAuth((prev) => !prev);
+  };
+
   const handleDelete = async (id) => {
     if (!id) return;
     if (!isLoggedIn) {
@@ -331,7 +339,7 @@ function RecentVisitsPage() {
             className="icon-circle recent-menu"
             aria-label={TEXT.moreMenu}
             ref={menuAnchorRef}
-            onClick={openAuthModal}
+            onClick={toggleMenuAuthModal}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

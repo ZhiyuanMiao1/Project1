@@ -228,6 +228,11 @@ function StudentNavbar() {
     }
   };
 
+  const toggleAuthModal = () => {
+    setForceLogin(false);
+    setShowAuthModal((prev) => !prev);
+  };
+
   return (
     <header className="navbar">
       {/* 顶部双层导航 */}
@@ -267,9 +272,7 @@ function StudentNavbar() {
           <span
             className="icon-circle nav-menu-trigger"
             ref={userIconRef}
-            onClick={() => {
-              setShowAuthModal(true);
-            }}
+            onClick={toggleAuthModal}
           >
             {isLoggedIn ? (
               <svg

@@ -179,6 +179,8 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       const panel = contentRef.current;
       if (!panel) return;
       if (panel.contains(e.target)) return;
+      const anchorEl = anchorRef?.current;
+      if (anchorEl && anchorEl.contains(e.target)) return;
       // 忽略所有注册/登录弹窗内部的点击（含欢迎弹窗）
       const regs = Array.from(document.querySelectorAll('.register-modal-content, .student-welcome-overlay'));
       const logs = Array.from(document.querySelectorAll('.login-modal-content'));
@@ -187,7 +189,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
     };
     document.addEventListener('mousedown', onDocMouseDown, true);
     return () => document.removeEventListener('mousedown', onDocMouseDown, true);
-  }, [onClose, showRegisterPopup, showLoginPopup]);
+  }, [anchorRef, onClose, showRegisterPopup, showLoginPopup]);
 
   const isPopupOpen = showRegisterPopup || showLoginPopup;
 
