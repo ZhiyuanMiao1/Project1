@@ -1863,6 +1863,15 @@ function ClassroomPage() {
         setJoining(false);
         setStatusText(buildJoinedStatusText({ remotePresent: false, remoteReady: false }));
 
+        try {
+          await startLocalPush();
+          syncLocalMicMuteState(true);
+        } catch (pushError) {
+          if (mountedRef.current) {
+            setErrorMessage(parseErrorMessage(pushError, '课堂媒体上线失败，可尝试重新进入课堂'));
+          }
+        }
+
         void startRemotePlayback();
       } catch (error) {
         const message = parseErrorMessage(error, '进入课堂失败，请稍后重试');
@@ -1882,7 +1891,7 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startRemotePlayback, syncLocalMicMuteState]);
+  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startLocalPush, startRemotePlayback, syncLocalMicMuteState]);
 
   useEffect(() => {
     const handleWindowRuntimeEvent = (event) => {
