@@ -330,6 +330,7 @@ const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
 const REMOTE_RECONNECTING_TEXT = '对方网络波动，正在等待重新加入...';
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 2000;
+const REMOTE_SCREEN_STALE_TIMEOUT_MS = 4000;
 
 const clearVideoElement = (element, options = {}) => {
   const { pause = true, reload = true } = options;
@@ -1569,8 +1570,7 @@ function ClassroomPage() {
       if (
         remoteScreenReadyRef.current
         && remoteScreenHeartbeatRef.current
-        && staleForMs > 4000
-        && (video.readyState === 0 || video.ended)
+        && staleForMs > REMOTE_SCREEN_STALE_TIMEOUT_MS
       ) {
         markRemoteScreenIdle();
       }
