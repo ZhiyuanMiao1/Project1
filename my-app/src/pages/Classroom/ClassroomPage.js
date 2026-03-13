@@ -329,6 +329,7 @@ const hasRemoteUserForPlayer = (player, remoteUserId) => {
 const REMOTE_NOT_JOINED_TEXT = '对方暂未加入';
 const REMOTE_RECONNECTING_TEXT = '对方网络波动，正在等待重新加入...';
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 2000;
 
 const clearVideoElement = (element, options = {}) => {
   const { pause = true, reload = true } = options;
@@ -392,6 +393,7 @@ function ClassroomPage() {
   const screenPreviewStreamRef = useRef(null);
   const screenTrackRef = useRef(null);
   const screenTrackEndedHandlerRef = useRef(null);
+  const presenceHeartbeatTimerRef = useRef(0);
   const joinedRef = useRef(false);
   const mountedRef = useRef(true);
   const cleaningRef = useRef(false);
@@ -401,6 +403,7 @@ function ClassroomPage() {
   const remoteRetryTimerRef = useRef(0);
   const remoteRecoveryPendingRef = useRef(false);
   const remoteRecoveryTimestampRef = useRef(0);
+  const remotePresentRef = useRef(false);
   const remoteReadyRef = useRef(false);
   const remoteScreenReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
@@ -428,6 +431,7 @@ function ClassroomPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
   const [cameraMuted, setCameraMuted] = useState(true);
+  const [remotePresent, setRemotePresent] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
   const [screenShareSupported, setScreenShareSupported] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
@@ -450,6 +454,11 @@ function ClassroomPage() {
     if (remoteScreenReady) return `等待${remoteLabel}的共享画面...`;
     return '暂未开始共享屏幕';
   }, [remoteLabel, remoteScreenReady]);
+  const remoteVideoPlaceholder = useMemo(() => {
+    if (remotePresent) return `${remoteLabel}已进入课堂，等待画面...`;
+    return REMOTE_NOT_JOINED_TEXT;
+  }, [remoteLabel, remotePresent]);
+  remotePresentRef.current = remotePresent;
   remoteReadyRef.current = remoteReady;
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
@@ -492,6 +501,12 @@ function ClassroomPage() {
     if (!remoteRetryTimerRef.current) return;
     window.clearTimeout(remoteRetryTimerRef.current);
     remoteRetryTimerRef.current = 0;
+  }, []);
+
+  const clearPresenceHeartbeat = useCallback(() => {
+    if (!presenceHeartbeatTimerRef.current) return;
+    window.clearTimeout(presenceHeartbeatTimerRef.current);
+    presenceHeartbeatTimerRef.current = 0;
   }, []);
 
   const clearRemoteMediaMonitor = useCallback(() => {
@@ -591,8 +606,18 @@ function ClassroomPage() {
     setStatusText(message);
   }, [shouldSilenceScreenShareCancelError]);
 
+  const buildJoinedStatusText = useCallback((options = {}) => {
+    const displayName = safeText(options.remoteLabel) || safeText(remoteLabelRef.current) || '对方';
+    const nextRemoteReady = typeof options.remoteReady === 'boolean' ? options.remoteReady : remoteReadyRef.current;
+    const nextRemotePresent = typeof options.remotePresent === 'boolean' ? options.remotePresent : remotePresentRef.current;
+
+    if (nextRemoteReady) return '双方已进入课堂';
+    if (nextRemotePresent) return `双方已进入课堂，等待${displayName}画面...`;
+    return `已进入课堂，等待${displayName}加入...`;
+  }, []);
+
   const applyRemoteNotJoinedState = useCallback((options = {}) => {
-    const nextStatusText = safeText(options.statusText) || REMOTE_NOT_JOINED_TEXT;
+    const nextStatusText = safeText(options.statusText) || buildJoinedStatusText({ remoteReady: false });
     if (!mountedRef.current) return;
     remoteMediaHeartbeatRef.current = 0;
     remoteMediaLastTimeRef.current = 0;
@@ -600,7 +625,23 @@ function ClassroomPage() {
     setRemoteReady(false);
     markRemoteScreenIdle();
     setStatusText(nextStatusText);
-  }, [markRemoteScreenIdle]);
+  }, [buildJoinedStatusText, markRemoteScreenIdle]);
+
+  const syncClassroomPresence = useCallback(async () => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId || !mountedRef.current || !joinedRef.current) return;
+
+    try {
+      const response = await api.post(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/presence`);
+      if (!mountedRef.current || !joinedRef.current) return;
+
+      const nextRemotePresent = Boolean(response?.data?.remotePresent);
+      setRemotePresent(nextRemotePresent);
+      if (!remoteReadyRef.current) {
+        setStatusText(buildJoinedStatusText({ remotePresent: nextRemotePresent, remoteReady: false }));
+      }
+    } catch {}
+  }, [buildJoinedStatusText, courseId]);
 
   const detachVisibleCameraPreview = useCallback(() => {
     clearVideoElement(localVideoRef.current, { pause: false, reload: false });
@@ -890,7 +931,7 @@ function ClassroomPage() {
     const nextDelayMs = Number.isFinite(options.delayMs) ? options.delayMs : 2500;
     const minIntervalMs = Number.isFinite(options.minIntervalMs) ? options.minIntervalMs : 1200;
     const nextStatusText = safeText(options.statusText)
-      || (remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT);
+      || (remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : buildJoinedStatusText({ remoteReady: false }));
     const now = Date.now();
 
     logRemoteCleanup('recoverRemotePlayback', {
@@ -980,7 +1021,7 @@ function ClassroomPage() {
         scheduleRemotePlaybackRetry(nextDelayMs);
       }
     }
-  }, [applyRemoteNotJoinedState, logRemoteCleanup, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, buildJoinedStatusText, logRemoteCleanup, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
 
   const isRemoteRuntimeRecoveryActive = useCallback(() => (
     joinedRef.current && remotePlaybackActiveRef.current && (
@@ -1037,7 +1078,7 @@ function ClassroomPage() {
       silenceEvent();
       if (hasEstablishedRemotePlayback() && isRemoteRuntimeRecoveryActive()) {
         void recoverRemotePlayback({
-          statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+          statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : buildJoinedStatusText({ remoteReady: false }),
         });
       } else if (mountedRef.current) {
         setErrorMessage('');
@@ -1054,7 +1095,7 @@ function ClassroomPage() {
     if (shouldRecoverFromRuntimePayload(runtimePayload)) {
       silenceEvent();
       void recoverRemotePlayback({
-        statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+        statusText: remoteReadyRef.current ? REMOTE_RECONNECTING_TEXT : buildJoinedStatusText({ remoteReady: false }),
       });
       return true;
     }
@@ -1071,6 +1112,7 @@ function ClassroomPage() {
     hasEstablishedRemotePlayback,
     isRemoteRuntimeRecoveryActive,
     recoverRemotePlayback,
+    buildJoinedStatusText,
     reportRuntimeIssue,
     shouldRecoverFromRuntimePayload,
     shouldSilenceScreenShareCancelError,
@@ -1186,12 +1228,13 @@ function ClassroomPage() {
 
       if (mountedRef.current) {
         setErrorMessage('');
-        setStatusText(`已进入课堂，等待${displayName}画面...`);
+        setStatusText(buildJoinedStatusText({ remotePresent: true, remoteReady: false, remoteLabel: displayName }));
       }
 
       bindEmitter(playInfo, 'canplay', () => {
         if (!mountedRef.current || !isActivePlayerSession()) return;
         markRemoteMediaProgress();
+        setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
         setStatusText('双方已进入课堂');
@@ -1200,6 +1243,7 @@ function ClassroomPage() {
       bindEmitter(playInfo, 'update', () => {
         if (!mountedRef.current || !isActivePlayerSession()) return;
         markRemoteMediaProgress();
+        setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
         if (joinedRef.current) setStatusText('双方已进入课堂');
@@ -1219,7 +1263,7 @@ function ClassroomPage() {
         });
         currentRemoteUserIdRef.current = '';
         remotePlaybackActiveRef.current = false;
-        applyRemoteNotJoinedState({ statusText: `${displayName}已离开课堂` });
+        applyRemoteNotJoinedState();
         void (async () => {
           if (!isActivePlayerSession()) return;
           logRemoteCleanup('startRemotePlayback.userleft', {
@@ -1282,7 +1326,7 @@ function ClassroomPage() {
 
       if (isRetryableRemotePlayError(error)) {
         applyRemoteNotJoinedState({
-          statusText: hadRemoteStream ? REMOTE_RECONNECTING_TEXT : REMOTE_NOT_JOINED_TEXT,
+          statusText: hadRemoteStream ? REMOTE_RECONNECTING_TEXT : buildJoinedStatusText({ remoteReady: false }),
         });
         scheduleRemotePlaybackRetry(2500);
         return;
@@ -1292,7 +1336,7 @@ function ClassroomPage() {
       setErrorMessage(message);
       setStatusText(message);
     }
-  }, [applyRemoteNotJoinedState, destroyRemotePlayerInstance, logRemoteCleanup, markRemoteMediaProgress, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
+  }, [applyRemoteNotJoinedState, buildJoinedStatusText, destroyRemotePlayerInstance, logRemoteCleanup, markRemoteMediaProgress, scheduleRemotePlaybackRetry, teardownRemotePlayback]);
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
@@ -1317,10 +1361,10 @@ function ClassroomPage() {
       screenShareCancelSilenceUntilRef.current = 0;
       if (!silent) {
         setErrorMessage('');
-        setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已停止共享屏幕，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
+        setStatusText(buildJoinedStatusText());
       }
     }
-  }, [clearScreenTrackListener]);
+  }, [buildJoinedStatusText, clearScreenTrackListener]);
 
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) {
@@ -1335,6 +1379,7 @@ function ClassroomPage() {
     }
     cleaningRef.current = true;
     joinedRef.current = false;
+    clearPresenceHeartbeat();
 
     logRemoteCleanup('leaveAndDestroy', {
       stage: 'enter',
@@ -1345,6 +1390,10 @@ function ClassroomPage() {
     });
 
     try {
+      const normalizedCourseId = safeText(courseId);
+      if (normalizedCourseId) {
+        void api.delete(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/presence`).catch(() => {});
+      }
       clearRemotePlaybackRetry();
       liveAuthRef.current = null;
       remoteRecoveryPendingRef.current = false;
@@ -1387,6 +1436,7 @@ function ClassroomPage() {
         setJoined(false);
         setMicMuted(true);
         setCameraMuted(true);
+        setRemotePresent(false);
         setRemoteReady(false);
         setScreenShareSupported(false);
         setScreenSharing(false);
@@ -1406,7 +1456,7 @@ function ClassroomPage() {
       });
       cleaningRef.current = false;
     }
-  }, [clearRemotePlaybackRetry, logRemoteCleanup, stopLocalPush, stopScreenShare, teardownRemotePlayback]);
+  }, [clearPresenceHeartbeat, clearRemotePlaybackRetry, courseId, logRemoteCleanup, stopLocalPush, stopScreenShare, teardownRemotePlayback]);
 
   useEffect(() => {
     if (!joined) {
@@ -1548,7 +1598,7 @@ function ClassroomPage() {
     const handleRemotePlaybackMissing = () => {
       if (disposed || !mountedRef.current || !joinedRef.current || !remoteReadyRef.current) return;
       void recoverRemotePlayback({
-        statusText: REMOTE_NOT_JOINED_TEXT,
+        statusText: buildJoinedStatusText({ remoteReady: false }),
         delayMs: 5000,
         minIntervalMs: 3500,
       });
@@ -1614,7 +1664,31 @@ function ClassroomPage() {
         video.removeEventListener(eventName, handleFault);
       });
     };
-  }, [joined, clearRemoteMediaMonitor, markRemoteMediaProgress, recoverRemotePlayback]);
+  }, [buildJoinedStatusText, joined, clearRemoteMediaMonitor, markRemoteMediaProgress, recoverRemotePlayback]);
+
+  useEffect(() => {
+    if (!joined) {
+      clearPresenceHeartbeat();
+      setRemotePresent(false);
+      return undefined;
+    }
+
+    let disposed = false;
+
+    const heartbeat = async () => {
+      if (disposed || !mountedRef.current || !joinedRef.current) return;
+      await syncClassroomPresence();
+      if (disposed || !mountedRef.current || !joinedRef.current) return;
+      presenceHeartbeatTimerRef.current = window.setTimeout(heartbeat, PRESENCE_HEARTBEAT_INTERVAL_MS);
+    };
+
+    void heartbeat();
+
+    return () => {
+      disposed = true;
+      clearPresenceHeartbeat();
+    };
+  }, [clearPresenceHeartbeat, joined, syncClassroomPresence]);
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -1661,6 +1735,7 @@ function ClassroomPage() {
       if (!cancelled && mountedRef.current) {
         setJoining(true);
         setJoined(false);
+        setRemotePresent(false);
         setRemoteReady(false);
         setMicMuted(true);
         setCameraMuted(true);
@@ -1738,21 +1813,18 @@ function ClassroomPage() {
 
         bindEmitter(pusher?.network, 'reconnectend', () => {
           if (!mountedRef.current) return;
-          const displayName = safeText(remoteLabelRef.current) || '对方';
-          setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已进入课堂，等待${displayName}加入...`);
+          setStatusText(buildJoinedStatusText());
         });
 
         bindEmitter(pusher?.network, 'reconnectsucceed', () => {
           if (!mountedRef.current) return;
-          const displayName = safeText(remoteLabelRef.current) || '对方';
           setErrorMessage('');
-          setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已进入课堂，等待${displayName}加入...`);
+          setStatusText(buildJoinedStatusText());
         });
 
         bindEmitter(pusher?.network, 'networkrecovery', () => {
           if (!mountedRef.current) return;
-          const displayName = safeText(remoteLabelRef.current) || '对方';
-          setStatusText(remoteReadyRef.current ? '双方已进入课堂' : `已进入课堂，等待${displayName}加入...`);
+          setStatusText(buildJoinedStatusText());
         });
 
         bindEmitter(pusher?.info, 'bye', (_code, reason) => {
@@ -1789,7 +1861,7 @@ function ClassroomPage() {
         joinedRef.current = true;
         setJoined(true);
         setJoining(false);
-        setStatusText(`已进入课堂，等待${safeText(remoteLabelRef.current) || '对方'}加入...`);
+        setStatusText(buildJoinedStatusText({ remotePresent: false, remoteReady: false }));
 
         void startRemotePlayback();
       } catch (error) {
@@ -1810,7 +1882,7 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [courseId, leaveAndDestroy, reportRuntimeIssue, startRemotePlayback, syncLocalMicMuteState]);
+  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startRemotePlayback, syncLocalMicMuteState]);
 
   useEffect(() => {
     const handleWindowRuntimeEvent = (event) => {
@@ -2023,7 +2095,7 @@ function ClassroomPage() {
           <article className="classroom-video-panel">
             <div className="classroom-video-title">对方画面</div>
             <div className="classroom-video-box">
-              {!remoteReady && <div className="classroom-video-placeholder">{REMOTE_NOT_JOINED_TEXT}</div>}
+              {!remoteReady && <div className="classroom-video-placeholder">{remoteVideoPlaceholder}</div>}
               <video ref={remoteVideoRef} autoPlay playsInline />
             </div>
           </article>

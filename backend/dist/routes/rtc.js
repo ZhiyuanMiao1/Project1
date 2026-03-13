@@ -5,7 +5,15 @@ const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const aliyunRtc_1 = require("../services/aliyunRtc");
 const router = (0, express_1.Router)();
+class HttpError extends Error {
+    constructor(statusCode, message) {
+        super(message);
+        this.statusCode = statusCode;
+    }
+}
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+const CLASSROOM_PRESENCE_TTL_MS = 7000;
+const classroomPresenceStore = new Map();
 const toNumber = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(n) ? n : fallback;
@@ -64,6 +72,134 @@ const isMissingSchemaError = (err) => {
     const message = typeof err?.message === 'string' ? err.message : '';
     return message.includes('course_sessions') || message.includes('user_roles') || message.includes('users');
 };
+const pruneClassroomPresence = (courseId) => {
+    const now = Date.now();
+    const targetCourseIds = courseId ? [courseId] : Array.from(classroomPresenceStore.keys());
+    targetCourseIds.forEach((currentCourseId) => {
+        const entries = classroomPresenceStore.get(currentCourseId);
+        if (!entries)
+            return;
+        entries.forEach((entry, publicId) => {
+            if (now - entry.lastSeenAt > CLASSROOM_PRESENCE_TTL_MS) {
+                entries.delete(publicId);
+            }
+        });
+        if (entries.size === 0) {
+            classroomPresenceStore.delete(currentCourseId);
+        }
+    });
+};
+const touchClassroomPresence = (courseId, entry) => {
+    pruneClassroomPresence(courseId);
+    let entries = classroomPresenceStore.get(courseId);
+    if (!entries) {
+        entries = new Map();
+        classroomPresenceStore.set(courseId, entries);
+    }
+    entries.set(entry.publicId, entry);
+};
+const removeClassroomPresence = (courseId, publicId) => {
+    const entries = classroomPresenceStore.get(courseId);
+    if (!entries)
+        return;
+    entries.delete(publicId);
+    if (entries.size === 0) {
+        classroomPresenceStore.delete(courseId);
+    }
+};
+const getClassroomPresencePayload = (context) => {
+    const courseKey = String(context.courseId);
+    pruneClassroomPresence(courseKey);
+    const entries = classroomPresenceStore.get(courseKey);
+    const selfPresence = entries?.get(context.selfUserPublicId) || null;
+    const remotePresence = entries?.get(context.remoteUserPublicId) || null;
+    return {
+        selfPresent: Boolean(selfPresence),
+        remotePresent: Boolean(remotePresence),
+        remoteUserId: context.remoteUserPublicId,
+        remoteUserName: context.remoteUserName,
+        remoteLastSeenAt: remotePresence ? new Date(remotePresence.lastSeenAt).toISOString() : '',
+    };
+};
+const loadAuthorizedClassroomContext = async (courseId, currentUserId) => {
+    const sessionRows = await (0, db_1.query)(`
+    SELECT
+      id,
+      status,
+      starts_at,
+      duration_hours,
+      student_user_id,
+      mentor_user_id
+    FROM course_sessions
+    WHERE id = ?
+    LIMIT 1
+    `, [courseId]);
+    const sessionRow = sessionRows?.[0];
+    if (!sessionRow)
+        throw new HttpError(404, '课程不存在');
+    const studentUserId = toNumber(sessionRow.student_user_id, 0);
+    const mentorUserId = toNumber(sessionRow.mentor_user_id, 0);
+    const isStudentInSession = currentUserId === studentUserId;
+    const isMentorInSession = currentUserId === mentorUserId;
+    if (!isStudentInSession && !isMentorInSession) {
+        throw new HttpError(403, '无权限进入该课程课堂');
+    }
+    const status = getEffectiveCourseStatus(sessionRow);
+    if (status !== 'scheduled') {
+        throw new HttpError(409, '非 scheduled 课程不可进入课堂');
+    }
+    const roleRows = await (0, db_1.query)(`
+    SELECT user_id, role, public_id
+    FROM user_roles
+    WHERE (user_id = ? AND role = 'student')
+       OR (user_id = ? AND role = 'mentor')
+    `, [studentUserId, mentorUserId]);
+    const userRows = await (0, db_1.query)(`
+    SELECT id, username
+    FROM users
+    WHERE id IN (?, ?)
+    `, [studentUserId, mentorUserId]);
+    const rolePublicIdMap = new Map();
+    roleRows.forEach((row) => {
+        const userId = toNumber(row.user_id, 0);
+        const role = safeText(row.role).toLowerCase();
+        const publicId = safeText(row.public_id);
+        if (!userId || !role || !publicId)
+            return;
+        rolePublicIdMap.set(`${userId}:${role}`, publicId);
+    });
+    const studentPublicId = rolePublicIdMap.get(`${studentUserId}:student`) || `s${studentUserId}`;
+    const mentorPublicId = rolePublicIdMap.get(`${mentorUserId}:mentor`) || `m${mentorUserId}`;
+    const userNameMap = new Map();
+    userRows.forEach((row) => {
+        const userId = toNumber(row.id, 0);
+        const userName = safeText(row.username);
+        if (!userId || !userName)
+            return;
+        userNameMap.set(userId, userName);
+    });
+    const roleInSession = isMentorInSession ? 'mentor' : 'student';
+    const remoteRole = isMentorInSession ? 'student' : 'mentor';
+    const selfUserPublicId = isMentorInSession ? mentorPublicId : studentPublicId;
+    const remoteUserPublicId = isMentorInSession ? studentPublicId : mentorPublicId;
+    const selfUserName = userNameMap.get(currentUserId) || selfUserPublicId;
+    const remoteUserName = isMentorInSession
+        ? (userNameMap.get(studentUserId) || studentPublicId)
+        : (userNameMap.get(mentorUserId) || mentorPublicId);
+    return {
+        courseId,
+        status,
+        startsAt: toIsoString(sessionRow.starts_at),
+        durationHours: Number((Math.round(toNumber(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2)),
+        roleInSession,
+        remoteRole,
+        selfUserPublicId,
+        remoteUserPublicId,
+        selfUserName,
+        remoteUserName,
+        roomId: `course_${courseId}`,
+    };
+};
 router.get('/classrooms/:courseId/auth', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未登录' });
@@ -76,87 +212,22 @@ router.get('/classrooms/:courseId/auth', auth_1.requireAuth, async (req, res) =>
         return res.status(500).json({ error: '实时音视频配置缺失，请检查 ALIYUN_LIVE_ARTC_APP_ID / ALIYUN_LIVE_ARTC_APP_KEY' });
     }
     try {
-        const sessionRows = await (0, db_1.query)(`
-      SELECT
-        id,
-        status,
-        starts_at,
-        duration_hours,
-        student_user_id,
-        mentor_user_id
-      FROM course_sessions
-      WHERE id = ?
-      LIMIT 1
-      `, [courseId]);
-        const sessionRow = sessionRows?.[0];
-        if (!sessionRow)
-            return res.status(404).json({ error: '课程不存在' });
-        const studentUserId = toNumber(sessionRow.student_user_id, 0);
-        const mentorUserId = toNumber(sessionRow.mentor_user_id, 0);
-        const isStudentInSession = req.user.id === studentUserId;
-        const isMentorInSession = req.user.id === mentorUserId;
-        if (!isStudentInSession && !isMentorInSession) {
-            return res.status(403).json({ error: '无权限进入该课程课堂' });
-        }
-        const status = getEffectiveCourseStatus(sessionRow);
-        if (status !== 'scheduled') {
-            return res.status(409).json({ error: '非 scheduled 课程不可进入课堂' });
-        }
-        const roleRows = await (0, db_1.query)(`
-      SELECT user_id, role, public_id
-      FROM user_roles
-      WHERE (user_id = ? AND role = 'student')
-         OR (user_id = ? AND role = 'mentor')
-      `, [studentUserId, mentorUserId]);
-        const userRows = await (0, db_1.query)(`
-      SELECT id, username
-      FROM users
-      WHERE id IN (?, ?)
-      `, [studentUserId, mentorUserId]);
-        const rolePublicIdMap = new Map();
-        roleRows.forEach((row) => {
-            const userId = toNumber(row.user_id, 0);
-            const role = safeText(row.role).toLowerCase();
-            const publicId = safeText(row.public_id);
-            if (!userId || !role || !publicId)
-                return;
-            rolePublicIdMap.set(`${userId}:${role}`, publicId);
-        });
-        const studentPublicId = rolePublicIdMap.get(`${studentUserId}:student`) || `s${studentUserId}`;
-        const mentorPublicId = rolePublicIdMap.get(`${mentorUserId}:mentor`) || `m${mentorUserId}`;
-        const userNameMap = new Map();
-        userRows.forEach((row) => {
-            const userId = toNumber(row.id, 0);
-            const userName = safeText(row.username);
-            if (!userId || !userName)
-                return;
-            userNameMap.set(userId, userName);
-        });
-        const roleInSession = isMentorInSession ? 'mentor' : 'student';
-        const remoteRole = isMentorInSession ? 'student' : 'mentor';
-        const selfUserId = isMentorInSession ? mentorPublicId : studentPublicId;
-        const remoteUserId = isMentorInSession ? studentPublicId : mentorPublicId;
-        const selfUserName = userNameMap.get(req.user.id) || selfUserId;
-        const remoteUserName = isMentorInSession
-            ? (userNameMap.get(studentUserId) || studentPublicId)
-            : (userNameMap.get(mentorUserId) || mentorPublicId);
-        const roomId = `course_${courseId}`;
+        const context = await loadAuthorizedClassroomContext(courseId, req.user.id);
         const timestamp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
         const selfStreamAuth = (0, aliyunRtc_1.createAliyunLiveStreamAuthInfo)({
             appId: runtime.appId,
             appKey: runtime.appKey,
-            roomId,
-            userId: selfUserId,
+            roomId: context.roomId,
+            userId: context.selfUserPublicId,
             timestamp,
         });
         const remoteStreamAuth = (0, aliyunRtc_1.createAliyunLiveStreamAuthInfo)({
             appId: runtime.appId,
             appKey: runtime.appKey,
-            roomId,
-            userId: remoteUserId,
+            roomId: context.roomId,
+            userId: context.remoteUserPublicId,
             timestamp,
         });
-        const durationHours = Number((Math.round(toNumber(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2));
         return res.json({
             liveAuth: {
                 mode: 'aliyun-live-artc',
@@ -169,23 +240,77 @@ router.get('/classrooms/:courseId/auth', auth_1.requireAuth, async (req, res) =>
                 remotePlayUrl: remoteStreamAuth.playUrl,
                 expiresAt: new Date(timestamp * 1000).toISOString(),
             },
-            userName: selfUserName,
+            userName: context.selfUserName,
             session: {
                 courseId: String(courseId),
-                status,
-                startsAt: toIsoString(sessionRow.starts_at),
-                durationHours,
-                roleInSession,
-                remoteRole,
-                remoteUserName,
+                status: context.status,
+                startsAt: context.startsAt,
+                durationHours: context.durationHours,
+                roleInSession: context.roleInSession,
+                remoteRole: context.remoteRole,
+                remoteUserName: context.remoteUserName,
             },
         });
     }
     catch (e) {
+        if (e instanceof HttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
         if (isMissingSchemaError(e)) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Live classroom auth error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未登录' });
+    const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+    if (!Number.isFinite(courseId) || courseId <= 0) {
+        return res.status(400).json({ error: '无效课程ID' });
+    }
+    try {
+        const context = await loadAuthorizedClassroomContext(courseId, req.user.id);
+        touchClassroomPresence(String(courseId), {
+            publicId: context.selfUserPublicId,
+            userName: context.selfUserName,
+            role: context.roleInSession,
+            lastSeenAt: Date.now(),
+        });
+        return res.json(getClassroomPresencePayload(context));
+    }
+    catch (e) {
+        if (e instanceof HttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
+        if (isMissingSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Live classroom presence heartbeat error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.delete('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未登录' });
+    const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+    if (!Number.isFinite(courseId) || courseId <= 0) {
+        return res.status(400).json({ error: '无效课程ID' });
+    }
+    try {
+        const context = await loadAuthorizedClassroomContext(courseId, req.user.id);
+        removeClassroomPresence(String(courseId), context.selfUserPublicId);
+        return res.status(204).end();
+    }
+    catch (e) {
+        if (e instanceof HttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
+        if (isMissingSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Live classroom presence leave error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
