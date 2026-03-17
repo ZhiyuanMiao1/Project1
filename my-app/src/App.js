@@ -16,6 +16,7 @@ import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
 import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
 import WalletPage from './pages/Wallet/WalletPage';
 import ClassroomPage from './pages/Classroom/ClassroomPage';
+import HelpCenterPage from './pages/HelpCenter/HelpCenterPage';
 import { AUTH_SESSION_EXPIRED_EVENT } from './utils/auth';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
@@ -32,12 +33,14 @@ const ROUTE_TITLE_MAP = [
   { path: '/student/messages', title: '消息' },
   { path: '/student/wallet', title: '钱包' },
   { path: '/student/settings', title: '设置' },
+  { path: '/student/help', title: '帮助中心' },
   { path: '/mentor', title: 'Mentory' },
   { path: '/mentor/profile-editor', title: '编辑个人名片' },
   { path: '/mentor/courses', title: '导师课程' },
   { path: '/mentor/requests/:requestId', title: '课程需求详情' },
   { path: '/mentor/messages', title: '消息' },
   { path: '/mentor/settings', title: '设置' },
+  { path: '/mentor/help', title: '帮助中心' },
   { path: '/classroom/:courseId', title: '课堂' },
 ];
 
@@ -161,6 +164,7 @@ function App() {
         <Route path="/student/messages" element={<MessagesPage />} />
         <Route path="/student/wallet" element={<WalletPage />} />
         <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
+        <Route path="/student/help" element={<HelpCenterPage mode="student" />} />
         <Route path="/classroom/:courseId" element={<ClassroomPage />} />
 
         {/* 导师个人名片编辑页面 */}
@@ -171,6 +175,7 @@ function App() {
         <Route path="/mentor/requests/:requestId" element={<CourseRequestDetailPage />} />
         <Route path="/mentor/messages" element={<MessagesPage />} />
         <Route path="/mentor/settings" element={<AccountSettingsPage mode="mentor" />} />
+        <Route path="/mentor/help" element={<HelpCenterPage mode="mentor" />} />
 
         {/* 导师页面 */}
         <Route path="/mentor" element={<MentorPage />} />

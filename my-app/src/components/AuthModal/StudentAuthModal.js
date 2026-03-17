@@ -98,6 +98,10 @@ const StudentAuthModal = ({
         onClose && onClose();
         navigate('/student/settings', { state: { from: 'student' } });
         return;
+      case 'help':
+        onClose && onClose();
+        navigate('/student/help', { state: { from: 'student' } });
+        return;
       case 'publish':
         if (!isLoggedIn) {
           setPostLoginRedirect('/student/course-request', 'student');

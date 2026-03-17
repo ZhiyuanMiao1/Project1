@@ -149,8 +149,8 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         navigate('/mentor/settings', { state: { from: 'mentor' } });
         return;
       case 'help':
-        console.log(`User selected: ${action}`);
         onClose && onClose();
+        navigate('/mentor/help', { state: { from: 'mentor' } });
         return;
       case 'editProfile':
         // 检查权限后再跳转（若禁用则不处理）
