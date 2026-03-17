@@ -6,7 +6,6 @@ import api from '../../api/client';
 import {
   getRemoteUnavailableStatusText,
   isRetryableRemotePlayError,
-  REMOTE_NOT_JOINED_TEXT,
   REMOTE_RECONNECTING_TEXT,
 } from './classroomRecovery';
 import './ClassroomPage.css';
@@ -465,10 +464,6 @@ function ClassroomPage() {
     if (presentationActive) return `等待${remoteLabel}的共享画面...`;
     return '暂未开始共享屏幕';
   }, [presentationActive, remoteLabel]);
-  const remoteVideoPlaceholder = useMemo(() => {
-    if (remotePresent) return `${remoteLabel}已进入课堂，等待画面...`;
-    return REMOTE_NOT_JOINED_TEXT;
-  }, [remoteLabel, remotePresent]);
   remotePresentRef.current = remotePresent;
   remoteReadyRef.current = remoteReady;
   screenSharingRef.current = screenSharing;
@@ -2283,7 +2278,6 @@ function ClassroomPage() {
           <article className="classroom-video-panel">
             <div className="classroom-video-title">对方画面</div>
             <div className="classroom-video-box">
-              {!remoteReady && <div className="classroom-video-placeholder">{remoteVideoPlaceholder}</div>}
               <video ref={remoteVideoRef} autoPlay playsInline />
             </div>
           </article>
