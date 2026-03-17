@@ -60,7 +60,7 @@ class HttpError extends Error {
 
 const safeText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
-const CLASSROOM_PRESENCE_TTL_MS = 7000;
+const CLASSROOM_PRESENCE_TTL_MS = 4500;
 const classroomPresenceStore = new Map<string, Map<string, ClassroomPresenceEntry>>();
 
 const toNumber = (value: unknown, fallback = 0) => {
