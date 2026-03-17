@@ -46,6 +46,7 @@ type ClassroomPresenceEntry = {
   userName: string;
   role: SessionRole;
   lastSeenAt: number;
+  screenSharing: boolean;
 };
 
 class HttpError extends Error {
@@ -184,7 +185,9 @@ const getClassroomPresencePayload = (context: AuthorizedClassroomContext) => {
 
   return {
     selfPresent: Boolean(selfPresence),
+    selfScreenSharing: Boolean(selfPresence?.screenSharing),
     remotePresent: Boolean(remotePresence),
+    remoteScreenSharing: Boolean(remotePresence?.screenSharing),
     remoteUserId: context.remoteUserPublicId,
     remoteUserName: context.remoteUserName,
     remoteLastSeenAt: remotePresence ? new Date(remotePresence.lastSeenAt).toISOString() : '',
@@ -365,11 +368,13 @@ router.post('/classrooms/:courseId/presence', requireAuth, async (req: Request, 
 
   try {
     const context = await loadAuthorizedClassroomContext(courseId, req.user.id);
+    const screenSharing = Boolean(req.body?.screenSharing);
     touchClassroomPresence(String(courseId), {
       publicId: context.selfUserPublicId,
       userName: context.selfUserName,
       role: context.roleInSession,
       lastSeenAt: Date.now(),
+      screenSharing,
     });
     return res.json(getClassroomPresencePayload(context));
   } catch (e) {

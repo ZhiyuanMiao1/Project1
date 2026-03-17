@@ -115,7 +115,9 @@ const getClassroomPresencePayload = (context) => {
     const remotePresence = entries?.get(context.remoteUserPublicId) || null;
     return {
         selfPresent: Boolean(selfPresence),
+        selfScreenSharing: Boolean(selfPresence?.screenSharing),
         remotePresent: Boolean(remotePresence),
+        remoteScreenSharing: Boolean(remotePresence?.screenSharing),
         remoteUserId: context.remoteUserPublicId,
         remoteUserName: context.remoteUserName,
         remoteLastSeenAt: remotePresence ? new Date(remotePresence.lastSeenAt).toISOString() : '',
@@ -272,11 +274,13 @@ router.post('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, re
     }
     try {
         const context = await loadAuthorizedClassroomContext(courseId, req.user.id);
+        const screenSharing = Boolean(req.body?.screenSharing);
         touchClassroomPresence(String(courseId), {
             publicId: context.selfUserPublicId,
             userName: context.selfUserName,
             role: context.roleInSession,
             lastSeenAt: Date.now(),
+            screenSharing,
         });
         return res.json(getClassroomPresencePayload(context));
     }

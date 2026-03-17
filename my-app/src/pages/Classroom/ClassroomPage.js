@@ -406,6 +406,8 @@ function ClassroomPage() {
   const remoteRecoveryTimestampRef = useRef(0);
   const remotePresentRef = useRef(false);
   const remoteReadyRef = useRef(false);
+  const screenSharingRef = useRef(false);
+  const remoteScreenSharingRef = useRef(false);
   const remoteScreenReadyRef = useRef(false);
   const remoteLabelRef = useRef('对方');
   const startRemotePlaybackRef = useRef(async () => {});
@@ -434,6 +436,7 @@ function ClassroomPage() {
   const [cameraMuted, setCameraMuted] = useState(true);
   const [remotePresent, setRemotePresent] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
+  const [remoteScreenSharing, setRemoteScreenSharing] = useState(false);
   const [screenShareSupported, setScreenShareSupported] = useState(false);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenActionPending, setScreenActionPending] = useState(false);
@@ -446,21 +449,27 @@ function ClassroomPage() {
     [session?.roleInSession]
   );
   const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || '对方', [session?.remoteUserName]);
-  const presentationVisible = useMemo(() => remoteScreenReady, [remoteScreenReady]);
+  const presentationActive = useMemo(
+    () => remoteScreenSharing || remoteScreenReady,
+    [remoteScreenReady, remoteScreenSharing]
+  );
+  const presentationVisible = useMemo(() => presentationActive, [presentationActive]);
   const presentationTitle = useMemo(() => {
-    if (remoteScreenReady) return `${remoteLabel}正在共享屏幕`;
+    if (presentationActive) return `${remoteLabel}正在共享屏幕`;
     return '共享屏幕';
-  }, [remoteLabel, remoteScreenReady]);
+  }, [presentationActive, remoteLabel]);
   const presentationPlaceholder = useMemo(() => {
-    if (remoteScreenReady) return `等待${remoteLabel}的共享画面...`;
+    if (presentationActive) return `等待${remoteLabel}的共享画面...`;
     return '暂未开始共享屏幕';
-  }, [remoteLabel, remoteScreenReady]);
+  }, [presentationActive, remoteLabel]);
   const remoteVideoPlaceholder = useMemo(() => {
     if (remotePresent) return `${remoteLabel}已进入课堂，等待画面...`;
     return REMOTE_NOT_JOINED_TEXT;
   }, [remoteLabel, remotePresent]);
   remotePresentRef.current = remotePresent;
   remoteReadyRef.current = remoteReady;
+  screenSharingRef.current = screenSharing;
+  remoteScreenSharingRef.current = remoteScreenSharing;
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
   cameraMutedRef.current = cameraMuted;
@@ -624,25 +633,37 @@ function ClassroomPage() {
     remoteMediaLastTimeRef.current = 0;
     setErrorMessage('');
     setRemoteReady(false);
+    setRemoteScreenSharing(false);
     markRemoteScreenIdle();
     setStatusText(nextStatusText);
   }, [buildJoinedStatusText, markRemoteScreenIdle]);
 
-  const syncClassroomPresence = useCallback(async () => {
+  const syncClassroomPresence = useCallback(async (options = {}) => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId || !mountedRef.current || !joinedRef.current) return;
 
     try {
-      const response = await api.post(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/presence`);
+      const nextLocalScreenSharing = typeof options.screenSharing === 'boolean'
+        ? options.screenSharing
+        : screenSharingRef.current;
+      const response = await api.post(
+        `/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/presence`,
+        { screenSharing: nextLocalScreenSharing }
+      );
       if (!mountedRef.current || !joinedRef.current) return;
 
       const nextRemotePresent = Boolean(response?.data?.remotePresent);
+      const nextRemoteScreenSharing = Boolean(response?.data?.remoteScreenSharing);
       setRemotePresent(nextRemotePresent);
+      setRemoteScreenSharing(nextRemoteScreenSharing);
+      if (remoteScreenSharingRef.current && !nextRemoteScreenSharing) {
+        markRemoteScreenIdle();
+      }
       if (!remoteReadyRef.current) {
         setStatusText(buildJoinedStatusText({ remotePresent: nextRemotePresent, remoteReady: false }));
       }
     } catch {}
-  }, [buildJoinedStatusText, courseId]);
+  }, [buildJoinedStatusText, courseId, markRemoteScreenIdle]);
 
   const detachVisibleCameraPreview = useCallback(() => {
     clearVideoElement(localVideoRef.current, { pause: false, reload: false });
@@ -1365,7 +1386,8 @@ function ClassroomPage() {
         setStatusText(buildJoinedStatusText());
       }
     }
-  }, [buildJoinedStatusText, clearScreenTrackListener]);
+    void syncClassroomPresence({ screenSharing: false });
+  }, [buildJoinedStatusText, clearScreenTrackListener, syncClassroomPresence]);
 
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) {
@@ -1439,6 +1461,7 @@ function ClassroomPage() {
         setCameraMuted(true);
         setRemotePresent(false);
         setRemoteReady(false);
+        setRemoteScreenSharing(false);
         setScreenShareSupported(false);
         setScreenSharing(false);
         setScreenActionPending(false);
@@ -1670,6 +1693,7 @@ function ClassroomPage() {
     if (!joined) {
       clearPresenceHeartbeat();
       setRemotePresent(false);
+      setRemoteScreenSharing(false);
       return undefined;
     }
 
@@ -1737,6 +1761,7 @@ function ClassroomPage() {
         setJoined(false);
         setRemotePresent(false);
         setRemoteReady(false);
+        setRemoteScreenSharing(false);
         setMicMuted(true);
         setCameraMuted(true);
         setScreenShareSupported(false);
@@ -2029,6 +2054,7 @@ function ClassroomPage() {
         setErrorMessage('');
         setStatusText('正在共享屏幕');
       }
+      void syncClassroomPresence({ screenSharing: true });
     } catch (error) {
       await stopScreenShare({ silent: true });
       if (isUserCancelledScreenShareError(error)) {
@@ -2039,11 +2065,12 @@ function ClassroomPage() {
       if (mountedRef.current) {
         setErrorMessage(parseErrorMessage(error, '共享屏幕失败'));
       }
+      void syncClassroomPresence({ screenSharing: false });
     } finally {
       screenActionPendingRef.current = false;
       if (mountedRef.current) setScreenActionPending(false);
     }
-  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncLocalMicMuteState]);
+  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, syncLocalMicMuteState]);
 
   const handleLeaveClassroom = useCallback(async () => {
     if (mountedRef.current) setStatusText('正在离开课堂...');
