@@ -36,7 +36,7 @@
 
 .help-center-hero {
   max-width: 760px;
-  margin: 28px 0 10px;
+  margin: 28px 0 0;
 }
 
 .help-center-hero h1 {
@@ -50,18 +50,19 @@
   display: flex;
   align-items: flex-end;
   gap: 32px;
+  margin-top: 32px;
   margin-bottom: 28px;
   border-bottom: 1px solid rgba(17, 24, 39, 0.12);
 }
 
 .help-center-tab {
   position: relative;
-  padding: 0 0 16px;
+  padding: 0 0 12px;
   border: none;
   background: transparent;
   color: #6b7280;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 500;
   line-height: 1.2;
   cursor: pointer;
   transition: color 0.18s ease;
@@ -93,99 +94,30 @@
   transform: scaleX(1);
 }
 
-.help-center-quick-links {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 28px;
-}
-
-.help-center-quick-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 164px;
-  padding: 22px;
-  border-radius: 22px;
-  border: 1px solid var(--help-border);
-  background: var(--help-panel);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-}
-
-.help-center-quick-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.09);
-  border-color: rgba(15, 23, 42, 0.14);
-}
-
-.help-center-quick-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #111827;
-  color: #ffffff;
-}
-
-.help-center-quick-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.help-center-quick-card strong {
-  font-size: 18px;
-  line-height: 1.35;
-}
-
-.help-center-quick-card span:last-child {
-  color: var(--help-muted);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.help-center-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.95fr);
-  gap: 24px;
-  align-items: start;
-  padding-bottom: 48px;
-}
-
 .help-center-main {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.help-center-section,
-.help-center-note-card,
-.help-center-faq-card,
-.help-center-footer-card {
-  border-radius: 24px;
-  border: 1px solid var(--help-border);
-  background: var(--help-panel);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+  gap: 50px;
+  padding-top: 16px;
+  padding-bottom: 48px;
 }
 
 .help-center-section {
-  padding: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
-.help-center-section-heading h2,
-.help-center-note-card h2,
-.help-center-faq-card h2,
-.help-center-footer-card h2 {
+.help-center-section-heading h2 {
   font-size: 24px;
   line-height: 1.25;
   letter-spacing: -0.03em;
+  font-weight: 600;
 }
 
-.help-center-section-heading p,
-.help-center-note-card p,
-.help-center-footer-card p {
+.help-center-section-heading p {
   margin-top: 10px;
   color: var(--help-muted);
   font-size: 15px;
@@ -198,6 +130,12 @@
   margin-top: 22px;
 }
 
+.help-center-topic-list--grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px 28px;
+  align-items: stretch;
+}
+
 .help-center-topic-card {
   padding: 20px 22px;
   border-radius: 18px;
@@ -205,9 +143,37 @@
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.help-center-topic-card--grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 120px;
+  padding: 0 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
+}
+
 .help-center-topic-card h3 {
   font-size: 17px;
   line-height: 1.45;
+}
+
+.help-center-topic-card--grid h3 {
+  display: inline-block;
+  width: fit-content;
+  font-weight: 500;
+  line-height: 1.25;
+  padding-bottom: 0;
+  border-bottom: 2px solid currentColor;
+  cursor: pointer;
+  transition: border-color 0s ease;
+}
+
+.help-center-topic-card--grid h3:hover {
+  border-bottom-color: transparent;
 }
 
 .help-center-topic-card p {
@@ -217,83 +183,8 @@
   line-height: 1.8;
 }
 
-.help-center-aside {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  position: sticky;
-  top: 20px;
-}
-
-.help-center-note-card,
-.help-center-faq-card,
-.help-center-footer-card {
-  padding: 22px;
-}
-
-.help-center-note-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 14px;
-  background: #f3f4f6;
-  color: #111827;
-}
-
-.help-center-note-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.help-center-faq-list {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.help-center-faq-item {
-  border-radius: 16px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: #fafaf8;
-  overflow: hidden;
-}
-
-.help-center-faq-item summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 16px 18px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.6;
-}
-
-.help-center-faq-item summary::-webkit-details-marker {
-  display: none;
-}
-
-.help-center-faq-item p {
-  padding: 0 18px 18px;
-  color: #4b5563;
-  font-size: 14px;
-  line-height: 1.8;
-}
-
-@media (max-width: 1080px) {
-  .help-center-quick-links {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .help-center-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .help-center-aside {
-    position: static;
-  }
+.help-center-topic-card--grid p {
+  margin-top: 6px;
 }
 
 @media (max-width: 768px) {
@@ -311,6 +202,7 @@
 
   .help-center-tabs {
     gap: 22px;
+    margin-top: 18px;
     margin-bottom: 22px;
     overflow-x: auto;
     scrollbar-width: none;
@@ -322,19 +214,22 @@
 
   .help-center-tab {
     flex: 0 0 auto;
-    font-size: 16px;
-    padding-bottom: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    padding-bottom: 11px;
   }
 
-  .help-center-quick-links {
+  .help-center-section {
+    border-radius: 0;
+  }
+
+  .help-center-topic-list--grid {
     grid-template-columns: 1fr;
+    gap: 24px;
   }
 
-  .help-center-quick-card,
-  .help-center-section,
-  .help-center-note-card,
-  .help-center-faq-card,
-  .help-center-footer-card {
-    border-radius: 20px;
+  .help-center-topic-card--grid {
+    min-height: auto;
+    padding-bottom: 16px;
   }
 }

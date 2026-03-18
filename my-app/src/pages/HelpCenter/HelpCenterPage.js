@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
-import { FiBookOpen, FiClock, FiCompass, FiCreditCard, FiMessageCircle, FiShield } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -16,31 +15,11 @@ const HELP_TABS = [
 const HELP_CONTENT = {
   student: {
     homePath: '/student',
-    quickLinks: [
-      {
-        href: '#getting-started',
-        title: '开始使用',
-        description: '先明确目标、时区和课程方向，再进入筛选与收藏。',
-        icon: FiCompass,
-      },
-      {
-        href: '#courses-and-messages',
-        title: '课程与消息',
-        description: '用课程页跟进进度，用消息页确认时间、材料和变更。',
-        icon: FiMessageCircle,
-      },
-      {
-        href: '#payments-and-classroom',
-        title: '支付与课堂',
-        description: '充值课时、查看课堂入口，并为上课前准备留出缓冲。',
-        icon: FiCreditCard,
-      },
-    ],
     sections: [
       {
         id: 'getting-started',
         title: '开始使用',
-        summary: '先缩小范围，再联系合适的导师，效率会更高。',
+        layout: 'grid',
         items: [
           {
             question: '怎样更快找到合适的导师？',
@@ -52,12 +31,31 @@ const HELP_CONTENT = {
             answer:
               '建议提前整理学习目标、当前基础、期望频率、可上课时间和参考材料。信息越清楚，导师越容易判断是否匹配。',
           },
+          {
+            question: '什么时候适合先收藏导师？',
+            answer:
+              '当你已经确认方向，但还想再横向比较教学风格、学校背景或时间安排时，先收藏更方便后续集中决策。',
+          },
+          {
+            question: '最近浏览适合怎么用？',
+            answer:
+              '适合快速找回刚看过的导师资料。若只是临时对比，不必立即收藏，可以先通过最近浏览回看。',
+          },
+          {
+            question: '第一次沟通应该说清什么？',
+            answer:
+              '建议直接说明学习目标、当前基础、希望解决的问题和可上课时间，这样导师更容易快速判断是否匹配。',
+          },
+          {
+            question: '如何提高匹配效率？',
+            answer:
+              '先缩小课程范围，再结合时区、语言和上课节奏筛选。条件越清楚，越容易找到真正合适的人选。',
+          },
         ],
       },
       {
         id: 'courses-and-messages',
         title: '课程与消息',
-        summary: '所有和推进课程有关的信息，尽量都留在站内，后续更容易回看。',
         items: [
           {
             question: '课程页适合查看什么？',
@@ -74,7 +72,6 @@ const HELP_CONTENT = {
       {
         id: 'payments-and-classroom',
         title: '支付与课堂',
-        summary: '支付和开课前准备是两个最容易被忽略的环节。',
         items: [
           {
             question: '什么时候适合先去钱包页？',
@@ -89,54 +86,14 @@ const HELP_CONTENT = {
         ],
       },
     ],
-    faqs: [
-      {
-        question: '收藏和最近浏览有什么区别？',
-        answer: '收藏用于长期保留，最近浏览用于快速回到刚看过的导师或页面，两者用途不同，建议配合使用。',
-      },
-      {
-        question: '登录状态失效怎么办？',
-        answer: '重新登录即可。系统会尽量保留你原本想访问的页面路径，登录后通常会自动回到对应位置。',
-      },
-      {
-        question: '页面异常时应该先做什么？',
-        answer: '先刷新页面，再记录问题出现前的操作顺序。如果涉及课堂、支付或消息异常，建议同时截图保留信息，方便后续排查。',
-      },
-      {
-        question: '我还没准备好正式上课，可以先沟通吗？',
-        answer: '可以。先通过消息页确认目标、课程节奏和资料准备，再决定正式安排，会比直接进入课堂更稳妥。',
-      },
-    ],
-    footerNote:
-      '如果你暂时找不到答案，优先从课程页、消息页和设置页回看上下文，通常能更快定位问题发生在哪一步。',
   },
   mentor: {
     homePath: '/mentor',
-    quickLinks: [
-      {
-        href: '#getting-started',
-        title: '名片与接单',
-        description: '先把个人名片信息写清楚，再处理课程与学生沟通。',
-        icon: FiBookOpen,
-      },
-      {
-        href: '#courses-and-messages',
-        title: '课程与消息',
-        description: '统一在站内确认时间、节奏、资料和后续安排。',
-        icon: FiMessageCircle,
-      },
-      {
-        href: '#payments-and-classroom',
-        title: '课堂准备',
-        description: '上课前检查设备、材料与共享权限，减少课堂中断。',
-        icon: FiClock,
-      },
-    ],
     sections: [
       {
         id: 'getting-started',
         title: '名片与接单',
-        summary: '先把可交付内容说清楚，后续沟通成本会明显更低。',
+        layout: 'grid',
         items: [
           {
             question: '个人名片里最重要的信息是什么？',
@@ -148,12 +105,31 @@ const HELP_CONTENT = {
             answer:
               '先确认目标、基础、时间安排和资料准备是否匹配，再决定是否继续推进。不要在目标尚不明确时直接承诺排课。',
           },
+          {
+            question: '怎样让名片更容易被理解？',
+            answer:
+              '尽量少写空泛描述，多写可验证的信息，例如教授过哪些课程、适合哪些阶段的学生，以及你常用的授课方式。',
+          },
+          {
+            question: '第一次回复学生时重点说什么？',
+            answer:
+              '优先回应目标是否匹配、你能提供的帮助、建议的课程节奏和可安排时间，让沟通尽快进入具体阶段。',
+          },
+          {
+            question: '什么时候适合继续推进？',
+            answer:
+              '当学生的目标、时间和资料准备已经比较明确时，再推进课程安排会更稳，也能减少后续反复修改。',
+          },
+          {
+            question: '如何减少无效沟通？',
+            answer:
+              '把课程范围、预期结果、排课方式和材料要求说清楚。前置信息越完整，后续确认成本就越低。',
+          },
         ],
       },
       {
         id: 'courses-and-messages',
         title: '课程与消息',
-        summary: '课程页负责进度，消息页负责上下文，两者最好配合使用。',
         items: [
           {
             question: '课程页最适合管理哪些内容？',
@@ -170,7 +146,6 @@ const HELP_CONTENT = {
       {
         id: 'payments-and-classroom',
         title: '课堂准备',
-        summary: '上课体验稳定，往往取决于上课前的 10 分钟准备。',
         items: [
           {
             question: '开始上课前建议检查什么？',
@@ -185,26 +160,6 @@ const HELP_CONTENT = {
         ],
       },
     ],
-    faqs: [
-      {
-        question: '导师审核中时为什么部分功能不可用？',
-        answer: '这是为了保证资料完整与身份一致。审核完成后，对应功能会按权限自动恢复。',
-      },
-      {
-        question: '学生收藏和导师收藏是同一套数据吗？',
-        answer: '不是。系统会区分不同身份下的收藏内容，避免学生端和导师端相互干扰。',
-      },
-      {
-        question: '课堂前多久进入页面比较合适？',
-        answer: '建议至少提前 5 分钟进入，给设备检测、资料打开和临时沟通留出余量。',
-      },
-      {
-        question: '遇到页面异常时，应该如何描述问题？',
-        answer: '尽量说明你所在页面、刚执行过的操作、出现的提示和复现频率。信息越完整，越容易快速定位。',
-      },
-    ],
-    footerNote:
-      '如果你在多个页面之间切换排查问题，优先按“消息页确认上下文 -> 课程页确认状态 -> 设置页确认资料”的顺序检查。',
   },
 };
 
@@ -281,69 +236,27 @@ function HelpCenterPage({ mode = 'student' }) {
           })}
         </nav>
 
-        <nav className="help-center-quick-links" aria-label="帮助中心导航">
-          {content.quickLinks.map((item) => {
-            const Icon = item.icon;
-            return (
-              <a key={item.href} className="help-center-quick-card" href={item.href}>
-                <span className="help-center-quick-icon" aria-hidden="true">
-                  <Icon />
-                </span>
-                <strong>{item.title}</strong>
-                <span>{item.description}</span>
-              </a>
-            );
-          })}
-        </nav>
-
-        <main className="help-center-layout">
-          <div className="help-center-main">
-            {content.sections.map((section) => (
-              <section key={section.id} id={section.id} className="help-center-section">
-                <div className="help-center-section-heading">
-                  <h2>{section.title}</h2>
-                  <p>{section.summary}</p>
-                </div>
-                <div className="help-center-topic-list">
-                  {section.items.map((item) => (
-                    <article key={item.question} className="help-center-topic-card">
-                      <h3>{item.question}</h3>
-                      <p>{item.answer}</p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <aside className="help-center-aside">
-            <section className="help-center-note-card">
-              <div className="help-center-note-icon" aria-hidden="true">
-                <FiShield />
+        <main className="help-center-main">
+          {content.sections.map((section) => (
+            <section key={section.id} id={section.id} className="help-center-section">
+              <div className="help-center-section-heading">
+                <h2>{section.title}</h2>
               </div>
-              <h2>查找建议</h2>
-              <p>
-                遇到问题时，先确认自己当前所在页面，再回想上一条关键操作。按步骤回看，比直接重复点击更容易找到原因。
-              </p>
-            </section>
-
-            <section id="faq" className="help-center-faq-card">
-              <h2>常见问题</h2>
-              <div className="help-center-faq-list">
-                {content.faqs.map((item) => (
-                  <details key={item.question} className="help-center-faq-item">
-                    <summary>{item.question}</summary>
+              <div
+                className={`help-center-topic-list${section.layout === 'grid' ? ' help-center-topic-list--grid' : ''}`}
+              >
+                {section.items.map((item) => (
+                  <article
+                    key={item.question}
+                    className={`help-center-topic-card${section.layout === 'grid' ? ' help-center-topic-card--grid' : ''}`}
+                  >
+                    <h3>{item.question}</h3>
                     <p>{item.answer}</p>
-                  </details>
+                  </article>
                 ))}
               </div>
             </section>
-
-            <section className="help-center-footer-card">
-              <h2>排查小提示</h2>
-              <p>{content.footerNote}</p>
-            </section>
-          </aside>
+          ))}
         </main>
       </div>
 
