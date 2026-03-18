@@ -1,16 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { FiBookOpen, FiClock, FiCompass, FiCreditCard, FiMessageCircle, FiShield } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import { getAuthToken } from '../../utils/authStorage';
 import './HelpCenterPage.css';
 
+const HELP_TABS = [
+  { key: 'student', label: '学生版', path: '/student/help' },
+  { key: 'mentor', label: '导师版', path: '/mentor/help' },
+];
+
 const HELP_CONTENT = {
   student: {
     homePath: '/student',
-    roleLabel: '学生版',
     quickLinks: [
       {
         href: '#getting-started',
@@ -107,7 +112,6 @@ const HELP_CONTENT = {
   },
   mentor: {
     homePath: '/mentor',
-    roleLabel: '导师版',
     quickLinks: [
       {
         href: '#getting-started',
@@ -205,6 +209,7 @@ const HELP_CONTENT = {
 };
 
 function HelpCenterPage({ mode = 'student' }) {
+  const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
@@ -253,9 +258,28 @@ function HelpCenterPage({ mode = 'student' }) {
         </header>
 
         <section className="help-center-hero">
-          <span className="help-center-kicker">{content.roleLabel}</span>
           <h1>帮助中心</h1>
         </section>
+
+        <nav className="help-center-tabs" aria-label="帮助中心身份切换">
+          {HELP_TABS.map((tab) => {
+            const isActive = tab.key === mode;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`help-center-tab${isActive ? ' is-active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => {
+                  if (isActive) return;
+                  navigate(tab.path);
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
 
         <nav className="help-center-quick-links" aria-label="帮助中心导航">
           {content.quickLinks.map((item) => {
