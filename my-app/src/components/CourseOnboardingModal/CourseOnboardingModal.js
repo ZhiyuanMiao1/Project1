@@ -92,6 +92,7 @@ function CourseOnboardingModal({
 
   const courseCards = useMemo(() => {
     const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const statusRank = { draft: 0, submitted: 1 };
 
     if (!Array.isArray(draftCards) || draftCards.length === 0) return [];
 
@@ -100,6 +101,17 @@ function CourseOnboardingModal({
         const status = String(draft?.status || 'draft');
         if (!includeSubmitted) return status === 'draft';
         return status === 'draft' || status === 'submitted';
+      })
+      .sort((a, b) => {
+        const statusA = String(a?.status || 'draft');
+        const statusB = String(b?.status || 'draft');
+        const rankA = Object.prototype.hasOwnProperty.call(statusRank, statusA) ? statusRank[statusA] : 99;
+        const rankB = Object.prototype.hasOwnProperty.call(statusRank, statusB) ? statusRank[statusB] : 99;
+        if (rankA !== rankB) return rankA - rankB;
+
+        const timeA = new Date(a?.updatedAt || a?.createdAt || 0).getTime();
+        const timeB = new Date(b?.updatedAt || b?.createdAt || 0).getTime();
+        return timeB - timeA;
       })
       .map((draft) => {
       const status = String(draft?.status || 'draft');
@@ -271,6 +283,7 @@ function CourseOnboardingModal({
                   && Number(item.requestId) > 0;
                 const isDeleting = canDelete && deletingIds.has(Number(item.requestId));
                 const deleteAriaLabel = status === 'draft' ? '删除草稿' : '删除已提交需求';
+                const canOpenForEditing = !showConfirmButton && item?.requestId && (status === 'draft' || status === 'submitted');
                 return (
                   <div
                     className={`course-onboarding-card course-onboarding-course-card course-onboarding-course-card--selectable${isSelected ? ' course-onboarding-course-card--selected' : ''}`}
@@ -283,7 +296,7 @@ function CourseOnboardingModal({
                       tabIndex={isTabbable ? 0 : -1}
                       className="course-onboarding-course-main"
                       onClick={() => {
-                        if (status === 'draft' && item?.requestId) {
+                        if (canOpenForEditing) {
                           onClose?.();
                           try {
                             navigate(`/student/course-request?requestId=${encodeURIComponent(String(item.requestId))}`, {

@@ -215,8 +215,8 @@ function StudentNavbar() {
       ensureFreshAuth(api);
       const res = await api.get('/api/requests/drafts', { params: { limit: 50 } });
       const rows = Array.isArray(res?.data?.drafts) ? res.data.drafts : [];
-      const hasUnfinished = rows.some((r) => String(r?.status || '').trim().toLowerCase() === 'draft');
-      if (hasUnfinished) {
+      const hasExistingRequests = rows.length > 0;
+      if (hasExistingRequests) {
         setShowCourseRequestDraftModal(true);
       } else {
         navigate('/student/course-request');
@@ -432,7 +432,7 @@ function StudentNavbar() {
       {showCourseRequestDraftModal && (
         <CourseOnboardingModal
           showConfirmButton={false}
-          includeSubmitted={false}
+          includeSubmitted
           onCreateCourse={() => {
             setShowCourseRequestDraftModal(false);
             navigate('/student/course-request');

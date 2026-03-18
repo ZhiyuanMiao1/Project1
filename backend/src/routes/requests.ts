@@ -521,11 +521,8 @@ router.post(
           await conn.rollback();
           return res.status(404).json({ error: '未找到需求' });
         }
-        if (row.status !== 'draft') {
+        if (row.status !== 'draft' && row.status !== 'submitted') {
           await conn.rollback();
-          if (row.status === 'submitted') {
-            return res.status(409).json({ error: '该需求已提交，无法再保存为草稿' });
-          }
           return res.status(409).json({ error: '该需求已配对，无法再保存为草稿' });
         }
         requestId = row.id;
@@ -618,11 +615,8 @@ router.post(
           await conn.rollback();
           return res.status(404).json({ error: '未找到需求' });
         }
-        if (row.status !== 'draft') {
+        if (row.status !== 'draft' && row.status !== 'submitted') {
           await conn.rollback();
-          if (row.status === 'submitted') {
-            return res.status(409).json({ error: '该需求已提交' });
-          }
           return res.status(409).json({ error: '该需求已配对' });
         }
         requestId = row.id;
@@ -650,10 +644,21 @@ router.post(
         }
       }
 
-      await conn.execute(
-        "UPDATE course_requests SET status = 'submitted', submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
-        [requestId, userId]
-      );
+      if (requestIdInput) {
+        await conn.execute(
+          `UPDATE course_requests
+             SET status = 'submitted',
+                 submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP),
+                 updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND user_id = ?`,
+          [requestId, userId]
+        );
+      } else {
+        await conn.execute(
+          "UPDATE course_requests SET status = 'submitted', submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?",
+          [requestId, userId]
+        );
+      }
 
       await conn.commit();
       return res.json({ requestId });

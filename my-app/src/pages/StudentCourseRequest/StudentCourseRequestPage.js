@@ -138,6 +138,7 @@ function StudentCourseRequestPage() {
       studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
       degree: '',
       school: '',
+      studentAvatarUrl: '',
     };
   });
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -221,7 +222,7 @@ function StudentCourseRequestPage() {
   useEffect(() => {
     if (!isLoggedIn) {
       setAccountProfileStatus('idle');
-      setAccountProfile({ studentId: '', degree: '', school: '' });
+      setAccountProfile({ studentId: '', degree: '', school: '', studentAvatarUrl: '' });
       return;
     }
 
@@ -235,6 +236,7 @@ function StudentCourseRequestPage() {
           studentId: typeof data.studentId === 'string' ? data.studentId : '',
           degree: typeof data.degree === 'string' ? data.degree : '',
           school: typeof data.school === 'string' ? data.school : '',
+          studentAvatarUrl: typeof data.studentAvatarUrl === 'string' ? data.studentAvatarUrl.trim() : '',
         });
         setAccountProfileStatus('loaded');
       })
@@ -1206,6 +1208,7 @@ function StudentCourseRequestPage() {
     return '';
   })();
   const previewAvatarSrc = resolveAvatarSrc({
+    src: accountProfile.studentAvatarUrl,
     name: previewAvatarName,
     seed: accountProfile.studentId || previewAvatarName || previewSchool || 'student-preview',
     size: 192,
@@ -1406,7 +1409,7 @@ function StudentCourseRequestPage() {
       <div className="course-request-page">        <main className={completionClassName}>
           <div className="completion-card">
             <h2>提交成功！</h2>
-            <p>我们已经收到你的课程需求，若需要可在帮助中心联系学习顾问。</p>
+            <p>我们已经收到你的课程需求，若需要可在帮助中心联系学习顾问</p>
             <div className="completion-actions">
               <button type="button" onClick={() => navigate('/student')}>
                 返回学生首页
