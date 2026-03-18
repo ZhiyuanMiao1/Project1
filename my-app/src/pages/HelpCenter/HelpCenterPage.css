@@ -134,6 +134,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 34px 28px;
   align-items: stretch;
+  margin-top: 30px;
 }
 
 .help-center-topic-card {
