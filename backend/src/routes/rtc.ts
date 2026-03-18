@@ -32,6 +32,7 @@ type AuthorizedClassroomContext = {
   status: string;
   startsAt: string;
   durationHours: number;
+  threadId: string;
   roleInSession: SessionRole;
   remoteRole: SessionRole;
   selfUserPublicId: string;
@@ -248,6 +249,16 @@ const loadAuthorizedClassroomContext = async (
     [studentUserId, mentorUserId]
   );
 
+  const threadRows = await dbQuery<{ id: number | string }[]>(
+    `
+    SELECT id
+    FROM message_threads
+    WHERE student_user_id = ? AND mentor_user_id = ?
+    LIMIT 1
+    `,
+    [studentUserId, mentorUserId]
+  );
+
   const rolePublicIdMap = new Map<string, string>();
   roleRows.forEach((row) => {
     const userId = toNumber(row.user_id, 0);
@@ -276,12 +287,17 @@ const loadAuthorizedClassroomContext = async (
   const remoteUserName = isMentorInSession
     ? (userNameMap.get(studentUserId) || studentPublicId)
     : (userNameMap.get(mentorUserId) || mentorPublicId);
+  const rawThreadId = threadRows?.[0]?.id;
+  const threadId = Number.isFinite(Number(rawThreadId)) && Number(rawThreadId) > 0
+    ? String(rawThreadId)
+    : '';
 
   return {
     courseId,
     status,
     startsAt: toIsoString(sessionRow.starts_at),
     durationHours: Number((Math.round(toNumber(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2)),
+    threadId,
     roleInSession,
     remoteRole,
     selfUserPublicId,
@@ -341,6 +357,7 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
         status: context.status,
         startsAt: context.startsAt,
         durationHours: context.durationHours,
+        threadId: context.threadId,
         roleInSession: context.roleInSession,
         remoteRole: context.remoteRole,
         remoteUserName: context.remoteUserName,

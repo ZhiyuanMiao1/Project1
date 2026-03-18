@@ -70,10 +70,18 @@ const buildAuthResponse = () => ({
       status: 'scheduled',
       startsAt: '2026-03-18T12:00:00.000Z',
       durationHours: 1,
+      threadId: '',
       roleInSession: 'mentor',
       remoteRole: 'student',
       remoteUserName: '学生A',
     },
+  },
+});
+
+const buildThreadResponse = (threads = []) => ({
+  data: {
+    threads,
+    totalUnreadCount: 0,
   },
 });
 
@@ -91,6 +99,7 @@ describe('ClassroomPage remote recovery', () => {
   let originalConsoleDebug;
   let pauseMock;
   let loadMock;
+  let authResponse;
 
   const renderClassroomPage = async () => {
     container = document.createElement('div');
@@ -115,7 +124,26 @@ describe('ClassroomPage remote recovery', () => {
     pauseMock = jest.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
     loadMock = jest.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
 
-    api.get.mockResolvedValue(buildAuthResponse());
+    authResponse = buildAuthResponse();
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/api/rtc/classrooms/')) {
+        return Promise.resolve(authResponse);
+      }
+      if (String(url) === '/api/messages/threads') {
+        return Promise.resolve(buildThreadResponse());
+      }
+      if (String(url).includes('/api/messages/threads/') && String(url).includes('/availability')) {
+        return Promise.resolve({
+          data: {
+            studentAvailability: null,
+            mentorAvailability: null,
+            studentBusySelections: {},
+            mentorBusySelections: {},
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
     api.delete.mockResolvedValue({});
 
     startPlayMock = jest.fn();
@@ -258,5 +286,73 @@ describe('ClassroomPage remote recovery', () => {
 
     expect(startPlayMock).toHaveBeenCalledTimes(1);
     expect(getAlert()?.textContent || '').toContain('fatal remote playback failed');
+  });
+
+  test('opens the next-lesson drawer when the current course has a linked message thread', async () => {
+    authResponse = buildAuthResponse();
+    authResponse.data.session.threadId = '99';
+
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/api/rtc/classrooms/')) {
+        return Promise.resolve(authResponse);
+      }
+      if (String(url) === '/api/messages/threads') {
+        return Promise.resolve(buildThreadResponse([{
+          id: '99',
+          courseDirectionId: 'others',
+          courseTypeId: 'others',
+          schedule: {
+            id: '501',
+            direction: 'incoming',
+            window: '3月21日 周六 14:00-15:00 (GMT+08)',
+            meetingId: 'meeting-1',
+            time: '2026-03-19T08:00:00.000Z',
+            status: 'accepted',
+            courseSessionId: '42',
+            sourceAppointmentId: '',
+          },
+          scheduleHistory: [],
+        }]));
+      }
+      if (String(url).includes('/api/messages/threads/99/availability')) {
+        return Promise.resolve({
+          data: {
+            studentAvailability: {
+              timeZone: 'Asia/Shanghai',
+              daySelections: {
+                '2026-03-21': [{ start: 56, end: 63 }],
+              },
+            },
+            mentorAvailability: {
+              timeZone: 'Asia/Shanghai',
+              daySelections: {
+                '2026-03-21': [{ start: 56, end: 63 }],
+              },
+            },
+            studentBusySelections: {},
+            mentorBusySelections: {},
+          },
+        });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    api.post.mockResolvedValue(buildPresenceResponse(true));
+    startPlayMock.mockResolvedValue(createEmitter());
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const scheduleButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('预约下节课'));
+
+    expect(scheduleButton).toBeTruthy();
+    expect(scheduleButton.disabled).toBe(false);
+
+    await act(async () => {
+      scheduleButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(container.textContent || '').toContain('发送预约');
   });
 });

@@ -362,6 +362,7 @@ const toScheduleCard = (row: any, currentUserId: number) => {
     direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
     window: String(payload.windowText || '').trim(),
     meetingId: String(payload.meetingId || '').trim(),
+    sourceAppointmentId: typeof payload.sourceAppointmentId === 'string' ? payload.sourceAppointmentId.trim() : '',
     time: row?.created_at ? new Date(row.created_at).toISOString() : '',
     status: normalizedStatus,
     canRecall: Number(row?.sender_user_id) === currentUserId && normalizedStatus === 'pending',

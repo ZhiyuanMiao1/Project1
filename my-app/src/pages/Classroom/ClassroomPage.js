@@ -1,13 +1,43 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FiMic, FiMicOff, FiMonitor, FiPhoneOff, FiVideo, FiVideoOff } from 'react-icons/fi';
+import {
+  FiCalendar,
+  FiChevronLeft,
+  FiChevronRight,
+  FiMic,
+  FiMicOff,
+  FiMonitor,
+  FiPhoneOff,
+  FiVideo,
+  FiVideoOff,
+  FiX,
+} from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import api from '../../api/client';
+import {
+  buildSelectionFromMinutePoint,
+  findFirstSlotStartMinutes,
+  intersectMinuteSlots,
+  normalizeBlockMap,
+  subtractAvailabilityBlocks,
+} from '../../utils/availabilityBusy';
+import {
+  buildShortUTC,
+  convertSelectionsBetweenTimeZones,
+  getDefaultTimeZone,
+  getZonedParts,
+} from '../StudentCourseRequest/steps/timezoneUtils';
+import {
+  formatScheduleWindowForTimeZone,
+  normalizeScheduleStatus,
+  parseScheduleWindowRange,
+} from '../Messages/appointmentCardUtils';
 import {
   getRemoteUnavailableStatusText,
   isRetryableRemotePlayError,
   REMOTE_RECONNECTING_TEXT,
 } from './classroomRecovery';
+import '../Messages/MessagesPage.css';
 import './ClassroomPage.css';
 
 const LIVE_SDK_URL = 'https://g.alicdn.com/apsara-media-box/imp-web-live-push/6.4.9/alivc-live-push.js';
@@ -327,6 +357,7 @@ const hasRemoteUserForPlayer = (player, remoteUserId) => {
 
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 2000;
+const APPOINTMENT_THREAD_POLL_INTERVAL_MS = 4000;
 const REMOTE_SCREEN_STALE_TIMEOUT_MS = 4000;
 const REMOTE_PLAYBACK_RETRY_DELAY_MS = 2500;
 const REMOTE_PLAYBACK_ABSENT_RETRY_DELAY_MS = 6500;
@@ -379,6 +410,148 @@ const bindEmitter = (emitter, eventName, handler) => {
   } catch {}
 };
 
+const toFiniteCardId = (card) => {
+  const n = Number.parseInt(String(card?.id ?? '').trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+const toFiniteCardTimeMs = (card) => {
+  const ms = Date.parse(String(card?.time ?? '').trim());
+  return Number.isFinite(ms) ? ms : null;
+};
+
+const compareScheduleCardsChronologically = (a, b) => {
+  const idA = toFiniteCardId(a);
+  const idB = toFiniteCardId(b);
+  if (idA != null && idB != null && idA !== idB) return idA - idB;
+
+  const timeA = toFiniteCardTimeMs(a);
+  const timeB = toFiniteCardTimeMs(b);
+  if (timeA != null && timeB != null && timeA !== timeB) return timeA - timeB;
+  if (timeA != null && timeB == null) return 1;
+  if (timeA == null && timeB != null) return -1;
+
+  return 0;
+};
+
+const buildScheduleCardsFromThread = (thread) => {
+  if (!thread) return [];
+
+  const history = Array.isArray(thread.scheduleHistory)
+    ? thread.scheduleHistory
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => ({ ...item }))
+    : [];
+
+  const main = thread.schedule && typeof thread.schedule === 'object'
+    ? [{ ...thread.schedule }]
+    : [];
+
+  const merged = [...history, ...main];
+  if (merged.length === 0) return merged;
+
+  merged.sort(compareScheduleCardsChronologically);
+  const primaryIndex = merged.length - 1;
+
+  return merged.map((card, index) => ({
+    ...card,
+    __primary: index === primaryIndex,
+    __key: index === primaryIndex ? 'main' : `history-${index}`,
+  }));
+};
+
+const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+const toMiddayDate = (value = new Date()) => {
+  const base = value instanceof Date ? new Date(value) : new Date(value);
+  base.setHours(12, 0, 0, 0);
+  return base;
+};
+
+const maxMiddayDate = (...values) => {
+  const candidates = values
+    .map((value) => {
+      if (!value) return null;
+      const date = toMiddayDate(value);
+      return Number.isFinite(date.getTime()) ? date : null;
+    })
+    .filter(Boolean);
+  if (candidates.length === 0) return toMiddayDate();
+  return candidates.reduce((latest, current) => (current.getTime() > latest.getTime() ? current : latest));
+};
+
+const toYmdKey = (dateLike) => {
+  if (!dateLike) return '';
+  const d = toMiddayDate(dateLike);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const getAvailabilityTimeZone = (payload, fallback = getDefaultTimeZone()) => {
+  const timeZone = typeof payload?.timeZone === 'string' ? payload.timeZone.trim() : '';
+  return timeZone || fallback;
+};
+
+const buildCalendarDateInTimeZone = (value = new Date(), timeZone = getDefaultTimeZone()) => {
+  const reference = value instanceof Date ? value : new Date(value);
+  const safeReference = Number.isFinite(reference.getTime()) ? reference : new Date();
+  const parts = getZonedParts(timeZone, safeReference);
+  return new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
+};
+
+const buildGmtLabel = (timeZone, referenceDate = new Date()) => {
+  const utcLabel = buildShortUTC(timeZone, referenceDate);
+  const match = /^UTC([+-])(\d{1,2})(?::(\d{2}))?$/.exec(utcLabel);
+  if (!match) {
+    if (utcLabel === 'UTC卤0') return 'GMT+00';
+    return utcLabel.replace(/^UTC/, 'GMT');
+  }
+  const [, sign, hoursRaw, minutesRaw] = match;
+  const hours = String(hoursRaw).padStart(2, '0');
+  const minutes = minutesRaw ? `:${minutesRaw}` : '';
+  return `GMT${sign}${hours}${minutes}`;
+};
+
+const availabilityBlocksToSlots = (blocks) => {
+  if (!Array.isArray(blocks)) return [];
+  return blocks
+    .map((block) => {
+      const startIndex = Number(block?.start);
+      const endIndex = Number(block?.end);
+      if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return null;
+      const start = Math.max(0, Math.min(95, Math.floor(startIndex)));
+      const end = Math.max(0, Math.min(95, Math.floor(endIndex)));
+      const startMinutes = Math.min(start, end) * 15;
+      const endMinutes = (Math.max(start, end) + 1) * 15;
+      if (endMinutes <= startMinutes) return null;
+      return { startMinutes, endMinutes };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+};
+
+const minutesToTimeLabel = (minutes) => {
+  if (typeof minutes !== 'number' || Number.isNaN(minutes)) return '';
+  const normalized = Math.max(0, minutes);
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const formatFullDate = (date) => {
+  if (!(date instanceof Date)) return '';
+  const label = weekdayLabels[date.getDay()] || '';
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
+};
+
+const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08') => {
+  if (!(date instanceof Date)) return '';
+  const weekdayLabel = weekdayLabels[date.getDay()] || '';
+  const startLabel = minutesToTimeLabel(startMinutes);
+  const endLabel = minutesToTimeLabel(endMinutes);
+  if (!startLabel || !endLabel) return '';
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
+};
+
 function ClassroomPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
@@ -428,6 +601,13 @@ function ClassroomPage() {
   const remoteStopInFlightRef = useRef(false);
   const localPushActiveRef = useRef(false);
   const cameraMutedRef = useRef(true);
+  const appointmentSyncTimerRef = useRef(0);
+  const appointmentSyncInFlightRef = useRef(false);
+  const appointmentThreadInitializedRef = useRef(false);
+  const seenIncomingAppointmentIdsRef = useRef(new Set());
+  const dismissedIncomingAppointmentIdsRef = useRef(new Set());
+  const rescheduleScrollRef = useRef(null);
+  const rescheduleResizeRef = useRef(null);
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -445,12 +625,34 @@ function ClassroomPage() {
   const [cameraActionPending, setCameraActionPending] = useState(false);
   const [, setLocalScreenReady] = useState(false);
   const [remoteScreenReady, setRemoteScreenReady] = useState(false);
+  const [appointmentThread, setAppointmentThread] = useState(null);
+  const [scheduleCards, setScheduleCards] = useState([]);
+  const [appointmentMessage, setAppointmentMessage] = useState('');
+  const [appointmentBusyId, setAppointmentBusyId] = useState(null);
+  const [threadAvailability, setThreadAvailability] = useState(null);
+  const [threadAvailabilityStatus, setThreadAvailabilityStatus] = useState('idle');
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
+  const [rescheduleSelection, setRescheduleSelection] = useState(null);
+  const [rescheduleSending, setRescheduleSending] = useState(false);
+  const [incomingAppointmentCard, setIncomingAppointmentCard] = useState(null);
 
   const backHref = useMemo(
     () => (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses'),
     [session?.roleInSession]
   );
+  const messagesHref = useMemo(
+    () => (session?.roleInSession === 'mentor' ? '/mentor/messages' : '/student/messages'),
+    [session?.roleInSession]
+  );
+  const threadId = useMemo(() => safeText(session?.threadId), [session?.threadId]);
+  const isMentorInSession = session?.roleInSession === 'mentor';
   const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || '对方', [session?.remoteUserName]);
+  const currentCourseCard = useMemo(() => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return null;
+    return scheduleCards.find((card) => safeText(card?.courseSessionId) === normalizedCourseId) || null;
+  }, [courseId, scheduleCards]);
   const presentationActive = useMemo(
     () => remoteScreenSharing || remoteScreenReady,
     [remoteScreenReady, remoteScreenSharing]
@@ -471,6 +673,554 @@ function ClassroomPage() {
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
   cameraMutedRef.current = cameraMuted;
+
+  const clearAppointmentSyncTimer = useCallback(() => {
+    if (!appointmentSyncTimerRef.current) return;
+    window.clearTimeout(appointmentSyncTimerRef.current);
+    appointmentSyncTimerRef.current = 0;
+  }, []);
+
+  const clearRescheduleResizeState = useCallback(() => {
+    const state = rescheduleResizeRef.current;
+    if (!state) return;
+    document.body.style.userSelect = state.previousUserSelect ?? '';
+    document.body.classList.remove('reschedule-resizing');
+    rescheduleResizeRef.current = null;
+  }, []);
+
+  const applyAppointmentThreadSnapshot = useCallback((nextThread) => {
+    setAppointmentThread(nextThread || null);
+    const nextCards = buildScheduleCardsFromThread(nextThread);
+    setScheduleCards(nextCards);
+
+    setIncomingAppointmentCard((prev) => {
+      if (!prev) return prev;
+      const updated = nextCards.find((card) => String(card?.id) === String(prev?.id)) || null;
+      if (!updated) return null;
+      return normalizeScheduleStatus(updated?.status) === 'pending' ? updated : null;
+    });
+
+    const normalizedCourseId = safeText(courseId);
+    const sourceCard = normalizedCourseId
+      ? nextCards.find((card) => safeText(card?.courseSessionId) === normalizedCourseId) || null
+      : null;
+    const sourceAppointmentId = safeText(sourceCard?.id);
+    const relevantIncomingCards = sourceAppointmentId
+      ? nextCards.filter((card) => (
+        card?.direction === 'incoming'
+        && normalizeScheduleStatus(card?.status) === 'pending'
+        && safeText(card?.sourceAppointmentId) === sourceAppointmentId
+      ))
+      : [];
+
+    const previousSeenIds = seenIncomingAppointmentIdsRef.current;
+    const nextSeenIds = new Set(previousSeenIds);
+    relevantIncomingCards.forEach((card) => {
+      const appointmentId = safeText(card?.id);
+      if (appointmentId) nextSeenIds.add(appointmentId);
+    });
+
+    if (!appointmentThreadInitializedRef.current) {
+      seenIncomingAppointmentIdsRef.current = nextSeenIds;
+      appointmentThreadInitializedRef.current = true;
+      return;
+    }
+
+    seenIncomingAppointmentIdsRef.current = nextSeenIds;
+    const nextIncomingCard = relevantIncomingCards.find((card) => {
+      const appointmentId = safeText(card?.id);
+      if (!appointmentId) return false;
+      return (
+        !previousSeenIds.has(appointmentId)
+        && !dismissedIncomingAppointmentIdsRef.current.has(appointmentId)
+      );
+    }) || null;
+
+    if (nextIncomingCard) {
+      setAppointmentMessage('');
+      setIncomingAppointmentCard(nextIncomingCard);
+    }
+  }, [courseId]);
+
+  const syncAppointmentThread = useCallback(async ({ silent = true } = {}) => {
+    if (!threadId || appointmentSyncInFlightRef.current) return null;
+
+    appointmentSyncInFlightRef.current = true;
+    try {
+      const response = await api.get('/api/messages/threads');
+      if (!mountedRef.current) return null;
+
+      const threads = Array.isArray(response?.data?.threads) ? response.data.threads : [];
+      const nextThread = threads.find((item) => String(item?.id || '') === threadId) || null;
+      applyAppointmentThreadSnapshot(nextThread);
+      if (!silent) setAppointmentMessage('');
+      return nextThread;
+    } catch (error) {
+      if (!silent && mountedRef.current) {
+        setAppointmentMessage(parseErrorMessage(error, '同步预约状态失败，请稍后重试'));
+      }
+      return null;
+    } finally {
+      appointmentSyncInFlightRef.current = false;
+    }
+  }, [applyAppointmentThreadSnapshot, threadId]);
+
+  useEffect(() => {
+    appointmentThreadInitializedRef.current = false;
+    seenIncomingAppointmentIdsRef.current = new Set();
+    dismissedIncomingAppointmentIdsRef.current = new Set();
+    setAppointmentThread(null);
+    setScheduleCards([]);
+    setAppointmentMessage('');
+    setIncomingAppointmentCard(null);
+    setThreadAvailability(null);
+    setThreadAvailabilityStatus('idle');
+    setRescheduleOpen(false);
+    setRescheduleSelection(null);
+    clearAppointmentSyncTimer();
+    clearRescheduleResizeState();
+  }, [clearAppointmentSyncTimer, clearRescheduleResizeState, threadId]);
+
+  useEffect(() => () => {
+    clearAppointmentSyncTimer();
+    clearRescheduleResizeState();
+  }, [clearAppointmentSyncTimer, clearRescheduleResizeState]);
+
+  useEffect(() => {
+    if (!joined || !threadId) return undefined;
+
+    let disposed = false;
+    const poll = async () => {
+      await syncAppointmentThread({ silent: true });
+      if (disposed || !joinedRef.current) return;
+      appointmentSyncTimerRef.current = window.setTimeout(poll, APPOINTMENT_THREAD_POLL_INTERVAL_MS);
+    };
+
+    void poll();
+
+    return () => {
+      disposed = true;
+      clearAppointmentSyncTimer();
+    };
+  }, [clearAppointmentSyncTimer, joined, syncAppointmentThread, threadId]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!rescheduleOpen || !threadId) {
+      setThreadAvailability(null);
+      setThreadAvailabilityStatus('idle');
+      return () => { alive = false; };
+    }
+
+    setThreadAvailabilityStatus('loading');
+    api.get(`/api/messages/threads/${encodeURIComponent(threadId)}/availability`)
+      .then((res) => {
+        if (!alive) return;
+        setThreadAvailability({
+          studentAvailability: res?.data?.studentAvailability || null,
+          mentorAvailability: res?.data?.mentorAvailability || null,
+          studentBusySelections: normalizeBlockMap(res?.data?.studentBusySelections),
+          mentorBusySelections: normalizeBlockMap(res?.data?.mentorBusySelections),
+        });
+        setThreadAvailabilityStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setThreadAvailability(null);
+        setThreadAvailabilityStatus('error');
+      });
+
+    return () => { alive = false; };
+  }, [rescheduleOpen, threadId]);
+
+  const myAvailabilityPayload = isMentorInSession
+    ? (threadAvailability?.mentorAvailability || null)
+    : (threadAvailability?.studentAvailability || null);
+  const counterpartAvailabilityPayload = isMentorInSession
+    ? (threadAvailability?.studentAvailability || null)
+    : (threadAvailability?.mentorAvailability || null);
+  const myBusySelectionsForThread = isMentorInSession
+    ? (threadAvailability?.mentorBusySelections || {})
+    : (threadAvailability?.studentBusySelections || {});
+  const counterpartBusySelectionsForThread = isMentorInSession
+    ? (threadAvailability?.studentBusySelections || {})
+    : (threadAvailability?.mentorBusySelections || {});
+  const scheduleViewTimeZone = useMemo(
+    () => getAvailabilityTimeZone(myAvailabilityPayload, getDefaultTimeZone()),
+    [myAvailabilityPayload]
+  );
+  const rescheduleSourceRange = useMemo(
+    () => parseScheduleWindowRange(currentCourseCard?.window, currentCourseCard?.time),
+    [currentCourseCard?.time, currentCourseCard?.window]
+  );
+  const rescheduleMinDate = useMemo(() => {
+    const today = buildCalendarDateInTimeZone(new Date(), scheduleViewTimeZone);
+    const sourceEndDate = rescheduleSourceRange?.endMs
+      ? buildCalendarDateInTimeZone(rescheduleSourceRange.endMs, scheduleViewTimeZone)
+      : null;
+    return maxMiddayDate(today, sourceEndDate);
+  }, [rescheduleSourceRange, scheduleViewTimeZone]);
+  const selectionDayKey = useMemo(() => toYmdKey(rescheduleDate), [rescheduleDate]);
+  const timelineConfig = useMemo(() => ({
+    startHour: 0,
+    endHour: 24,
+    rowHeight: 56,
+    timeColumnWidth: 74,
+    bodyPaddingTop: 0,
+    timezoneLabel: buildGmtLabel(scheduleViewTimeZone, rescheduleDate),
+  }), [rescheduleDate, scheduleViewTimeZone]);
+  const displayHours = useMemo(
+    () => Array.from(
+      { length: timelineConfig.endHour - timelineConfig.startHour },
+      (_, index) => timelineConfig.startHour + index
+    ),
+    [timelineConfig.endHour, timelineConfig.startHour]
+  );
+  const participantLabels = useMemo(() => ({
+    left: '我',
+    right: remoteLabel,
+  }), [remoteLabel]);
+  const incomingAppointmentWindowText = useMemo(() => {
+    if (!incomingAppointmentCard) return '';
+    return formatScheduleWindowForTimeZone(
+      incomingAppointmentCard.window,
+      incomingAppointmentCard.time,
+      scheduleViewTimeZone,
+    );
+  }, [incomingAppointmentCard, scheduleViewTimeZone]);
+
+  const mySelectionsInViewTimeZone = useMemo(() => {
+    const daySelections = myAvailabilityPayload?.daySelections || {};
+    const sourceTimeZone = getAvailabilityTimeZone(myAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(daySelections, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [myAvailabilityPayload, scheduleViewTimeZone]);
+
+  const counterpartSelectionsInViewTimeZone = useMemo(() => {
+    const daySelections = counterpartAvailabilityPayload?.daySelections || {};
+    const sourceTimeZone = getAvailabilityTimeZone(counterpartAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(daySelections, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [counterpartAvailabilityPayload, scheduleViewTimeZone]);
+
+  const myBusySelectionsInViewTimeZone = useMemo(() => {
+    const sourceTimeZone = getAvailabilityTimeZone(myAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(myBusySelectionsForThread, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [myAvailabilityPayload, myBusySelectionsForThread, scheduleViewTimeZone]);
+
+  const counterpartBusySelectionsInViewTimeZone = useMemo(() => {
+    const sourceTimeZone = getAvailabilityTimeZone(counterpartAvailabilityPayload, scheduleViewTimeZone);
+    return convertSelectionsBetweenTimeZones(counterpartBusySelectionsForThread, sourceTimeZone, scheduleViewTimeZone) || {};
+  }, [counterpartAvailabilityPayload, counterpartBusySelectionsForThread, scheduleViewTimeZone]);
+
+  const myAvailabilitySlots = useMemo(() => {
+    if (myAvailabilityPayload && typeof myAvailabilityPayload === 'object') {
+      const freeBlocks = subtractAvailabilityBlocks(
+        mySelectionsInViewTimeZone?.[selectionDayKey],
+        myBusySelectionsInViewTimeZone?.[selectionDayKey],
+      );
+      return availabilityBlocksToSlots(freeBlocks);
+    }
+    if (threadAvailabilityStatus === 'idle' || threadAvailabilityStatus === 'loading') return null;
+    return [];
+  }, [
+    myAvailabilityPayload,
+    myBusySelectionsInViewTimeZone,
+    mySelectionsInViewTimeZone,
+    selectionDayKey,
+    threadAvailabilityStatus,
+  ]);
+
+  const counterpartAvailabilitySlots = useMemo(() => {
+    if (counterpartAvailabilityPayload && typeof counterpartAvailabilityPayload === 'object') {
+      const freeBlocks = subtractAvailabilityBlocks(
+        counterpartSelectionsInViewTimeZone?.[selectionDayKey],
+        counterpartBusySelectionsInViewTimeZone?.[selectionDayKey],
+      );
+      return availabilityBlocksToSlots(freeBlocks);
+    }
+    if (threadAvailabilityStatus === 'idle' || threadAvailabilityStatus === 'loading') return null;
+    return [];
+  }, [
+    counterpartAvailabilityPayload,
+    counterpartBusySelectionsInViewTimeZone,
+    counterpartSelectionsInViewTimeZone,
+    selectionDayKey,
+    threadAvailabilityStatus,
+  ]);
+
+  const myBusySlots = useMemo(
+    () => availabilityBlocksToSlots(myBusySelectionsInViewTimeZone?.[selectionDayKey]),
+    [myBusySelectionsInViewTimeZone, selectionDayKey]
+  );
+  const counterpartBusySlots = useMemo(
+    () => availabilityBlocksToSlots(counterpartBusySelectionsInViewTimeZone?.[selectionDayKey]),
+    [counterpartBusySelectionsInViewTimeZone, selectionDayKey]
+  );
+  const availability = useMemo(() => {
+    const mySlots = Array.isArray(myAvailabilitySlots) ? myAvailabilitySlots : [];
+    const counterpartSlots = Array.isArray(counterpartAvailabilitySlots) ? counterpartAvailabilitySlots : [];
+    const studentSlots = isMentorInSession ? counterpartSlots : mySlots;
+    const mentorSlots = isMentorInSession ? mySlots : counterpartSlots;
+    const studentBusySlots = isMentorInSession ? counterpartBusySlots : myBusySlots;
+    const mentorBusySlots = isMentorInSession ? myBusySlots : counterpartBusySlots;
+    return {
+      studentSlots,
+      mentorSlots,
+      studentBusySlots,
+      mentorBusySlots,
+      commonSlots: intersectMinuteSlots(studentSlots, mentorSlots),
+    };
+  }, [counterpartAvailabilitySlots, counterpartBusySlots, isMentorInSession, myAvailabilitySlots, myBusySlots]);
+  const columns = useMemo(() => {
+    const mySlots = isMentorInSession ? availability.mentorSlots : availability.studentSlots;
+    const counterpartSlots = isMentorInSession ? availability.studentSlots : availability.mentorSlots;
+    return { mySlots, counterpartSlots };
+  }, [availability.mentorSlots, availability.studentSlots, isMentorInSession]);
+  const isReschedulePrevDisabled = toMiddayDate(rescheduleDate).getTime() <= rescheduleMinDate.getTime();
+
+  useEffect(() => {
+    if (!rescheduleOpen) {
+      clearRescheduleResizeState();
+      setRescheduleSelection(null);
+    }
+  }, [clearRescheduleResizeState, rescheduleOpen]);
+
+  useEffect(() => {
+    setRescheduleSelection(null);
+  }, [rescheduleDate]);
+
+  useEffect(() => {
+    setRescheduleDate((prev) => {
+      if (!(prev instanceof Date) || Number.isNaN(prev.getTime())) return rescheduleMinDate;
+      return prev.getTime() < rescheduleMinDate.getTime() ? rescheduleMinDate : prev;
+    });
+  }, [rescheduleMinDate]);
+
+  useEffect(() => {
+    if (!rescheduleOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setRescheduleOpen(false);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [rescheduleOpen]);
+
+  useEffect(() => {
+    if (!rescheduleOpen) return;
+    const scrollEl = rescheduleScrollRef.current;
+    if (!scrollEl) return;
+    const focusMinutes = findFirstSlotStartMinutes(
+      columns.counterpartSlots,
+      columns.mySlots,
+      isMentorInSession ? availability.studentBusySlots : availability.mentorBusySlots,
+      isMentorInSession ? availability.mentorBusySlots : availability.studentBusySlots,
+    );
+    const targetMinutes = focusMinutes == null ? 11 * 60 : Math.max(0, focusMinutes - 60);
+    const top = (targetMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60);
+    scrollEl.scrollTop = Math.max(0, top);
+  }, [
+    availability.mentorBusySlots,
+    availability.studentBusySlots,
+    columns.counterpartSlots,
+    columns.mySlots,
+    isMentorInSession,
+    rescheduleDate,
+    rescheduleOpen,
+    timelineConfig.rowHeight,
+    timelineConfig.startHour,
+  ]);
+
+  const openMessagesThread = useCallback((appointmentId = '') => {
+    navigate(messagesHref, {
+      state: {
+        threadId,
+        ...(appointmentId ? { animateKey: `classroom-appointment:${appointmentId}` } : {}),
+      },
+    });
+  }, [messagesHref, navigate, threadId]);
+
+  const handleOpenNextLesson = useCallback(() => {
+    if (!threadId || !currentCourseCard) return;
+    setAppointmentMessage('');
+    setRescheduleDate(rescheduleMinDate);
+    setRescheduleSelection(null);
+    setRescheduleOpen(true);
+  }, [currentCourseCard, rescheduleMinDate, threadId]);
+
+  const shiftRescheduleDate = useCallback((deltaDays) => {
+    setRescheduleDate((prev) => {
+      const next = toMiddayDate(prev);
+      next.setDate(next.getDate() + deltaDays);
+      return next < rescheduleMinDate ? rescheduleMinDate : next;
+    });
+  }, [rescheduleMinDate]);
+
+  const handleRescheduleTimelineClick = useCallback((event) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const rawMinutes = timelineConfig.startHour * 60 + offsetY / pixelsPerMinute;
+    const nextSelection = buildSelectionFromMinutePoint(
+      rawMinutes,
+      60,
+      15,
+      timelineConfig.startHour * 60,
+      timelineConfig.endHour * 60,
+    );
+    setRescheduleSelection(nextSelection);
+  }, [timelineConfig.endHour, timelineConfig.rowHeight, timelineConfig.startHour]);
+
+  const handleRescheduleSlotClick = useCallback((slot) => (event) => {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
+    const clampedRatio = Math.max(0, Math.min(0.999, ratio));
+    const pointMinutes = slot.startMinutes + clampedRatio * (slot.endMinutes - slot.startMinutes);
+    const nextSelection = buildSelectionFromMinutePoint(
+      pointMinutes,
+      60,
+      15,
+      slot.startMinutes,
+      slot.endMinutes,
+    );
+    setRescheduleSelection(nextSelection);
+  }, []);
+
+  const handleSelectionResizePointerMove = useCallback((event) => {
+    const state = rescheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+
+    event.preventDefault();
+    const pixelsPerMinute = timelineConfig.rowHeight / 60;
+    const deltaMinutes = (event.clientY - state.startY) / pixelsPerMinute;
+    const snappedDelta = Math.round(deltaMinutes / 15) * 15;
+    const minDuration = 15;
+    const minStart = timelineConfig.startHour * 60;
+    const maxEnd = timelineConfig.endHour * 60;
+
+    if (state.edge === 'start') {
+      const startMinutes = Math.max(
+        minStart,
+        Math.min(state.endMinutes - minDuration, state.startMinutes + snappedDelta),
+      );
+      setRescheduleSelection({ startMinutes, endMinutes: state.endMinutes });
+      return;
+    }
+
+    const endMinutes = Math.max(
+      state.startMinutes + minDuration,
+      Math.min(maxEnd, state.endMinutes + snappedDelta),
+    );
+    setRescheduleSelection({ startMinutes: state.startMinutes, endMinutes });
+  }, [timelineConfig.endHour, timelineConfig.rowHeight, timelineConfig.startHour]);
+
+  const handleSelectionResizePointerUp = useCallback((event) => {
+    const state = rescheduleResizeRef.current;
+    if (!state || event.pointerId !== state.pointerId) return;
+    event.preventDefault();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {}
+    clearRescheduleResizeState();
+  }, [clearRescheduleResizeState]);
+
+  const handleSelectionResizePointerDown = useCallback((edge) => (event) => {
+    if (!rescheduleSelection) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    clearRescheduleResizeState();
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {}
+
+    rescheduleResizeRef.current = {
+      edge,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startMinutes: rescheduleSelection.startMinutes,
+      endMinutes: rescheduleSelection.endMinutes,
+      previousUserSelect: document.body.style.userSelect,
+    };
+    document.body.style.userSelect = 'none';
+    document.body.classList.add('reschedule-resizing');
+  }, [clearRescheduleResizeState, rescheduleSelection]);
+
+  const handleRescheduleSend = useCallback(async () => {
+    if (!rescheduleSelection || !threadId || !currentCourseCard) return;
+
+    const nextWindow = formatScheduleWindow(
+      rescheduleDate,
+      rescheduleSelection.startMinutes,
+      rescheduleSelection.endMinutes,
+      timelineConfig.timezoneLabel,
+    );
+    if (!nextWindow) return;
+
+    setRescheduleSending(true);
+    setAppointmentMessage('');
+    try {
+      await api.post(`/api/messages/threads/${encodeURIComponent(threadId)}/appointments`, {
+        windowText: nextWindow,
+        meetingId: String(currentCourseCard?.meetingId || ''),
+        courseDirectionId: String(currentCourseCard?.courseDirectionId || appointmentThread?.courseDirectionId || ''),
+        courseTypeId: String(currentCourseCard?.courseTypeId || appointmentThread?.courseTypeId || ''),
+        sourceAppointmentId: String(currentCourseCard.id),
+      });
+      setRescheduleOpen(false);
+      setAppointmentMessage('已发送下节课预约');
+      await syncAppointmentThread({ silent: true });
+    } catch (error) {
+      setAppointmentMessage(parseErrorMessage(error, '发送下节课预约失败，请稍后重试'));
+    } finally {
+      if (mountedRef.current) setRescheduleSending(false);
+    }
+  }, [
+    appointmentThread?.courseDirectionId,
+    appointmentThread?.courseTypeId,
+    currentCourseCard,
+    rescheduleDate,
+    rescheduleSelection,
+    syncAppointmentThread,
+    threadId,
+    timelineConfig.timezoneLabel,
+  ]);
+
+  const closeIncomingAppointmentPopup = useCallback((appointmentId) => {
+    const normalizedAppointmentId = safeText(appointmentId);
+    if (normalizedAppointmentId) {
+      dismissedIncomingAppointmentIdsRef.current.add(normalizedAppointmentId);
+    }
+    setIncomingAppointmentCard((prev) => {
+      if (!normalizedAppointmentId) return null;
+      return String(prev?.id || '') === normalizedAppointmentId ? null : prev;
+    });
+  }, []);
+
+  const handleIncomingAppointmentDecision = useCallback(async (status) => {
+    const appointmentId = safeText(incomingAppointmentCard?.id);
+    if (!appointmentId) return;
+
+    setAppointmentBusyId(appointmentId);
+    setAppointmentMessage('');
+    try {
+      await api.post(`/api/messages/appointments/${encodeURIComponent(appointmentId)}/decision`, { status });
+      closeIncomingAppointmentPopup(appointmentId);
+      setAppointmentMessage(status === 'accepted' ? '已接受下节课预约' : '已拒绝下节课预约');
+      await syncAppointmentThread({ silent: true });
+    } catch (error) {
+      setAppointmentMessage(parseErrorMessage(error, '更新预约状态失败，请稍后重试'));
+    } finally {
+      if (mountedRef.current) setAppointmentBusyId(null);
+    }
+  }, [closeIncomingAppointmentPopup, incomingAppointmentCard?.id, syncAppointmentThread]);
 
   const logRemoteCleanup = useCallback((functionName, details = {}) => {
     const player = typeof details.player === 'undefined' ? playerRef.current : details.player;
@@ -2229,6 +2979,10 @@ function ClassroomPage() {
   const micControlDisabled = controlsDisabled;
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
+  const nextLessonControlDisabled = controlsDisabled || !threadId || !currentCourseCard || rescheduleSending;
+  const incomingDecisionBusy = Boolean(
+    incomingAppointmentCard && String(appointmentBusyId) === String(incomingAppointmentCard.id)
+  );
 
   return (
     <div className="classroom-page">
@@ -2241,6 +2995,7 @@ function ClassroomPage() {
           <h1>课堂</h1>
           <div className="classroom-status">{statusText}</div>
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
+          {appointmentMessage ? <div className="classroom-note">{appointmentMessage}</div> : null}
         </section>
 
         <section className={`classroom-presentation-stage ${presentationVisible ? 'is-visible' : ''}`}>
@@ -2317,6 +3072,17 @@ function ClassroomPage() {
 
           <button
             type="button"
+            className="classroom-control-btn schedule"
+            disabled={nextLessonControlDisabled}
+            onClick={handleOpenNextLesson}
+            title={!threadId || !currentCourseCard ? '当前课堂暂不可预约下节课' : ''}
+          >
+            <FiCalendar size={16} />
+            <span>预约下节课</span>
+          </button>
+
+          <button
+            type="button"
             className="classroom-control-btn leave"
             onClick={handleLeaveClassroom}
           >
@@ -2324,6 +3090,63 @@ function ClassroomPage() {
             <span>离开课堂</span>
           </button>
         </section>
+
+        {incomingAppointmentCard ? (
+          <aside
+            className="classroom-appointment-popup"
+            role="dialog"
+            aria-modal="false"
+            aria-label="下节课预约提醒"
+          >
+            <div className="classroom-appointment-popup-head">
+              <div>
+                <div className="classroom-appointment-popup-eyebrow">课堂提醒</div>
+                <div className="classroom-appointment-popup-title">{`${remoteLabel} 发来了下节课预约`}</div>
+              </div>
+              <button
+                type="button"
+                className="classroom-appointment-popup-close"
+                onClick={() => closeIncomingAppointmentPopup(incomingAppointmentCard?.id)}
+                disabled={incomingDecisionBusy}
+                aria-label="关闭提醒"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+            <div className="classroom-appointment-popup-time">
+              {incomingAppointmentWindowText || incomingAppointmentCard.window}
+            </div>
+            <div className="classroom-appointment-popup-actions">
+              <button
+                type="button"
+                className="classroom-popup-btn accept"
+                onClick={() => handleIncomingAppointmentDecision('accepted')}
+                disabled={incomingDecisionBusy}
+              >
+                接受
+              </button>
+              <button
+                type="button"
+                className="classroom-popup-btn reject"
+                onClick={() => handleIncomingAppointmentDecision('rejected')}
+                disabled={incomingDecisionBusy}
+              >
+                拒绝
+              </button>
+              <button
+                type="button"
+                className="classroom-popup-btn ghost"
+                onClick={() => {
+                  closeIncomingAppointmentPopup(incomingAppointmentCard?.id);
+                  openMessagesThread(incomingAppointmentCard?.id);
+                }}
+                disabled={incomingDecisionBusy}
+              >
+                去消息查看
+              </button>
+            </div>
+          </aside>
+        ) : null}
 
         <div className="classroom-hidden-preview" aria-hidden="true">
           <video
@@ -2344,6 +3167,199 @@ function ClassroomPage() {
             onEnded={() => setLocalScreenReady(false)}
           />
         </div>
+
+        {rescheduleOpen && (
+          <div
+            className="reschedule-overlay"
+            role="presentation"
+            onClick={() => setRescheduleOpen(false)}
+          >
+            <aside
+              className="reschedule-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-label="预约下节课"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="reschedule-header">
+                <div className="reschedule-header-left">
+                  <button
+                    type="button"
+                    className="reschedule-header-btn icon"
+                    aria-label="前一天"
+                    disabled={isReschedulePrevDisabled}
+                    onClick={() => shiftRescheduleDate(-1)}
+                  >
+                    <FiChevronLeft size={18} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="reschedule-header-btn icon"
+                    aria-label="后一天"
+                    onClick={() => shiftRescheduleDate(1)}
+                  >
+                    <FiChevronRight size={18} aria-hidden="true" />
+                  </button>
+                  <div className="reschedule-date-title">{formatFullDate(rescheduleDate)}</div>
+                </div>
+                <button
+                  type="button"
+                  className="reschedule-header-btn icon close"
+                  aria-label="关闭"
+                  onClick={() => setRescheduleOpen(false)}
+                >
+                  <FiX size={18} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="classroom-reschedule-meta">
+                {threadAvailabilityStatus === 'loading' ? '正在同步双方空闲时间…' : '可点击时间段，或拖动已选区间调整。'}
+              </div>
+
+              <div className="reschedule-timeline">
+                <div
+                  className="reschedule-timeline-head"
+                  style={{ '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px` }}
+                >
+                  <div className="reschedule-tz">{timelineConfig.timezoneLabel}</div>
+                  <div className="reschedule-person">{participantLabels.left}</div>
+                  <div className="reschedule-person">{participantLabels.right}</div>
+                </div>
+
+                <div className="reschedule-timeline-scroll" ref={rescheduleScrollRef}>
+                  <div
+                    className="reschedule-timeline-body"
+                    style={{
+                      '--rs-row-height': `${timelineConfig.rowHeight}px`,
+                      '--rs-time-col-width': `${timelineConfig.timeColumnWidth}px`,
+                      '--rs-body-padding-top': `${timelineConfig.bodyPaddingTop}px`,
+                      '--rs-timeline-height': `${timelineConfig.rowHeight * (timelineConfig.endHour - timelineConfig.startHour)}px`,
+                    }}
+                  >
+                    <div
+                      className="reschedule-time-col"
+                      aria-hidden="true"
+                      onClick={handleRescheduleTimelineClick}
+                    >
+                      {displayHours.map((hour) => (
+                        <div key={hour} className="reschedule-time-label">
+                          {hour === 0 ? null : (
+                            <span className="reschedule-time-text">{`${String(hour).padStart(2, '0')}:00`}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      className="reschedule-column left"
+                      aria-label="我的空闲时间"
+                      onClick={handleRescheduleTimelineClick}
+                    >
+                      {(isMentorInSession ? availability.mentorBusySlots : availability.studentBusySlots).map((slot, index) => (
+                        <div
+                          key={`busy-left-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                          className="reschedule-slot busy"
+                          style={{
+                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                        </div>
+                      ))}
+                      {columns.mySlots.map((slot, index) => (
+                        <div
+                          key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                          className="reschedule-slot availability"
+                          onClick={handleRescheduleSlotClick(slot)}
+                          style={{
+                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      className="reschedule-column right"
+                      aria-label="对方空闲时间"
+                      onClick={handleRescheduleTimelineClick}
+                    >
+                      {(isMentorInSession ? availability.studentBusySlots : availability.mentorBusySlots).map((slot, index) => (
+                        <div
+                          key={`busy-right-${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                          className="reschedule-slot busy"
+                          style={{
+                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                        </div>
+                      ))}
+                      {columns.counterpartSlots.map((slot, index) => (
+                        <div
+                          key={`${slot.startMinutes}-${slot.endMinutes}-${index}`}
+                          className="reschedule-slot availability"
+                          onClick={handleRescheduleSlotClick(slot)}
+                          style={{
+                            top: `${(slot.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(slot.endMinutes - slot.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          {minutesToTimeLabel(slot.startMinutes)} - {minutesToTimeLabel(slot.endMinutes)}
+                        </div>
+                      ))}
+                    </div>
+
+                    {rescheduleSelection && (
+                      <div className="reschedule-selection-layer" aria-hidden="true">
+                        <div
+                          className="reschedule-slot selection"
+                          style={{
+                            top: `${(rescheduleSelection.startMinutes - timelineConfig.startHour * 60) * (timelineConfig.rowHeight / 60)}px`,
+                            height: `${(rescheduleSelection.endMinutes - rescheduleSelection.startMinutes) * (timelineConfig.rowHeight / 60)}px`,
+                          }}
+                        >
+                          <div
+                            className="reschedule-selection-handle top"
+                            role="presentation"
+                            onPointerDown={handleSelectionResizePointerDown('start')}
+                            onPointerMove={handleSelectionResizePointerMove}
+                            onPointerUp={handleSelectionResizePointerUp}
+                            onPointerCancel={handleSelectionResizePointerUp}
+                          />
+                          <div
+                            className="reschedule-selection-handle bottom"
+                            role="presentation"
+                            onPointerDown={handleSelectionResizePointerDown('end')}
+                            onPointerMove={handleSelectionResizePointerMove}
+                            onPointerUp={handleSelectionResizePointerUp}
+                            onPointerCancel={handleSelectionResizePointerUp}
+                          />
+                          {minutesToTimeLabel(rescheduleSelection.startMinutes)} - {minutesToTimeLabel(rescheduleSelection.endMinutes)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="reschedule-footer">
+                <button
+                  type="button"
+                  className="reschedule-send-btn"
+                  onClick={handleRescheduleSend}
+                  disabled={!rescheduleSelection || rescheduleSending}
+                >
+                  {rescheduleSending ? '发送中…' : '发送预约'}
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
       </div>
     </div>
   );
