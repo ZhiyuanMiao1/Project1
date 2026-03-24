@@ -28,10 +28,9 @@ const normalizeView = (raw) => {
     return '';
 };
 const pad2 = (n) => String(n).padStart(2, '0');
-const normalizeDbDateAsUtc = (value) => new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds()));
 const parseStoredUtcDate = (raw) => {
     if (raw instanceof Date && !Number.isNaN(raw.getTime()))
-        return normalizeDbDateAsUtc(raw);
+        return new Date(raw.getTime());
     if (typeof raw !== 'string')
         return null;
     const text = raw.trim();

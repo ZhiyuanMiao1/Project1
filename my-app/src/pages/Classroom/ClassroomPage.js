@@ -444,14 +444,14 @@ const formatFileSize = (sizeBytes) => {
   return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 };
 
-const formatClassroomChatTime = (rawValue) => {
+const formatClassroomChatTime = (rawValue, timeZone = getDefaultTimeZone()) => {
   const text = safeText(rawValue);
   if (!text) return '';
   const parsed = Date.parse(text);
   if (Number.isNaN(parsed)) return text;
-  const dt = new Date(parsed);
+  const parts = getZonedParts(timeZone, new Date(parsed));
   const pad2 = (value) => String(value).padStart(2, '0');
-  return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  return `${pad2(parts.hour)}:${pad2(parts.minute)}`;
 };
 
 const toFiniteCardId = (card) => {
@@ -668,6 +668,7 @@ function ClassroomPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const [statusText, setStatusText] = useState('准备进入课堂...');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
@@ -753,6 +754,32 @@ function ClassroomPage() {
     window.addEventListener('auth:changed', handleAuthChange);
     return () => window.removeEventListener('auth:changed', handleAuthChange);
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!session?.courseId) {
+      setUserTimeZone(getDefaultTimeZone());
+      return () => {
+        alive = false;
+      };
+    }
+
+    api.get('/api/account/availability')
+      .then((res) => {
+        if (!alive) return;
+        const nextTimeZone = safeText(res?.data?.availability?.timeZone) || getDefaultTimeZone();
+        setUserTimeZone(nextTimeZone);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setUserTimeZone(getDefaultTimeZone());
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [session?.courseId]);
 
   const toggleMenu = useCallback(() => {
     if (isMentorInSession) {
@@ -1070,8 +1097,8 @@ function ClassroomPage() {
     [isMentorInSession, threadAvailability?.mentorBusySelections, threadAvailability?.studentBusySelections]
   );
   const scheduleViewTimeZone = useMemo(
-    () => getAvailabilityTimeZone(myAvailabilityPayload, getDefaultTimeZone()),
-    [myAvailabilityPayload]
+    () => getAvailabilityTimeZone(myAvailabilityPayload, userTimeZone),
+    [myAvailabilityPayload, userTimeZone]
   );
   const rescheduleSourceRange = useMemo(
     () => parseScheduleWindowRange(currentCourseCard?.window, currentCourseCard?.time),
@@ -3353,7 +3380,6 @@ function ClassroomPage() {
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
   const nextLessonControlDisabled = controlsDisabled || !threadId || !currentCourseCard || rescheduleSending;
-  const chatDraftLength = chatMessageText.length;
   const chatCanSend = !controlsDisabled
     && !chatClosed
     && !chatSending
@@ -3487,12 +3513,8 @@ function ClassroomPage() {
         <section className="classroom-chat-panel">
           <div className="classroom-chat-panel-head">
             <div>
-              <h2>课堂聊天</h2>
-              <p>发送文字或临时文件，文件将存放在课堂临时目录中。</p>
+              <h2>聊天</h2>
             </div>
-            <span className={`classroom-chat-badge ${chatClosed ? 'is-readonly' : 'is-live'}`}>
-              {chatClosed ? '课堂已结束，只读' : '课堂进行中'}
-            </span>
           </div>
 
           {chatError ? (
@@ -3512,12 +3534,6 @@ function ClassroomPage() {
               <div className="classroom-chat-empty">正在加载聊天记录...</div>
             ) : null}
 
-            {!chatLoading && !chatMessages.length ? (
-              <div className="classroom-chat-empty">
-                {chatClosed ? '课堂聊天为空，暂无可查看的历史消息。' : '课堂已连接，发送第一条消息开始交流。'}
-              </div>
-            ) : null}
-
             {chatMessages.map((message) => {
               const isMine = message.senderRole === session?.roleInSession;
               const file = message.file;
@@ -3532,7 +3548,7 @@ function ClassroomPage() {
                 >
                   <div className="classroom-chat-message-meta">
                     <span className="classroom-chat-message-author">{isMine ? '我' : remoteLabel}</span>
-                    <span className="classroom-chat-message-time">{formatClassroomChatTime(message.createdAt)}</span>
+                    <span className="classroom-chat-message-time">{formatClassroomChatTime(message.createdAt, userTimeZone)}</span>
                   </div>
 
                   {message.messageType === 'text' ? (
@@ -3575,9 +3591,6 @@ function ClassroomPage() {
               rows={3}
             />
             <div className="classroom-chat-compose-footer">
-              <span className="classroom-chat-counter">
-                {chatDraftLength}/{MAX_CLASSROOM_CHAT_TEXT_LENGTH}
-              </span>
               <div className="classroom-chat-actions">
                 <input
                   ref={chatFileInputRef}

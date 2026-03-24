@@ -42,18 +42,8 @@ const normalizeView = (raw: unknown): CourseView | '' => {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-const normalizeDbDateAsUtc = (value: Date) => new Date(Date.UTC(
-  value.getFullYear(),
-  value.getMonth(),
-  value.getDate(),
-  value.getHours(),
-  value.getMinutes(),
-  value.getSeconds(),
-  value.getMilliseconds(),
-));
-
 const parseStoredUtcDate = (raw: unknown) => {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return normalizeDbDateAsUtc(raw);
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return new Date(raw.getTime());
   if (typeof raw !== 'string') return null;
   const text = raw.trim();
   if (!text) return null;

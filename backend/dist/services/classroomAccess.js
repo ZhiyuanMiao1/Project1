@@ -16,10 +16,9 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(n) ? n : fallback;
 };
 exports.toNumber = toNumber;
-const normalizeDbDateAsUtc = (value) => new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds()));
 const parseStoredUtcDate = (raw) => {
     if (raw instanceof Date && !Number.isNaN(raw.getTime()))
-        return normalizeDbDateAsUtc(raw);
+        return new Date(raw.getTime());
     const text = (0, exports.safeText)(raw);
     if (!text)
         return null;

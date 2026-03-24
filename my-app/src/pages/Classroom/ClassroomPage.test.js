@@ -138,6 +138,15 @@ describe('ClassroomPage remote recovery', () => {
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
       }
+      if (String(url) === '/api/account/availability') {
+        return Promise.resolve({
+          data: {
+            availability: {
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        });
+      }
       if (String(url).includes('/api/classrooms/42/chat')) {
         return Promise.resolve(buildChatResponse());
       }
@@ -410,7 +419,7 @@ describe('ClassroomPage remote recovery', () => {
     const sendButton = Array.from(container.querySelectorAll('button'))
       .find((button) => (button.textContent || '').includes('发送消息'));
 
-    expect(container.textContent || '').toContain('课堂聊天');
+    expect(container.textContent || '').toContain('聊天');
     expect(textarea).toBeTruthy();
     expect(sendButton).toBeTruthy();
 
@@ -437,5 +446,46 @@ describe('ClassroomPage remote recovery', () => {
       },
     ]]));
     expect(container.textContent || '').toContain('今天先看二叉树递归');
+  });
+
+  test('formats classroom chat time using the signed-in user time zone', async () => {
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/api/rtc/classrooms/')) {
+        return Promise.resolve(authResponse);
+      }
+      if (String(url) === '/api/account/availability') {
+        return Promise.resolve({
+          data: {
+            availability: {
+              timeZone: 'America/New_York',
+            },
+          },
+        });
+      }
+      if (String(url).includes('/api/classrooms/42/chat')) {
+        return Promise.resolve(buildChatResponse([
+          {
+            id: '1002',
+            messageType: 'text',
+            senderUserId: 11,
+            senderRole: 'mentor',
+            createdAt: '2026-03-18T12:05:00.000Z',
+            textContent: 'timezone check',
+          },
+        ]));
+      }
+      if (String(url) === '/api/messages/threads') {
+        return Promise.resolve(buildThreadResponse());
+      }
+      return Promise.resolve({ data: {} });
+    });
+    api.post.mockResolvedValue(buildPresenceResponse(true));
+    startPlayMock.mockResolvedValue(createEmitter());
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(container.textContent || '').toContain('timezone check');
+    expect(container.textContent || '').toContain('08:05');
   });
 });
