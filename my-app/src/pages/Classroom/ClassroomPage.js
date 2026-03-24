@@ -13,7 +13,10 @@ import {
 } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import api from '../../api/client';
+import { getAuthToken } from '../../utils/authStorage';
 import {
   buildSelectionFromMinutePoint,
   findFirstSlotStartMinutes,
@@ -608,10 +611,14 @@ function ClassroomPage() {
   const dismissedIncomingAppointmentIdsRef = useRef(new Set());
   const rescheduleScrollRef = useRef(null);
   const rescheduleResizeRef = useRef(null);
+  const menuAnchorRef = useRef(null);
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
   const [session, setSession] = useState(null);
+  const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [showMentorAuth, setShowMentorAuth] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [statusText, setStatusText] = useState('准备进入课堂...');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
@@ -673,6 +680,30 @@ function ClassroomPage() {
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
   cameraMutedRef.current = cameraMuted;
+
+  useEffect(() => {
+    const handleAuthChange = (event) => {
+      if (typeof event?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(!!event.detail.isLoggedIn);
+        return;
+      }
+      setIsLoggedIn(!!getAuthToken());
+    };
+
+    window.addEventListener('auth:changed', handleAuthChange);
+    return () => window.removeEventListener('auth:changed', handleAuthChange);
+  }, []);
+
+  const toggleMenu = useCallback(() => {
+    if (isMentorInSession) {
+      setShowMentorAuth((prev) => !prev);
+      setShowStudentAuth(false);
+      return;
+    }
+
+    setShowStudentAuth((prev) => !prev);
+    setShowMentorAuth(false);
+  }, [isMentorInSession]);
 
   const clearAppointmentSyncTimer = useCallback(() => {
     if (!appointmentSyncTimerRef.current) return;
@@ -2989,6 +3020,19 @@ function ClassroomPage() {
       <div className="container">
         <header className="classroom-header">
           <BrandMark className="nav-logo-text" to={backHref} />
+          <button
+            type="button"
+            className="icon-circle classroom-menu"
+            aria-label="更多菜单"
+            ref={menuAnchorRef}
+            onClick={toggleMenu}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
         </header>
 
         <section className="classroom-meta">
@@ -3167,6 +3211,29 @@ function ClassroomPage() {
             onEnded={() => setLocalScreenReady(false)}
           />
         </div>
+
+        {showStudentAuth && !isMentorInSession ? (
+          <StudentAuthModal
+            onClose={() => setShowStudentAuth(false)}
+            anchorRef={menuAnchorRef}
+            leftAlignRef={menuAnchorRef}
+            forceLogin={false}
+            isLoggedIn={isLoggedIn}
+            align="right"
+            alignOffset={23}
+          />
+        ) : null}
+
+        {showMentorAuth && isMentorInSession ? (
+          <MentorAuthModal
+            onClose={() => setShowMentorAuth(false)}
+            anchorRef={menuAnchorRef}
+            leftAlignRef={menuAnchorRef}
+            forceLogin={false}
+            align="right"
+            alignOffset={23}
+          />
+        ) : null}
 
         {rescheduleOpen && (
           <div
