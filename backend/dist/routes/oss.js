@@ -9,6 +9,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const path_1 = __importDefault(require("path"));
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
+const classroomAccess_1 = require("../services/classroomAccess");
 const router = (0, express_1.Router)();
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024; // 50MB
@@ -70,23 +71,30 @@ router.post('/policy', auth_1.requireAuth, [
             ? 'studentAvatar'
             : scopeRaw === 'courseRequestAttachment'
                 ? 'courseRequestAttachment'
-                : 'mentorAvatar';
-        const max = scope === 'courseRequestAttachment' ? MAX_ATTACHMENT_BYTES : MAX_AVATAR_BYTES;
+                : scopeRaw === 'classroomTempFile'
+                    ? 'classroomTempFile'
+                    : 'mentorAvatar';
+        const max = scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
+            ? MAX_ATTACHMENT_BYTES
+            : MAX_AVATAR_BYTES;
         return Number(value) <= max;
     })
         .withMessage('文件过大'),
-    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile']).withMessage('scope 无效'),
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
+    (0, express_validator_1.body)('classroomId').optional().isInt({ min: 1 }),
 ], async (req, res) => {
     const scopeRaw = typeof req.body?.scope === 'string' ? String(req.body.scope) : '';
     const scope = scopeRaw === 'studentAvatar'
         ? 'studentAvatar'
         : scopeRaw === 'courseRequestAttachment'
             ? 'courseRequestAttachment'
-            : 'mentorAvatar';
+            : scopeRaw === 'classroomTempFile'
+                ? 'classroomTempFile'
+                : 'mentorAvatar';
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
-    // courseRequestAttachment: allow any authed user (mentor can submit requests too).
+    // courseRequestAttachment/classroomTempFile: allow any authed user after resource-specific checks.
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty())
         return res.status(400).json({ errors: errors.array() });
@@ -101,13 +109,14 @@ router.post('/policy', auth_1.requireAuth, [
         }
         const { fileName, contentType } = req.body;
         const ct = (contentType || '').toLowerCase().trim();
-        const ext = scope === 'courseRequestAttachment'
+        const ext = scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
             ? resolveAttachmentExt(fileName, ct)
             : resolveImageExt(fileName, ct);
         if (!ext)
-            return res.status(400).json({ error: scope === 'courseRequestAttachment' ? '不支持的文件格式' : '不支持的图片格式' });
-        if (scope !== 'courseRequestAttachment' && ct && !ct.startsWith('image/'))
+            return res.status(400).json({ error: scope === 'courseRequestAttachment' || scope === 'classroomTempFile' ? '不支持的文件格式' : '不支持的图片格式' });
+        if (scope !== 'courseRequestAttachment' && scope !== 'classroomTempFile' && ct && !ct.startsWith('image/')) {
             return res.status(400).json({ error: '仅支持图片文件' });
+        }
         let businessId = '';
         let dir = '';
         let maxBytes = MAX_AVATAR_BYTES;
@@ -138,6 +147,18 @@ router.post('/policy', auth_1.requireAuth, [
             businessId = String(requestId);
             maxBytes = MAX_ATTACHMENT_BYTES;
         }
+        if (scope === 'classroomTempFile') {
+            const classroomId = Number.parseInt(String(req.body?.classroomId || ''), 10);
+            if (!Number.isFinite(classroomId) || classroomId <= 0) {
+                return res.status(400).json({ error: 'classroomId 必填' });
+            }
+            const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(classroomId, req.user.id);
+            if ((0, classroomAccess_1.isClassroomClosed)(context)) {
+                return res.status(409).json({ error: '课堂已结束，不能上传临时文件' });
+            }
+            businessId = String(classroomId);
+            maxBytes = MAX_ATTACHMENT_BYTES;
+        }
         const now = new Date();
         const yyyy = String(now.getFullYear());
         const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -146,7 +167,9 @@ router.post('/policy', auth_1.requireAuth, [
             ? `v1/mentors/${businessId}/avatar/${yyyy}/${mm}/`
             : scope === 'studentAvatar'
                 ? `v1/students/${businessId}/avatar/${yyyy}/${mm}/`
-                : `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`;
+                : scope === 'courseRequestAttachment'
+                    ? `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`
+                    : `temp/classrooms/${businessId}/${yyyy}/${mm}/`;
         const key = `${dir}${fileId}.${ext}`;
         const expiration = new Date(Date.now() + POLICY_EXPIRE_SECONDS * 1000).toISOString();
         const policyObj = {
@@ -174,6 +197,9 @@ router.post('/policy', auth_1.requireAuth, [
         });
     }
     catch (e) {
+        if (e instanceof classroomAccess_1.ClassroomHttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
         console.error('OSS policy error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }

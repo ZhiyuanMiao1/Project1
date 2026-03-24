@@ -92,6 +92,15 @@ const buildPresenceResponse = (remotePresent) => ({
   },
 });
 
+const buildChatResponse = (messages = [], options = {}) => ({
+  data: {
+    messages,
+    chatClosed: false,
+    cleanupEligible: false,
+    ...options,
+  },
+});
+
 describe('ClassroomPage remote recovery', () => {
   let startPlayMock;
   let container;
@@ -128,6 +137,9 @@ describe('ClassroomPage remote recovery', () => {
     api.get.mockImplementation((url) => {
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
+      }
+      if (String(url).includes('/api/classrooms/42/chat')) {
+        return Promise.resolve(buildChatResponse());
       }
       if (String(url) === '/api/messages/threads') {
         return Promise.resolve(buildThreadResponse());
@@ -354,5 +366,76 @@ describe('ClassroomPage remote recovery', () => {
     await flushPromises();
 
     expect(container.textContent || '').toContain('发送预约');
+  });
+
+  test('renders classroom chat and sends a text message', async () => {
+    const chatResponses = [
+      buildChatResponse(),
+      buildChatResponse([
+        {
+          id: '1001',
+          messageType: 'text',
+          senderUserId: 11,
+          senderRole: 'mentor',
+          createdAt: '2026-03-18T12:05:00.000Z',
+          textContent: '今天先看二叉树递归',
+        },
+      ]),
+    ];
+
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/api/rtc/classrooms/')) {
+        return Promise.resolve(authResponse);
+      }
+      if (String(url).includes('/api/classrooms/42/chat')) {
+        return Promise.resolve(chatResponses.length > 1 ? chatResponses.shift() : chatResponses[0]);
+      }
+      if (String(url) === '/api/messages/threads') {
+        return Promise.resolve(buildThreadResponse());
+      }
+      return Promise.resolve({ data: {} });
+    });
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/api/classrooms/42/chat/messages')) {
+        return Promise.resolve({ data: { id: 1001, messageType: 'text' } });
+      }
+      return Promise.resolve(buildPresenceResponse(true));
+    });
+    startPlayMock.mockResolvedValue(createEmitter());
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const textarea = container.querySelector('textarea');
+    const sendButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('发送消息'));
+
+    expect(container.textContent || '').toContain('课堂聊天');
+    expect(textarea).toBeTruthy();
+    expect(sendButton).toBeTruthy();
+
+    await act(async () => {
+      const valueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value'
+      ).set;
+      valueSetter.call(textarea, '今天先看二叉树递归');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await flushPromises();
+
+    await act(async () => {
+      sendButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(api.post.mock.calls).toEqual(expect.arrayContaining([[
+      '/api/classrooms/42/chat/messages',
+      {
+        messageType: 'text',
+        textContent: '今天先看二叉树递归',
+      },
+    ]]));
+    expect(container.textContent || '').toContain('今天先看二叉树递归');
   });
 });

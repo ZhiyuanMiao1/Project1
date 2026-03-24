@@ -503,7 +503,48 @@ CREATE TABLE IF NOT EXISTS `course_sessions` (
   CONSTRAINT `fk_course_sessions_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 14) Course review records (student -> mentor after session ends)
+-- 14) Classroom chat / temporary classroom files
+CREATE TABLE IF NOT EXISTS `classroom_temp_files` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `classroom_id` BIGINT NOT NULL,
+  `uploader_user_id` INT NOT NULL,
+  `file_id` CHAR(32) NOT NULL,
+  `original_file_name` VARCHAR(255) NOT NULL,
+  `content_type` VARCHAR(128) NULL,
+  `size_bytes` BIGINT NOT NULL,
+  `ext` VARCHAR(16) NOT NULL,
+  `oss_key` VARCHAR(512) NOT NULL,
+  `file_url` VARCHAR(1024) NOT NULL,
+  `cleanup_status` ENUM('active','ready','deleted','failed') NOT NULL DEFAULT 'active',
+  `cleanup_after` DATETIME NULL,
+  `cleaned_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_classroom_temp_files_file` (`file_id`),
+  KEY `idx_classroom_temp_files_classroom` (`classroom_id`, `cleanup_status`),
+  KEY `idx_classroom_temp_files_cleanup_after` (`cleanup_status`, `cleanup_after`),
+  CONSTRAINT `fk_classroom_temp_files_classroom` FOREIGN KEY (`classroom_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_classroom_temp_files_uploader` FOREIGN KEY (`uploader_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `classroom_messages` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `classroom_id` BIGINT NOT NULL,
+  `sender_user_id` INT NOT NULL,
+  `message_type` ENUM('text','file') NOT NULL,
+  `text_content` TEXT NULL,
+  `file_id` CHAR(32) NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_classroom_messages_classroom` (`classroom_id`, `id`),
+  KEY `idx_classroom_messages_sender` (`sender_user_id`),
+  KEY `idx_classroom_messages_file` (`file_id`),
+  CONSTRAINT `fk_classroom_messages_classroom` FOREIGN KEY (`classroom_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_classroom_messages_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 15) Course review records (student -> mentor after session ends)
 CREATE TABLE IF NOT EXISTS `course_session_reviews` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `course_session_id` BIGINT NOT NULL,

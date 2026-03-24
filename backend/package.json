@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "db:migrate:v2": "npm run build && node dist/scripts/migrate-v2.js",
     "db:migrate:vector": "npm run build && node dist/scripts/migrate-vector-index.js",
+    "cleanup:classroom-temp-files": "npm run build && node dist/scripts/cleanup-classroom-temp-files.js",
     "embed:courses": "npm run build && node dist/scripts/embed-course-mappings.js",
     "prune:courses": "npm run build && node dist/scripts/prune-course-mappings.js",
     "backfill:mentor-courses": "npm run build && node dist/scripts/backfill-mentor-course-embeddings.js",

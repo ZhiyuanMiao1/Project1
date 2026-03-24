@@ -15,6 +15,7 @@ import attachmentsRoute from './routes/attachments';
 import messagesRoute from './routes/messages';
 import coursesRoute from './routes/courses';
 import rtcRoute from './routes/rtc';
+import classroomChatRoute from './routes/classroomChat';
 import paypalApiRoute from './routes/paypalApi';
 import paypalRoute from './routes/paypal';
 
@@ -72,6 +73,7 @@ app.use('/api/attachments', attachmentsRoute);
 app.use('/api/messages', messagesRoute);
 app.use('/api/courses', coursesRoute);
 app.use('/api/rtc', rtcRoute);
+app.use('/api/classrooms', classroomChatRoute);
 app.use('/api/paypal-api', paypalApiRoute);
 app.use('/api/paypal', paypalRoute);
 

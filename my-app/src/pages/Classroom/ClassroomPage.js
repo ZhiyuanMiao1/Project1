@@ -3,10 +3,13 @@ import {
   FiCalendar,
   FiChevronLeft,
   FiChevronRight,
+  FiDownload,
   FiMic,
   FiMicOff,
   FiMonitor,
+  FiPaperclip,
   FiPhoneOff,
+  FiSend,
   FiVideo,
   FiVideoOff,
   FiX,
@@ -361,9 +364,18 @@ const hasRemoteUserForPlayer = (player, remoteUserId) => {
 const LOCAL_CAMERA_OFF_TEXT = '摄像头未开启';
 const PRESENCE_HEARTBEAT_INTERVAL_MS = 2000;
 const APPOINTMENT_THREAD_POLL_INTERVAL_MS = 4000;
+const CHAT_POLL_INTERVAL_MS = 2500;
 const REMOTE_SCREEN_STALE_TIMEOUT_MS = 4000;
 const REMOTE_PLAYBACK_RETRY_DELAY_MS = 2500;
 const REMOTE_PLAYBACK_ABSENT_RETRY_DELAY_MS = 6500;
+const CLASSROOM_CHAT_FILE_ACCEPT = '.pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip';
+const CLASSROOM_CHAT_ALLOWED_EXTS = new Set(
+  CLASSROOM_CHAT_FILE_ACCEPT
+    .split(',')
+    .map((item) => item.trim().toLowerCase().replace(/^\./, ''))
+    .filter(Boolean)
+);
+const MAX_CLASSROOM_CHAT_TEXT_LENGTH = 4000;
 
 const clearVideoElement = (element, options = {}) => {
   const { pause = true, reload = true } = options;
@@ -411,6 +423,35 @@ const bindEmitter = (emitter, eventName, handler) => {
   try {
     emitter.on(eventName, handler);
   } catch {}
+};
+
+const getFileExtension = (fileName) => {
+  const text = safeText(fileName);
+  if (!text.includes('.')) return '';
+  return text.split('.').pop().trim().toLowerCase();
+};
+
+const isAllowedClassroomChatFile = (file) => {
+  const ext = getFileExtension(file?.name);
+  return !!ext && CLASSROOM_CHAT_ALLOWED_EXTS.has(ext);
+};
+
+const formatFileSize = (sizeBytes) => {
+  const size = Number(sizeBytes);
+  if (!Number.isFinite(size) || size <= 0) return '0 B';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+};
+
+const formatClassroomChatTime = (rawValue) => {
+  const text = safeText(rawValue);
+  if (!text) return '';
+  const parsed = Date.parse(text);
+  if (Number.isNaN(parsed)) return text;
+  const dt = new Date(parsed);
+  const pad2 = (value) => String(value).padStart(2, '0');
+  return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
 };
 
 const toFiniteCardId = (card) => {
@@ -609,6 +650,14 @@ function ClassroomPage() {
   const appointmentThreadInitializedRef = useRef(false);
   const seenIncomingAppointmentIdsRef = useRef(new Set());
   const dismissedIncomingAppointmentIdsRef = useRef(new Set());
+  const chatSyncTimerRef = useRef(0);
+  const chatSyncInFlightRef = useRef(false);
+  const chatInitializedRef = useRef(false);
+  const chatBodyRef = useRef(null);
+  const chatFileInputRef = useRef(null);
+  const chatLastMessageIdRef = useRef('');
+  const chatClosedRef = useRef(false);
+  const cleanupEligibleRef = useRef(false);
   const rescheduleScrollRef = useRef(null);
   const rescheduleResizeRef = useRef(null);
   const menuAnchorRef = useRef(null);
@@ -643,6 +692,15 @@ function ClassroomPage() {
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [rescheduleSending, setRescheduleSending] = useState(false);
   const [incomingAppointmentCard, setIncomingAppointmentCard] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatMessageText, setChatMessageText] = useState('');
+  const [chatError, setChatError] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSending, setChatSending] = useState(false);
+  const [chatUploading, setChatUploading] = useState(false);
+  const [chatClosed, setChatClosed] = useState(false);
+  const [cleanupEligible, setCleanupEligible] = useState(false);
+  const [chatDownloadingFileId, setChatDownloadingFileId] = useState('');
 
   const backHref = useMemo(
     () => (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses'),
@@ -680,6 +738,8 @@ function ClassroomPage() {
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
   cameraMutedRef.current = cameraMuted;
+  chatClosedRef.current = chatClosed;
+  cleanupEligibleRef.current = cleanupEligible;
 
   useEffect(() => {
     const handleAuthChange = (event) => {
@@ -711,12 +771,48 @@ function ClassroomPage() {
     appointmentSyncTimerRef.current = 0;
   }, []);
 
+  const clearChatSyncTimer = useCallback(() => {
+    if (!chatSyncTimerRef.current) return;
+    window.clearTimeout(chatSyncTimerRef.current);
+    chatSyncTimerRef.current = 0;
+  }, []);
+
   const clearRescheduleResizeState = useCallback(() => {
     const state = rescheduleResizeRef.current;
     if (!state) return;
     document.body.style.userSelect = state.previousUserSelect ?? '';
     document.body.classList.remove('reschedule-resizing');
     rescheduleResizeRef.current = null;
+  }, []);
+
+  const applyChatSnapshot = useCallback((payload) => {
+    const nextMessages = Array.isArray(payload?.messages)
+      ? payload.messages
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => ({
+            id: safeText(item?.id),
+            messageType: safeText(item?.messageType).toLowerCase(),
+            senderUserId: item?.senderUserId,
+            senderRole: safeText(item?.senderRole).toLowerCase(),
+            createdAt: safeText(item?.createdAt),
+            textContent: safeText(item?.textContent),
+            file: item?.file && typeof item.file === 'object'
+              ? {
+                  fileId: safeText(item.file?.fileId).toLowerCase(),
+                  fileName: safeText(item.file?.fileName),
+                  sizeBytes: Number(item.file?.sizeBytes) || 0,
+                  contentType: safeText(item.file?.contentType) || null,
+                  ext: safeText(item.file?.ext).toLowerCase(),
+                  cleanupStatus: safeText(item.file?.cleanupStatus).toLowerCase() || 'active',
+                }
+              : null,
+          }))
+      : [];
+
+    setChatMessages(nextMessages);
+    setChatClosed(Boolean(payload?.chatClosed));
+    setCleanupEligible(Boolean(payload?.cleanupEligible));
+    chatInitializedRef.current = true;
   }, []);
 
   const applyAppointmentThreadSnapshot = useCallback((nextThread) => {
@@ -864,18 +960,115 @@ function ClassroomPage() {
     return () => { alive = false; };
   }, [rescheduleOpen, threadId]);
 
+  const syncClassroomChat = useCallback(async ({ silent = true } = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId || chatSyncInFlightRef.current) return null;
+
+    chatSyncInFlightRef.current = true;
+    if (!silent && mountedRef.current) setChatLoading(true);
+
+    try {
+      const response = await api.get(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat`);
+      if (!mountedRef.current) return null;
+      applyChatSnapshot(response?.data || {});
+      if (!silent) setChatError('');
+      return response?.data || null;
+    } catch (error) {
+      if (!silent && mountedRef.current) {
+        setChatError(parseErrorMessage(error, '加载课堂聊天失败，请稍后重试'));
+      }
+      return null;
+    } finally {
+      chatSyncInFlightRef.current = false;
+      if (!silent && mountedRef.current) setChatLoading(false);
+    }
+  }, [applyChatSnapshot, courseId]);
+
+  const prepareClassroomTempFilesCleanup = useCallback(async ({ silent = true } = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId || (!chatClosedRef.current && !cleanupEligibleRef.current)) return false;
+
+    try {
+      await api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/prepare-cleanup`);
+      if (mountedRef.current) setCleanupEligible(true);
+      return true;
+    } catch (error) {
+      if (!silent && mountedRef.current) {
+        setChatError(parseErrorMessage(error, '标记课堂临时文件清理失败，请稍后重试'));
+      }
+      return false;
+    }
+  }, [courseId]);
+
+  useEffect(() => {
+    setChatMessages([]);
+    setChatMessageText('');
+    setChatError('');
+    setChatLoading(false);
+    setChatSending(false);
+    setChatUploading(false);
+    setChatClosed(false);
+    setCleanupEligible(false);
+    setChatDownloadingFileId('');
+    chatInitializedRef.current = false;
+    chatLastMessageIdRef.current = '';
+    clearChatSyncTimer();
+  }, [clearChatSyncTimer, courseId]);
+
+  useEffect(() => {
+    if (!joined) {
+      clearChatSyncTimer();
+      return undefined;
+    }
+
+    let disposed = false;
+    const poll = async () => {
+      await syncClassroomChat({ silent: chatInitializedRef.current });
+      if (disposed || !joinedRef.current) return;
+      chatSyncTimerRef.current = window.setTimeout(poll, CHAT_POLL_INTERVAL_MS);
+    };
+
+    void poll();
+
+    return () => {
+      disposed = true;
+      clearChatSyncTimer();
+    };
+  }, [clearChatSyncTimer, joined, syncClassroomChat]);
+
+  useEffect(() => {
+    const body = chatBodyRef.current;
+    const nextLastMessageId = chatMessages.length ? safeText(chatMessages[chatMessages.length - 1]?.id) : '';
+    if (!body || !nextLastMessageId) {
+      if (!nextLastMessageId) chatLastMessageIdRef.current = '';
+      return;
+    }
+
+    const previousLastMessageId = chatLastMessageIdRef.current;
+    chatLastMessageIdRef.current = nextLastMessageId;
+    if (!previousLastMessageId || previousLastMessageId !== nextLastMessageId) {
+      body.scrollTop = body.scrollHeight;
+    }
+  }, [chatMessages]);
+
   const myAvailabilityPayload = isMentorInSession
     ? (threadAvailability?.mentorAvailability || null)
     : (threadAvailability?.studentAvailability || null);
   const counterpartAvailabilityPayload = isMentorInSession
     ? (threadAvailability?.studentAvailability || null)
     : (threadAvailability?.mentorAvailability || null);
-  const myBusySelectionsForThread = isMentorInSession
-    ? (threadAvailability?.mentorBusySelections || {})
-    : (threadAvailability?.studentBusySelections || {});
-  const counterpartBusySelectionsForThread = isMentorInSession
-    ? (threadAvailability?.studentBusySelections || {})
-    : (threadAvailability?.mentorBusySelections || {});
+  const myBusySelectionsForThread = useMemo(
+    () => (isMentorInSession
+      ? (threadAvailability?.mentorBusySelections || {})
+      : (threadAvailability?.studentBusySelections || {})),
+    [isMentorInSession, threadAvailability?.mentorBusySelections, threadAvailability?.studentBusySelections]
+  );
+  const counterpartBusySelectionsForThread = useMemo(
+    () => (isMentorInSession
+      ? (threadAvailability?.studentBusySelections || {})
+      : (threadAvailability?.mentorBusySelections || {})),
+    [isMentorInSession, threadAvailability?.mentorBusySelections, threadAvailability?.studentBusySelections]
+  );
   const scheduleViewTimeZone = useMemo(
     () => getAvailabilityTimeZone(myAvailabilityPayload, getDefaultTimeZone()),
     [myAvailabilityPayload]
@@ -2338,6 +2531,9 @@ function ClassroomPage() {
     try {
       const normalizedCourseId = safeText(courseId);
       if (normalizedCourseId) {
+        if (chatClosedRef.current || cleanupEligibleRef.current) {
+          void api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/prepare-cleanup`).catch(() => {});
+        }
         void api.delete(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/presence`).catch(() => {});
       }
       clearRemotePlaybackRetry();
@@ -3000,17 +3196,170 @@ function ClassroomPage() {
     }
   }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, syncLocalMicMuteState]);
 
+  const handleSendChatMessage = useCallback(async () => {
+    const normalizedCourseId = safeText(courseId);
+    const textContent = safeText(chatMessageText);
+    if (!normalizedCourseId || !textContent || chatClosed || chatSending || chatUploading) return;
+
+    setChatSending(true);
+    setChatError('');
+    try {
+      await api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/messages`, {
+        messageType: 'text',
+        textContent: textContent.slice(0, MAX_CLASSROOM_CHAT_TEXT_LENGTH),
+      });
+      if (mountedRef.current) setChatMessageText('');
+      await syncClassroomChat({ silent: true });
+    } catch (error) {
+      if (mountedRef.current) {
+        setChatError(parseErrorMessage(error, '发送课堂消息失败，请稍后重试'));
+      }
+    } finally {
+      if (mountedRef.current) setChatSending(false);
+    }
+  }, [chatClosed, chatMessageText, chatSending, chatUploading, courseId, syncClassroomChat]);
+
+  const handleChatInputKeyDown = useCallback((event) => {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    void handleSendChatMessage();
+  }, [handleSendChatMessage]);
+
+  const uploadClassroomChatFile = useCallback(async (file) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) throw new Error('无效课堂ID');
+
+    const signRes = await api.post('/api/oss/policy', {
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+      scope: 'classroomTempFile',
+      classroomId: Number(normalizedCourseId),
+    });
+
+    const {
+      host,
+      key,
+      policy,
+      signature,
+      accessKeyId,
+      fileUrl,
+      fileId,
+      ext,
+    } = signRes?.data || {};
+    if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl || !fileId || !ext) {
+      throw new Error('上传签名响应不完整');
+    }
+
+    const body = new FormData();
+    body.append('key', key);
+    body.append('policy', policy);
+    body.append('OSSAccessKeyId', accessKeyId);
+    body.append('success_action_status', '200');
+    body.append('signature', signature);
+    body.append('file', file);
+
+    const uploadRes = await fetch(host, { method: 'POST', body });
+    if (!uploadRes.ok) throw new Error('上传失败');
+
+    return {
+      fileId,
+      fileName: file.name,
+      ext,
+      contentType: file.type || null,
+      sizeBytes: file.size,
+      ossKey: key,
+      fileUrl,
+    };
+  }, [courseId]);
+
+  const handleChatFileChange = useCallback(async (event) => {
+    const files = Array.from(event.target?.files || []);
+    event.target.value = '';
+    if (!files.length || chatClosed) return;
+
+    const acceptedFiles = files.filter(isAllowedClassroomChatFile);
+    const rejectedFiles = files.filter((file) => !isAllowedClassroomChatFile(file));
+
+    if (rejectedFiles.length) {
+      const names = rejectedFiles.slice(0, 3).map((file) => file.name).join('、');
+      const suffix = rejectedFiles.length > 3 ? ' 等文件' : '';
+      setChatError(`不支持的文件：${names}${suffix}（仅支持 ${CLASSROOM_CHAT_FILE_ACCEPT}）`);
+    } else {
+      setChatError('');
+    }
+
+    if (!acceptedFiles.length) return;
+
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return;
+
+    setChatUploading(true);
+    try {
+      for (const file of acceptedFiles) {
+        const uploadedMeta = await uploadClassroomChatFile(file);
+        await api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/messages`, {
+          messageType: 'file',
+          file: uploadedMeta,
+        });
+      }
+      await syncClassroomChat({ silent: true });
+    } catch (error) {
+      if (mountedRef.current) {
+        setChatError(parseErrorMessage(error, '上传课堂文件失败，请稍后重试'));
+      }
+    } finally {
+      if (mountedRef.current) setChatUploading(false);
+    }
+  }, [chatClosed, courseId, syncClassroomChat, uploadClassroomChatFile]);
+
+  const handleDownloadChatFile = useCallback(async (fileId) => {
+    const normalizedCourseId = safeText(courseId);
+    const normalizedFileId = safeText(fileId).toLowerCase();
+    if (!normalizedCourseId || !normalizedFileId) return;
+
+    setChatDownloadingFileId(normalizedFileId);
+    setChatError('');
+    try {
+      const response = await api.get(
+        `/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/${encodeURIComponent(normalizedFileId)}/download-url`
+      );
+      const url = safeText(response?.data?.url);
+      if (!url) throw new Error('下载链接生成失败');
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      if (mountedRef.current) {
+        setChatError(parseErrorMessage(error, '获取文件下载链接失败，请稍后重试'));
+      }
+    } finally {
+      if (mountedRef.current) setChatDownloadingFileId('');
+    }
+  }, [courseId]);
+
+  const handleOpenChatFilePicker = useCallback(() => {
+    if (chatClosed || chatUploading || chatSending) return;
+    chatFileInputRef.current?.click();
+  }, [chatClosed, chatSending, chatUploading]);
+
   const handleLeaveClassroom = useCallback(async () => {
     if (mountedRef.current) setStatusText('正在离开课堂...');
+    await prepareClassroomTempFilesCleanup({ silent: true });
     await leaveAndDestroy();
     navigate(backHref, { replace: true });
-  }, [backHref, leaveAndDestroy, navigate]);
+  }, [backHref, leaveAndDestroy, navigate, prepareClassroomTempFilesCleanup]);
 
   const controlsDisabled = joining || !joined;
   const micControlDisabled = controlsDisabled;
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
   const nextLessonControlDisabled = controlsDisabled || !threadId || !currentCourseCard || rescheduleSending;
+  const chatDraftLength = chatMessageText.length;
+  const chatCanSend = !controlsDisabled
+    && !chatClosed
+    && !chatSending
+    && !chatUploading
+    && !!safeText(chatMessageText);
+  const chatComposerDisabled = controlsDisabled || chatClosed || chatSending || chatUploading;
   const incomingDecisionBusy = Boolean(
     incomingAppointmentCard && String(appointmentBusyId) === String(incomingAppointmentCard.id)
   );
@@ -3133,6 +3482,134 @@ function ClassroomPage() {
             <FiPhoneOff size={16} />
             <span>离开课堂</span>
           </button>
+        </section>
+
+        <section className="classroom-chat-panel">
+          <div className="classroom-chat-panel-head">
+            <div>
+              <h2>课堂聊天</h2>
+              <p>发送文字或临时文件，文件将存放在课堂临时目录中。</p>
+            </div>
+            <span className={`classroom-chat-badge ${chatClosed ? 'is-readonly' : 'is-live'}`}>
+              {chatClosed ? '课堂已结束，只读' : '课堂进行中'}
+            </span>
+          </div>
+
+          {chatError ? (
+            <div className="classroom-chat-feedback classroom-chat-feedback--error" role="alert">
+              {chatError}
+            </div>
+          ) : null}
+
+          {cleanupEligible ? (
+            <div className="classroom-chat-feedback classroom-chat-feedback--info">
+              当前课堂临时文件已可清理。
+            </div>
+          ) : null}
+
+          <div className="classroom-chat-body" ref={chatBodyRef}>
+            {chatLoading && !chatMessages.length ? (
+              <div className="classroom-chat-empty">正在加载聊天记录...</div>
+            ) : null}
+
+            {!chatLoading && !chatMessages.length ? (
+              <div className="classroom-chat-empty">
+                {chatClosed ? '课堂聊天为空，暂无可查看的历史消息。' : '课堂已连接，发送第一条消息开始交流。'}
+              </div>
+            ) : null}
+
+            {chatMessages.map((message) => {
+              const isMine = message.senderRole === session?.roleInSession;
+              const file = message.file;
+              const fileCleanupStatus = safeText(file?.cleanupStatus).toLowerCase();
+              const fileUnavailable = fileCleanupStatus === 'deleted';
+              const isDownloading = safeText(chatDownloadingFileId) === safeText(file?.fileId);
+
+              return (
+                <article
+                  key={message.id || `${message.createdAt}-${message.textContent}`}
+                  className={`classroom-chat-message ${isMine ? 'is-mine' : 'is-theirs'}`}
+                >
+                  <div className="classroom-chat-message-meta">
+                    <span className="classroom-chat-message-author">{isMine ? '我' : remoteLabel}</span>
+                    <span className="classroom-chat-message-time">{formatClassroomChatTime(message.createdAt)}</span>
+                  </div>
+
+                  {message.messageType === 'text' ? (
+                    <div className="classroom-chat-bubble">{message.textContent}</div>
+                  ) : (
+                    <div className="classroom-chat-file-card">
+                      <div className="classroom-chat-file-name">{file?.fileName || '未命名文件'}</div>
+                      <div className="classroom-chat-file-meta">
+                        {formatFileSize(file?.sizeBytes)}
+                        {file?.ext ? ` · ${String(file.ext).toUpperCase()}` : ''}
+                      </div>
+                      <button
+                        type="button"
+                        className="classroom-chat-file-action"
+                        disabled={!file?.fileId || fileUnavailable || isDownloading}
+                        onClick={() => handleDownloadChatFile(file?.fileId)}
+                      >
+                        <FiDownload size={14} />
+                        <span>
+                          {fileUnavailable ? '文件已清理' : isDownloading ? '准备下载...' : '下载文件'}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="classroom-chat-compose">
+            <textarea
+              className="classroom-chat-textarea"
+              value={chatMessageText}
+              onChange={(event) => {
+                setChatMessageText(event.target.value.slice(0, MAX_CLASSROOM_CHAT_TEXT_LENGTH));
+              }}
+              onKeyDown={handleChatInputKeyDown}
+              placeholder={chatClosed ? '课堂已结束，聊天区域为只读。' : '输入课堂消息，按 Enter 发送，Shift + Enter 换行。'}
+              disabled={chatComposerDisabled}
+              rows={3}
+            />
+            <div className="classroom-chat-compose-footer">
+              <span className="classroom-chat-counter">
+                {chatDraftLength}/{MAX_CLASSROOM_CHAT_TEXT_LENGTH}
+              </span>
+              <div className="classroom-chat-actions">
+                <input
+                  ref={chatFileInputRef}
+                  type="file"
+                  multiple
+                  accept={CLASSROOM_CHAT_FILE_ACCEPT}
+                  className="classroom-chat-file-input"
+                  onChange={handleChatFileChange}
+                />
+                <button
+                  type="button"
+                  className="classroom-chat-action-btn secondary"
+                  disabled={chatComposerDisabled}
+                  onClick={handleOpenChatFilePicker}
+                >
+                  <FiPaperclip size={16} />
+                  <span>{chatUploading ? '上传中...' : '上传文件'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="classroom-chat-action-btn primary"
+                  disabled={!chatCanSend}
+                  onClick={() => {
+                    void handleSendChatMessage();
+                  }}
+                >
+                  <FiSend size={16} />
+                  <span>{chatSending ? '发送中...' : '发送消息'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         {incomingAppointmentCard ? (
