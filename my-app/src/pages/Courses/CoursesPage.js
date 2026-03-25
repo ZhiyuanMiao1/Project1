@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -245,6 +246,16 @@ const toDateTimestamp = (course) => {
 
 const isScheduledCourse = (course) => safeText(course?.status).toLowerCase() === 'scheduled';
 
+const hasEnoughLessonHours = (course, remainingHours) => {
+  const requiredHours = toDurationHours(course?.durationHours);
+  if (requiredHours == null) return true;
+
+  const normalizedRemainingHours = typeof remainingHours === 'number' ? remainingHours : Number(remainingHours);
+  if (!Number.isFinite(normalizedRemainingHours)) return false;
+
+  return normalizedRemainingHours + 1e-6 >= requiredHours;
+};
+
 const getCourseEndTimestamp = (course) => {
   const startsAt = safeText(course?.startsAt);
   const startsAtTimestamp = Date.parse(startsAt);
@@ -286,6 +297,7 @@ const getReviewSuccessCopy = (message) => {
 };
 
 function CoursesPage() {
+  const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
@@ -300,6 +312,12 @@ function CoursesPage() {
   const [showReviewThanks, setShowReviewThanks] = useState(false);
   const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
+  const [walletSummary, setWalletSummary] = useState(() => ({
+    remainingHours: 0,
+    monthTopUpCny: 0,
+    totalTopUpCny: 0,
+  }));
+  const [walletSummaryStatus, setWalletSummaryStatus] = useState('idle');
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
   const { newCourseCount: studentNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
   const { newCourseCount: mentorNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
@@ -337,6 +355,44 @@ function CoursesPage() {
       .catch(() => {
         if (!alive) return;
         setUserTimeZone(getDefaultTimeZone());
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    let alive = true;
+
+    if (!isLoggedIn) {
+      setWalletSummary({
+        remainingHours: 0,
+        monthTopUpCny: 0,
+        totalTopUpCny: 0,
+      });
+      setWalletSummaryStatus('idle');
+      return () => {
+        alive = false;
+      };
+    }
+
+    setWalletSummaryStatus('loading');
+
+    api.get('/api/account/wallet-summary')
+      .then((res) => {
+        if (!alive) return;
+        const data = res?.data || {};
+        setWalletSummary({
+          remainingHours: Number(data?.remainingHours) || 0,
+          monthTopUpCny: Number(data?.monthTopUpCny) || 0,
+          totalTopUpCny: Number(data?.totalTopUpCny) || 0,
+        });
+        setWalletSummaryStatus('loaded');
+      })
+      .catch(() => {
+        if (!alive) return;
+        setWalletSummaryStatus('error');
       });
 
     return () => {
@@ -504,6 +560,18 @@ function CoursesPage() {
     const courseId = safeText(course?.id);
     if (!courseId || !isScheduledCourse(course)) return;
     window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenWallet = (course) => {
+    const requiredHours = toDurationHours(course?.durationHours);
+    navigate('/student/wallet', {
+      state: {
+        from: 'student-courses',
+        courseId: safeText(course?.id),
+        requiredHours,
+        remainingHours: Number(walletSummary?.remainingHours) || 0,
+      },
+    });
   };
 
   const handleOpenReplay = (course) => {
@@ -716,9 +784,27 @@ function CoursesPage() {
         const ratingValue = activeCourse.roleInCourse === 'student'
           ? toRating(activeCourse.counterpartRating ?? activeCourse.rating)
           : null;
-        const canEnterClassroom = isScheduledCourse(activeCourse) && !isCompletedCourse(activeCourse);
         const isCompleted = isCompletedCourse(activeCourse);
         const isReviewed = activeCourse.roleInCourse === 'student' && hasSubmittedReview(activeCourse);
+        const isUpcomingScheduledCourse = isScheduledCourse(activeCourse) && !isCompleted;
+        const requiresLessonHourCheck = activeCourse.roleInCourse === 'student' && isUpcomingScheduledCourse;
+        const hasSufficientLessonHours = requiresLessonHourCheck
+          ? hasEnoughLessonHours(activeCourse, walletSummary?.remainingHours)
+          : true;
+        const shouldRedirectToWallet = requiresLessonHourCheck
+          && walletSummaryStatus === 'loaded'
+          && !hasSufficientLessonHours;
+        const canEnterClassroom = isUpcomingScheduledCourse
+          && (!requiresLessonHourCheck || (walletSummaryStatus === 'loaded' && hasSufficientLessonHours));
+        const classroomButtonLabel = (() => {
+          if (!isUpcomingScheduledCourse) return '进入课堂';
+          if (!requiresLessonHourCheck) return '进入课堂';
+          if (walletSummaryStatus === 'loading' || walletSummaryStatus === 'idle') return '检查课时中...';
+          if (walletSummaryStatus === 'error') return '课时信息加载失败';
+          if (shouldRedirectToWallet) return '前往充值';
+          return '进入课堂';
+        })();
+        const classroomButtonDisabled = !canEnterClassroom && !shouldRedirectToWallet;
 
         return (
           <CourseDetailModal
@@ -754,10 +840,10 @@ function CoursesPage() {
               <button
                 type="button"
                 className="course-detail-classroom-btn"
-                onClick={() => handleOpenClassroom(activeCourse)}
-                disabled={!canEnterClassroom}
+                onClick={() => (shouldRedirectToWallet ? handleOpenWallet(activeCourse) : handleOpenClassroom(activeCourse))}
+                disabled={classroomButtonDisabled}
               >
-                进入课堂
+                {classroomButtonLabel}
               </button>
             )}
           />
