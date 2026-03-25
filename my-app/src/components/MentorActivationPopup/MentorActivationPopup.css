@@ -1,0 +1,156 @@
+.mentor-activation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.mentor-activation-modal {
+  position: relative;
+  width: min(460px, 100%);
+  border-radius: 24px;
+  background: #ffffff;
+  padding: 36px 32px 28px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.mentor-activation-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #0f172a;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mentor-activation-close:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.mentor-activation-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.mentor-activation-copy {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.mentor-activation-input {
+  display: none;
+}
+
+.mentor-activation-upload,
+.mentor-activation-submit {
+  width: 100%;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: transform 0.14s ease, opacity 0.14s ease, background-color 0.14s ease;
+}
+
+.mentor-activation-upload {
+  margin-top: 26px;
+  border: 1px solid #cbd5e1;
+  background: transparent;
+  color: #0f172a;
+  min-height: 112px;
+  padding: 22px 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.mentor-activation-upload:hover:not(:disabled),
+.mentor-activation-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mentor-activation-upload-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: #334155;
+}
+
+.mentor-activation-upload-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.mentor-activation-upload-text {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mentor-activation-status {
+  height: 21px;
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+.mentor-activation-error {
+  height: 21px;
+  margin-top: 0;
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+.mentor-activation-submit {
+  margin-top: 6px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 16px 18px;
+  cursor: pointer;
+}
+
+.mentor-activation-upload:disabled,
+.mentor-activation-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .mentor-activation-overlay {
+    padding: 16px;
+  }
+
+  .mentor-activation-modal {
+    border-radius: 20px;
+    padding: 30px 20px 22px;
+  }
+
+  .mentor-activation-title {
+    font-size: 22px;
+  }
+}

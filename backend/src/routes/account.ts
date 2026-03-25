@@ -257,6 +257,25 @@ const ensureStudentAvatarColumn = async () => {
   }
 };
 
+let mentorResumeColumnEnsured = false;
+
+const ensureMentorResumeColumn = async () => {
+  if (mentorResumeColumnEnsured) return true;
+  try {
+    await dbQuery('ALTER TABLE account_settings ADD COLUMN mentor_resume_url VARCHAR(500) NULL');
+    mentorResumeColumnEnsured = true;
+    return true;
+  } catch (e: any) {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+      mentorResumeColumnEnsured = true;
+      return true;
+    }
+    return false;
+  }
+};
+
 const roundToQuarter = (raw: any, min = 0.25, max = 10, fallback = 2) => {
   const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
   if (!Number.isFinite(n)) return fallback;
@@ -442,6 +461,66 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });
+
+router.post(
+  '/mentor-activation',
+  requireAuth,
+  [
+    body('resumeUrl').isString().trim().isLength({ min: 1, max: 500 }).withMessage('请先上传简历'),
+  ],
+  async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: '未授权' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      const first = errors.array()[0];
+      return res.status(400).json({ error: first?.msg || '提交信息有误' });
+    }
+
+    const resumeUrl = String(req.body?.resumeUrl || '').trim();
+
+    try {
+      const ensured = await ensureMentorResumeColumn();
+      if (!ensured) return res.status(500).json({ error: '服务器错误，请稍后再试' });
+
+      let mentorRows = await dbQuery<any[]>(
+        "SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+        [req.user.id]
+      );
+
+      if (!mentorRows[0]) {
+        await dbQuery(
+          "INSERT INTO user_roles (user_id, role, mentor_approved, public_id) VALUES (?, 'mentor', 0, '')",
+          [req.user.id]
+        );
+        mentorRows = await dbQuery<any[]>(
+          "SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+          [req.user.id]
+        );
+      }
+
+      const mentorRow = mentorRows[0];
+      const mentorId = typeof mentorRow?.public_id === 'string' ? mentorRow.public_id.trim() : '';
+      if (!mentorId) return res.status(500).json({ error: '导师身份创建失败，请稍后再试' });
+
+      await dbQuery(
+        `INSERT INTO account_settings (user_id, email_notifications, mentor_resume_url)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE mentor_resume_url = VALUES(mentor_resume_url)`,
+        [req.user.id, 1, resumeUrl]
+      );
+
+      return res.status(201).json({
+        mentorId,
+        mentorApproved: mentorRow?.mentor_approved === 1 || mentorRow?.mentor_approved === true,
+        resumeUrl,
+      });
+    } catch (e) {
+      console.error('Mentor activation error:', e);
+      return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
 
 router.get('/wallet-summary', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });

@@ -11,7 +11,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
-import RegisterPopup from '../../components/RegisterPopup/RegisterPopup';
+import MentorActivationPopup from '../../components/MentorActivationPopup/MentorActivationPopup';
 import { fetchAccountProfile, fetchAccountReviewsSummary, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
 import {
@@ -106,7 +106,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const mentorAvatarUploadSeqRef = useRef(0);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
-  const [showMentorRegisterPopup, setShowMentorRegisterPopup] = useState(false);
+  const [showMentorActivationPopup, setShowMentorActivationPopup] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
@@ -392,7 +392,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
-  const canActivateMentor = idsStatus !== 'loading' && !accountProfile.mentorId;
+  const canActivateMentor = isLoggedIn && idsStatus !== 'loading' && !accountProfile.mentorId;
   const emailValue = accountProfile.email || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
@@ -862,7 +862,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   isLoggedIn={isLoggedIn}
                   onAvailabilityChange={setAvailability}
                   onPersistAvailability={persistAvailability}
-                  onActivateMentor={() => setShowMentorRegisterPopup(true)}
+                  onActivateMentor={() => setShowMentorActivationPopup(true)}
                 />
               )}
 
@@ -956,10 +956,19 @@ function AccountSettingsPage({ mode = 'student' }) {
         />
       )}
 
-      {showMentorRegisterPopup && (
-        <RegisterPopup
-          defaultRole="mentor"
-          onClose={() => setShowMentorRegisterPopup(false)}
+      {showMentorActivationPopup && (
+        <MentorActivationPopup
+          onClose={() => setShowMentorActivationPopup(false)}
+          onSuccess={(payload) => {
+            const nextMentorId = typeof payload?.mentorId === 'string' ? payload.mentorId : '';
+            setAccountProfile((prev) => ({
+              ...prev,
+              mentorId: nextMentorId || prev.mentorId,
+              mentorCreatedAt: prev.mentorCreatedAt || new Date().toISOString(),
+            }));
+            setIdsStatus('loaded');
+            showToast('导师申请已提交，我们会尽快审核');
+          }}
         />
       )}
     </div>

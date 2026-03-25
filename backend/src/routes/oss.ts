@@ -81,26 +81,30 @@ router.post(
               ? 'courseRequestAttachment'
               : scopeRaw === 'classroomTempFile'
                 ? 'classroomTempFile'
+                : scopeRaw === 'mentorApplicationResume'
+                  ? 'mentorApplicationResume'
                 : 'mentorAvatar';
-        const max = scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
+        const max = scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume'
           ? MAX_ATTACHMENT_BYTES
           : MAX_AVATAR_BYTES;
         return Number(value) <= max;
       })
       .withMessage('文件过大'),
-    body('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile']).withMessage('scope 无效'),
+    body('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile', 'mentorApplicationResume']).withMessage('scope 无效'),
     body('requestId').optional().isInt({ min: 1 }),
     body('classroomId').optional().isInt({ min: 1 }),
   ],
   async (req: Request, res: Response) => {
     const scopeRaw = typeof (req.body as any)?.scope === 'string' ? String((req.body as any).scope) : '';
-    const scope: 'mentorAvatar' | 'studentAvatar' | 'courseRequestAttachment' | 'classroomTempFile' =
+    const scope: 'mentorAvatar' | 'studentAvatar' | 'courseRequestAttachment' | 'classroomTempFile' | 'mentorApplicationResume' =
       scopeRaw === 'studentAvatar'
         ? 'studentAvatar'
         : scopeRaw === 'courseRequestAttachment'
           ? 'courseRequestAttachment'
           : scopeRaw === 'classroomTempFile'
             ? 'classroomTempFile'
+            : scopeRaw === 'mentorApplicationResume'
+              ? 'mentorApplicationResume'
           : 'mentorAvatar';
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor') return res.status(403).json({ error: '仅导师可访问' });
     // courseRequestAttachment/classroomTempFile: allow any authed user after resource-specific checks.
@@ -122,11 +126,11 @@ router.post(
       const { fileName, contentType } = req.body as { fileName: string; contentType?: string };
       const ct = (contentType || '').toLowerCase().trim();
       const ext =
-        scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
+        scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume'
           ? resolveAttachmentExt(fileName, ct)
           : resolveImageExt(fileName, ct);
-      if (!ext) return res.status(400).json({ error: scope === 'courseRequestAttachment' || scope === 'classroomTempFile' ? '不支持的文件格式' : '不支持的图片格式' });
-      if (scope !== 'courseRequestAttachment' && scope !== 'classroomTempFile' && ct && !ct.startsWith('image/')) {
+      if (!ext) return res.status(400).json({ error: scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume' ? '不支持的文件格式' : '不支持的图片格式' });
+      if (scope !== 'courseRequestAttachment' && scope !== 'classroomTempFile' && scope !== 'mentorApplicationResume' && ct && !ct.startsWith('image/')) {
         return res.status(400).json({ error: '仅支持图片文件' });
       }
 
@@ -143,7 +147,7 @@ router.post(
         const approved = row?.mentor_approved === 1 || row?.mentor_approved === true;
         if (!approved) return res.status(403).json({ error: '导师审核中，暂不可上传头像' });
         businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : String(req.user!.id);
-      } else {
+      } else if (scope === 'studentAvatar') {
         // 获取 student public_id 作为业务 studentId
         const roleRows = await query<any[]>(
           "SELECT public_id FROM user_roles WHERE user_id = ? AND role = 'student' LIMIT 1",
@@ -152,6 +156,9 @@ router.post(
         const row = roleRows?.[0];
         businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : '';
         if (!businessId) return res.status(403).json({ error: '未开通学生身份' });
+      } else if (scope === 'mentorApplicationResume') {
+        businessId = String(req.user!.id);
+        maxBytes = MAX_ATTACHMENT_BYTES;
       }
 
       if (scope === 'courseRequestAttachment') {
@@ -188,6 +195,8 @@ router.post(
         ? `v1/mentors/${businessId}/avatar/${yyyy}/${mm}/`
         : scope === 'studentAvatar'
           ? `v1/students/${businessId}/avatar/${yyyy}/${mm}/`
+          : scope === 'mentorApplicationResume'
+            ? `v1/mentor-applications/${businessId}/${yyyy}/${mm}/`
           : scope === 'courseRequestAttachment'
             ? `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`
             : `temp/classrooms/${businessId}/${yyyy}/${mm}/`;
