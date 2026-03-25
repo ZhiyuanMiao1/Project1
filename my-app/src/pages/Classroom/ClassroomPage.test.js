@@ -106,6 +106,7 @@ describe('ClassroomPage remote recovery', () => {
   let container;
   let root;
   let originalConsoleDebug;
+  let originalFetch;
   let pauseMock;
   let loadMock;
   let authResponse;
@@ -130,6 +131,8 @@ describe('ClassroomPage remote recovery', () => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     originalConsoleDebug = console.debug;
     console.debug = jest.fn();
+    originalFetch = global.fetch;
+    global.fetch = jest.fn(() => Promise.resolve({ ok: true }));
     pauseMock = jest.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
     loadMock = jest.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
 
@@ -233,6 +236,7 @@ describe('ClassroomPage remote recovery', () => {
     pauseMock.mockRestore();
     loadMock.mockRestore();
     console.debug = originalConsoleDebug;
+    global.fetch = originalFetch;
     delete window.AlivcLivePush;
     jest.clearAllTimers();
     jest.useRealTimers();
@@ -487,5 +491,46 @@ describe('ClassroomPage remote recovery', () => {
 
     expect(container.textContent || '').toContain('timezone check');
     expect(container.textContent || '').toContain('08:05');
+  });
+
+  test('shows a clearer message when classroom file upload hits a fetch-level network failure', async () => {
+    api.post.mockImplementation((url) => {
+      if (String(url) === '/api/oss/policy') {
+        return Promise.resolve({
+          data: {
+            host: 'https://demo-bucket.oss-cn-hongkong.aliyuncs.com',
+            key: 'temp/classrooms/42/2026/03/demo.pdf',
+            policy: 'policy',
+            signature: 'signature',
+            accessKeyId: 'ak',
+            fileUrl: 'https://demo-bucket.oss-cn-hongkong.aliyuncs.com/temp/classrooms/42/2026/03/demo.pdf',
+            fileId: '0123456789abcdef0123456789abcdef',
+            ext: 'pdf',
+          },
+        });
+      }
+      return Promise.resolve(buildPresenceResponse(true));
+    });
+    global.fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    startPlayMock.mockResolvedValue(createEmitter());
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const fileInput = container.querySelector('input[type="file"]');
+    expect(fileInput).toBeTruthy();
+
+    const file = new File(['demo'], 'notes.pdf', { type: 'application/pdf' });
+    Object.defineProperty(fileInput, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(getAlert()?.textContent || '').toContain('上传失败（请检查 OSS CORS 配置）');
   });
 });

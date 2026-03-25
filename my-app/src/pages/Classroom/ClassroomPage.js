@@ -81,6 +81,19 @@ const parseErrorMessage = (error, fallback) => {
   return fallback;
 };
 
+const parseOssUploadErrorMessage = (error, fallback) => {
+  const message = parseErrorMessage(error, fallback);
+  const normalized = safeText(message).toLowerCase();
+  if (
+    normalized === 'failed to fetch'
+    || normalized === 'networkerror'
+    || normalized.includes('failed to fetch')
+  ) {
+    return '上传失败（请检查 OSS CORS 配置）';
+  }
+  return message;
+};
+
 const getErrorCode = (error) => {
   const code = Number(error?.code ?? error?.errorCode ?? error?.response?.data?.code);
   return Number.isFinite(code) ? code : null;
@@ -3333,7 +3346,7 @@ function ClassroomPage() {
       await syncClassroomChat({ silent: true });
     } catch (error) {
       if (mountedRef.current) {
-        setChatError(parseErrorMessage(error, '上传课堂文件失败，请稍后重试'));
+        setChatError(parseOssUploadErrorMessage(error, '上传课堂文件失败，请稍后重试'));
       }
     } finally {
       if (mountedRef.current) setChatUploading(false);
