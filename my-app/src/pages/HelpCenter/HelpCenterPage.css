@@ -168,13 +168,13 @@
   font-weight: 500;
   line-height: 1.25;
   padding-bottom: 0;
-  border-bottom: 2px solid currentColor;
+  border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: border-color 0s ease;
+  transition: border-color 0.18s ease;
 }
 
 .help-center-topic-card--grid h3:hover {
-  border-bottom-color: transparent;
+  border-bottom-color: currentColor;
 }
 
 .help-center-topic-card p {
