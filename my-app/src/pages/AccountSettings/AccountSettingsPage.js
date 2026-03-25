@@ -11,6 +11,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import RegisterPopup from '../../components/RegisterPopup/RegisterPopup';
 import { fetchAccountProfile, fetchAccountReviewsSummary, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
 import {
@@ -105,6 +106,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const mentorAvatarUploadSeqRef = useRef(0);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
+  const [showMentorRegisterPopup, setShowMentorRegisterPopup] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
@@ -390,6 +392,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
+  const canActivateMentor = idsStatus !== 'loading' && !accountProfile.mentorId;
   const emailValue = accountProfile.email || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
   const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
@@ -843,6 +846,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                 <ProfileSection
                   studentIdValue={studentIdValue}
                   mentorIdValue={mentorIdValue}
+                  canActivateMentor={canActivateMentor}
                   emailValue={emailValue}
                   degreeValue={degreeValue}
                   schoolValue={schoolValue}
@@ -858,6 +862,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   isLoggedIn={isLoggedIn}
                   onAvailabilityChange={setAvailability}
                   onPersistAvailability={persistAvailability}
+                  onActivateMentor={() => setShowMentorRegisterPopup(true)}
                 />
               )}
 
@@ -948,6 +953,13 @@ function AccountSettingsPage({ mode = 'student' }) {
           forceLogin={false}
           align="right"
           alignOffset={23}
+        />
+      )}
+
+      {showMentorRegisterPopup && (
+        <RegisterPopup
+          defaultRole="mentor"
+          onClose={() => setShowMentorRegisterPopup(false)}
         />
       )}
     </div>

@@ -111,6 +111,27 @@
   white-space: normal;
 }
 
+.settings-inline-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: #6b7280;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.settings-inline-link:hover {
+  color: #0f172a;
+}
+
+.settings-inline-link:focus-visible {
+  outline: 2px solid rgba(15, 23, 42, 0.2);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .settings-inline-input {
   width: min(420px, 100%);
   border: none;
@@ -432,4 +453,3 @@
 .settings-switch input:checked + .settings-switch-track::after {
   transform: translateX(18px);
 }
-

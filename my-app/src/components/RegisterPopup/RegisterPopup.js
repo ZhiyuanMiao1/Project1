@@ -6,11 +6,11 @@ import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 
-const RegisterPopup = ({ onClose, onSuccess }) => {
+const RegisterPopup = ({ onClose, onSuccess, defaultRole = 'student' }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [role, setRole] = useState(defaultRole === 'mentor' ? 'mentor' : 'student');
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState('');
   const [errorField, setErrorField] = useState('');
@@ -29,6 +29,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [showPw2, setShowPw2] = useState(false);
   const [focusedField, setFocusedField] = useState(''); // 'password' | 'confirmPassword' | ''
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setRole(defaultRole === 'mentor' ? 'mentor' : 'student');
+  }, [defaultRole]);
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };

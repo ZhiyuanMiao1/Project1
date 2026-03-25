@@ -194,6 +194,7 @@ function TimeZoneSelect({ id, value, onChange, options }) {
 function ProfileSection({
   studentIdValue,
   mentorIdValue,
+  canActivateMentor,
   emailValue,
   degreeValue,
   schoolValue,
@@ -209,6 +210,7 @@ function ProfileSection({
   isLoggedIn,
   onAvailabilityChange,
   onPersistAvailability,
+  onActivateMentor,
 }) {
   const [editingDegree, setEditingDegree] = useState(false);
   const [degreeDraft, setDegreeDraft] = useState('');
@@ -253,7 +255,19 @@ function ProfileSection({
       <div className="settings-row">
         <div className="settings-row-main">
           <div className="settings-row-title">MentorID</div>
-          <div className="settings-row-value">{mentorIdValue}</div>
+          <div className="settings-row-value">
+            {canActivateMentor ? (
+              <button
+                type="button"
+                className="settings-inline-link"
+                onClick={onActivateMentor}
+              >
+                点击开通
+              </button>
+            ) : (
+              mentorIdValue
+            )}
+          </div>
         </div>
       </div>
       <div className="settings-row">
