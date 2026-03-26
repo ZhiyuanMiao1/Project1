@@ -9,6 +9,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const path_1 = __importDefault(require("path"));
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
+const ossClient_1 = require("../services/ossClient");
 const classroomAccess_1 = require("../services/classroomAccess");
 const router = (0, express_1.Router)();
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5MB
@@ -57,6 +58,18 @@ const buildOssHost = (bucket, region) => {
     const regionForHost = cleanRegion.startsWith('oss-') ? cleanRegion : `oss-${cleanRegion}`;
     return `https://${cleanBucket}.${regionForHost}.aliyuncs.com`;
 };
+const resolveOssKeyFromUrl = (rawUrl) => {
+    const value = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+    if (!value)
+        return '';
+    try {
+        const parsed = new URL(value);
+        return decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+    }
+    catch {
+        return '';
+    }
+};
 // POST /api/oss/policy
 // Browser direct upload policy for mentor avatar.
 router.post('/policy', auth_1.requireAuth, [
@@ -73,14 +86,16 @@ router.post('/policy', auth_1.requireAuth, [
                 ? 'courseRequestAttachment'
                 : scopeRaw === 'classroomTempFile'
                     ? 'classroomTempFile'
-                    : 'mentorAvatar';
-        const max = scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
+                    : scopeRaw === 'mentorApplicationResume'
+                        ? 'mentorApplicationResume'
+                        : 'mentorAvatar';
+        const max = scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume'
             ? MAX_ATTACHMENT_BYTES
             : MAX_AVATAR_BYTES;
         return Number(value) <= max;
     })
         .withMessage('文件过大'),
-    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile', 'mentorApplicationResume']).withMessage('scope 无效'),
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
     (0, express_validator_1.body)('classroomId').optional().isInt({ min: 1 }),
 ], async (req, res) => {
@@ -91,7 +106,9 @@ router.post('/policy', auth_1.requireAuth, [
             ? 'courseRequestAttachment'
             : scopeRaw === 'classroomTempFile'
                 ? 'classroomTempFile'
-                : 'mentorAvatar';
+                : scopeRaw === 'mentorApplicationResume'
+                    ? 'mentorApplicationResume'
+                    : 'mentorAvatar';
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
     // courseRequestAttachment/classroomTempFile: allow any authed user after resource-specific checks.
@@ -109,12 +126,12 @@ router.post('/policy', auth_1.requireAuth, [
         }
         const { fileName, contentType } = req.body;
         const ct = (contentType || '').toLowerCase().trim();
-        const ext = scope === 'courseRequestAttachment' || scope === 'classroomTempFile'
+        const ext = scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume'
             ? resolveAttachmentExt(fileName, ct)
             : resolveImageExt(fileName, ct);
         if (!ext)
-            return res.status(400).json({ error: scope === 'courseRequestAttachment' || scope === 'classroomTempFile' ? '不支持的文件格式' : '不支持的图片格式' });
-        if (scope !== 'courseRequestAttachment' && scope !== 'classroomTempFile' && ct && !ct.startsWith('image/')) {
+            return res.status(400).json({ error: scope === 'courseRequestAttachment' || scope === 'classroomTempFile' || scope === 'mentorApplicationResume' ? '不支持的文件格式' : '不支持的图片格式' });
+        if (scope !== 'courseRequestAttachment' && scope !== 'classroomTempFile' && scope !== 'mentorApplicationResume' && ct && !ct.startsWith('image/')) {
             return res.status(400).json({ error: '仅支持图片文件' });
         }
         let businessId = '';
@@ -129,13 +146,17 @@ router.post('/policy', auth_1.requireAuth, [
                 return res.status(403).json({ error: '导师审核中，暂不可上传头像' });
             businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : String(req.user.id);
         }
-        else {
+        else if (scope === 'studentAvatar') {
             // 获取 student public_id 作为业务 studentId
             const roleRows = await (0, db_1.query)("SELECT public_id FROM user_roles WHERE user_id = ? AND role = 'student' LIMIT 1", [req.user.id]);
             const row = roleRows?.[0];
             businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : '';
             if (!businessId)
                 return res.status(403).json({ error: '未开通学生身份' });
+        }
+        else if (scope === 'mentorApplicationResume') {
+            businessId = String(req.user.id);
+            maxBytes = MAX_ATTACHMENT_BYTES;
         }
         if (scope === 'courseRequestAttachment') {
             const requestId = Number.parseInt(String(req.body?.requestId || ''), 10);
@@ -167,9 +188,11 @@ router.post('/policy', auth_1.requireAuth, [
             ? `v1/mentors/${businessId}/avatar/${yyyy}/${mm}/`
             : scope === 'studentAvatar'
                 ? `v1/students/${businessId}/avatar/${yyyy}/${mm}/`
-                : scope === 'courseRequestAttachment'
-                    ? `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`
-                    : `temp/classrooms/${businessId}/${yyyy}/${mm}/`;
+                : scope === 'mentorApplicationResume'
+                    ? `v1/mentor-applications/${businessId}/${yyyy}/${mm}/`
+                    : scope === 'courseRequestAttachment'
+                        ? `v1/requests/${businessId}/attachments/${yyyy}/${mm}/`
+                        : `temp/classrooms/${businessId}/${yyyy}/${mm}/`;
         const key = `${dir}${fileId}.${ext}`;
         const expiration = new Date(Date.now() + POLICY_EXPIRE_SECONDS * 1000).toISOString();
         const policyObj = {
@@ -202,6 +225,47 @@ router.post('/policy', auth_1.requireAuth, [
         }
         console.error('OSS policy error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/delete', auth_1.requireAuth, [
+    (0, express_validator_1.body)('scope').isIn(['mentorApplicationResume']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('fileUrl').optional().isString().trim().isLength({ min: 1, max: 1200 }),
+    (0, express_validator_1.body)('key').optional().isString().trim().isLength({ min: 1, max: 1024 }),
+], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        const first = errors.array()[0];
+        return res.status(400).json({ error: first?.msg || '请求参数有误' });
+    }
+    const keyFromBody = typeof req.body?.key === 'string' ? req.body.key.trim() : '';
+    const fileUrl = typeof req.body?.fileUrl === 'string' ? req.body.fileUrl.trim() : '';
+    const ossKey = keyFromBody || resolveOssKeyFromUrl(fileUrl);
+    if (!ossKey)
+        return res.status(400).json({ error: '缺少待删除文件标识' });
+    const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
+    if (!ossKey.startsWith(allowedPrefix)) {
+        return res.status(403).json({ error: '无权删除该文件' });
+    }
+    try {
+        const client = (0, ossClient_1.getOssClient)();
+        if (!client)
+            return res.status(500).json({ error: 'OSS 未配置' });
+        try {
+            await client.delete(ossKey);
+        }
+        catch (error) {
+            const status = Number(error?.status || error?.code || 0);
+            const noSuchKey = status === 404 || String(error?.name || '').includes('NoSuchKey');
+            if (!noSuchKey)
+                throw error;
+        }
+        return res.json({ success: true, key: ossKey });
+    }
+    catch (e) {
+        console.error('OSS delete error:', e);
+        return res.status(500).json({ error: '删除文件失败，请稍后再试' });
     }
 });
 exports.default = router;

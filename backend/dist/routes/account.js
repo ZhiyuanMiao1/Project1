@@ -201,6 +201,39 @@ const ensureStudentAvatarColumn = async () => {
         return false;
     }
 };
+let mentorResumeColumnEnsured = false;
+const isMissingMentorResumeColumnError = (e) => {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('mentor_resume_url');
+};
+const ensureMentorResumeColumn = async () => {
+    if (mentorResumeColumnEnsured)
+        return true;
+    try {
+        await (0, db_1.query)('ALTER TABLE account_settings MODIFY COLUMN mentor_resume_url TEXT NULL');
+        mentorResumeColumnEnsured = true;
+        return true;
+    }
+    catch (e) {
+        if (isMissingMentorResumeColumnError(e)) {
+            try {
+                await (0, db_1.query)('ALTER TABLE account_settings ADD COLUMN mentor_resume_url TEXT NULL');
+                mentorResumeColumnEnsured = true;
+                return true;
+            }
+            catch (inner) {
+                const code = String(inner?.code || '');
+                const message = String(inner?.message || '');
+                if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+                    mentorResumeColumnEnsured = true;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+};
 const roundToQuarter = (raw, min = 0.25, max = 10, fallback = 2) => {
     const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
     if (!Number.isFinite(n))
@@ -379,6 +412,55 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
     }
     catch (e) {
         console.error('Account ids error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/mentor-activation', auth_1.requireAuth, [
+    (0, express_validator_1.body)('resumeUrl').optional().isString().trim().isLength({ min: 1, max: 500 }).withMessage('请先上传简历'),
+    (0, express_validator_1.body)('resumeUrls').optional().isArray({ min: 1, max: 10 }).withMessage('请上传 1 到 10 个文件'),
+    (0, express_validator_1.body)('resumeUrls.*').optional().isString().trim().isLength({ min: 1, max: 500 }).withMessage('简历地址无效'),
+], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty()) {
+        const first = errors.array()[0];
+        return res.status(400).json({ error: first?.msg || '提交信息有误' });
+    }
+    const rawResumeUrls = Array.isArray(req.body?.resumeUrls) ? req.body.resumeUrls : [];
+    const normalizedResumeUrls = rawResumeUrls
+        .map((item) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item) => item);
+    const fallbackResumeUrl = String(req.body?.resumeUrl || '').trim();
+    const resumeUrls = normalizedResumeUrls.length ? normalizedResumeUrls : (fallbackResumeUrl ? [fallbackResumeUrl] : []);
+    if (!resumeUrls.length) {
+        return res.status(400).json({ error: '请先上传简历' });
+    }
+    try {
+        const ensured = await ensureMentorResumeColumn();
+        if (!ensured)
+            return res.status(500).json({ error: '服务器错误，请稍后再试' });
+        let mentorRows = await (0, db_1.query)("SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
+        if (!mentorRows[0]) {
+            await (0, db_1.query)("INSERT INTO user_roles (user_id, role, mentor_approved, public_id) VALUES (?, 'mentor', 0, '')", [req.user.id]);
+            mentorRows = await (0, db_1.query)("SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
+        }
+        const mentorRow = mentorRows[0];
+        const mentorId = typeof mentorRow?.public_id === 'string' ? mentorRow.public_id.trim() : '';
+        if (!mentorId)
+            return res.status(500).json({ error: '导师身份创建失败，请稍后再试' });
+        await (0, db_1.query)(`INSERT INTO account_settings (user_id, email_notifications, mentor_resume_url)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE mentor_resume_url = VALUES(mentor_resume_url)`, [req.user.id, 1, JSON.stringify(resumeUrls)]);
+        return res.status(201).json({
+            mentorId,
+            mentorApproved: mentorRow?.mentor_approved === 1 || mentorRow?.mentor_approved === true,
+            resumeUrl: resumeUrls[0] || null,
+            resumeUrls,
+        });
+    }
+    catch (e) {
+        console.error('Mentor activation error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

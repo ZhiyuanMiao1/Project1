@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { requireAuth } from '../middleware/auth';
 import { query } from '../db';
+import { getOssClient } from '../services/ossClient';
 import {
   isClassroomClosed,
   loadAuthorizedClassroomContext,
@@ -59,6 +60,17 @@ const buildOssHost = (bucket: string, region: string) => {
   if (!cleanBucket || !cleanRegion) return null;
   const regionForHost = cleanRegion.startsWith('oss-') ? cleanRegion : `oss-${cleanRegion}`;
   return `https://${cleanBucket}.${regionForHost}.aliyuncs.com`;
+};
+
+const resolveOssKeyFromUrl = (rawUrl: string) => {
+  const value = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    return decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+  } catch {
+    return '';
+  }
 };
 
 // POST /api/oss/policy
@@ -233,6 +245,53 @@ router.post(
       }
       console.error('OSS policy error:', e);
       return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+  }
+);
+
+router.post(
+  '/delete',
+  requireAuth,
+  [
+    body('scope').isIn(['mentorApplicationResume']).withMessage('scope 无效'),
+    body('fileUrl').optional().isString().trim().isLength({ min: 1, max: 1200 }),
+    body('key').optional().isString().trim().isLength({ min: 1, max: 1024 }),
+  ],
+  async (req: Request, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: '未授权' });
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      const first = errors.array()[0];
+      return res.status(400).json({ error: first?.msg || '请求参数有误' });
+    }
+
+    const keyFromBody = typeof req.body?.key === 'string' ? req.body.key.trim() : '';
+    const fileUrl = typeof req.body?.fileUrl === 'string' ? req.body.fileUrl.trim() : '';
+    const ossKey = keyFromBody || resolveOssKeyFromUrl(fileUrl);
+    if (!ossKey) return res.status(400).json({ error: '缺少待删除文件标识' });
+
+    const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
+    if (!ossKey.startsWith(allowedPrefix)) {
+      return res.status(403).json({ error: '无权删除该文件' });
+    }
+
+    try {
+      const client = getOssClient();
+      if (!client) return res.status(500).json({ error: 'OSS 未配置' });
+
+      try {
+        await client.delete(ossKey);
+      } catch (error: any) {
+        const status = Number(error?.status || error?.code || 0);
+        const noSuchKey = status === 404 || String(error?.name || '').includes('NoSuchKey');
+        if (!noSuchKey) throw error;
+      }
+
+      return res.json({ success: true, key: ossKey });
+    } catch (e) {
+      console.error('OSS delete error:', e);
+      return res.status(500).json({ error: '删除文件失败，请稍后再试' });
     }
   }
 );
