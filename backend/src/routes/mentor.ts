@@ -87,7 +87,7 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
          ON s.user_id = r.user_id
        WHERE r.status = 'submitted' AND r.user_id <> ?
        ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id DESC
-       LIMIT 200`,
+       LIMIT 100`,
       [req.user!.id]
     );
 

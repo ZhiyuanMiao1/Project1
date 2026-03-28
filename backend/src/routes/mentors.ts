@@ -401,7 +401,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
         LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
         WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
         ORDER BY mp.updated_at DESC, ur.public_id ASC
-        LIMIT 200
+        LIMIT 100
         `
       );
       return rows || [];
@@ -435,7 +435,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
       WHERE mds.direction_id = ?
       ${whereOthers}
       ORDER BY mds.score DESC, mp.updated_at DESC, ur.public_id ASC
-      LIMIT 200
+      LIMIT 100
       `,
       [directionId]
     );

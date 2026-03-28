@@ -76,7 +76,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          ON s.user_id = r.user_id
        WHERE r.status = 'submitted' AND r.user_id <> ?
        ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id DESC
-       LIMIT 200`, [req.user.id]);
+       LIMIT 100`, [req.user.id]);
         const cards = (rows || []).map((r) => {
             let courseTypes = [];
             try {
