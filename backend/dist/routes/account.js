@@ -509,6 +509,7 @@ router.get('/payments-summary', auth_1.requireAuth, async (req, res) => {
         const message = String(e?.message || '');
         return message.includes('billing_orders')
             || message.includes('course_sessions')
+            || message.includes('lesson_hour_confirmations')
             || message.includes('user_roles');
     };
     try {
@@ -543,8 +544,22 @@ router.get('/payments-summary', auth_1.requireAuth, async (req, res) => {
             ON sr.user_id = cs.student_user_id AND sr.role = 'student'
           LEFT JOIN users su
             ON su.id = cs.student_user_id
+          LEFT JOIN (
+            SELECT
+              latest.course_session_id,
+              latest.status
+            FROM lesson_hour_confirmations latest
+            INNER JOIN (
+              SELECT course_session_id, MAX(id) AS latest_id
+              FROM lesson_hour_confirmations
+              GROUP BY course_session_id
+            ) picked
+              ON picked.latest_id = latest.id
+          ) latest_lhc
+            ON latest_lhc.course_session_id = cs.id
           WHERE cs.mentor_user_id = ?
             AND cs.status IN ('scheduled', 'completed')
+            AND (latest_lhc.status IS NULL OR latest_lhc.status = 'confirmed')
             AND TIMESTAMPADD(
               DAY,
               3,

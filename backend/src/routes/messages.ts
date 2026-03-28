@@ -21,6 +21,7 @@ const isMissingMessagesSchemaError = (err: any) => {
     || message.includes('message_item_hidden_for_users')
     || message.includes('message_item_reads')
     || message.includes('appointment_statuses')
+    || message.includes('lesson_hour_confirmations')
     || message.includes('course_sessions')
   );
 };
@@ -225,6 +226,15 @@ type AppointmentDecisionPayload = {
   status?: unknown;
 };
 
+type LessonHoursConfirmationPayload = {
+  kind?: string;
+  courseSessionId?: unknown;
+  proposedHours?: unknown;
+  startsAt?: unknown;
+  courseDirectionId?: unknown;
+  courseTypeId?: unknown;
+};
+
 type AvailabilityBlock = { start: number; end: number };
 
 const isMissingAvailabilityColumnError = (error: any) => {
@@ -347,6 +357,13 @@ const parseAppointmentDecisionPayload = (payloadJson: unknown): AppointmentDecis
   return parsed as AppointmentDecisionPayload;
 };
 
+const parseLessonHoursConfirmationPayload = (payloadJson: unknown): LessonHoursConfirmationPayload | null => {
+  const parsed = safeJsonParse(payloadJson);
+  if (!parsed || typeof parsed !== 'object') return null;
+  if ((parsed as any).kind !== 'lesson_hours_confirmation') return null;
+  return parsed as LessonHoursConfirmationPayload;
+};
+
 const toScheduleCard = (row: any, currentUserId: number) => {
   const payload = parseAppointmentPayload(row?.payload_json);
   if (!payload) return null;
@@ -372,10 +389,55 @@ const toScheduleCard = (row: any, currentUserId: number) => {
   };
 };
 
+const toLessonHoursConfirmationCard = (row: any, currentUserId: number) => {
+  const payload = parseLessonHoursConfirmationPayload(row?.payload_json);
+  if (!payload) return null;
+
+  const status = normalizeLessonHoursConfirmationStatus(row?.confirmation_status) || 'pending';
+  const courseSessionId = toPositiveIntOrNull(row?.course_session_id);
+  const proposedHours = Number.parseFloat(String(row?.proposed_hours ?? payload?.proposedHours ?? ''));
+  if (!Number.isFinite(proposedHours) || proposedHours <= 0) return null;
+
+  const finalHoursRaw = Number.parseFloat(String(row?.final_hours ?? ''));
+  const startsAtRaw = row?.course_starts_at ?? payload?.startsAt;
+  const startsAt = startsAtRaw instanceof Date
+    ? startsAtRaw.toISOString()
+    : safeText(startsAtRaw);
+
+  return {
+    id: String(row?.id ?? ''),
+    direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
+    courseSessionId: courseSessionId != null ? String(courseSessionId) : safeText(payload?.courseSessionId),
+    proposedHours: Number(proposedHours.toFixed(2)),
+    finalHours: Number.isFinite(finalHoursRaw) && finalHoursRaw > 0 ? Number(finalHoursRaw.toFixed(2)) : null,
+    status,
+    time: row?.created_at ? new Date(row.created_at).toISOString() : '',
+    startsAt,
+    isRead: Number(row?.is_read_by_me) === 1,
+    courseDirectionId: typeof payload?.courseDirectionId === 'string' ? payload.courseDirectionId.trim() : '',
+    courseTypeId: typeof payload?.courseTypeId === 'string' ? payload.courseTypeId.trim() : '',
+  };
+};
+
 const normalizeDecisionStatus = (value: unknown) => {
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending') return raw;
   return '';
+};
+
+const normalizeLessonHoursConfirmationStatus = (value: unknown) => {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (raw === 'pending' || raw === 'confirmed' || raw === 'disputed') return raw;
+  return '';
+};
+
+const normalizeQuarterHourValue = (raw: unknown) => {
+  const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '').trim());
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n * 4) / 4;
+  if (Math.abs(rounded - n) > 1e-6) return null;
+  if (rounded < 0.25 || rounded > 12) return null;
+  return Number(rounded.toFixed(2));
 };
 
 const refreshMentorResponseTimeMetricIfNeeded = async (
@@ -992,6 +1054,284 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
   }
 });
 
+router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const messageId = Number(req.params.messageId);
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    return res.status(400).json({ error: '无效课时确认ID' });
+  }
+
+  const status = normalizeLessonHoursConfirmationStatus(req.body?.status);
+  if (status !== 'confirmed' && status !== 'disputed') {
+    return res.status(400).json({ error: '无效响应状态' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute<any[]>(
+      `
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.sender_user_id,
+        lhc.course_session_id,
+        lhc.student_user_id,
+        lhc.mentor_user_id,
+        lhc.proposed_hours,
+        lhc.final_hours,
+        lhc.status AS confirmation_status
+      FROM message_items mi
+      INNER JOIN message_threads t
+        ON t.id = mi.thread_id
+      INNER JOIN lesson_hour_confirmations lhc
+        ON lhc.message_item_id = mi.id
+      WHERE mi.id = ?
+        AND mi.message_type = 'lesson_hours_confirmation'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [messageId, req.user.id, req.user.id]
+    );
+
+    const row = rows?.[0];
+    if (!row) {
+      await conn.rollback();
+      return res.status(404).json({ error: '课时确认卡片不存在或无权限' });
+    }
+
+    if (Number(row?.student_user_id) !== req.user.id) {
+      await conn.rollback();
+      return res.status(403).json({ error: '只有学生可以处理课时确认' });
+    }
+
+    const currentStatus = normalizeLessonHoursConfirmationStatus(row?.confirmation_status) || 'pending';
+    if (currentStatus !== 'pending') {
+      await conn.rollback();
+      return res.status(409).json({ error: '该课时确认已处理，请刷新后重试' });
+    }
+
+    const proposedHours = Number.parseFloat(String(row?.proposed_hours ?? ''));
+    if (!Number.isFinite(proposedHours) || proposedHours <= 0) {
+      throw new Error('Invalid proposed lesson hours');
+    }
+
+    if (status === 'confirmed') {
+      await conn.execute(
+        `
+        UPDATE lesson_hour_confirmations
+        SET status = 'confirmed',
+            final_hours = ?,
+            responded_by_user_id = ?,
+            responded_at = CURRENT_TIMESTAMP,
+            settled_at = CURRENT_TIMESTAMP
+        WHERE message_item_id = ?
+        `,
+        [proposedHours, req.user.id, messageId]
+      );
+
+      await conn.execute(
+        `
+        UPDATE course_sessions
+        SET duration_hours = ?, status = 'completed'
+        WHERE id = ?
+        `,
+        [proposedHours, Number(row.course_session_id)]
+      );
+
+      await conn.execute(
+        `
+        UPDATE users
+        SET lesson_balance_hours = lesson_balance_hours - ?
+        WHERE id = ?
+        `,
+        [proposedHours, req.user.id]
+      );
+    } else {
+      await conn.execute(
+        `
+        UPDATE lesson_hour_confirmations
+        SET status = 'disputed',
+            responded_by_user_id = ?,
+            responded_at = CURRENT_TIMESTAMP
+        WHERE message_item_id = ?
+        `,
+        [req.user.id, messageId]
+      );
+    }
+
+    await conn.execute(
+      `
+      UPDATE message_threads
+      SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `,
+      [messageId, Number(row.thread_id)]
+    );
+
+    await conn.commit();
+    return res.json({
+      ok: true,
+      messageId: String(messageId),
+      status,
+      finalHours: status === 'confirmed' ? Number(proposedHours.toFixed(2)) : null,
+    });
+  } catch (e) {
+    try { await conn.rollback(); } catch {}
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Respond lesson hour confirmation error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  } finally {
+    try { conn.release(); } catch {}
+  }
+});
+
+router.post('/lesson-hour-confirmations/:messageId/retry', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const messageId = Number(req.params.messageId);
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    return res.status(400).json({ error: '无效课时确认ID' });
+  }
+
+  const proposedHours = normalizeQuarterHourValue(req.body?.proposedHours);
+  if (proposedHours == null) {
+    return res.status(400).json({ error: '课时必须为 0.25 小时颗粒度，且范围为 0.25-12 小时' });
+  }
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute<any[]>(
+      `
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.payload_json,
+        lhc.course_session_id,
+        lhc.student_user_id,
+        lhc.mentor_user_id,
+        lhc.status AS confirmation_status,
+        cs.course_direction,
+        cs.course_type,
+        cs.starts_at
+      FROM message_items mi
+      INNER JOIN message_threads t
+        ON t.id = mi.thread_id
+      INNER JOIN lesson_hour_confirmations lhc
+        ON lhc.message_item_id = mi.id
+      INNER JOIN course_sessions cs
+        ON cs.id = lhc.course_session_id
+      WHERE mi.id = ?
+        AND mi.message_type = 'lesson_hours_confirmation'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [messageId, req.user.id, req.user.id]
+    );
+
+    const row = rows?.[0];
+    if (!row) {
+      await conn.rollback();
+      return res.status(404).json({ error: '课时确认卡片不存在或无权限' });
+    }
+
+    if (Number(row?.mentor_user_id) !== req.user.id) {
+      await conn.rollback();
+      return res.status(403).json({ error: '只有导师可以重新提交课时' });
+    }
+
+    const currentStatus = normalizeLessonHoursConfirmationStatus(row?.confirmation_status);
+    if (currentStatus !== 'disputed') {
+      await conn.rollback();
+      return res.status(409).json({ error: '当前状态不支持重新提交课时' });
+    }
+
+    const payload = parseLessonHoursConfirmationPayload(row?.payload_json);
+    const startsAt = row?.starts_at instanceof Date
+      ? row.starts_at.toISOString()
+      : safeText(row?.starts_at || payload?.startsAt);
+
+    const nextPayload = {
+      kind: 'lesson_hours_confirmation',
+      courseSessionId: String(row.course_session_id),
+      proposedHours,
+      startsAt,
+      courseDirectionId: safeText(row?.course_direction) || safeText(payload?.courseDirectionId),
+      courseTypeId: safeText(row?.course_type) || safeText(payload?.courseTypeId),
+    };
+
+    const [messageInsert] = await conn.execute<InsertResult>(
+      `
+      INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+      VALUES (?, ?, 'lesson_hours_confirmation', ?)
+      `,
+      [Number(row.thread_id), req.user.id, JSON.stringify(nextPayload)]
+    );
+
+    const nextMessageId = Number(messageInsert?.insertId || 0);
+    if (!Number.isFinite(nextMessageId) || nextMessageId <= 0) {
+      throw new Error('Failed to create retried lesson hours confirmation');
+    }
+
+    await conn.execute(
+      `
+      INSERT INTO lesson_hour_confirmations (
+        message_item_id,
+        thread_id,
+        course_session_id,
+        student_user_id,
+        mentor_user_id,
+        proposed_hours,
+        final_hours,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+      `,
+      [
+        nextMessageId,
+        Number(row.thread_id),
+        Number(row.course_session_id),
+        Number(row.student_user_id),
+        Number(row.mentor_user_id),
+        proposedHours,
+      ]
+    );
+
+    await conn.execute(
+      `
+      UPDATE message_threads
+      SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `,
+      [nextMessageId, Number(row.thread_id)]
+    );
+
+    await conn.commit();
+    return res.json({
+      ok: true,
+      messageId: String(nextMessageId),
+      proposedHours,
+    });
+  } catch (e) {
+    try { await conn.rollback(); } catch {}
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Retry lesson hour confirmation error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  } finally {
+    try { conn.release(); } catch {}
+  }
+});
+
 router.post('/appointments/:appointmentId/hide', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
@@ -1370,6 +1710,8 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         scheduleHistory: [] as any[],
         decisionMessages: [] as any[],
         latestDecision: null as any,
+        lessonHourConfirmations: [] as any[],
+        latestLessonHoursConfirmation: null as any,
         messages: [],
         unreadCount: 0,
       };
@@ -1458,6 +1800,47 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         if (!tid) continue;
         if (!decisionByThread.has(tid)) decisionByThread.set(tid, []);
         decisionByThread.get(tid)!.push(row);
+      }
+
+      const lessonHourRows = await query<any[]>(
+        `
+        SELECT
+          mi.id,
+          mi.thread_id,
+          mi.sender_user_id,
+          mi.payload_json,
+          mi.created_at,
+          lhc.course_session_id,
+          lhc.proposed_hours,
+          lhc.final_hours,
+          lhc.status AS confirmation_status,
+          cs.starts_at AS course_starts_at,
+          CASE
+            WHEN mi.sender_user_id = ? THEN 1
+            WHEN mir.message_item_id IS NULL THEN 0
+            ELSE 1
+          END AS is_read_by_me
+        FROM message_items mi
+        INNER JOIN lesson_hour_confirmations lhc
+          ON lhc.message_item_id = mi.id
+        LEFT JOIN course_sessions cs
+          ON cs.id = lhc.course_session_id
+        LEFT JOIN message_item_reads mir
+          ON mir.message_item_id = mi.id
+         AND mir.user_id = ?
+        WHERE mi.thread_id IN (${placeholders})
+          AND mi.message_type = 'lesson_hours_confirmation'
+        ORDER BY mi.thread_id ASC, mi.id ASC
+        `,
+        [req.user.id, req.user.id, ...threadIds]
+      );
+
+      const lessonHourByThread = new Map<string, any[]>();
+      for (const row of lessonHourRows || []) {
+        const tid = String(row?.thread_id || '').trim();
+        if (!tid) continue;
+        if (!lessonHourByThread.has(tid)) lessonHourByThread.set(tid, []);
+        lessonHourByThread.get(tid)!.push(row);
       }
 
       const items = await query<any[]>(
@@ -1641,6 +2024,30 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
             isByMe: latestDecision.isByMe,
           };
         }
+      }
+
+      for (const t of threads) {
+        const rowsForThread = lessonHourByThread.get(String(t.id)) || [];
+        if (!rowsForThread.length) continue;
+
+        const MAX_PER_THREAD = 30;
+        const recentRows = rowsForThread.length > MAX_PER_THREAD
+          ? rowsForThread.slice(-MAX_PER_THREAD)
+          : rowsForThread;
+
+        const lessonHourConfirmations = recentRows
+          .map((row) => {
+            const card = toLessonHoursConfirmationCard(row, req.user!.id);
+            if (!card) return null;
+
+            const cardId = toPositiveIntOrNull(card.id);
+            if (cardId != null && hiddenAppointmentIds.has(cardId)) return null;
+            return card;
+          })
+          .filter(Boolean) as any[];
+
+        t.lessonHourConfirmations = lessonHourConfirmations;
+        t.latestLessonHoursConfirmation = lessonHourConfirmations[lessonHourConfirmations.length - 1] || null;
       }
     }
 

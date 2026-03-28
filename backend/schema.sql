@@ -544,7 +544,37 @@ CREATE TABLE IF NOT EXISTS `classroom_messages` (
   CONSTRAINT `fk_classroom_messages_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 15) Course review records (student -> mentor after session ends)
+-- 15) Post-class lesson hour confirmation cards
+CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `message_item_id` BIGINT NOT NULL,
+  `thread_id` BIGINT NOT NULL,
+  `course_session_id` BIGINT NOT NULL,
+  `student_user_id` INT NOT NULL,
+  `mentor_user_id` INT NOT NULL,
+  `proposed_hours` DECIMAL(6,2) NOT NULL,
+  `final_hours` DECIMAL(6,2) NULL,
+  `status` ENUM('pending','confirmed','disputed') NOT NULL DEFAULT 'pending',
+  `responded_by_user_id` INT NULL,
+  `responded_at` TIMESTAMP NULL DEFAULT NULL,
+  `settled_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_lesson_hour_confirmations_message` (`message_item_id`),
+  KEY `idx_lesson_hour_confirmations_thread` (`thread_id`, `created_at`),
+  KEY `idx_lesson_hour_confirmations_course` (`course_session_id`, `created_at`),
+  KEY `idx_lesson_hour_confirmations_student` (`student_user_id`, `status`),
+  KEY `idx_lesson_hour_confirmations_mentor` (`mentor_user_id`, `status`),
+  CONSTRAINT `fk_lesson_hour_confirmations_message` FOREIGN KEY (`message_item_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_lesson_hour_confirmations_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_lesson_hour_confirmations_course` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_lesson_hour_confirmations_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_lesson_hour_confirmations_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_lesson_hour_confirmations_responded_by` FOREIGN KEY (`responded_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 16) Course review records (student -> mentor after session ends)
 CREATE TABLE IF NOT EXISTS `course_session_reviews` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `course_session_id` BIGINT NOT NULL,

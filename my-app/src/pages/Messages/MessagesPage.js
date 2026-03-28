@@ -10,6 +10,7 @@ import { getAuthToken } from '../../utils/authStorage';
 import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
+import LessonHoursConfirmationCard from './LessonHoursConfirmationCard';
 import {
   formatScheduleWindowForTimeZone,
   getCourseTitleParts,
@@ -126,6 +127,16 @@ const buildScheduleCardsFromThread = (thread) => {
     __primary: index === primaryIndex,
     __key: index === primaryIndex ? 'main' : `history-${index}`,
   }));
+};
+
+const buildLessonHourConfirmationsFromThread = (thread) => {
+  if (!thread || !Array.isArray(thread.lessonHourConfirmations)) return [];
+  return thread.lessonHourConfirmations
+    .filter((item) => item && typeof item === 'object')
+    .map((item, index) => ({
+      ...item,
+      __key: item?.id ? `lesson-hours-${item.id}` : `lesson-hours-${index}`,
+    }));
 };
 
 
@@ -350,6 +361,7 @@ function MessagesPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [actionError, setActionError] = useState('');
   const [appointmentBusyId, setAppointmentBusyId] = useState(null);
+  const [lessonHourActionBusyId, setLessonHourActionBusyId] = useState(null);
   const [messageActionBusyId, setMessageActionBusyId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
@@ -484,12 +496,24 @@ function MessagesPage() {
         return { ...decision, isRead: true };
       };
 
+      const markLessonHourRead = (confirmation) => {
+        if (!confirmation || typeof confirmation !== 'object') return confirmation;
+        const confirmationId = String(confirmation?.id || '');
+        const isIncomingUnread = confirmation?.direction === 'incoming' && !confirmation?.isRead;
+        if (!confirmationId || !isIncomingUnread || !readIds.has(confirmationId)) return confirmation;
+        newlyReadCount += 1;
+        return { ...confirmation, isRead: true };
+      };
+
       const nextSchedule = markScheduleCardRead(thread?.schedule);
       const nextScheduleHistory = Array.isArray(thread?.scheduleHistory)
         ? thread.scheduleHistory.map(markScheduleCardRead)
         : [];
       const nextDecisionMessages = Array.isArray(thread?.decisionMessages)
         ? thread.decisionMessages.map(markDecisionRead)
+        : [];
+      const nextLessonHourConfirmations = Array.isArray(thread?.lessonHourConfirmations)
+        ? thread.lessonHourConfirmations.map(markLessonHourRead)
         : [];
 
       if (newlyReadCount === 0) return thread;
@@ -499,6 +523,7 @@ function MessagesPage() {
         schedule: nextSchedule,
         scheduleHistory: nextScheduleHistory,
         decisionMessages: nextDecisionMessages,
+        lessonHourConfirmations: nextLessonHourConfirmations,
         unreadCount: Math.max(0, Number(thread?.unreadCount || 0) - newlyReadCount),
       };
     });
@@ -686,6 +711,7 @@ function MessagesPage() {
   }, [activeThread?.id, isLoggedIn, rescheduleOpen]);
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
+  const [lessonHourConfirmations, setLessonHourConfirmations] = useState(() => buildLessonHourConfirmationsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
   const rescheduleSourceCard = useMemo(() => {
     if (!rescheduleSourceId) return null;
@@ -755,8 +781,16 @@ function MessagesPage() {
       decision,
     }));
 
-    return [...cardItems, ...decisionItems].sort(compareTimelineItemsChronologically);
-  }, [decisionNotices, scheduleCards]);
+    const lessonHourItems = lessonHourConfirmations.map((confirmation, index) => ({
+      kind: 'lesson-hours',
+      key: `lesson-hours-${confirmation?.__key || confirmation?.id || index}`,
+      orderId: toFiniteDecisionId(confirmation),
+      orderTimeMs: toFiniteDecisionTimeMs(confirmation),
+      confirmation,
+    }));
+
+    return [...cardItems, ...decisionItems, ...lessonHourItems].sort(compareTimelineItemsChronologically);
+  }, [decisionNotices, lessonHourConfirmations, scheduleCards]);
 
   useEffect(() => () => {
     if (scheduleCardSendTimeoutRef.current) {
@@ -771,6 +805,10 @@ function MessagesPage() {
 
   useEffect(() => {
     setScheduleCards(buildScheduleCardsFromThread(activeThread));
+  }, [activeThread]);
+
+  useEffect(() => {
+    setLessonHourConfirmations(buildLessonHourConfirmationsFromThread(activeThread));
   }, [activeThread]);
 
   useEffect(() => {
@@ -798,6 +836,7 @@ function MessagesPage() {
     setRescheduleIntent('reschedule');
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
+    setLessonHourActionBusyId(null);
     setMessageActionBusyId(null);
     setExitingMessageActionIds([]);
     setOpenScheduleMessageMenuId(null);
@@ -892,10 +931,18 @@ function MessagesPage() {
       if (!messageId || messageId === 'latest-decision') return;
       unreadIds.push(messageId);
     };
+    const maybeQueueLessonHours = (confirmation) => {
+      if (!confirmation || typeof confirmation !== 'object') return;
+      if (confirmation?.direction !== 'incoming' || confirmation?.isRead) return;
+      const messageId = String(confirmation?.id || '').trim();
+      if (!messageId) return;
+      unreadIds.push(messageId);
+    };
 
     maybeQueueCard(activeThread?.schedule);
     if (Array.isArray(activeThread?.scheduleHistory)) activeThread.scheduleHistory.forEach(maybeQueueCard);
     if (Array.isArray(activeThread?.decisionMessages)) activeThread.decisionMessages.forEach(maybeQueueDecision);
+    if (Array.isArray(activeThread?.lessonHourConfirmations)) activeThread.lessonHourConfirmations.forEach(maybeQueueLessonHours);
 
     unreadIds.forEach((messageId) => {
       queueVisibleMessageRead(messageId, String(activeThread.id));
@@ -927,6 +974,55 @@ function MessagesPage() {
     try {
       await reloadThreads();
     } catch {}
+  };
+
+  const handleLessonHourResponse = async (messageId, status) => {
+    if (!messageId || !status) return;
+    setActionError('');
+    setLessonHourActionBusyId(String(messageId));
+    try {
+      await api.post(
+        `/api/messages/lesson-hour-confirmations/${encodeURIComponent(String(messageId))}/respond`,
+        { status }
+      );
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '处理课时确认失败，请稍后再试';
+      setActionError(String(msg));
+    } finally {
+      setLessonHourActionBusyId(null);
+    }
+  };
+
+  const handleLessonHourRetry = async (confirmation) => {
+    const messageId = String(confirmation?.id || '').trim();
+    if (!messageId) return;
+
+    const currentHours = Number(confirmation?.proposedHours);
+    const initialValue = Number.isFinite(currentHours) ? String(currentHours) : '';
+    const rawValue = window.prompt('重新提交课时（0.25 小时颗粒度）', initialValue);
+    if (rawValue == null) return;
+
+    const proposedHours = Number(rawValue);
+    if (!Number.isFinite(proposedHours) || Math.round(proposedHours * 4) !== proposedHours * 4 || proposedHours < 0.25 || proposedHours > 12) {
+      setActionError('请输入 0.25 小时颗粒度的有效课时');
+      return;
+    }
+
+    setActionError('');
+    setLessonHourActionBusyId(messageId);
+    try {
+      await api.post(
+        `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/retry`,
+        { proposedHours }
+      );
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '重新提交课时失败，请稍后再试';
+      setActionError(String(msg));
+    } finally {
+      setLessonHourActionBusyId(null);
+    }
   };
 
   const handleDeleteForMe = async (appointmentId) => {
@@ -1644,6 +1740,30 @@ function MessagesPage() {
                           <div className="message-decision-notice" role="status">
                             {`${activeCounterpartDisplayName}${verb}\u4e86\u4f60\u7684\u9080\u8bf7`}
                           </div>
+                        </div>
+                        );
+                    }
+
+                    if (item.kind === 'lesson-hours') {
+                      const confirmation = item.confirmation;
+                      const isUnreadIncoming = confirmation?.direction === 'incoming' && !confirmation?.isRead;
+                      return (
+                        <div
+                          key={item.key}
+                          className={`message-viewport-item message-viewport-item--lesson-hours ${isUnreadIncoming ? 'is-unread' : ''}`}
+                          data-message-id={confirmation?.id || ''}
+                          data-thread-id={activeThread?.id ? String(activeThread.id) : ''}
+                          data-unread={isUnreadIncoming ? 'true' : 'false'}
+                        >
+                          <LessonHoursConfirmationCard
+                            thread={activeThread}
+                            confirmation={confirmation}
+                            activeAvatarSrc={activeAvatarUrl}
+                            activeAvatarName={activeCounterpartDisplayName}
+                            busyId={lessonHourActionBusyId}
+                            onRespond={handleLessonHourResponse}
+                            onRetry={handleLessonHourRetry}
+                          />
                         </div>
                       );
                     }

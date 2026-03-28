@@ -609,6 +609,21 @@ const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'G
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
 };
 
+const normalizeQuarterHourValue = (rawValue) => {
+  const n = typeof rawValue === 'number' ? rawValue : Number.parseFloat(String(rawValue ?? '').trim());
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n * 4) / 4;
+  if (Math.abs(rounded - n) > 1e-6) return null;
+  if (rounded < 0.25 || rounded > 12) return null;
+  return Number(rounded.toFixed(2));
+};
+
+const formatQuarterHourValue = (rawValue, fallback = '1') => {
+  const normalized = normalizeQuarterHourValue(rawValue);
+  if (normalized == null) return fallback;
+  return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2).replace(/\.?0+$/, '');
+};
+
 function ClassroomPage() {
   const navigate = useNavigate();
   const { courseId } = useParams();
@@ -706,6 +721,10 @@ function ClassroomPage() {
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
   const [rescheduleSending, setRescheduleSending] = useState(false);
   const [incomingAppointmentCard, setIncomingAppointmentCard] = useState(null);
+  const [endSessionOpen, setEndSessionOpen] = useState(false);
+  const [endSessionHours, setEndSessionHours] = useState('1');
+  const [endSessionSubmitting, setEndSessionSubmitting] = useState(false);
+  const [endSessionError, setEndSessionError] = useState('');
   const [chatMessages, setChatMessages] = useState([]);
   const [chatMessageText, setChatMessageText] = useState('');
   const [chatError, setChatError] = useState('');
@@ -3381,12 +3400,63 @@ function ClassroomPage() {
     chatFileInputRef.current?.click();
   }, [chatClosed, chatSending, chatUploading]);
 
+  const handleOpenEndSessionDialog = useCallback(() => {
+    const defaultHours = currentCourseCard?.durationHours ?? session?.durationHours ?? 1;
+    setEndSessionHours(formatQuarterHourValue(defaultHours, '1'));
+    setEndSessionError('');
+    setEndSessionOpen(true);
+  }, [currentCourseCard?.durationHours, session?.durationHours]);
+
+  const handleCloseEndSessionDialog = useCallback(() => {
+    if (endSessionSubmitting) return;
+    setEndSessionOpen(false);
+    setEndSessionError('');
+  }, [endSessionSubmitting]);
+
   const handleLeaveClassroom = useCallback(async () => {
     if (mountedRef.current) setStatusText('正在离开课堂...');
     await prepareClassroomTempFilesCleanup({ silent: true });
     await leaveAndDestroy();
     navigate(backHref, { replace: true });
   }, [backHref, leaveAndDestroy, navigate, prepareClassroomTempFilesCleanup]);
+
+  const handleConfirmEndSession = useCallback(async () => {
+    const normalizedCourseId = safeText(courseId);
+    const proposedHours = normalizeQuarterHourValue(endSessionHours);
+    if (!normalizedCourseId || proposedHours == null) {
+      setEndSessionError('请输入 0.25 小时颗粒度的有效课时');
+      return;
+    }
+
+    setEndSessionSubmitting(true);
+    setEndSessionError('');
+    if (mountedRef.current) setStatusText('正在结束课堂...');
+
+    try {
+      await api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/end-session`, {
+        proposedHours,
+      });
+      await prepareClassroomTempFilesCleanup({ silent: true });
+      setEndSessionOpen(false);
+      await leaveAndDestroy();
+      navigate(backHref, { replace: true });
+    } catch (error) {
+      if (mountedRef.current) {
+        setEndSessionError(parseErrorMessage(error, '结束课堂失败，请稍后再试'));
+        setStatusText(buildJoinedStatusText());
+      }
+    } finally {
+      if (mountedRef.current) setEndSessionSubmitting(false);
+    }
+  }, [
+    backHref,
+    buildJoinedStatusText,
+    courseId,
+    endSessionHours,
+    leaveAndDestroy,
+    navigate,
+    prepareClassroomTempFilesCleanup,
+  ]);
 
   const controlsDisabled = joining || !joined;
   const micControlDisabled = controlsDisabled;
@@ -3516,10 +3586,10 @@ function ClassroomPage() {
           <button
             type="button"
             className="classroom-control-btn leave"
-            onClick={handleLeaveClassroom}
+            onClick={isMentorInSession ? handleOpenEndSessionDialog : handleLeaveClassroom}
           >
             <FiPhoneOff size={16} />
-            <span>离开课堂</span>
+            <span>{isMentorInSession ? '结束课堂' : '离开课堂'}</span>
           </button>
         </section>
 
@@ -3637,6 +3707,81 @@ function ClassroomPage() {
             </div>
           </div>
         </section>
+
+        {endSessionOpen ? (
+          <div
+            className="classroom-end-session-overlay"
+            role="presentation"
+            onClick={handleCloseEndSessionDialog}
+          >
+            <div
+              className="classroom-end-session-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-label="提交课时"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="classroom-end-session-head">
+                <div>
+                  <h2 className="classroom-end-session-title">提交本节课实际课时</h2>
+                </div>
+                <button
+                  type="button"
+                  className="classroom-end-session-close"
+                  aria-label="关闭"
+                  onClick={handleCloseEndSessionDialog}
+                  disabled={endSessionSubmitting}
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <div className="classroom-end-session-body">
+                <div className="classroom-end-session-row">
+                  <label className="classroom-end-session-label" htmlFor="classroom-end-session-hours">
+                    课时
+                  </label>
+                  <input
+                    id="classroom-end-session-hours"
+                    className="classroom-end-session-input"
+                    type="number"
+                    min="0.25"
+                    max="12"
+                    step="0.25"
+                    inputMode="decimal"
+                    value={endSessionHours}
+                    onChange={(event) => setEndSessionHours(event.target.value)}
+                    disabled={endSessionSubmitting}
+                  />
+                </div>
+                {endSessionError ? (
+                  <div className="classroom-end-session-error" role="alert">
+                    {endSessionError}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="classroom-end-session-actions">
+                <button
+                  type="button"
+                  className="classroom-popup-btn ghost"
+                  onClick={handleCloseEndSessionDialog}
+                  disabled={endSessionSubmitting}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="classroom-popup-btn reject"
+                  onClick={handleConfirmEndSession}
+                  disabled={endSessionSubmitting}
+                >
+                  {endSessionSubmitting ? '提交中...' : '提交'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {incomingAppointmentCard ? (
           <aside

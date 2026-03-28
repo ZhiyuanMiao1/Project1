@@ -19,7 +19,11 @@ const isMissingClassroomChatSchemaError = (err) => {
     if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR')
         return true;
     const message = typeof err?.message === 'string' ? err.message : '';
-    return message.includes('classroom_messages') || message.includes('classroom_temp_files');
+    return (message.includes('classroom_messages')
+        || message.includes('classroom_temp_files')
+        || message.includes('lesson_hour_confirmations')
+        || message.includes('message_items')
+        || message.includes('message_threads'));
 };
 const normalizeIso = (value) => {
     const parsed = (0, classroomAccess_1.parseStoredUtcDate)(value);
@@ -260,6 +264,151 @@ router.post('/:courseId/chat/messages', auth_1.requireAuth, async (req, res) => 
         }
         console.error('Send classroom chat message error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+const normalizeQuarterHourValue = (raw) => {
+    const n = typeof raw === 'number' ? raw : Number.parseFloat(String(raw ?? '').trim());
+    if (!Number.isFinite(n))
+        return null;
+    const rounded = Math.round(n * 4) / 4;
+    if (Math.abs(rounded - n) > 1e-6)
+        return null;
+    if (rounded < 0.25 || rounded > 12)
+        return null;
+    return Number(rounded.toFixed(2));
+};
+router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+    if (!Number.isFinite(courseId) || courseId <= 0) {
+        return res.status(400).json({ error: '无效课堂ID' });
+    }
+    const proposedHours = normalizeQuarterHourValue(req.body?.proposedHours);
+    if (proposedHours == null) {
+        return res.status(400).json({ error: '课时必须为 0.25 小时颗粒度，且范围为 0.25-12 小时' });
+    }
+    const conn = await db_1.pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
+        if (context.roleInSession !== 'mentor') {
+            await conn.rollback();
+            return res.status(403).json({ error: '只有导师可以结束课堂' });
+        }
+        if (!context.threadId) {
+            await conn.rollback();
+            return res.status(409).json({ error: '当前课堂缺少消息会话，无法发送课时确认卡片' });
+        }
+        if ((0, classroomAccess_1.isClassroomClosed)(context)) {
+            await conn.rollback();
+            return res.status(409).json({ error: '课堂已结束，请勿重复提交' });
+        }
+        const [sessionRows] = await conn.execute(`
+      SELECT id, status, course_direction, course_type, starts_at
+      FROM course_sessions
+      WHERE id = ? AND mentor_user_id = ?
+      LIMIT 1
+      `, [courseId, req.user.id]);
+        const sessionRow = sessionRows?.[0];
+        if (!sessionRow) {
+            await conn.rollback();
+            return res.status(404).json({ error: '课程不存在或无权限' });
+        }
+        const rawSessionStatus = (0, classroomAccess_1.safeText)(sessionRow?.status).toLowerCase();
+        if (rawSessionStatus && rawSessionStatus !== 'scheduled') {
+            await conn.rollback();
+            return res.status(409).json({ error: '课堂已结束，请勿重复提交' });
+        }
+        const [pendingRows] = await conn.execute(`
+      SELECT lhc.id
+      FROM lesson_hour_confirmations lhc
+      INNER JOIN message_items mi
+        ON mi.id = lhc.message_item_id
+       AND mi.message_type = 'lesson_hours_confirmation'
+      WHERE lhc.course_session_id = ?
+        AND lhc.status = 'pending'
+      ORDER BY lhc.id DESC
+      LIMIT 1
+      `, [courseId]);
+        if (pendingRows?.[0]) {
+            await conn.rollback();
+            return res.status(409).json({ error: '已有待学生确认的课时卡片，请先等待学生处理' });
+        }
+        const payload = {
+            kind: 'lesson_hours_confirmation',
+            courseSessionId: String(courseId),
+            proposedHours,
+            startsAt: context.startsAt,
+            courseDirectionId: (0, classroomAccess_1.safeText)(sessionRow?.course_direction),
+            courseTypeId: (0, classroomAccess_1.safeText)(sessionRow?.course_type),
+        };
+        const [messageInsert] = await conn.execute(`
+      INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+      VALUES (?, ?, 'lesson_hours_confirmation', ?)
+      `, [Number(context.threadId), req.user.id, JSON.stringify(payload)]);
+        const messageItemId = Number(messageInsert?.insertId || 0);
+        if (!Number.isFinite(messageItemId) || messageItemId <= 0) {
+            throw new Error('Failed to create lesson hour confirmation message');
+        }
+        await conn.execute(`
+      INSERT INTO lesson_hour_confirmations (
+        message_item_id,
+        thread_id,
+        course_session_id,
+        student_user_id,
+        mentor_user_id,
+        proposed_hours,
+        final_hours,
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+      `, [
+            messageItemId,
+            Number(context.threadId),
+            courseId,
+            context.studentUserId,
+            context.mentorUserId,
+            proposedHours,
+        ]);
+        await conn.execute(`
+      UPDATE course_sessions
+      SET status = 'completed'
+      WHERE id = ?
+      `, [courseId]);
+        await conn.execute(`
+      UPDATE message_threads
+      SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `, [messageItemId, Number(context.threadId)]);
+        await conn.commit();
+        return res.json({
+            ok: true,
+            messageId: String(messageItemId),
+            proposedHours,
+            courseSessionId: String(courseId),
+            chatClosed: true,
+        });
+    }
+    catch (error) {
+        try {
+            await conn.rollback();
+        }
+        catch { }
+        if (error instanceof classroomAccess_1.ClassroomHttpError) {
+            return res.status(error.statusCode).json({ error: error.message });
+        }
+        if (isMissingClassroomChatSchemaError(error)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('End classroom session error:', error);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+    finally {
+        try {
+            conn.release();
+        }
+        catch { }
     }
 });
 router.post('/:courseId/chat/files/prepare-cleanup', auth_1.requireAuth, async (req, res) => {
