@@ -536,10 +536,13 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
-    const mentorPublicId = typeof req.body?.mentorId === 'string' && req.body.mentorId.trim()
+    const mentorPublicIdFromBody = typeof req.body?.mentorId === 'string' && req.body.mentorId.trim()
         ? req.body.mentorId.trim()
-        : (req.user.role === 'mentor' ? '__mentor_self__' : '');
+        : '';
+    const mentorPublicId = mentorPublicIdFromBody || (req.user.role === 'mentor' ? '__mentor_self__' : '');
+    const hasExplicitMentorTarget = Boolean(mentorPublicIdFromBody);
     const studentUserIdFromBody = toPositiveIntOrNull(req.body?.studentUserId);
+    const hasExplicitStudentTarget = studentUserIdFromBody != null;
     const windowText = typeof req.body?.windowText === 'string' ? req.body.windowText.trim() : '';
     const courseDirectionId = typeof req.body?.courseDirectionId === 'string' ? req.body.courseDirectionId.trim() : '';
     const courseTypeId = typeof req.body?.courseTypeId === 'string' ? req.body.courseTypeId.trim() : '';
@@ -553,7 +556,11 @@ router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!windowText)
         return res.status(400).json({ error: '缺少预约时间' });
     try {
-        if (req.user.role === 'mentor') {
+        // Prefer explicit target fields over the JWT's active role so dual-role users
+        // can still book mentors from the student UI while logged in with mentor as
+        // their default role.
+        const shouldSendAsMentor = hasExplicitStudentTarget || (!hasExplicitMentorTarget && req.user.role === 'mentor');
+        if (shouldSendAsMentor) {
             let studentUserId = studentUserIdFromBody;
             if (studentUserId == null && courseRequestId != null) {
                 const requestRows = await (0, db_1.query)('SELECT user_id FROM course_requests WHERE id = ? LIMIT 1', [courseRequestId]);
