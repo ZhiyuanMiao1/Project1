@@ -337,6 +337,16 @@ CREATE TABLE IF NOT EXISTS `message_threads` (
   CONSTRAINT `fk_message_threads_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `message_thread_stars` (
+  `thread_id` BIGINT NOT NULL,
+  `user_id` INT NOT NULL,
+  `starred_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`thread_id`, `user_id`),
+  KEY `idx_message_thread_stars_user` (`user_id`),
+  CONSTRAINT `fk_message_thread_stars_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_message_thread_stars_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `message_items` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `thread_id` BIGINT NOT NULL,

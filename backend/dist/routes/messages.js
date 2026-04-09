@@ -15,6 +15,7 @@ const isMissingMessagesSchemaError = (err) => {
         return true;
     const message = typeof err?.message === 'string' ? err.message : '';
     return (message.includes('message_threads')
+        || message.includes('message_thread_stars')
         || message.includes('message_items')
         || message.includes('message_item_hidden_for_users')
         || message.includes('message_item_reads')
@@ -1283,6 +1284,67 @@ router.get('/threads/:threadId/availability', auth_1.requireAuth, async (req, re
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
+router.post('/threads/:threadId/star', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const threadId = Number(req.params.threadId);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+        return res.status(400).json({ error: '无效会话ID' });
+    }
+    try {
+        const threadRows = await (0, db_1.query)(`
+      SELECT id
+      FROM message_threads
+      WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
+      LIMIT 1
+      `, [threadId, req.user.id, req.user.id]);
+        if (!threadRows?.[0])
+            return res.status(404).json({ error: '会话不存在或无权限' });
+        await (0, db_1.query)(`
+      INSERT INTO message_thread_stars (thread_id, user_id)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE starred_at = CURRENT_TIMESTAMP
+      `, [threadId, req.user.id]);
+        return res.json({ ok: true, threadId: String(threadId), isStarred: true });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Star thread error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.delete('/threads/:threadId/star', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const threadId = Number(req.params.threadId);
+    if (!Number.isFinite(threadId) || threadId <= 0) {
+        return res.status(400).json({ error: '无效会话ID' });
+    }
+    try {
+        const threadRows = await (0, db_1.query)(`
+      SELECT id
+      FROM message_threads
+      WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
+      LIMIT 1
+      `, [threadId, req.user.id, req.user.id]);
+        if (!threadRows?.[0])
+            return res.status(404).json({ error: '会话不存在或无权限' });
+        await (0, db_1.query)(`
+      DELETE FROM message_thread_stars
+      WHERE thread_id = ? AND user_id = ?
+      `, [threadId, req.user.id]);
+        return res.json({ ok: true, threadId: String(threadId), isStarred: false });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Unstar thread error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
 router.get('/unread-summary', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -1373,6 +1435,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         t.mentor_user_id,
         t.last_message_at,
         t.updated_at,
+        mts.thread_id AS starred_thread_id,
         m.sender_user_id,
         m.payload_json,
         su.username AS student_username,
@@ -1383,6 +1446,9 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         mp.display_name AS mentor_display_name,
         mp.avatar_url AS mentor_avatar_url
       FROM message_threads t
+      LEFT JOIN message_thread_stars mts
+        ON mts.thread_id = t.id
+       AND mts.user_id = ?
       LEFT JOIN message_items m ON m.id = t.last_message_id
       LEFT JOIN users su ON su.id = t.student_user_id
       LEFT JOIN user_roles srole ON srole.user_id = t.student_user_id AND srole.role = 'student'
@@ -1393,7 +1459,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
       WHERE t.student_user_id = ? OR t.mentor_user_id = ?
       ORDER BY COALESCE(t.last_message_at, t.updated_at) DESC
       LIMIT 100
-      `, [req.user.id, req.user.id]);
+      `, [req.user.id, req.user.id, req.user.id]);
         const threadParticipantsById = new Map();
         const threads = (rows || []).map((r) => {
             const threadId = String(r.thread_id);
@@ -1420,6 +1486,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                 counterpartId,
                 counterpartAvatarUrl,
                 time: lastAt ? new Date(lastAt).toISOString() : '',
+                isStarred: Boolean(r.starred_thread_id),
                 courseDirectionId: '',
                 courseTypeId: '',
                 schedule: null,

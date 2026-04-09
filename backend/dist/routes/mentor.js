@@ -75,7 +75,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
        WHERE r.status = 'submitted' AND r.user_id <> ?
-       ORDER BY CAST(SUBSTRING(ur.public_id, 2) AS UNSIGNED) ASC, r.id DESC
+       ORDER BY r.submitted_at DESC, r.created_at DESC, r.id DESC
        LIMIT 100`, [req.user.id]);
         const cards = (rows || []).map((r) => {
             let courseTypes = [];
@@ -99,6 +99,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
             return {
                 id: Number(r.request_id),
                 name: String(r.student_public_id || '').toUpperCase(),
+                studentPublicId: String(r.student_public_id || '').toUpperCase(),
                 degree: r.student_degree || '',
                 school: r.student_school || '',
                 timezone: r.time_zone || r.student_timezone || '',

@@ -382,6 +382,7 @@ function MessagesPage() {
   const [threadsError, setThreadsError] = useState('');
   const [exitingMessageActionIds, setExitingMessageActionIds] = useState([]);
   const [openScheduleMessageMenuId, setOpenScheduleMessageMenuId] = useState(null);
+  const [threadStarBusyId, setThreadStarBusyId] = useState(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -873,6 +874,35 @@ function MessagesPage() {
     const res = await api.get('/api/messages/threads');
     return applyThreadsPayload(res?.data);
   };
+
+  const handleThreadStarToggle = useCallback(async (thread) => {
+    const threadId = String(thread?.id || '').trim();
+    if (!threadId) return;
+
+    const nextIsStarred = !Boolean(thread?.isStarred);
+    setActionError('');
+    setThreadStarBusyId(threadId);
+
+    try {
+      if (nextIsStarred) {
+        await api.post(`/api/messages/threads/${encodeURIComponent(threadId)}/star`);
+      } else {
+        await api.delete(`/api/messages/threads/${encodeURIComponent(threadId)}/star`);
+      }
+
+      setThreads((prev) => prev.map((item) => (
+        String(item?.id || '') === threadId
+          ? { ...item, isStarred: nextIsStarred }
+          : item
+      )));
+      setOpenMoreId(null);
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || (nextIsStarred ? '加星标失败，请稍后再试' : '取消星标失败，请稍后再试');
+      setActionError(String(msg));
+    } finally {
+      setThreadStarBusyId(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn || !activeThread?.id) return undefined;
@@ -1593,6 +1623,7 @@ function MessagesPage() {
                       size: 192,
                     });
                     const isActive = thread.id === activeThread?.id;
+                    const isThreadStarBusy = String(threadStarBusyId || '') === String(thread.id || '');
                     const timeLabel = formatThreadTimeLabel(thread.time || '');
                     const timeParts = timeLabel.split(/\s+/).filter(Boolean);
                     const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || timeLabel);
@@ -1634,7 +1665,19 @@ function MessagesPage() {
                               <div className="message-subject">{listSubtitle}</div>
                             </div>
                           <div className="message-meta-col">
-                            <div className="message-time">{displayDate}</div>
+                            <div className="message-time-row">
+                              {thread?.isStarred ? (
+                                <span className="message-star-badge" aria-label="已加星标">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                    <path
+                                      d="M12 4.5l1.88 3.81 4.2.61-3.04 2.96.72 4.19L12 14.97l-3.76 1.98.72-4.19-3.04-2.96 4.2-.61L12 4.5z"
+                                      fill="currentColor"
+                                    />
+                                  </svg>
+                                </span>
+                              ) : null}
+                              <div className="message-time">{displayDate}</div>
+                            </div>
                             <UnreadBadge
                               count={threadUnreadCount}
                               variant="thread"
@@ -1660,8 +1703,9 @@ function MessagesPage() {
                                     className="message-more-item"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setOpenMoreId(null);
+                                      handleThreadStarToggle(thread);
                                     }}
+                                    disabled={isThreadStarBusy}
                                   >
                                     <span className="message-more-icon" aria-hidden="true">
                                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -1671,7 +1715,7 @@ function MessagesPage() {
                                         />
                                       </svg>
                                     </span>
-                                    加星标
+                                    {thread?.isStarred ? '取消星标' : '加星标'}
                                   </button>
                                   <button
                                     type="button"

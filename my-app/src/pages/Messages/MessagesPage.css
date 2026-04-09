@@ -1,1 +1,31 @@
 @import './MessagesPage.legacy.css';
+
+.message-time-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.message-star-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.message-star-badge svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.message-more-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
