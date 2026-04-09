@@ -18,6 +18,7 @@ const isMissingMessagesSchemaError = (err: any) => {
   return (
     message.includes('message_threads')
     || message.includes('message_thread_stars')
+    || message.includes('message_thread_archives')
     || message.includes('message_items')
     || message.includes('message_item_hidden_for_users')
     || message.includes('message_item_reads')
@@ -31,6 +32,27 @@ const formatZoomMeetingId = (digits: number) => {
   const text = String(digits).padStart(9, '0').slice(0, 9);
   return `${text.slice(0, 3)} ${text.slice(3, 6)} ${text.slice(6)}`;
 };
+
+const THREAD_VISIBLE_AFTER_ARCHIVE_SQL = `
+  (
+    mta.thread_id IS NULL
+    OR (
+      t.last_message_id IS NOT NULL
+      AND (
+        mta.archived_after_message_id IS NULL
+        OR t.last_message_id > mta.archived_after_message_id
+      )
+    )
+  )
+`;
+
+const MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL = `
+  (
+    mta.thread_id IS NULL
+    OR mta.archived_after_message_id IS NULL
+    OR mi.id > mta.archived_after_message_id
+  )
+`;
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -1621,6 +1643,49 @@ router.delete('/threads/:threadId/star', requireAuth, async (req: Request, res: 
   }
 });
 
+router.post('/threads/:threadId/archive', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未授权' });
+
+  const threadId = Number(req.params.threadId);
+  if (!Number.isFinite(threadId) || threadId <= 0) {
+    return res.status(400).json({ error: '无效会话ID' });
+  }
+
+  try {
+    const threadRows = await query<any[]>(
+      `
+      SELECT id, last_message_id
+      FROM message_threads
+      WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
+      LIMIT 1
+      `,
+      [threadId, req.user.id, req.user.id]
+    );
+
+    const thread = threadRows?.[0];
+    if (!thread) return res.status(404).json({ error: '会话不存在或无权限' });
+
+    await query(
+      `
+      INSERT INTO message_thread_archives (thread_id, user_id, archived_after_message_id)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        archived_at = CURRENT_TIMESTAMP,
+        archived_after_message_id = VALUES(archived_after_message_id)
+      `,
+      [threadId, req.user.id, toPositiveIntOrNull(thread?.last_message_id)]
+    );
+
+    return res.json({ ok: true, threadId: String(threadId), archived: true });
+  } catch (e) {
+    if (isMissingMessagesSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Archive thread error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.get('/unread-summary', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未授权' });
 
@@ -1630,6 +1695,9 @@ router.get('/unread-summary', requireAuth, async (req: Request, res: Response) =
       SELECT COUNT(*) AS unread_count
       FROM message_items mi
       INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN message_thread_archives mta
+        ON mta.thread_id = t.id
+       AND mta.user_id = ?
       LEFT JOIN message_item_hidden_for_users mihfu
         ON mihfu.message_item_id = mi.id
        AND mihfu.user_id = ?
@@ -1638,10 +1706,11 @@ router.get('/unread-summary', requireAuth, async (req: Request, res: Response) =
        AND mir.user_id = ?
       WHERE (t.student_user_id = ? OR t.mentor_user_id = ?)
         AND mi.sender_user_id <> ?
+        AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
         AND mihfu.message_item_id IS NULL
         AND mir.message_item_id IS NULL
       `,
-      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
+      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
     );
 
     return res.json({
@@ -1752,6 +1821,9 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN message_thread_stars mts
         ON mts.thread_id = t.id
        AND mts.user_id = ?
+      LEFT JOIN message_thread_archives mta
+        ON mta.thread_id = t.id
+       AND mta.user_id = ?
       LEFT JOIN message_items m ON m.id = t.last_message_id
       LEFT JOIN users su ON su.id = t.student_user_id
       LEFT JOIN user_roles srole ON srole.user_id = t.student_user_id AND srole.role = 'student'
@@ -1759,11 +1831,12 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
       LEFT JOIN users mu ON mu.id = t.mentor_user_id
       LEFT JOIN user_roles mrole ON mrole.user_id = t.mentor_user_id AND mrole.role = 'mentor'
       LEFT JOIN mentor_profiles mp ON mp.user_id = t.mentor_user_id
-      WHERE t.student_user_id = ? OR t.mentor_user_id = ?
-      ORDER BY COALESCE(t.last_message_at, t.updated_at) DESC
+      WHERE (t.student_user_id = ? OR t.mentor_user_id = ?)
+        AND ${THREAD_VISIBLE_AFTER_ARCHIVE_SQL}
+      ORDER BY COALESCE(t.last_message_at, t.updated_at, t.created_at) DESC
       LIMIT 100
       `,
-      [req.user.id, req.user.id, req.user.id]
+      [req.user.id, req.user.id, req.user.id, req.user.id]
     );
 
     const threadParticipantsById = new Map<string, { studentUserId: number; mentorUserId: number }>();
@@ -1823,6 +1896,10 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         `
         SELECT mi.thread_id, COUNT(*) AS unread_count
         FROM message_items mi
+        INNER JOIN message_threads t ON t.id = mi.thread_id
+        LEFT JOIN message_thread_archives mta
+          ON mta.thread_id = t.id
+         AND mta.user_id = ?
         LEFT JOIN message_item_hidden_for_users mihfu
           ON mihfu.message_item_id = mi.id
          AND mihfu.user_id = ?
@@ -1831,11 +1908,12 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
          AND mir.user_id = ?
         WHERE mi.thread_id IN (${placeholders})
           AND mi.sender_user_id <> ?
+          AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
           AND mihfu.message_item_id IS NULL
           AND mir.message_item_id IS NULL
         GROUP BY mi.thread_id
         `,
-        [req.user.id, req.user.id, ...threadIds, req.user.id]
+        [req.user.id, req.user.id, req.user.id, ...threadIds, req.user.id]
       );
 
       const unreadCountByThread = new Map<string, number>(
@@ -1873,10 +1951,15 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           mi.created_at,
           CASE
             WHEN mi.sender_user_id = ? THEN 1
+            WHEN mta.archived_after_message_id IS NOT NULL AND mi.id <= mta.archived_after_message_id THEN 1
             WHEN mir.message_item_id IS NULL THEN 0
             ELSE 1
           END AS is_read_by_me
         FROM message_items mi
+        INNER JOIN message_threads t ON t.id = mi.thread_id
+        LEFT JOIN message_thread_archives mta
+          ON mta.thread_id = t.id
+         AND mta.user_id = ?
         LEFT JOIN message_item_reads mir
           ON mir.message_item_id = mi.id
          AND mir.user_id = ?
@@ -1884,7 +1967,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           AND mi.message_type = 'appointment_decision'
         ORDER BY mi.thread_id ASC, mi.id ASC
         `,
-        [req.user.id, req.user.id, ...threadIds]
+        [req.user.id, req.user.id, req.user.id, ...threadIds]
       );
 
       const decisionByThread = new Map<string, any[]>();
@@ -1910,14 +1993,19 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           cs.starts_at AS course_starts_at,
           CASE
             WHEN mi.sender_user_id = ? THEN 1
+            WHEN mta.archived_after_message_id IS NOT NULL AND mi.id <= mta.archived_after_message_id THEN 1
             WHEN mir.message_item_id IS NULL THEN 0
             ELSE 1
           END AS is_read_by_me
         FROM message_items mi
+        INNER JOIN message_threads t ON t.id = mi.thread_id
         INNER JOIN lesson_hour_confirmations lhc
           ON lhc.message_item_id = mi.id
         LEFT JOIN course_sessions cs
           ON cs.id = lhc.course_session_id
+        LEFT JOIN message_thread_archives mta
+          ON mta.thread_id = t.id
+         AND mta.user_id = ?
         LEFT JOIN message_item_reads mir
           ON mir.message_item_id = mi.id
          AND mir.user_id = ?
@@ -1925,7 +2013,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           AND mi.message_type = 'lesson_hours_confirmation'
         ORDER BY mi.thread_id ASC, mi.id ASC
         `,
-        [req.user.id, req.user.id, ...threadIds]
+        [req.user.id, req.user.id, req.user.id, ...threadIds]
       );
 
       const lessonHourByThread = new Map<string, any[]>();
@@ -1948,10 +2036,15 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           ,
           CASE
             WHEN mi.sender_user_id = ? THEN 1
+            WHEN mta.archived_after_message_id IS NOT NULL AND mi.id <= mta.archived_after_message_id THEN 1
             WHEN mir.message_item_id IS NULL THEN 0
             ELSE 1
           END AS is_read_by_me
         FROM message_items mi
+        INNER JOIN message_threads t ON t.id = mi.thread_id
+        LEFT JOIN message_thread_archives mta
+          ON mta.thread_id = t.id
+         AND mta.user_id = ?
         LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
         LEFT JOIN message_item_reads mir
           ON mir.message_item_id = mi.id
@@ -1960,7 +2053,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
           AND mi.message_type = 'appointment_card'
         ORDER BY mi.thread_id ASC, mi.id ASC
         `,
-        [req.user.id, req.user.id, ...threadIds]
+        [req.user.id, req.user.id, req.user.id, ...threadIds]
       );
 
       const courseSessionLookup = new Map<string, string>();

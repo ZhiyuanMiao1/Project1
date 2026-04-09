@@ -383,6 +383,7 @@ function MessagesPage() {
   const [exitingMessageActionIds, setExitingMessageActionIds] = useState([]);
   const [openScheduleMessageMenuId, setOpenScheduleMessageMenuId] = useState(null);
   const [threadStarBusyId, setThreadStarBusyId] = useState(null);
+  const [threadArchiveBusyId, setThreadArchiveBusyId] = useState(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -870,10 +871,10 @@ function MessagesPage() {
     }, 900);
   }, [activeThread?.id, location?.state?.animateKey, location?.state?.threadId]);
 
-  const reloadThreads = async () => {
+  const reloadThreads = useCallback(async () => {
     const res = await api.get('/api/messages/threads');
     return applyThreadsPayload(res?.data);
-  };
+  }, [applyThreadsPayload]);
 
   const handleThreadStarToggle = useCallback(async (thread) => {
     const threadId = String(thread?.id || '').trim();
@@ -903,6 +904,32 @@ function MessagesPage() {
       setThreadStarBusyId(null);
     }
   }, []);
+
+  const handleThreadArchive = useCallback(async (thread) => {
+    const threadId = String(thread?.id || '').trim();
+    if (!threadId) return;
+
+    setActionError('');
+    setThreadArchiveBusyId(threadId);
+
+    try {
+      await api.post(`/api/messages/threads/${encodeURIComponent(threadId)}/archive`);
+      setThreads((prev) => {
+        const nextThreads = prev.filter((item) => String(item?.id || '') !== threadId);
+        emitUnreadSummaryFromThreads(nextThreads);
+        return nextThreads;
+      });
+      setOpenMoreId(null);
+      try {
+        await reloadThreads();
+      } catch {}
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '归档会话失败，请稍后再试';
+      setActionError(String(msg));
+    } finally {
+      setThreadArchiveBusyId(null);
+    }
+  }, [emitUnreadSummaryFromThreads, reloadThreads]);
 
   useEffect(() => {
     if (!isLoggedIn || !activeThread?.id) return undefined;
@@ -1624,6 +1651,8 @@ function MessagesPage() {
                     });
                     const isActive = thread.id === activeThread?.id;
                     const isThreadStarBusy = String(threadStarBusyId || '') === String(thread.id || '');
+                    const isThreadArchiveBusy = String(threadArchiveBusyId || '') === String(thread.id || '');
+                    const isThreadMenuBusy = isThreadStarBusy || isThreadArchiveBusy;
                     const timeLabel = formatThreadTimeLabel(thread.time || '');
                     const timeParts = timeLabel.split(/\s+/).filter(Boolean);
                     const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || timeLabel);
@@ -1705,7 +1734,7 @@ function MessagesPage() {
                                       e.stopPropagation();
                                       handleThreadStarToggle(thread);
                                     }}
-                                    disabled={isThreadStarBusy}
+                                    disabled={isThreadMenuBusy}
                                   >
                                     <span className="message-more-icon" aria-hidden="true">
                                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -1722,8 +1751,9 @@ function MessagesPage() {
                                     className="message-more-item"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setOpenMoreId(null);
+                                      handleThreadArchive(thread);
                                     }}
+                                    disabled={isThreadMenuBusy}
                                   >
                                     <span className="message-more-icon" aria-hidden="true">
                                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
