@@ -106,10 +106,7 @@ function AppointmentCard({
       { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
     ];
   }, [canRescheduleAcceptedOutgoing, statusKey]);
-  const decisionPopoverTitle = decisionPopoverActions.length === 1
-    && decisionPopoverActions[0]?.value === 'rescheduling'
-    ? '可执行操作'
-    : '修改日程状态为';
+  const decisionPopoverTitle = '修改日程状态为';
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [messageMenuOpenInternal, setMessageMenuOpenInternal] = useState(false);
