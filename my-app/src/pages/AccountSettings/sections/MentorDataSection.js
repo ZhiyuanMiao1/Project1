@@ -33,10 +33,13 @@ function MentorDataSection({
   const reviewCountDisplay = reviewsLoading
     ? '...'
     : (normalizedReviewCount == null ? '--' : String(normalizedReviewCount));
+  const normalizedMentorAvatarUrl = typeof mentorAvatarUrl === 'string' ? mentorAvatarUrl.trim() : '';
+  const normalizedMentorAvatarName = typeof mentorAvatarName === 'string' ? mentorAvatarName.trim() : '';
+  const avatarDisplayName = !normalizedMentorAvatarUrl && !normalizedMentorAvatarName ? 'M' : mentorAvatarName;
   const avatarSeed = mentorIdValue || mentorAvatarName || schoolValue || 'mentor';
   const avatarSrc = resolveAvatarSrc({
     src: mentorAvatarUrl,
-    name: mentorAvatarName,
+    name: avatarDisplayName,
     seed: avatarSeed,
     size: 280,
   });
@@ -58,7 +61,7 @@ function MentorDataSection({
                 src={avatarSrc}
                 alt=""
                 onError={(event) => applyAvatarFallback(event, {
-                  name: mentorAvatarName,
+                  name: avatarDisplayName,
                   seed: avatarSeed,
                   size: 280,
                 })}
