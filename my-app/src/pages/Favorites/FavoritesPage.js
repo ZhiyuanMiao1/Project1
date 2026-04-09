@@ -4,9 +4,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import { fetchFavoriteCollections, createFavoriteCollection, deleteFavoriteCollection, fetchFavoriteItems } from '../../api/favorites';
 import { fetchRecentVisits } from '../../api/recentVisits';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { buildAvatarPlaceholderSrc } from '../../utils/avatarPlaceholder';
 import './FavoritesPage.css';
 
@@ -168,6 +170,7 @@ function FavoritesPage() {
     const user = getAuthUser() || {};
     return user?.role === 'mentor' ? 'mentor' : 'student';
   }, [location.search, location.state]);
+  const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: [preferredRole] });
 
   useEffect(() => {
     if (!preferredRole) return;
@@ -427,7 +430,7 @@ function FavoritesPage() {
           <BrandMark className="nav-logo-text" to={logoTo} />
           <button
             type="button"
-            className="icon-circle favorites-menu"
+            className="icon-circle favorites-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
@@ -443,6 +446,14 @@ function FavoritesPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

@@ -41,6 +41,18 @@
   background: rgba(56, 72, 98, 0.4);
 }
 
+.unread-badge-anchor {
+  position: relative;
+  overflow: visible;
+}
+
+.unread-badge-top-right {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  pointer-events: none;
+}
+
 @keyframes unreadBadgePulse {
   0% {
     opacity: 0;

@@ -11,6 +11,7 @@ import {
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorActivationPopup from '../../components/MentorActivationPopup/MentorActivationPopup';
 import { fetchAccountProfile, fetchAccountReviewsSummary, saveHomeCourseOrder } from '../../api/account';
 import api from '../../api/client';
@@ -19,6 +20,7 @@ import {
   normalizeHomeCourseOrderIds,
 } from '../../utils/homeCourseOrder';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import ProfileSection from './sections/ProfileSection';
 import StudentDataSection from './sections/StudentDataSection';
@@ -110,6 +112,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
+  const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: [mode] });
   const [studentAvatarUrl, setStudentAvatarUrl] = useState(null);
   const [mentorAvatarUrl, setMentorAvatarUrl] = useState(null);
   const [studentAvatarUploading, setStudentAvatarUploading] = useState(false);
@@ -781,7 +784,7 @@ function AccountSettingsPage({ mode = 'student' }) {
           <BrandMark className="nav-logo-text" to={homeHref} />
           <button
             type="button"
-            className="icon-circle settings-menu"
+            className="icon-circle settings-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
@@ -797,6 +800,14 @@ function AccountSettingsPage({ mode = 'student' }) {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

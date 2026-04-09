@@ -18,8 +18,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import {
   buildSelectionFromMinutePoint,
   findFirstSlotStartMinutes,
@@ -745,6 +747,10 @@ function ClassroomPage() {
   );
   const threadId = useMemo(() => safeText(session?.threadId), [session?.threadId]);
   const isMentorInSession = session?.roleInSession === 'mentor';
+  const { totalBadgeCount } = useMenuBadgeSummary({
+    enabled: isLoggedIn,
+    courseViews: [isMentorInSession ? 'mentor' : 'student'],
+  });
   const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || '对方', [session?.remoteUserName]);
   const currentCourseCard = useMemo(() => {
     const normalizedCourseId = safeText(courseId);
@@ -3480,7 +3486,7 @@ function ClassroomPage() {
           <BrandMark className="nav-logo-text" to={backHref} />
           <button
             type="button"
-            className="icon-circle classroom-menu"
+            className="icon-circle classroom-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenu}
@@ -3490,6 +3496,14 @@ function ClassroomPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

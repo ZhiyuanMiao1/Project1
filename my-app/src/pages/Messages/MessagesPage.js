@@ -8,6 +8,7 @@ import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
 import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
 import LessonHoursConfirmationCard from './LessonHoursConfirmationCard';
@@ -357,6 +358,10 @@ function MessagesPage() {
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
+  });
+  const { totalBadgeCount } = useMenuBadgeSummary({
+    enabled: isLoggedIn,
+    courseViews: [isMentorView ? 'mentor' : 'student'],
   });
   const [errorMessage, setErrorMessage] = useState('');
   const [actionError, setActionError] = useState('');
@@ -1528,7 +1533,7 @@ function MessagesPage() {
           <BrandMark className="nav-logo-text" to={homeHref} />
           <button
             type="button"
-            className="icon-circle messages-menu"
+            className="icon-circle messages-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
@@ -1544,6 +1549,14 @@ function MessagesPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

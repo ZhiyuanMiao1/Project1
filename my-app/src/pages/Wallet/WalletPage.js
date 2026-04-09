@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import apiClient from '../../api/client';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
 import './WalletPage.css';
@@ -16,6 +18,7 @@ const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 function WalletPage() {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: ['student'] });
   const [errorMessage, setErrorMessage] = useState('');
   const [selectedTopUpMethod, setSelectedTopUpMethod] = useState('paypal');
   const [topUpHours, setTopUpHours] = useState('1');
@@ -483,7 +486,7 @@ function WalletPage() {
           <BrandMark className="nav-logo-text" to="/student" />
           <button
             type="button"
-            className="icon-circle wallet-menu"
+            className="icon-circle wallet-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleStudentAuthModal}
@@ -493,6 +496,14 @@ function WalletPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

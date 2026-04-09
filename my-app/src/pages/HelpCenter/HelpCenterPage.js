@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import { getAuthToken } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import './HelpCenterPage.css';
 
 const HELP_TABS = [
@@ -253,6 +255,7 @@ function HelpCenterPage({ mode = 'student' }) {
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: [mode] });
   const content = useMemo(() => HELP_CONTENT[mode] || HELP_CONTENT.student, [mode]);
 
   useEffect(() => {
@@ -283,7 +286,7 @@ function HelpCenterPage({ mode = 'student' }) {
           <BrandMark className="nav-logo-text" to={content.homePath} />
           <button
             type="button"
-            className="icon-circle help-center-menu"
+            className="icon-circle help-center-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenu}
@@ -293,6 +296,14 @@ function HelpCenterPage({ mode = 'student' }) {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 

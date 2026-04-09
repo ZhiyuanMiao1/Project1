@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorListingCard from '../../components/ListingCard/MentorListingCard';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import {
@@ -13,6 +14,7 @@ import {
   moveFavoriteItems,
 } from '../../api/favorites';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import '../RecentVisits/RecentVisitsPage.css';
 import './FavoriteCollectionPage.css';
 
@@ -92,6 +94,7 @@ function FavoriteCollectionPage() {
     const user = getAuthUser() || {};
     return user?.role === 'mentor' ? 'mentor' : 'student';
   }, [location.search, location.state]);
+  const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: [preferredRole] });
 
   const numericCollectionId = useMemo(() => {
     const n = Number(collectionId);
@@ -373,7 +376,7 @@ function FavoriteCollectionPage() {
           />
           <button
             type="button"
-            className="icon-circle recent-menu"
+            className="icon-circle recent-menu unread-badge-anchor"
             aria-label="更多菜单"
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
@@ -389,6 +392,14 @@ function FavoriteCollectionPage() {
               <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
+            {isLoggedIn ? (
+              <UnreadBadge
+                count={totalBadgeCount}
+                variant="nav"
+                className="unread-badge-top-right"
+                ariaLabel="待处理提醒"
+              />
+            ) : null}
           </button>
         </header>
 
