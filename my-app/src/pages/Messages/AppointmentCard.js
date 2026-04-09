@@ -47,7 +47,8 @@ function AppointmentCard({
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
-  const canEditDecision = !isScheduleExpired && statusKey !== 'pending';
+  const canEditDecision = !isOutgoing && !isScheduleExpired && statusKey !== 'pending';
+  const canRescheduleAcceptedOutgoing = isOutgoing && statusKey === 'accepted' && !isScheduleExpired;
   const courseSessionId = safeText(scheduleCard?.courseSessionId);
   const classroomHref = courseSessionId ? `/classroom/${encodeURIComponent(courseSessionId)}` : '';
   const canJoinClassroom = statusKey === 'accepted' && !isScheduleExpired && Boolean(classroomHref);
@@ -76,6 +77,11 @@ function AppointmentCard({
   const titleParts = useMemo(() => getCourseTitleParts(thread, scheduleCard), [scheduleCard, thread]);
 
   const decisionPopoverActions = useMemo(() => {
+    if (canRescheduleAcceptedOutgoing) {
+      return [
+        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+      ];
+    }
     if (statusKey === 'accepted') {
       return [
         { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
@@ -99,7 +105,11 @@ function AppointmentCard({
       { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
       { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
     ];
-  }, [statusKey]);
+  }, [canRescheduleAcceptedOutgoing, statusKey]);
+  const decisionPopoverTitle = decisionPopoverActions.length === 1
+    && decisionPopoverActions[0]?.value === 'rescheduling'
+    ? '可执行操作'
+    : '修改日程状态为';
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [messageMenuOpenInternal, setMessageMenuOpenInternal] = useState(false);
@@ -151,6 +161,67 @@ function AppointmentCard({
     if (isMessageMenuControlled) onOpenMessageMenuChange?.(null);
     else setMessageMenuOpenInternal(false);
   }, [isExiting, isMessageMenuControlled, onOpenMessageMenuChange]);
+
+  const renderStatusIcon = () => {
+    if (statusKey === 'accepted') return <span className="schedule-btn-icon check" aria-hidden="true" />;
+    if (statusKey === 'rejected') return <span className="schedule-btn-icon minus" aria-hidden="true" />;
+    if (statusKey === 'rescheduling') return <span className="schedule-btn-icon reschedule" aria-hidden="true" />;
+    return null;
+  };
+
+  const renderDecisionActionIcon = (tone) => {
+    if (tone === 'accept') return <span className="schedule-btn-icon check" aria-hidden="true" />;
+    if (tone === 'reject') return <span className="schedule-btn-icon minus" aria-hidden="true" />;
+    if (tone === 'reschedule') return <span className="schedule-btn-icon reschedule" aria-hidden="true" />;
+    return null;
+  };
+
+  const renderDecisionControl = () => (
+    <div
+      className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
+      onMouseEnter={() => setDecisionMenuOpen(true)}
+      onMouseLeave={() => setDecisionMenuOpen(false)}
+    >
+      <button
+        type="button"
+        className={`schedule-btn merged ${statusClassName}`}
+        onClick={() => setDecisionMenuOpen((prev) => !prev)}
+        disabled={isBusy}
+      >
+        {renderStatusIcon()}
+        {statusMeta.label}
+        <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
+      </button>
+      {decisionMenuOpen && (
+        <div className="schedule-decision-popover" role="menu">
+          <div className="schedule-decision-popover-title">{decisionPopoverTitle}</div>
+          <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
+            {decisionPopoverActions.map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                className={`schedule-btn small inline-action ${
+                  action.tone === 'accept'
+                    ? 'accept-btn'
+                    : action.tone === 'reject'
+                      ? 'reject-btn'
+                      : 'reschedule-btn'
+                }`}
+                onClick={() => {
+                  if (action.value === 'rescheduling') onReschedule?.(scheduleCard.id);
+                  else onDecision?.(scheduleCard.id, action.value);
+                }}
+                disabled={isBusy}
+              >
+                {renderDecisionActionIcon(action.tone)}
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={`schedule-row ${isOutgoing ? 'is-outgoing' : ''} ${isExiting ? 'is-exiting' : ''}`}>
@@ -309,54 +380,7 @@ function AppointmentCard({
                   </button>
                 </>
               ) : canEditDecision ? (
-                <div
-                  className={`schedule-decision-wrapper ${decisionMenuOpen ? 'menu-open' : ''}`}
-                  onMouseEnter={() => setDecisionMenuOpen(true)}
-                  onMouseLeave={() => setDecisionMenuOpen(false)}
-                >
-                  <button
-                    type="button"
-                    className={`schedule-btn merged ${statusClassName}`}
-                    onClick={() => setDecisionMenuOpen((prev) => !prev)}
-                    disabled={isBusy}
-                  >
-                    {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                    {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                    {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                    {statusMeta.label}
-                    <span className={`schedule-decision-arrow ${decisionMenuOpen ? 'open' : ''}`} aria-hidden="true" />
-                  </button>
-                  {decisionMenuOpen && (
-                    <div className="schedule-decision-popover" role="menu">
-                      <div className="schedule-decision-popover-title">修改日程状态为</div>
-                      <div className={`schedule-decision-popover-actions ${decisionPopoverActions.length === 1 ? 'single-action' : ''}`}>
-                        {decisionPopoverActions.map((action) => (
-                          <button
-                            key={action.key}
-                            type="button"
-                            className={`schedule-btn small inline-action ${
-                              action.tone === 'accept'
-                                ? 'accept-btn'
-                                : action.tone === 'reject'
-                                  ? 'reject-btn'
-                                  : 'reschedule-btn'
-                            }`}
-                            onClick={() => {
-                              if (action.value === 'rescheduling') onReschedule?.(scheduleCard.id);
-                              else onDecision?.(scheduleCard.id, action.value);
-                            }}
-                            disabled={isBusy}
-                          >
-                            {action.tone === 'accept' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                            {action.tone === 'reject' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                            {action.tone === 'reschedule' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                            {action.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                renderDecisionControl()
               ) : (
                 <button
                   type="button"
@@ -373,20 +397,24 @@ function AppointmentCard({
             </div>
           ) : (
             <div className="schedule-actions">
-              <button
-                type="button"
-                className={(statusKey === 'pending' || statusKey === 'expired')
-                  ? `schedule-btn status-btn ${statusClassName}`
-                  : `schedule-btn merged ${statusClassName}`}
-                disabled
-                aria-label={`日程状态：${statusMeta.label}`}
-              >
-                {isSendingCard && <span className="schedule-btn-spinner" aria-hidden="true" />}
-                {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
-                {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
-                {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
-                {statusMeta.label}
-              </button>
+              {canRescheduleAcceptedOutgoing ? (
+                renderDecisionControl()
+              ) : (
+                <button
+                  type="button"
+                  className={(statusKey === 'pending' || statusKey === 'expired')
+                    ? `schedule-btn status-btn ${statusClassName}`
+                    : `schedule-btn merged ${statusClassName}`}
+                  disabled
+                  aria-label={`日程状态：${statusMeta.label}`}
+                >
+                  {isSendingCard && <span className="schedule-btn-spinner" aria-hidden="true" />}
+                  {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
+                  {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
+                  {statusKey === 'rescheduling' && <span className="schedule-btn-icon reschedule" aria-hidden="true" />}
+                  {statusMeta.label}
+                </button>
+              )}
             </div>
           )}
         </div>
