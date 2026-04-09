@@ -189,7 +189,8 @@ function MentorListingCard({
   const timezoneLabel = data?.timezone ? formatTimezoneWithCity(data.timezone) : '';
   const avatarUrl = typeof data?.avatarUrl === 'string' && data.avatarUrl.trim() ? data.avatarUrl.trim() : '';
   const rawId = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
-  const avatarSeed = rawId || name || school || timezoneLabel || 'mentor';
+  const stableStudentId = typeof data?.studentPublicId === 'string' ? data.studentPublicId.trim() : '';
+  const avatarSeed = stableStudentId || name || rawId || school || timezoneLabel || 'mentor';
   const avatarSrc = resolveAvatarSrc({
     src: avatarUrl,
     name,

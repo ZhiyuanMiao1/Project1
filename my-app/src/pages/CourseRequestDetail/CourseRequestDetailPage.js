@@ -385,6 +385,7 @@ const normalizeRequestToCardData = (request) => {
   return {
     id: request.id,
     name: String(student.publicId || request.name || '').toUpperCase(),
+    studentPublicId: String(student.publicId || '').toUpperCase(),
     degree: student.degree || request.degree || '',
     school: student.school || request.school || '',
     timezone: timeZone || request.timezone || '',
