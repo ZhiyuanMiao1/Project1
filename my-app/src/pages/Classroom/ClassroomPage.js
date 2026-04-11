@@ -20,6 +20,7 @@ import Button from '../../components/common/Button/Button';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
+import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
@@ -41,6 +42,7 @@ import {
   normalizeScheduleStatus,
   parseScheduleWindowRange,
 } from '../Messages/appointmentCardUtils';
+import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
 import {
   getRemoteUnavailableStatusText,
   isRetryableRemotePlayError,
@@ -610,21 +612,6 @@ const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'G
   const endLabel = minutesToTimeLabel(endMinutes);
   if (!startLabel || !endLabel) return '';
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
-};
-
-const normalizeQuarterHourValue = (rawValue) => {
-  const n = typeof rawValue === 'number' ? rawValue : Number.parseFloat(String(rawValue ?? '').trim());
-  if (!Number.isFinite(n)) return null;
-  const rounded = Math.round(n * 4) / 4;
-  if (Math.abs(rounded - n) > 1e-6) return null;
-  if (rounded < 0.25 || rounded > 12) return null;
-  return Number(rounded.toFixed(2));
-};
-
-const formatQuarterHourValue = (rawValue, fallback = '1') => {
-  const normalized = normalizeQuarterHourValue(rawValue);
-  if (normalized == null) return fallback;
-  return Number.isInteger(normalized) ? String(normalized) : normalized.toFixed(2).replace(/\.?0+$/, '');
 };
 
 function ClassroomPage() {
@@ -3723,81 +3710,16 @@ function ClassroomPage() {
           </div>
         </section>
 
-        {endSessionOpen ? (
-          <div
-            className="classroom-end-session-overlay"
-            role="presentation"
-            onClick={handleCloseEndSessionDialog}
-          >
-            <div
-              className="classroom-end-session-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-label="提交课时"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="classroom-end-session-head">
-                <div>
-                  <h2 className="classroom-end-session-title">提交本节课实际课时</h2>
-                </div>
-                <button
-                  type="button"
-                  className="classroom-end-session-close"
-                  aria-label="关闭"
-                  onClick={handleCloseEndSessionDialog}
-                  disabled={endSessionSubmitting}
-                >
-                  <FiX size={18} />
-                </button>
-              </div>
-
-              <div className="classroom-end-session-body">
-                <div className="classroom-end-session-row">
-                  <label className="classroom-end-session-label" htmlFor="classroom-end-session-hours">
-                    课时
-                  </label>
-                  <div className="classroom-end-session-field">
-                    <input
-                      id="classroom-end-session-hours"
-                      className="classroom-end-session-input"
-                      type="number"
-                      min="0.25"
-                      max="12"
-                      step="0.25"
-                      inputMode="decimal"
-                      value={endSessionHours}
-                      onChange={(event) => setEndSessionHours(event.target.value)}
-                      disabled={endSessionSubmitting}
-                    />
-                    <span className="classroom-end-session-unit">小时</span>
-                  </div>
-                </div>
-                {endSessionError ? (
-                  <div className="classroom-end-session-error" role="alert">
-                    {endSessionError}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="classroom-end-session-actions">
-                <Button
-                  className="classroom-popup-btn ghost"
-                  onClick={handleCloseEndSessionDialog}
-                  disabled={endSessionSubmitting}
-                >
-                  取消
-                </Button>
-                <Button
-                  className="classroom-popup-btn reject"
-                  onClick={handleConfirmEndSession}
-                  disabled={endSessionSubmitting}
-                >
-                  {endSessionSubmitting ? '提交中...' : '提交'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <LessonHoursDialog
+          open={endSessionOpen}
+          title="提交本节课实际课时"
+          value={endSessionHours}
+          onValueChange={setEndSessionHours}
+          error={endSessionError}
+          submitting={endSessionSubmitting}
+          onClose={handleCloseEndSessionDialog}
+          onSubmit={handleConfirmEndSession}
+        />
 
         {incomingAppointmentCard ? (
           <aside

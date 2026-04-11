@@ -5,6 +5,7 @@ import Button from '../../components/common/Button/Button';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
+import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import useCourseAlertSummary, { markCoursesAsSeen } from '../../hooks/useCourseAlertSummary';
@@ -16,6 +17,7 @@ import {
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
 import './CoursesPage.css';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -134,6 +136,12 @@ const normalizeMentorCourse = (row) => {
     studentAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
     counterpartName: safeText(row?.counterpartName || row?.studentName || row?.counterpartPublicId) || '学生',
     counterpartAvatar: safeText(row?.counterpartAvatarUrl || row?.studentAvatar),
+    replayUrl: safeText(row?.replayUrl || row?.replay_url),
+    latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
+    latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
+    latestLessonHoursProposedHours: toDurationHours(
+      row?.latestLessonHoursProposedHours ?? row?.latest_lesson_hours_proposed_hours
+    ),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -168,6 +176,12 @@ const normalizeStudentCourse = (row) => {
     studentAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
     counterpartName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
     counterpartAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
+    replayUrl: safeText(row?.replayUrl || row?.replay_url),
+    latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
+    latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
+    latestLessonHoursProposedHours: toDurationHours(
+      row?.latestLessonHoursProposedHours ?? row?.latest_lesson_hours_proposed_hours
+    ),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -235,6 +249,11 @@ function MentorCoursesPage() {
   const [coursesNotice, setCoursesNotice] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
+  const [timeZoneLoading, setTimeZoneLoading] = useState(() => !!getAuthToken());
+  const [lessonHoursCourse, setLessonHoursCourse] = useState(null);
+  const [lessonHoursValue, setLessonHoursValue] = useState('1');
+  const [lessonHoursSubmitting, setLessonHoursSubmitting] = useState(false);
+  const [lessonHoursError, setLessonHoursError] = useState('');
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
   const { newCourseCount: studentNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
   const { newCourseCount: mentorNewCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
@@ -315,12 +334,15 @@ function MentorCoursesPage() {
   useEffect(() => {
     let alive = true;
 
-    if (!getAuthToken()) {
+    if (!isLoggedIn) {
       setUserTimeZone(getDefaultTimeZone());
+      setTimeZoneLoading(false);
       return () => {
         alive = false;
       };
     }
+
+    setTimeZoneLoading(true);
 
     api.get('/api/account/availability')
       .then((res) => {
@@ -331,6 +353,10 @@ function MentorCoursesPage() {
       .catch(() => {
         if (!alive) return;
         setUserTimeZone(getDefaultTimeZone());
+      })
+      .finally(() => {
+        if (!alive) return;
+        setTimeZoneLoading(false);
       });
 
     return () => {
@@ -449,10 +475,89 @@ function MentorCoursesPage() {
       handleCourseOpen(course);
     }
   };
+
+  const applyLessonHoursResultToCourse = (course, payload = {}) => {
+    if (!course) return course;
+    const nextMessageId = safeText(payload?.messageId) || safeText(course?.latestLessonHoursMessageId);
+    const nextStatus = safeText(payload?.status) || safeText(course?.latestLessonHoursStatus);
+    const nextProposedHours = toDurationHours(payload?.proposedHours);
+
+    return {
+      ...course,
+      latestLessonHoursMessageId: nextMessageId,
+      latestLessonHoursStatus: nextStatus.toLowerCase(),
+      latestLessonHoursProposedHours: nextProposedHours ?? course?.latestLessonHoursProposedHours ?? null,
+    };
+  };
+
+  const syncLessonHoursCourseState = (courseId, payload = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return;
+
+    setCourses((prev) => prev.map((course) => (
+      safeText(course?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(course, payload) : course
+    )));
+    setActiveCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(prev, payload) : prev
+    ));
+  };
+
   const handleOpenClassroom = (course) => {
     const courseId = safeText(course?.id);
     if (!courseId || !isScheduledCourse(course) || isCompletedCourse(course)) return;
     window.open(`/classroom/${encodeURIComponent(courseId)}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenReplay = (course) => {
+    const replayUrl = safeText(course?.replayUrl);
+    if (!replayUrl) {
+      window.alert('回访功能即将上线');
+      return;
+    }
+    window.open(replayUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenLessonHoursDialog = (course) => {
+    if (!course) return;
+    const latestStatus = safeText(course?.latestLessonHoursStatus).toLowerCase();
+    if (latestStatus === 'confirmed') return;
+    const defaultHours = course?.latestLessonHoursProposedHours ?? course?.durationHours ?? 1;
+    setLessonHoursValue(formatQuarterHourValue(defaultHours, '1'));
+    setLessonHoursError('');
+    setLessonHoursCourse(course);
+  };
+
+  const handleCloseLessonHoursDialog = () => {
+    if (lessonHoursSubmitting) return;
+    setLessonHoursCourse(null);
+    setLessonHoursError('');
+  };
+
+  const handleSubmitLessonHours = async () => {
+    const courseId = safeText(lessonHoursCourse?.id);
+    const proposedHours = normalizeQuarterHourValue(lessonHoursValue);
+    if (!courseId || proposedHours == null) {
+      setLessonHoursError('请输入 0.25 小时颗粒度的有效课时');
+      return;
+    }
+
+    setLessonHoursSubmitting(true);
+    setLessonHoursError('');
+
+    try {
+      const response = await api.post(`/api/classrooms/${encodeURIComponent(courseId)}/end-session`, {
+        proposedHours,
+      });
+      const payload = response?.data || {};
+      syncLessonHoursCourseState(courseId, payload);
+      setLessonHoursCourse(null);
+      setReloadSeed((prev) => prev + 1);
+    } catch (error) {
+      const message = error?.response?.data?.error || error?.message || '提交课时失败，请稍后再试';
+      setLessonHoursError(String(message));
+    } finally {
+      setLessonHoursSubmitting(false);
+    }
   };
 
   const toggleMentorAuthModal = () => {
@@ -460,7 +565,7 @@ function MentorCoursesPage() {
   };
 
   const renderTimeline = () => {
-    if (coursesLoading) {
+    if (coursesLoading || timeZoneLoading) {
       return (
         <div className="courses-guard">
           <p className="courses-guard-hint">加载中...</p>
@@ -677,7 +782,9 @@ function MentorCoursesPage() {
         const typeLabel = safeText(activeCourse.type) || '其它课程类型';
         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
+        const isCompleted = isCompletedCourse(activeCourse);
         const canEnterClassroom = isScheduledCourse(activeCourse) && !isCompletedCourse(activeCourse);
+        const lessonHoursLocked = safeText(activeCourse?.latestLessonHoursStatus).toLowerCase() === 'confirmed';
 
         return (
           <CourseDetailModal
@@ -690,7 +797,24 @@ function MentorCoursesPage() {
             dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
-            actions={(
+            actions={isCompleted ? (
+              <div className="course-detail-action-row">
+                <Button
+                  className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
+                  onClick={() => handleOpenReplay(activeCourse)}
+                >
+                  查看回访
+                </Button>
+                <Button
+                  className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                  onClick={() => handleOpenLessonHoursDialog(activeCourse)}
+                  disabled={lessonHoursSubmitting || lessonHoursLocked}
+                  title={lessonHoursLocked ? '学生已确认课时，当前不可修改' : ''}
+                >
+                  填写课时
+                </Button>
+              </div>
+            ) : (
               <Button
                 className="course-detail-classroom-btn"
                 onClick={() => handleOpenClassroom(activeCourse)}
@@ -702,6 +826,17 @@ function MentorCoursesPage() {
           />
         );
       })()}
+
+      <LessonHoursDialog
+        open={Boolean(lessonHoursCourse)}
+        title="提交本节课实际课时"
+        value={lessonHoursValue}
+        onValueChange={setLessonHoursValue}
+        error={lessonHoursError}
+        submitting={lessonHoursSubmitting}
+        onClose={handleCloseLessonHoursDialog}
+        onSubmit={handleSubmitLessonHours}
+      />
     </div>
   );
 }

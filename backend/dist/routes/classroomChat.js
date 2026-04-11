@@ -23,6 +23,7 @@ const isMissingClassroomChatSchemaError = (err) => {
         || message.includes('classroom_temp_files')
         || message.includes('lesson_hour_confirmations')
         || message.includes('message_items')
+        || message.includes('message_item_hidden_for_users')
         || message.includes('message_threads'));
 };
 const normalizeIso = (value) => {
@@ -277,6 +278,56 @@ const normalizeQuarterHourValue = (raw) => {
         return null;
     return Number(rounded.toFixed(2));
 };
+const createLessonHoursConfirmation = async (conn, { threadId, senderUserId, courseId, studentUserId, mentorUserId, proposedHours, startsAt, courseDirectionId, courseTypeId, }) => {
+    const payload = {
+        kind: 'lesson_hours_confirmation',
+        courseSessionId: String(courseId),
+        proposedHours,
+        startsAt,
+        courseDirectionId,
+        courseTypeId,
+    };
+    const [messageInsert] = await conn.execute(`
+    INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+    VALUES (?, ?, 'lesson_hours_confirmation', ?)
+    `, [threadId, senderUserId, JSON.stringify(payload)]);
+    const messageItemId = Number(messageInsert?.insertId || 0);
+    if (!Number.isFinite(messageItemId) || messageItemId <= 0) {
+        throw new Error('Failed to create lesson hour confirmation message');
+    }
+    await conn.execute(`
+    INSERT INTO lesson_hour_confirmations (
+      message_item_id,
+      thread_id,
+      course_session_id,
+      student_user_id,
+      mentor_user_id,
+      proposed_hours,
+      final_hours,
+      status
+    )
+    VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+    `, [
+        messageItemId,
+        threadId,
+        courseId,
+        studentUserId,
+        mentorUserId,
+        proposedHours,
+    ]);
+    return messageItemId;
+};
+const hideMessageForUsers = async (conn, messageItemId, userIds) => {
+    for (const userId of userIds) {
+        if (!Number.isFinite(userId) || userId <= 0)
+            continue;
+        await conn.execute(`
+      INSERT INTO message_item_hidden_for_users (message_item_id, user_id)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE hidden_at = CURRENT_TIMESTAMP
+      `, [messageItemId, userId]);
+    }
+};
 router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -300,15 +351,12 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
             await conn.rollback();
             return res.status(409).json({ error: '当前课堂缺少消息会话，无法发送课时确认卡片' });
         }
-        if ((0, classroomAccess_1.isClassroomClosed)(context)) {
-            await conn.rollback();
-            return res.status(409).json({ error: '课堂已结束，请勿重复提交' });
-        }
         const [sessionRows] = await conn.execute(`
       SELECT id, status, course_direction, course_type, starts_at
       FROM course_sessions
       WHERE id = ? AND mentor_user_id = ?
       LIMIT 1
+      FOR UPDATE
       `, [courseId, req.user.id]);
         const sessionRow = sessionRows?.[0];
         if (!sessionRow) {
@@ -316,61 +364,42 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
             return res.status(404).json({ error: '课程不存在或无权限' });
         }
         const rawSessionStatus = (0, classroomAccess_1.safeText)(sessionRow?.status).toLowerCase();
-        if (rawSessionStatus && rawSessionStatus !== 'scheduled') {
+        if (rawSessionStatus && rawSessionStatus !== 'scheduled' && rawSessionStatus !== 'completed') {
             await conn.rollback();
             return res.status(409).json({ error: '课堂已结束，请勿重复提交' });
         }
-        const [pendingRows] = await conn.execute(`
-      SELECT lhc.id
+        const [latestRows] = await conn.execute(`
+      SELECT lhc.id, lhc.message_item_id, lhc.status
       FROM lesson_hour_confirmations lhc
-      INNER JOIN message_items mi
-        ON mi.id = lhc.message_item_id
-       AND mi.message_type = 'lesson_hours_confirmation'
       WHERE lhc.course_session_id = ?
-        AND lhc.status = 'pending'
       ORDER BY lhc.id DESC
       LIMIT 1
+      FOR UPDATE
       `, [courseId]);
-        if (pendingRows?.[0]) {
+        const latestConfirmation = latestRows?.[0] || null;
+        const latestConfirmationStatus = (0, classroomAccess_1.safeText)(latestConfirmation?.status).toLowerCase();
+        if (latestConfirmationStatus === 'confirmed') {
             await conn.rollback();
-            return res.status(409).json({ error: '已有待学生确认的课时卡片，请先等待学生处理' });
+            return res.status(409).json({ error: '课时已确认，请勿重复提交' });
         }
-        const payload = {
-            kind: 'lesson_hours_confirmation',
-            courseSessionId: String(courseId),
+        if (rawSessionStatus === 'completed' && !latestConfirmation) {
+            await conn.rollback();
+            return res.status(409).json({ error: '当前课程没有可修改的课时记录' });
+        }
+        if (latestConfirmation && (latestConfirmationStatus === 'pending' || latestConfirmationStatus === 'disputed')) {
+            await hideMessageForUsers(conn, Number(latestConfirmation.message_item_id), [context.studentUserId, context.mentorUserId]);
+        }
+        const messageItemId = await createLessonHoursConfirmation(conn, {
+            threadId: Number(context.threadId),
+            senderUserId: req.user.id,
+            courseId,
+            studentUserId: context.studentUserId,
+            mentorUserId: context.mentorUserId,
             proposedHours,
             startsAt: context.startsAt,
             courseDirectionId: (0, classroomAccess_1.safeText)(sessionRow?.course_direction),
             courseTypeId: (0, classroomAccess_1.safeText)(sessionRow?.course_type),
-        };
-        const [messageInsert] = await conn.execute(`
-      INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
-      VALUES (?, ?, 'lesson_hours_confirmation', ?)
-      `, [Number(context.threadId), req.user.id, JSON.stringify(payload)]);
-        const messageItemId = Number(messageInsert?.insertId || 0);
-        if (!Number.isFinite(messageItemId) || messageItemId <= 0) {
-            throw new Error('Failed to create lesson hour confirmation message');
-        }
-        await conn.execute(`
-      INSERT INTO lesson_hour_confirmations (
-        message_item_id,
-        thread_id,
-        course_session_id,
-        student_user_id,
-        mentor_user_id,
-        proposed_hours,
-        final_hours,
-        status
-      )
-      VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
-      `, [
-            messageItemId,
-            Number(context.threadId),
-            courseId,
-            context.studentUserId,
-            context.mentorUserId,
-            proposedHours,
-        ]);
+        });
         await conn.execute(`
       UPDATE course_sessions
       SET status = 'completed'
@@ -386,6 +415,7 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
             ok: true,
             messageId: String(messageItemId),
             proposedHours,
+            status: 'pending',
             courseSessionId: String(courseId),
             chatClosed: true,
         });

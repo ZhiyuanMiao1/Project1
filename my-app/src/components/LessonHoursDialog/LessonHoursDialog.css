@@ -1,0 +1,165 @@
+.lesson-hours-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lesson-hours-dialog {
+  width: min(360px, calc(100vw - 32px));
+  border-radius: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.24);
+  padding: 22px;
+}
+
+.lesson-hours-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lesson-hours-dialog-title {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.lesson-hours-dialog-close {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.lesson-hours-dialog-close:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.lesson-hours-dialog-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.lesson-hours-dialog-close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lesson-hours-dialog-body {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lesson-hours-dialog-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.lesson-hours-dialog-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  flex: 0 0 auto;
+}
+
+.lesson-hours-dialog-field {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lesson-hours-dialog-input {
+  flex: 1 1 auto;
+  height: 48px;
+  border: 1px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.lesson-hours-dialog-input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.lesson-hours-dialog-unit {
+  flex: 0 0 auto;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: right;
+}
+
+.lesson-hours-dialog-error {
+  border-radius: 14px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.lesson-hours-dialog-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.lesson-hours-dialog-btn {
+  border: none;
+  border-radius: 12px;
+  min-height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.lesson-hours-dialog-btn--ghost {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.lesson-hours-dialog-btn--ghost:hover {
+  background: #cbd5e1;
+}
+
+.lesson-hours-dialog-btn--submit {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.lesson-hours-dialog-btn--submit:hover {
+  background: #991b1b;
+}
+
+.lesson-hours-dialog-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

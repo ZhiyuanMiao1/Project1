@@ -19,7 +19,7 @@ const isMissingCoursesSchemaError = (err) => {
     if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR')
         return true;
     const message = typeof err?.message === 'string' ? err.message : '';
-    return message.includes('course_sessions');
+    return message.includes('course_sessions') || message.includes('lesson_hour_confirmations');
 };
 const normalizeView = (raw) => {
     const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
@@ -280,7 +280,11 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           csr.expertise_score AS review_expertise_score,
           csr.punctuality_score AS review_punctuality_score,
           csr.comment_text AS review_comment,
-          csr.overall_score AS review_overall_score
+          csr.overall_score AS review_overall_score,
+          latest_lhc.message_item_id AS latest_lesson_hours_message_id,
+          latest_lhc.proposed_hours AS latest_lesson_hours_proposed_hours,
+          latest_lhc.final_hours AS latest_lesson_hours_final_hours,
+          latest_lhc.status AS latest_lesson_hours_status
         FROM course_sessions cs
         LEFT JOIN users mu
           ON mu.id = cs.mentor_user_id
@@ -290,6 +294,22 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           ON mp.user_id = cs.mentor_user_id
         LEFT JOIN course_session_reviews csr
           ON csr.course_session_id = cs.id AND csr.student_user_id = ?
+        LEFT JOIN (
+          SELECT
+            latest.course_session_id,
+            latest.message_item_id,
+            latest.proposed_hours,
+            latest.final_hours,
+            latest.status
+          FROM lesson_hour_confirmations latest
+          INNER JOIN (
+            SELECT course_session_id, MAX(id) AS latest_id
+            FROM lesson_hour_confirmations
+            GROUP BY course_session_id
+          ) picked
+            ON picked.latest_id = latest.id
+        ) latest_lhc
+          ON latest_lhc.course_session_id = cs.id
         WHERE cs.student_user_id = ?
           AND cs.status IN ('scheduled', 'completed')
         ORDER BY cs.starts_at DESC, cs.id DESC
@@ -315,7 +335,11 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           NULL AS review_expertise_score,
           NULL AS review_punctuality_score,
           NULL AS review_comment,
-          NULL AS review_overall_score
+          NULL AS review_overall_score,
+          latest_lhc.message_item_id AS latest_lesson_hours_message_id,
+          latest_lhc.proposed_hours AS latest_lesson_hours_proposed_hours,
+          latest_lhc.final_hours AS latest_lesson_hours_final_hours,
+          latest_lhc.status AS latest_lesson_hours_status
         FROM course_sessions cs
         LEFT JOIN users su
           ON su.id = cs.student_user_id
@@ -323,6 +347,22 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           ON sr.user_id = cs.student_user_id AND sr.role = 'student'
         LEFT JOIN account_settings sas
           ON sas.user_id = cs.student_user_id
+        LEFT JOIN (
+          SELECT
+            latest.course_session_id,
+            latest.message_item_id,
+            latest.proposed_hours,
+            latest.final_hours,
+            latest.status
+          FROM lesson_hour_confirmations latest
+          INNER JOIN (
+            SELECT course_session_id, MAX(id) AS latest_id
+            FROM lesson_hour_confirmations
+            GROUP BY course_session_id
+          ) picked
+            ON picked.latest_id = latest.id
+        ) latest_lhc
+          ON latest_lhc.course_session_id = cs.id
         WHERE cs.mentor_user_id = ?
           AND cs.status IN ('scheduled', 'completed')
         ORDER BY cs.starts_at DESC, cs.id DESC
@@ -344,6 +384,14 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',
                 counterpartAvatarUrl: typeof row?.counterpart_avatar_url === 'string' ? row.counterpart_avatar_url.trim() : '',
                 counterpartRating: toNumber(row?.counterpart_rating),
+                latestLessonHoursMessageId: row?.latest_lesson_hours_message_id == null
+                    ? ''
+                    : String(row.latest_lesson_hours_message_id),
+                latestLessonHoursProposedHours: toNumber(row?.latest_lesson_hours_proposed_hours),
+                latestLessonHoursFinalHours: toNumber(row?.latest_lesson_hours_final_hours),
+                latestLessonHoursStatus: typeof row?.latest_lesson_hours_status === 'string'
+                    ? row.latest_lesson_hours_status.trim().toLowerCase()
+                    : '',
                 ...buildReviewPayload(row),
             };
         });

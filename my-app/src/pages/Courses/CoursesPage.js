@@ -7,6 +7,7 @@ import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
+import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import api from '../../api/client';
 import useCourseAlertSummary, { markCoursesAsSeen } from '../../hooks/useCourseAlertSummary';
@@ -19,6 +20,7 @@ import {
 } from '../../constants/courseMappings';
 import { getAuthToken } from '../../utils/authStorage';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
 import './CoursesPage.css';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -174,6 +176,11 @@ const normalizeStudentCourse = (row) => {
     reviewScores: normalizeReviewScores(row?.reviewScores || row?.review_scores),
     reviewOverallScore: toRating(row?.reviewOverallScore ?? row?.review_overall_score),
     reviewComment: normalizeReviewComment(row?.reviewComment ?? row?.review_comment),
+    latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
+    latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
+    latestLessonHoursProposedHours: toDurationHours(
+      row?.latestLessonHoursProposedHours ?? row?.latest_lesson_hours_proposed_hours
+    ),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -219,6 +226,11 @@ const normalizeMentorCourse = (row) => {
     reviewScores: null,
     reviewOverallScore: null,
     reviewComment: '',
+    latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
+    latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
+    latestLessonHoursProposedHours: toDurationHours(
+      row?.latestLessonHoursProposedHours ?? row?.latest_lesson_hours_proposed_hours
+    ),
     status: safeText(row?.status).toLowerCase(),
   };
 };
@@ -313,6 +325,11 @@ function CoursesPage() {
   const [showReviewThanks, setShowReviewThanks] = useState(false);
   const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
+  const [timeZoneLoading, setTimeZoneLoading] = useState(() => !!getAuthToken());
+  const [lessonHoursCourse, setLessonHoursCourse] = useState(null);
+  const [lessonHoursValue, setLessonHoursValue] = useState('1');
+  const [lessonHoursSubmitting, setLessonHoursSubmitting] = useState(false);
+  const [lessonHoursError, setLessonHoursError] = useState('');
   const [walletSummary, setWalletSummary] = useState(() => ({
     remainingHours: 0,
     monthTopUpCny: 0,
@@ -340,12 +357,15 @@ function CoursesPage() {
   useEffect(() => {
     let alive = true;
 
-    if (!getAuthToken()) {
+    if (!isLoggedIn) {
       setUserTimeZone(getDefaultTimeZone());
+      setTimeZoneLoading(false);
       return () => {
         alive = false;
       };
     }
+
+    setTimeZoneLoading(true);
 
     api.get('/api/account/availability')
       .then((res) => {
@@ -356,6 +376,10 @@ function CoursesPage() {
       .catch(() => {
         if (!alive) return;
         setUserTimeZone(getDefaultTimeZone());
+      })
+      .finally(() => {
+        if (!alive) return;
+        setTimeZoneLoading(false);
       });
 
     return () => {
@@ -413,6 +437,10 @@ function CoursesPage() {
       setReviewSubmitting(false);
       setReviewSubmitError('');
       setShowReviewThanks(false);
+      setLessonHoursCourse(null);
+      setLessonHoursValue('1');
+      setLessonHoursSubmitting(false);
+      setLessonHoursError('');
       setErrorMessage('请登录后查看课程');
       return () => {
         alive = false;
@@ -535,6 +563,20 @@ function CoursesPage() {
     };
   };
 
+  const applyLessonHoursResultToCourse = (course, payload = {}) => {
+    if (!course) return course;
+    const nextMessageId = safeText(payload?.messageId) || safeText(course?.latestLessonHoursMessageId);
+    const nextStatus = safeText(payload?.status) || safeText(course?.latestLessonHoursStatus);
+    const nextProposedHours = toDurationHours(payload?.proposedHours);
+
+    return {
+      ...course,
+      latestLessonHoursMessageId: nextMessageId,
+      latestLessonHoursStatus: nextStatus.toLowerCase(),
+      latestLessonHoursProposedHours: nextProposedHours ?? course?.latestLessonHoursProposedHours ?? null,
+    };
+  };
+
   const syncReviewedCourseState = (courseId, payload = {}) => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId) return;
@@ -547,6 +589,21 @@ function CoursesPage() {
     ));
     setReviewCourse((prev) => (
       safeText(prev?.id) === normalizedCourseId ? applyReviewResultToCourse(prev, payload) : prev
+    ));
+  };
+
+  const syncLessonHoursCourseState = (courseId, payload = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return;
+
+    setCourses((prev) => prev.map((course) => (
+      safeText(course?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(course, payload) : course
+    )));
+    setActiveCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(prev, payload) : prev
+    ));
+    setLessonHoursCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(prev, payload) : prev
     ));
   };
 
@@ -594,6 +651,22 @@ function CoursesPage() {
     setReviewSubmitError('');
   };
 
+  const handleOpenLessonHoursDialog = (course) => {
+    if (!course) return;
+    const latestStatus = safeText(course?.latestLessonHoursStatus).toLowerCase();
+    if (latestStatus === 'confirmed') return;
+    const defaultHours = course?.latestLessonHoursProposedHours ?? course?.durationHours ?? 1;
+    setLessonHoursValue(formatQuarterHourValue(defaultHours, '1'));
+    setLessonHoursError('');
+    setLessonHoursCourse(course);
+  };
+
+  const handleCloseLessonHoursDialog = () => {
+    if (lessonHoursSubmitting) return;
+    setLessonHoursCourse(null);
+    setLessonHoursError('');
+  };
+
   const handleReviewThanksClose = () => setShowReviewThanks(false);
 
   const handleOpenReview = (course) => {
@@ -635,8 +708,34 @@ function CoursesPage() {
     }
   };
 
+  const handleSubmitLessonHours = async () => {
+    const courseId = safeText(lessonHoursCourse?.id);
+    const proposedHours = normalizeQuarterHourValue(lessonHoursValue);
+    if (!courseId || proposedHours == null) {
+      setLessonHoursError('请输入 0.25 小时颗粒度的有效课时');
+      return;
+    }
+
+    setLessonHoursSubmitting(true);
+    setLessonHoursError('');
+
+    try {
+      const response = await api.post(`/api/classrooms/${encodeURIComponent(courseId)}/end-session`, {
+        proposedHours,
+      });
+      const payload = response?.data || {};
+      syncLessonHoursCourseState(courseId, payload);
+      setLessonHoursCourse(null);
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '提交课时失败，请稍后再试';
+      setLessonHoursError(String(msg));
+    } finally {
+      setLessonHoursSubmitting(false);
+    }
+  };
+
   const renderTimeline = () => {
-    if (loading) {
+    if (loading || timeZoneLoading) {
       return (
         <div className="courses-guard">
           <p className="courses-guard-hint">加载中...</p>
@@ -797,6 +896,7 @@ function CoursesPage() {
           && !hasSufficientLessonHours;
         const canEnterClassroom = isUpcomingScheduledCourse
           && (!requiresLessonHourCheck || (walletSummaryStatus === 'loaded' && hasSufficientLessonHours));
+        const lessonHoursLocked = safeText(activeCourse?.latestLessonHoursStatus).toLowerCase() === 'confirmed';
         const classroomButtonLabel = (() => {
           if (!isUpcomingScheduledCourse) return '进入课堂';
           if (!requiresLessonHourCheck) return '进入课堂';
@@ -819,22 +919,41 @@ function CoursesPage() {
             dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
-            actions={isCompleted && activeCourse.roleInCourse === 'student' ? (
-              <div className="course-detail-action-row">
-                <Button
-                  className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
-                  onClick={() => handleOpenReplay(activeCourse)}
-                >
-                  查看回放
-                </Button>
-                <Button
-                  className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
-                  onClick={() => handleOpenReview(activeCourse)}
-                  disabled={reviewSubmitting}
-                >
-                  {isReviewed ? '我的评价' : '评价导师'}
-                </Button>
-              </div>
+            actions={isCompleted ? (
+              activeCourse.roleInCourse === 'student' ? (
+                <div className="course-detail-action-row">
+                  <Button
+                    className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
+                    onClick={() => handleOpenReplay(activeCourse)}
+                  >
+                    查看回放
+                  </Button>
+                  <Button
+                    className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                    onClick={() => handleOpenReview(activeCourse)}
+                    disabled={reviewSubmitting}
+                  >
+                    {isReviewed ? '我的评价' : '评价导师'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="course-detail-action-row">
+                  <Button
+                    className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
+                    onClick={() => handleOpenReplay(activeCourse)}
+                  >
+                    查看回访
+                  </Button>
+                  <Button
+                    className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                    onClick={() => handleOpenLessonHoursDialog(activeCourse)}
+                    disabled={lessonHoursSubmitting || lessonHoursLocked}
+                    title={lessonHoursLocked ? '学生已确认课时，当前不可修改' : ''}
+                  >
+                    填写课时
+                  </Button>
+                </div>
+              )
             ) : (
               <Button
                 className="course-detail-classroom-btn"
@@ -857,6 +976,17 @@ function CoursesPage() {
           submitError={reviewSubmitError}
         />
       ) : null}
+
+      <LessonHoursDialog
+        open={Boolean(lessonHoursCourse)}
+        title="提交本节课实际课时"
+        value={lessonHoursValue}
+        onValueChange={setLessonHoursValue}
+        error={lessonHoursError}
+        submitting={lessonHoursSubmitting}
+        onClose={handleCloseLessonHoursDialog}
+        onSubmit={handleSubmitLessonHours}
+      />
 
       <SuccessModal
         open={showReviewThanks}

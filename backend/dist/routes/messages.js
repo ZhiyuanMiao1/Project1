@@ -403,6 +403,56 @@ const normalizeQuarterHourValue = (raw) => {
         return null;
     return Number(rounded.toFixed(2));
 };
+const createLessonHoursConfirmationMessage = async (conn, { threadId, senderUserId, courseSessionId, studentUserId, mentorUserId, proposedHours, startsAt, courseDirectionId, courseTypeId, }) => {
+    const nextPayload = {
+        kind: 'lesson_hours_confirmation',
+        courseSessionId: String(courseSessionId),
+        proposedHours,
+        startsAt,
+        courseDirectionId,
+        courseTypeId,
+    };
+    const [messageInsert] = await conn.execute(`
+    INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+    VALUES (?, ?, 'lesson_hours_confirmation', ?)
+    `, [threadId, senderUserId, JSON.stringify(nextPayload)]);
+    const nextMessageId = Number(messageInsert?.insertId || 0);
+    if (!Number.isFinite(nextMessageId) || nextMessageId <= 0) {
+        throw new Error('Failed to create retried lesson hours confirmation');
+    }
+    await conn.execute(`
+    INSERT INTO lesson_hour_confirmations (
+      message_item_id,
+      thread_id,
+      course_session_id,
+      student_user_id,
+      mentor_user_id,
+      proposed_hours,
+      final_hours,
+      status
+    )
+    VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
+    `, [
+        nextMessageId,
+        threadId,
+        courseSessionId,
+        studentUserId,
+        mentorUserId,
+        proposedHours,
+    ]);
+    return nextMessageId;
+};
+const hideMessageForUsers = async (conn, messageItemId, userIds) => {
+    for (const userId of userIds) {
+        if (!Number.isFinite(userId) || userId <= 0)
+            continue;
+        await conn.execute(`
+      INSERT INTO message_item_hidden_for_users (message_item_id, user_id)
+      VALUES (?, ?)
+      ON DUPLICATE KEY UPDATE hidden_at = CURRENT_TIMESTAMP
+      `, [messageItemId, userId]);
+    }
+};
 const refreshMentorResponseTimeMetricIfNeeded = async (conn, row, actingUserId) => {
     const mentorUserId = Number(row?.mentor_user_id);
     const studentUserId = Number(row?.student_user_id);
@@ -951,6 +1001,18 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
             await conn.rollback();
             return res.status(409).json({ error: '该课时确认已处理，请刷新后重试' });
         }
+        const [latestRows] = await conn.execute(`
+      SELECT message_item_id
+      FROM lesson_hour_confirmations
+      WHERE course_session_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+      `, [Number(row.course_session_id)]);
+        const latestMessageItemId = Number(latestRows?.[0]?.message_item_id || 0);
+        if (latestMessageItemId > 0 && latestMessageItemId !== messageId) {
+            await conn.rollback();
+            return res.status(409).json({ error: '该课时确认已更新，请刷新后重试' });
+        }
         const proposedHours = Number.parseFloat(String(row?.proposed_hours ?? ''));
         if (!Number.isFinite(proposedHours) || proposedHours <= 0) {
             throw new Error('Invalid proposed lesson hours');
@@ -1069,46 +1131,34 @@ router.post('/lesson-hour-confirmations/:messageId/retry', auth_1.requireAuth, a
             await conn.rollback();
             return res.status(409).json({ error: '当前状态不支持重新提交课时' });
         }
+        const [latestRows] = await conn.execute(`
+      SELECT message_item_id
+      FROM lesson_hour_confirmations
+      WHERE course_session_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+      `, [Number(row.course_session_id)]);
+        const latestMessageItemId = Number(latestRows?.[0]?.message_item_id || 0);
+        if (latestMessageItemId > 0 && latestMessageItemId !== messageId) {
+            await conn.rollback();
+            return res.status(409).json({ error: '该课时确认已更新，请刷新后重试' });
+        }
         const payload = parseLessonHoursConfirmationPayload(row?.payload_json);
         const startsAt = row?.starts_at instanceof Date
             ? row.starts_at.toISOString()
             : safeText(row?.starts_at || payload?.startsAt);
-        const nextPayload = {
-            kind: 'lesson_hours_confirmation',
-            courseSessionId: String(row.course_session_id),
+        await hideMessageForUsers(conn, messageId, [Number(row.student_user_id), Number(row.mentor_user_id)]);
+        const nextMessageId = await createLessonHoursConfirmationMessage(conn, {
+            threadId: Number(row.thread_id),
+            senderUserId: req.user.id,
+            courseSessionId: Number(row.course_session_id),
+            studentUserId: Number(row.student_user_id),
+            mentorUserId: Number(row.mentor_user_id),
             proposedHours,
             startsAt,
             courseDirectionId: safeText(row?.course_direction) || safeText(payload?.courseDirectionId),
             courseTypeId: safeText(row?.course_type) || safeText(payload?.courseTypeId),
-        };
-        const [messageInsert] = await conn.execute(`
-      INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
-      VALUES (?, ?, 'lesson_hours_confirmation', ?)
-      `, [Number(row.thread_id), req.user.id, JSON.stringify(nextPayload)]);
-        const nextMessageId = Number(messageInsert?.insertId || 0);
-        if (!Number.isFinite(nextMessageId) || nextMessageId <= 0) {
-            throw new Error('Failed to create retried lesson hours confirmation');
-        }
-        await conn.execute(`
-      INSERT INTO lesson_hour_confirmations (
-        message_item_id,
-        thread_id,
-        course_session_id,
-        student_user_id,
-        mentor_user_id,
-        proposed_hours,
-        final_hours,
-        status
-      )
-      VALUES (?, ?, ?, ?, ?, ?, NULL, 'pending')
-      `, [
-            nextMessageId,
-            Number(row.thread_id),
-            Number(row.course_session_id),
-            Number(row.student_user_id),
-            Number(row.mentor_user_id),
-            proposedHours,
-        ]);
+        });
         await conn.execute(`
       UPDATE message_threads
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
