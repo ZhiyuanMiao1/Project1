@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
+import { FiX } from 'react-icons/fi';
 import api from '../../api/client';
+import Button from '../common/Button/Button';
 import './MentorActivationPopup.css';
 
 const RESUME_ACCEPT = '.pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip';
@@ -183,7 +185,7 @@ function MentorActivationPopup({ onClose, onSuccess }) {
           onClick={onClose}
           aria-label="关闭"
         >
-          &times;
+          <FiX aria-hidden="true" />
         </button>
 
         <h2 className="mentor-activation-title">欢迎注册Mentory导师</h2>
@@ -251,14 +253,14 @@ function MentorActivationPopup({ onClose, onSuccess }) {
           {errorMessage || '\u00A0'}
         </div>
 
-        <button
-          type="button"
+        <Button
           className="mentor-activation-submit"
           disabled={uploading || !!deletingKey || submitting}
           onClick={handleSubmit}
+          fullWidth
         >
           {submitting ? '提交中...' : '继续'}
-        </button>
+        </Button>
       </div>
     </div>
   );

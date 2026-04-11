@@ -22,19 +22,25 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border: none;
-  border-radius: 999px;
-  background: transparent;
+  border-radius: 12px;
+  background: #ffffff;
   color: #0f172a;
-  font-size: 28px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
 .mentor-activation-close:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.mentor-activation-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .mentor-activation-title {
@@ -60,7 +66,7 @@
 .mentor-activation-upload,
 .mentor-activation-submit {
   width: 100%;
-  border-radius: 14px;
+  border-radius: 12px;
   font-size: 16px;
   font-weight: 600;
   transition: transform 0.14s ease, opacity 0.14s ease, background-color 0.14s ease;

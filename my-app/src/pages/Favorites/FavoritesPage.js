@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FaHeart } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -640,15 +641,13 @@ function FavoritesPage() {
             </div>
 
             <div className="favorites-modal-footer">
-              <button type="button" className="favorites-btn ghost" onClick={closeDeleteModal}>取消</button>
-              <button
-                type="button"
-                className="favorites-btn danger"
+              <Button className="favorites-btn ghost" onClick={closeDeleteModal}>取消</Button>
+              <Button className="favorites-btn danger"
                 onClick={handleDeleteConfirm}
                 disabled={deletingId === pendingDelete?.id}
               >
                 {deletingId === pendingDelete?.id ? '删除中...' : '删除'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -689,15 +688,13 @@ function FavoritesPage() {
             </div>
 
             <div className="favorites-modal-footer">
-              <button type="button" className="favorites-btn ghost" onClick={closeCreateModal}>取消</button>
-              <button
-                type="button"
-                className="favorites-btn danger"
+              <Button className="favorites-btn ghost" onClick={closeCreateModal}>取消</Button>
+              <Button className="favorites-btn danger"
                 onClick={handleCreateConfirm}
                 disabled={creating}
               >
                 {creating ? '创建中...' : '创建'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

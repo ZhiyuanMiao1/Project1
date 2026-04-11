@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
@@ -820,31 +821,28 @@ function CoursesPage() {
             onClose={handleCourseClose}
             actions={isCompleted && activeCourse.roleInCourse === 'student' ? (
               <div className="course-detail-action-row">
-                <button
-                  type="button"
+                <Button
                   className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
                   onClick={() => handleOpenReplay(activeCourse)}
                 >
                   查看回放
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
                   onClick={() => handleOpenReview(activeCourse)}
                   disabled={reviewSubmitting}
                 >
                   {isReviewed ? '我的评价' : '评价导师'}
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
-                type="button"
+              <Button
                 className="course-detail-classroom-btn"
                 onClick={() => (shouldRedirectToWallet ? handleOpenWallet(activeCourse) : handleOpenClassroom(activeCourse))}
                 disabled={classroomButtonDisabled}
               >
                 {classroomButtonLabel}
-              </button>
+              </Button>
             )}
           />
         );

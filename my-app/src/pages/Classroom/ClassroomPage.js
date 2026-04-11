@@ -16,6 +16,7 @@ import {
 } from 'react-icons/fi';
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -3779,22 +3780,20 @@ function ClassroomPage() {
               </div>
 
               <div className="classroom-end-session-actions">
-                <button
-                  type="button"
+                <Button
                   className="classroom-popup-btn ghost"
                   onClick={handleCloseEndSessionDialog}
                   disabled={endSessionSubmitting}
                 >
                   取消
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   className="classroom-popup-btn reject"
                   onClick={handleConfirmEndSession}
                   disabled={endSessionSubmitting}
                 >
                   {endSessionSubmitting ? '提交中...' : '提交'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -3826,24 +3825,21 @@ function ClassroomPage() {
               {incomingAppointmentWindowText || incomingAppointmentCard.window}
             </div>
             <div className="classroom-appointment-popup-actions">
-              <button
-                type="button"
+              <Button
                 className="classroom-popup-btn accept"
                 onClick={() => handleIncomingAppointmentDecision('accepted')}
                 disabled={incomingDecisionBusy}
               >
                 接受
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 className="classroom-popup-btn reject"
                 onClick={() => handleIncomingAppointmentDecision('rejected')}
                 disabled={incomingDecisionBusy}
               >
                 拒绝
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 className="classroom-popup-btn ghost"
                 onClick={() => {
                   closeIncomingAppointmentPopup(incomingAppointmentCard?.id);
@@ -3852,7 +3848,7 @@ function ClassroomPage() {
                 disabled={incomingDecisionBusy}
               >
                 去消息查看
-              </button>
+              </Button>
             </div>
           </aside>
         ) : null}

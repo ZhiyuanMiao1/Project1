@@ -673,10 +673,27 @@
   box-shadow: none;
 }
 
+.reschedule-header-btn.icon.close {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
 .reschedule-header-btn.icon:hover {
   background: #f1f5f9;
   box-shadow: none;
   transform: none;
+}
+
+.reschedule-header-btn.icon.close:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.reschedule-header-btn.icon.close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .reschedule-header-btn.icon:active {

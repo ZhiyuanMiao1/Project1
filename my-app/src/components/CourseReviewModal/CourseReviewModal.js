@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiAward, FiBookOpen, FiClipboard, FiClock, FiMessageCircle, FiX } from 'react-icons/fi';
+import Button from '../common/Button/Button';
 import './CourseReviewModal.css';
 
 const REVIEW_CATEGORY_SPECS = [
@@ -185,22 +186,20 @@ function CourseReviewModal({
         {submitError ? <div className="course-review-modal__feedback">{submitError}</div> : null}
 
         <div className="course-review-modal__actions">
-          <button
-            type="button"
+          <Button
             className="course-review-modal__action course-review-modal__action--ghost"
             onClick={onClose}
             disabled={isSubmitting}
           >
             取消
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             className="course-review-modal__action"
             disabled={!isReviewComplete || isSubmitting}
             onClick={handleSubmit}
           >
             {isSubmitting ? '提交中...' : hasExistingReview ? '更新评价' : '提交评价'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

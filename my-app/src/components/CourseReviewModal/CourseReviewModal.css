@@ -28,22 +28,25 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1px solid #e2e8f0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
   background: #ffffff;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .course-review-modal__close:hover {
-  transform: translateY(-1px) scale(1.02);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.course-review-modal__close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .course-review-modal__head {
@@ -206,7 +209,7 @@
   min-width: 120px;
   height: 42px;
   border: none;
-  border-radius: 999px;
+  border-radius: 12px;
   background: #0f172a;
   color: #ffffff;
   font-size: 14px;

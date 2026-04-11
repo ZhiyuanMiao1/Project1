@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft } from 'react-icons/fi';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -521,22 +522,20 @@ function FavoriteCollectionPage() {
               已选 {selectedCount} 项
             </div>
             <div className="favorite-bulk-actions">
-              <button
-                type="button"
+              <Button
                 className="favorite-bulk-btn ghost"
                 onClick={bulkUnfavorite}
                 disabled={selectedCount === 0 || bulkWorking}
               >
                 {bulkWorking ? '处理中...' : '取消收藏'}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 className="favorite-bulk-btn primary"
                 onClick={openMoveModal}
                 disabled={selectedCount === 0 || bulkWorking}
               >
                 移动到...
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -656,8 +655,7 @@ function FavoriteCollectionPage() {
             </div>
 
             <div className="favorite-modal-footer">
-              <button
-                type="button"
+              <Button
                 className="favorite-bulk-btn ghost"
                 onClick={() => {
                   if (bulkWorking) return;
@@ -669,15 +667,14 @@ function FavoriteCollectionPage() {
                 disabled={bulkWorking}
               >
                 取消
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 className="favorite-bulk-btn primary"
                 onClick={confirmMove}
                 disabled={bulkWorking || collectionsLoading || !collectionsLoaded || !hasMoveTargets}
               >
                 {bulkWorking ? '移动中...' : '移动'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

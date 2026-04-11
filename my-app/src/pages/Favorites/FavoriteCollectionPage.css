@@ -169,22 +169,25 @@
   position: absolute;
   right: 12px;
   top: 12px;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   border: 0;
-  background: transparent;
-  color: #475569;
+  background: #ffffff;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .favorite-modal-close:hover {
-  background: #f1f5f9;
-  color: #111827;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.favorite-modal-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .favorite-modal-body h3 {

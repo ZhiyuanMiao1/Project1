@@ -1,0 +1,45 @@
+.app-button {
+  --app-button-radius: 12px;
+  border-radius: var(--app-button-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1;
+  text-align: center;
+  appearance: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.app-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.app-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.app-button:disabled {
+  cursor: not-allowed;
+  transform: none;
+}
+
+.app-button--full-width {
+  width: 100%;
+}
+
+.app-button.confirm-modal-btn,
+.app-button.course-onboarding-confirm,
+.app-button.course-review-modal__action,
+.app-button.favorites-btn,
+.favorite-modal-footer .app-button.favorite-bulk-btn,
+.app-button.mx-lang-modal__btn,
+.app-button.login-continue-button,
+.app-button.register-continue-button,
+.app-button.mentor-activation-submit,
+.app-button.classroom-popup-btn,
+.app-button.course-detail-classroom-btn {
+  border-radius: 12px;
+}

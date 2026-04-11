@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
@@ -690,14 +691,13 @@ function MentorCoursesPage() {
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
             actions={(
-              <button
-                type="button"
+              <Button
                 className="course-detail-classroom-btn"
                 onClick={() => handleOpenClassroom(activeCourse)}
                 disabled={!canEnterClassroom}
               >
                 进入课堂
-              </button>
+              </Button>
             )}
           />
         );

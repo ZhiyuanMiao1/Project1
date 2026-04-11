@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { FiX } from 'react-icons/fi';
 import './LoginPopup.css';
 import api from '../../api/client';
+import Button from '../common/Button/Button';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 
 const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '', onGoRegister }) => {
@@ -105,8 +107,8 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       onClick={handleBackdropClick}
     >
       <div className="login-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="login-modal-close" onClick={onClose}>
-          &times;
+        <button className="login-modal-close" onClick={onClose} aria-label="关闭">
+          <FiX aria-hidden="true" />
         </button>
         <h2>登录</h2>
         <div className="login-modal-divider"></div>
@@ -202,7 +204,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
           {fieldError ? <span className="validation-error">{fieldError}</span> : null}
         </div>
         <div className="login-continue-area">
-          <button className="login-continue-button" onClick={handleContinue} disabled={submitting}>继续</button>
+          <Button className="login-continue-button" onClick={handleContinue} disabled={submitting} fullWidth>继续</Button>
         </div>
         {/* 添加中间带文字的分割线 */}
         <div className="login-modal-divider-with-text">

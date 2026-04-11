@@ -1,6 +1,8 @@
 import React from 'react';
+import { FiX } from 'react-icons/fi';
 import '../RegisterPopup/RegisterPopup.css';
 import './StudentWelcomePopup.css';
+import Button from '../common/Button/Button';
 
 const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
   const handleConfirm = () => {
@@ -24,7 +26,9 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
-        <button className="register-modal-close" onClick={handleClose}>&times;</button>
+        <button className="register-modal-close" onClick={handleClose} aria-label="关闭">
+          <FiX aria-hidden="true" />
+        </button>
         <h2>注册</h2>
         <div className="register-modal-divider" />
         <h3>欢迎来到Mentory！</h3>
@@ -34,9 +38,9 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
         </div>
 
         <div className="register-continue-area">
-          <button type="button" className="register-continue-button" onClick={handleConfirm}>
+          <Button className="register-continue-button" onClick={handleConfirm} fullWidth>
             我知道了
-          </button>
+          </Button>
         </div>
       </div>
     </div>

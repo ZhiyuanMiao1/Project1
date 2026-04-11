@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from 'react';
+import Button from '../common/Button/Button';
 import './ConfirmModal.css';
 
 function ConfirmModal({
@@ -55,17 +56,16 @@ function ConfirmModal({
         ) : null}
 
         <div className="confirm-modal-actions">
-          <button type="button" className="confirm-modal-btn confirm-modal-btn--cancel" onClick={() => onCancel?.()}>
+          <Button className="confirm-modal-btn confirm-modal-btn--cancel" onClick={() => onCancel?.()}>
             {cancelText}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
             className="confirm-modal-btn confirm-modal-btn--confirm"
             ref={confirmButtonRef}
             onClick={() => onConfirm?.()}
           >
             {confirmText}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -73,4 +73,3 @@ function ConfirmModal({
 }
 
 export default ConfirmModal;
-

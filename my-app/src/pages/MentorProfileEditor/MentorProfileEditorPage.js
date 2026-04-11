@@ -4,6 +4,7 @@ import './MentorProfileEditorPage.css';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import Button from '../../components/common/Button/Button';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 
@@ -206,8 +207,8 @@ function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
           })}
         </div>
         <div className="mx-lang-modal__footer">
-          <button type="button" className="mx-lang-modal__btn mx-lang-modal__btn--ghost" onClick={() => onCancel?.()}>取消</button>
-          <button type="button" className="mx-lang-modal__btn mx-lang-modal__btn--primary" onClick={() => onConfirm?.(normalizeTeachingLanguageCodes(draft))}>确定</button>
+          <Button className="mx-lang-modal__btn mx-lang-modal__btn--ghost" onClick={() => onCancel?.()}>取消</Button>
+          <Button className="mx-lang-modal__btn mx-lang-modal__btn--primary" onClick={() => onConfirm?.(normalizeTeachingLanguageCodes(draft))}>确定</Button>
         </div>
       </div>
     </div>

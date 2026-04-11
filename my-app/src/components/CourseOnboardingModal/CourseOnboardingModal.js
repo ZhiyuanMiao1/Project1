@@ -10,6 +10,7 @@ import {
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import api from '../../api/client';
+import Button from '../common/Button/Button';
 import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
@@ -388,8 +389,7 @@ function CourseOnboardingModal({
           </div>
 
           {showConfirmButton ? (
-            <button
-              type="button"
+            <Button
               className="course-onboarding-confirm"
               onClick={() => {
                 if (onConfirm) onConfirm(selectedCourse);
@@ -397,7 +397,7 @@ function CourseOnboardingModal({
               }}
             >
               确认
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>

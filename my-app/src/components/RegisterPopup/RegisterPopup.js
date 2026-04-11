@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
+import Button from '../common/Button/Button';
 import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
@@ -206,7 +208,9 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         style={{ display: showWelcome ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="register-modal-close" onClick={onClose}>&times;</button>
+        <button className="register-modal-close" onClick={onClose} aria-label="关闭">
+          <FiX aria-hidden="true" />
+        </button>
         <h2>注册</h2>
         <div className="register-modal-divider" />
         <h3>Mentory欢迎您</h3>
@@ -354,14 +358,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         </div>
 
         <div className="register-continue-area">
-          <button
+          <Button
             className={`register-continue-button ${successAnim ? 'success-pending' : ''}`}
             onClick={handleContinue}
             disabled={submitting || successAnim}
-            type="button"
+            fullWidth
           >
             继续
-          </button>
+          </Button>
         </div>
 
         {submitError && <div className="register-message error">{submitError}</div>}
