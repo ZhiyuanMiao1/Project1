@@ -48,7 +48,9 @@ function AppointmentCard({
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
   const canEditDecision = !isOutgoing && !isScheduleExpired && statusKey !== 'pending';
-  const canRescheduleAcceptedOutgoing = isOutgoing && statusKey === 'accepted' && !isScheduleExpired;
+  const canRescheduleResolvedOutgoing = isOutgoing
+    && (statusKey === 'accepted' || statusKey === 'rejected')
+    && !isScheduleExpired;
   const courseSessionId = safeText(scheduleCard?.courseSessionId);
   const classroomHref = courseSessionId ? `/classroom/${encodeURIComponent(courseSessionId)}` : '';
   const canJoinClassroom = statusKey === 'accepted' && !isScheduleExpired && Boolean(classroomHref);
@@ -77,7 +79,7 @@ function AppointmentCard({
   const titleParts = useMemo(() => getCourseTitleParts(thread, scheduleCard), [scheduleCard, thread]);
 
   const decisionPopoverActions = useMemo(() => {
-    if (canRescheduleAcceptedOutgoing) {
+    if (canRescheduleResolvedOutgoing) {
       return [
         { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
       ];
@@ -105,7 +107,7 @@ function AppointmentCard({
       { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
       { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
     ];
-  }, [canRescheduleAcceptedOutgoing, statusKey]);
+  }, [canRescheduleResolvedOutgoing, statusKey]);
   const decisionPopoverTitle = '修改日程状态为';
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
@@ -394,7 +396,7 @@ function AppointmentCard({
             </div>
           ) : (
             <div className="schedule-actions">
-              {canRescheduleAcceptedOutgoing ? (
+              {canRescheduleResolvedOutgoing ? (
                 renderDecisionControl()
               ) : (
                 <button
