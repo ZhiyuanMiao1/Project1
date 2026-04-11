@@ -97,6 +97,45 @@ const normalizeCount = (value) => {
   return Math.max(0, parsed);
 };
 
+const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const toDurationHours = (value) => {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * 100) / 100;
+};
+
+const getCourseEndTimestamp = (course) => {
+  const startsAt = safeText(course?.startsAt || course?.starts_at);
+  const startsAtTimestamp = Date.parse(startsAt);
+  if (!Number.isNaN(startsAtTimestamp)) {
+    const durationHours = toDurationHours(course?.durationHours ?? course?.duration_hours);
+    const durationMs = (durationHours ?? 0) * 60 * 60 * 1000;
+    return startsAtTimestamp + durationMs;
+  }
+
+  const date = safeText(course?.date);
+  if (date) {
+    const fallback = Date.parse(`${date}T23:59:59`);
+    if (!Number.isNaN(fallback)) return fallback;
+  }
+
+  return NaN;
+};
+
+const isCompletedCourse = (course) => {
+  const status = safeText(course?.status).toLowerCase();
+  if (status === 'completed') return true;
+  if (status && status !== 'scheduled') return false;
+  const endTimestamp = getCourseEndTimestamp(course);
+  return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
+};
+
+const countCompletedCourses = (courses) => {
+  if (!Array.isArray(courses)) return 0;
+  return courses.filter(isCompletedCourse).length;
+};
+
 function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
@@ -359,7 +398,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       .then((res) => {
         if (!alive) return;
         const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        setStudentClassCount(rows.length);
+        setStudentClassCount(countCompletedCourses(rows));
       })
       .catch(() => {
         if (!alive) return;
@@ -374,7 +413,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       .then((res) => {
         if (!alive) return;
         const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-        setMentorClassCount(rows.length);
+        setMentorClassCount(countCompletedCourses(rows));
       })
       .catch(() => {
         if (!alive) return;
