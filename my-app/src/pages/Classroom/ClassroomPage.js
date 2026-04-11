@@ -3755,18 +3755,21 @@ function ClassroomPage() {
                   <label className="classroom-end-session-label" htmlFor="classroom-end-session-hours">
                     课时
                   </label>
-                  <input
-                    id="classroom-end-session-hours"
-                    className="classroom-end-session-input"
-                    type="number"
-                    min="0.25"
-                    max="12"
-                    step="0.25"
-                    inputMode="decimal"
-                    value={endSessionHours}
-                    onChange={(event) => setEndSessionHours(event.target.value)}
-                    disabled={endSessionSubmitting}
-                  />
+                  <div className="classroom-end-session-field">
+                    <input
+                      id="classroom-end-session-hours"
+                      className="classroom-end-session-input"
+                      type="number"
+                      min="0.25"
+                      max="12"
+                      step="0.25"
+                      inputMode="decimal"
+                      value={endSessionHours}
+                      onChange={(event) => setEndSessionHours(event.target.value)}
+                      disabled={endSessionSubmitting}
+                    />
+                    <span className="classroom-end-session-unit">小时</span>
+                  </div>
                 </div>
                 {endSessionError ? (
                   <div className="classroom-end-session-error" role="alert">

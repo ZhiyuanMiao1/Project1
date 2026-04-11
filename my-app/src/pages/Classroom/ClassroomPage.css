@@ -309,6 +309,13 @@
   flex: 0 0 auto;
 }
 
+.classroom-end-session-field {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .classroom-end-session-input {
   flex: 1 1 auto;
   height: 48px;
@@ -319,6 +326,14 @@
   font-weight: 600;
   color: #0f172a;
   background: #ffffff;
+}
+
+.classroom-end-session-unit {
+  flex: 0 0 auto;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: right;
 }
 
 .classroom-end-session-input:focus {
