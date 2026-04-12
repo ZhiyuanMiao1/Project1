@@ -2040,7 +2040,13 @@ router.get('/pending-lesson-hours', requireAuth, async (req: Request, res: Respo
       .map((row) => {
         const payload = parseLessonHoursConfirmationPayload(row?.payload_json);
         const status = normalizeLessonHoursConfirmationStatus(row?.confirmation_status) || 'pending';
-        if (status !== 'pending') return null;
+        const actionRole = Number(row?.student_user_id) === req.user!.id ? 'student' : 'mentor';
+        if (
+          (actionRole === 'student' && status !== 'pending')
+          || (actionRole === 'mentor' && status !== 'disputed')
+        ) {
+          return null;
+        }
 
         const messageItemId = toPositiveIntOrNull(row?.message_item_id);
         const courseSessionId = toPositiveIntOrNull(row?.course_session_id);
@@ -2052,7 +2058,6 @@ router.get('/pending-lesson-hours', requireAuth, async (req: Request, res: Respo
         const startsAt = startsAtRaw instanceof Date
           ? startsAtRaw.toISOString()
           : safeText(startsAtRaw);
-        const actionRole = Number(row?.student_user_id) === req.user!.id ? 'student' : 'mentor';
         const participantName = actionRole === 'mentor'
           ? (safeText(row?.student_username) || safeText(row?.student_public_id) || '学生')
           : (safeText(row?.mentor_display_name) || safeText(row?.mentor_username) || safeText(row?.mentor_public_id) || '导师');

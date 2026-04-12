@@ -83,9 +83,7 @@ function PendingLessonHoursPrompt({
   if (!open || !confirmation) return null;
 
   const title = isMentorAction ? '学生对本节课时提出了异议' : '请确认本节课实际课时';
-  const subtitle = isMentorAction
-    ? '处理完成前，此窗口不会关闭。你可以确认学生异议，或提交平台处理'
-    : '处理完成前，此窗口不会关闭';
+  const subtitle = isMentorAction ? '' : '处理完成前，此窗口不会关闭';
   const valueLabel = isMentorAction ? '导师原提交课时' : '导师提交课时';
   const disputedHoursText = formatHours(confirmation?.disputedHours);
   const tipText = isMentorAction

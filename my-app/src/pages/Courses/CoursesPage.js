@@ -944,7 +944,7 @@ function CoursesPage() {
                     className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
                     onClick={() => handleOpenReplay(activeCourse)}
                   >
-                    查看回访
+                    查看回放
                   </Button>
                   <Button
                     className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
