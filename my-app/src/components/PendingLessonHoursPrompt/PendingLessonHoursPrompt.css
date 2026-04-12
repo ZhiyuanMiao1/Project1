@@ -1,0 +1,211 @@
+.pending-lesson-hours-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1700;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 36%),
+    rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.pending-lesson-hours-dialog {
+  width: min(460px, calc(100vw - 28px));
+  border-radius: 28px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.99));
+  box-shadow: 0 32px 80px rgba(15, 23, 42, 0.34);
+  padding: 28px 26px 24px;
+}
+
+.pending-lesson-hours-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pending-lesson-hours-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.22;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pending-lesson-hours-subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.pending-lesson-hours-mentor {
+  margin-top: 22px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+}
+
+.pending-lesson-hours-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.pending-lesson-hours-mentor-copy {
+  min-width: 0;
+}
+
+.pending-lesson-hours-mentor-label {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.pending-lesson-hours-mentor-name {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pending-lesson-hours-course {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pending-lesson-hours-course-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.pending-lesson-hours-course-type {
+  color: #334155;
+}
+
+.pending-lesson-hours-course-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #475569;
+}
+
+.pending-lesson-hours-value-card {
+  margin-top: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(255, 255, 255, 0.98));
+  padding: 18px 20px;
+}
+
+.pending-lesson-hours-value-card--secondary {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.72), rgba(255, 255, 255, 0.98));
+}
+
+.pending-lesson-hours-value-label {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.pending-lesson-hours-value {
+  margin-top: 8px;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #111827;
+}
+
+.pending-lesson-hours-tip {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #475569;
+}
+
+.pending-lesson-hours-queue {
+  margin-top: 14px;
+  border-radius: 16px;
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pending-lesson-hours-error {
+  margin-top: 14px;
+  border-radius: 16px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pending-lesson-hours-actions {
+  margin-top: 22px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.pending-lesson-hours-btn {
+  min-width: 116px;
+  min-height: 42px;
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pending-lesson-hours-btn:disabled {
+  cursor: default;
+}
+
+.pending-lesson-hours-btn--ghost {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.pending-lesson-hours-btn--primary {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .pending-lesson-hours-dialog {
+    padding: 22px 18px 18px;
+    border-radius: 24px;
+  }
+
+  .pending-lesson-hours-title {
+    font-size: 24px;
+  }
+
+  .pending-lesson-hours-value {
+    font-size: 30px;
+  }
+
+  .pending-lesson-hours-actions {
+    flex-direction: column-reverse;
+  }
+
+  .pending-lesson-hours-btn {
+    width: 100%;
+  }
+}

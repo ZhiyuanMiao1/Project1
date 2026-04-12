@@ -4,10 +4,12 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
+import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import api from '../../api/client';
 import { useLocation } from 'react-router-dom';
 import { getAuthToken } from '../../utils/authStorage';
 import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
+import { emitPendingLessonHoursChanged, PENDING_LESSON_HOURS_CHANGED_EVENT } from '../../hooks/usePendingLessonHours';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
@@ -32,6 +34,7 @@ import {
   getZonedParts,
 } from '../StudentCourseRequest/steps/timezoneUtils';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -367,6 +370,9 @@ function MessagesPage() {
   const [actionError, setActionError] = useState('');
   const [appointmentBusyId, setAppointmentBusyId] = useState(null);
   const [lessonHourActionBusyId, setLessonHourActionBusyId] = useState(null);
+  const [lessonHourDisputeTarget, setLessonHourDisputeTarget] = useState(null);
+  const [lessonHourDisputeValue, setLessonHourDisputeValue] = useState('1');
+  const [lessonHourDisputeError, setLessonHourDisputeError] = useState('');
   const [messageActionBusyId, setMessageActionBusyId] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
@@ -844,6 +850,9 @@ function MessagesPage() {
     setRescheduleDate(toMiddayDate());
     setIsScheduleCardSending(false);
     setLessonHourActionBusyId(null);
+    setLessonHourDisputeTarget(null);
+    setLessonHourDisputeValue('1');
+    setLessonHourDisputeError('');
     setMessageActionBusyId(null);
     setExitingMessageActionIds([]);
     setOpenScheduleMessageMenuId(null);
@@ -875,6 +884,19 @@ function MessagesPage() {
     const res = await api.get('/api/messages/threads');
     return applyThreadsPayload(res?.data);
   }, [applyThreadsPayload]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return undefined;
+
+    const handlePendingLessonHoursChanged = () => {
+      reloadThreads().catch(() => {});
+    };
+
+    window.addEventListener(PENDING_LESSON_HOURS_CHANGED_EVENT, handlePendingLessonHoursChanged);
+    return () => {
+      window.removeEventListener(PENDING_LESSON_HOURS_CHANGED_EVENT, handlePendingLessonHoursChanged);
+    };
+  }, [isLoggedIn, reloadThreads]);
 
   const handleThreadStarToggle = useCallback(async (thread) => {
     const threadId = String(thread?.id || '').trim();
@@ -1040,6 +1062,14 @@ function MessagesPage() {
 
   const handleLessonHourResponse = async (messageId, status) => {
     if (!messageId || !status) return;
+    if (status === 'disputed') {
+      const target = lessonHourConfirmations.find((item) => String(item?.id) === String(messageId)) || null;
+      setLessonHourDisputeTarget(target ? { ...target } : { id: String(messageId) });
+      setLessonHourDisputeValue(formatQuarterHourValue(target?.disputedHours ?? target?.proposedHours, '1'));
+      setLessonHourDisputeError('');
+      setActionError('');
+      return;
+    }
     setActionError('');
     setLessonHourActionBusyId(String(messageId));
     try {
@@ -1047,6 +1077,7 @@ function MessagesPage() {
         `/api/messages/lesson-hour-confirmations/${encodeURIComponent(String(messageId))}/respond`,
         { status }
       );
+      emitPendingLessonHoursChanged();
       await reloadThreads();
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || '处理课时确认失败，请稍后再试';
@@ -1056,18 +1087,45 @@ function MessagesPage() {
     }
   };
 
-  const handleLessonHourRetry = async (confirmation) => {
+  const handleCloseLessonHourDisputeDialog = () => {
+    if (lessonHourActionBusyId) return;
+    setLessonHourDisputeTarget(null);
+    setLessonHourDisputeValue('1');
+    setLessonHourDisputeError('');
+  };
+
+  const handleSubmitLessonHourDispute = async () => {
+    const messageId = String(lessonHourDisputeTarget?.id || '').trim();
+    const disputedHours = normalizeQuarterHourValue(lessonHourDisputeValue);
+    if (!messageId || disputedHours == null) {
+      setLessonHourDisputeError('请输入你认为正确的课时，需为 0.25 小时颗粒度');
+      return;
+    }
+
+    setActionError('');
+    setLessonHourDisputeError('');
+    setLessonHourActionBusyId(messageId);
+    try {
+      await api.post(
+        `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/respond`,
+        { status: 'disputed', disputedHours }
+      );
+      emitPendingLessonHoursChanged();
+      setLessonHourDisputeTarget(null);
+      setLessonHourDisputeValue('1');
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || '提交课时异议失败，请稍后再试';
+      setLessonHourDisputeError(String(msg));
+    } finally {
+      setLessonHourActionBusyId(null);
+    }
+  };
+
+  const handleLessonHourMentorRespond = async (confirmation, status) => {
     const messageId = String(confirmation?.id || '').trim();
     if (!messageId) return;
-
-    const currentHours = Number(confirmation?.proposedHours);
-    const initialValue = Number.isFinite(currentHours) ? String(currentHours) : '';
-    const rawValue = window.prompt('重新提交课时（0.25 小时颗粒度）', initialValue);
-    if (rawValue == null) return;
-
-    const proposedHours = Number(rawValue);
-    if (!Number.isFinite(proposedHours) || Math.round(proposedHours * 4) !== proposedHours * 4 || proposedHours < 0.25 || proposedHours > 12) {
-      setActionError('请输入 0.25 小时颗粒度的有效课时');
+    if (status !== 'dispute_confirmed' && status !== 'platform_review') {
       return;
     }
 
@@ -1075,12 +1133,13 @@ function MessagesPage() {
     setLessonHourActionBusyId(messageId);
     try {
       await api.post(
-        `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/retry`,
-        { proposedHours }
+        `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/mentor-respond`,
+        { status }
       );
+      emitPendingLessonHoursChanged();
       await reloadThreads();
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '重新提交课时失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || '处理学生异议失败，请稍后再试';
       setActionError(String(msg));
     } finally {
       setLessonHourActionBusyId(null);
@@ -1849,7 +1908,7 @@ function MessagesPage() {
                             activeAvatarName={activeCounterpartDisplayName}
                             busyId={lessonHourActionBusyId}
                             onRespond={handleLessonHourResponse}
-                            onRetry={handleLessonHourRetry}
+                            onMentorRespond={handleLessonHourMentorRespond}
                           />
                         </div>
                       );
@@ -1944,6 +2003,20 @@ function MessagesPage() {
           alignOffset={23}
         />
       )}
+
+      <LessonHoursDialog
+        open={Boolean(lessonHourDisputeTarget)}
+        title="填写你认为正确的课时"
+        value={lessonHourDisputeValue}
+        onValueChange={setLessonHourDisputeValue}
+        error={lessonHourDisputeError}
+        submitting={Boolean(
+          lessonHourDisputeTarget
+          && String(lessonHourActionBusyId || '') === String(lessonHourDisputeTarget?.id || '')
+        )}
+        onClose={handleCloseLessonHourDisputeDialog}
+        onSubmit={handleSubmitLessonHourDispute}
+      />
 
       {rescheduleOpen && (
         <div

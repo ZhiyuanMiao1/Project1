@@ -654,7 +654,7 @@ function CoursesPage() {
   const handleOpenLessonHoursDialog = (course) => {
     if (!course) return;
     const latestStatus = safeText(course?.latestLessonHoursStatus).toLowerCase();
-    if (latestStatus === 'confirmed') return;
+    if (latestStatus === 'confirmed' || latestStatus === 'dispute_confirmed' || latestStatus === 'platform_review') return;
     const defaultHours = course?.latestLessonHoursProposedHours ?? course?.durationHours ?? 1;
     setLessonHoursValue(formatQuarterHourValue(defaultHours, '1'));
     setLessonHoursError('');
@@ -896,7 +896,9 @@ function CoursesPage() {
           && !hasSufficientLessonHours;
         const canEnterClassroom = isUpcomingScheduledCourse
           && (!requiresLessonHourCheck || (walletSummaryStatus === 'loaded' && hasSufficientLessonHours));
-        const lessonHoursLocked = safeText(activeCourse?.latestLessonHoursStatus).toLowerCase() === 'confirmed';
+        const lessonHoursLocked = ['confirmed', 'dispute_confirmed', 'platform_review'].includes(
+          safeText(activeCourse?.latestLessonHoursStatus).toLowerCase()
+        );
         const classroomButtonLabel = (() => {
           if (!isUpcomingScheduledCourse) return '进入课堂';
           if (!requiresLessonHourCheck) return '进入课堂';

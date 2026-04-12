@@ -74,6 +74,10 @@
   color: #f8fafc;
 }
 
+.lesson-hours-card-hours--secondary {
+  background: #7c2d12;
+}
+
 .lesson-hours-card-hours-label {
   font-size: 13px;
   color: rgba(248, 250, 252, 0.78);
@@ -158,6 +162,15 @@
 
 .lesson-hours-btn--retry:hover:not(:disabled) {
   background: #1e40af;
+}
+
+.lesson-hours-btn--platform {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.lesson-hours-btn--platform:hover:not(:disabled) {
+  background: #6d28d9;
 }
 
 @media (max-width: 720px) {

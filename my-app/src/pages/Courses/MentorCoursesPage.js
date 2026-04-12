@@ -520,7 +520,7 @@ function MentorCoursesPage() {
   const handleOpenLessonHoursDialog = (course) => {
     if (!course) return;
     const latestStatus = safeText(course?.latestLessonHoursStatus).toLowerCase();
-    if (latestStatus === 'confirmed') return;
+    if (latestStatus === 'confirmed' || latestStatus === 'dispute_confirmed' || latestStatus === 'platform_review') return;
     const defaultHours = course?.latestLessonHoursProposedHours ?? course?.durationHours ?? 1;
     setLessonHoursValue(formatQuarterHourValue(defaultHours, '1'));
     setLessonHoursError('');
@@ -784,7 +784,9 @@ function MentorCoursesPage() {
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
         const isCompleted = isCompletedCourse(activeCourse);
         const canEnterClassroom = isScheduledCourse(activeCourse) && !isCompletedCourse(activeCourse);
-        const lessonHoursLocked = safeText(activeCourse?.latestLessonHoursStatus).toLowerCase() === 'confirmed';
+        const lessonHoursLocked = ['confirmed', 'dispute_confirmed', 'platform_review'].includes(
+          safeText(activeCourse?.latestLessonHoursStatus).toLowerCase()
+        );
 
         return (
           <CourseDetailModal

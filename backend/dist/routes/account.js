@@ -559,7 +559,7 @@ router.get('/payments-summary', auth_1.requireAuth, async (req, res) => {
             ON latest_lhc.course_session_id = cs.id
           WHERE cs.mentor_user_id = ?
             AND cs.status IN ('scheduled', 'completed')
-            AND (latest_lhc.status IS NULL OR latest_lhc.status = 'confirmed')
+            AND (latest_lhc.status IS NULL OR latest_lhc.status IN ('confirmed', 'dispute_confirmed'))
             AND TIMESTAMPADD(
               DAY,
               3,

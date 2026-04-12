@@ -34,7 +34,7 @@ function LessonHoursConfirmationCard({
   activeAvatarName,
   busyId,
   onRespond,
-  onRetry,
+  onMentorRespond,
 }) {
   const isOutgoing = confirmation?.direction === 'outgoing';
   const status = safeText(confirmation?.status).toLowerCase() || 'pending';
@@ -42,6 +42,7 @@ function LessonHoursConfirmationCard({
   const titleParts = useMemo(() => getCourseTitleParts(thread, confirmation), [confirmation, thread]);
   const sessionTimeText = formatSessionTime(confirmation?.startsAt);
   const proposedHoursText = formatHours(confirmation?.proposedHours);
+  const disputedHoursText = formatHours(confirmation?.disputedHours);
   const finalHoursText = formatHours(confirmation?.finalHours ?? confirmation?.proposedHours);
 
   let statusTone = 'pending';
@@ -51,11 +52,19 @@ function LessonHoursConfirmationCard({
     statusText = `已确认 ${finalHoursText} 课时`;
   } else if (status === 'disputed') {
     statusTone = 'disputed';
-    statusText = isOutgoing ? '学生提出了修改异议' : '你已提出修改异议';
+    statusText = isOutgoing ? '学生提出了课时异议，等待你处理' : '你已提出课时异议';
+  } else if (status === 'dispute_confirmed') {
+    statusTone = 'confirmed';
+    statusText = isOutgoing
+      ? `你已按学生异议确认 ${disputedHoursText} 课时`
+      : `导师已按你的异议确认 ${disputedHoursText} 课时`;
+  } else if (status === 'platform_review') {
+    statusTone = 'disputed';
+    statusText = isOutgoing ? '你已提交平台处理' : '导师已提交平台处理';
   }
 
   const canRespond = !isOutgoing && status === 'pending';
-  const canRetry = isOutgoing && status === 'disputed';
+  const canMentorResolve = isOutgoing && status === 'disputed';
 
   return (
     <div className={`lesson-hours-row ${isOutgoing ? 'is-outgoing' : ''}`}>
@@ -97,6 +106,12 @@ function LessonHoursConfirmationCard({
             <span className="lesson-hours-card-hours-label">导师提交课时</span>
             <span className="lesson-hours-card-hours-value">{proposedHoursText} 小时</span>
           </div>
+          {(status === 'disputed' || status === 'dispute_confirmed' || status === 'platform_review') && confirmation?.disputedHours ? (
+            <div className="lesson-hours-card-hours lesson-hours-card-hours--secondary">
+              <span className="lesson-hours-card-hours-label">学生主张课时</span>
+              <span className="lesson-hours-card-hours-value">{disputedHoursText} 小时</span>
+            </div>
+          ) : null}
         </div>
 
         <div className={`lesson-hours-card-status is-${statusTone}`}>
@@ -125,15 +140,23 @@ function LessonHoursConfirmationCard({
           </div>
         ) : null}
 
-        {canRetry ? (
+        {canMentorResolve ? (
           <div className="lesson-hours-card-actions">
             <button
               type="button"
               className="lesson-hours-btn lesson-hours-btn--retry"
-              onClick={() => onRetry?.(confirmation)}
+              onClick={() => onMentorRespond?.(confirmation, 'dispute_confirmed')}
               disabled={isBusy}
             >
-              {isBusy ? '提交中...' : '重新提交课时'}
+              {isBusy ? '处理中...' : '确认学生异议'}
+            </button>
+            <button
+              type="button"
+              className="lesson-hours-btn lesson-hours-btn--platform"
+              onClick={() => onMentorRespond?.(confirmation, 'platform_review')}
+              disabled={isBusy}
+            >
+              提交平台处理
             </button>
           </div>
         ) : null}

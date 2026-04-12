@@ -361,6 +361,7 @@ const toLessonHoursConfirmationCard = (row, currentUserId) => {
     const proposedHours = Number.parseFloat(String(row?.proposed_hours ?? payload?.proposedHours ?? ''));
     if (!Number.isFinite(proposedHours) || proposedHours <= 0)
         return null;
+    const disputedHoursRaw = Number.parseFloat(String(row?.disputed_hours ?? ''));
     const finalHoursRaw = Number.parseFloat(String(row?.final_hours ?? ''));
     const startsAtRaw = row?.course_starts_at ?? payload?.startsAt;
     const startsAt = startsAtRaw instanceof Date
@@ -371,6 +372,7 @@ const toLessonHoursConfirmationCard = (row, currentUserId) => {
         direction: Number(row?.sender_user_id) === currentUserId ? 'outgoing' : 'incoming',
         courseSessionId: courseSessionId != null ? String(courseSessionId) : safeText(payload?.courseSessionId),
         proposedHours: Number(proposedHours.toFixed(2)),
+        disputedHours: Number.isFinite(disputedHoursRaw) && disputedHoursRaw > 0 ? Number(disputedHoursRaw.toFixed(2)) : null,
         finalHours: Number.isFinite(finalHoursRaw) && finalHoursRaw > 0 ? Number(finalHoursRaw.toFixed(2)) : null,
         status,
         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
@@ -388,7 +390,11 @@ const normalizeDecisionStatus = (value) => {
 };
 const normalizeLessonHoursConfirmationStatus = (value) => {
     const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-    if (raw === 'pending' || raw === 'confirmed' || raw === 'disputed')
+    if (raw === 'pending'
+        || raw === 'confirmed'
+        || raw === 'disputed'
+        || raw === 'dispute_confirmed'
+        || raw === 'platform_review')
         return raw;
     return '';
 };
@@ -959,8 +965,12 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
         return res.status(400).json({ error: '无效课时确认ID' });
     }
     const status = normalizeLessonHoursConfirmationStatus(req.body?.status);
+    const disputedHours = normalizeQuarterHourValue(req.body?.disputedHours);
     if (status !== 'confirmed' && status !== 'disputed') {
         return res.status(400).json({ error: '无效响应状态' });
+    }
+    if (status === 'disputed' && disputedHours == null) {
+        return res.status(400).json({ error: '请填写你认为正确的课时，需为 0.25 小时颗粒度且范围 0.25-12 小时' });
     }
     const conn = await db_1.pool.getConnection();
     try {
@@ -1021,6 +1031,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
             await conn.execute(`
         UPDATE lesson_hour_confirmations
         SET status = 'confirmed',
+            disputed_hours = NULL,
             final_hours = ?,
             responded_by_user_id = ?,
             responded_at = CURRENT_TIMESTAMP,
@@ -1042,10 +1053,11 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
             await conn.execute(`
         UPDATE lesson_hour_confirmations
         SET status = 'disputed',
+            disputed_hours = ?,
             responded_by_user_id = ?,
             responded_at = CURRENT_TIMESTAMP
         WHERE message_item_id = ?
-        `, [req.user.id, messageId]);
+        `, [disputedHours, req.user.id, messageId]);
         }
         await conn.execute(`
       UPDATE message_threads
@@ -1057,6 +1069,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
             ok: true,
             messageId: String(messageId),
             status,
+            disputedHours: status === 'disputed' && disputedHours != null ? disputedHours : null,
             finalHours: status === 'confirmed' ? Number(proposedHours.toFixed(2)) : null,
         });
     }
@@ -1180,6 +1193,123 @@ router.post('/lesson-hour-confirmations/:messageId/retry', auth_1.requireAuth, a
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Retry lesson hour confirmation error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+    finally {
+        try {
+            conn.release();
+        }
+        catch { }
+    }
+});
+router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const messageId = Number(req.params.messageId);
+    if (!Number.isFinite(messageId) || messageId <= 0) {
+        return res.status(400).json({ error: '无效课时确认ID' });
+    }
+    const status = normalizeLessonHoursConfirmationStatus(req.body?.status);
+    if (status !== 'dispute_confirmed' && status !== 'platform_review') {
+        return res.status(400).json({ error: '无效响应状态' });
+    }
+    const conn = await db_1.pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.execute(`
+      SELECT
+        mi.id,
+        mi.thread_id,
+        lhc.course_session_id,
+        lhc.student_user_id,
+        lhc.mentor_user_id,
+        lhc.proposed_hours,
+        lhc.disputed_hours,
+        lhc.status AS confirmation_status
+      FROM message_items mi
+      INNER JOIN message_threads t
+        ON t.id = mi.thread_id
+      INNER JOIN lesson_hour_confirmations lhc
+        ON lhc.message_item_id = mi.id
+      WHERE mi.id = ?
+        AND mi.message_type = 'lesson_hours_confirmation'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      FOR UPDATE
+      `, [messageId, req.user.id, req.user.id]);
+        const row = rows?.[0];
+        if (!row) {
+            await conn.rollback();
+            return res.status(404).json({ error: '课时确认卡片不存在或无权限' });
+        }
+        if (Number(row?.mentor_user_id) !== req.user.id) {
+            await conn.rollback();
+            return res.status(403).json({ error: '只有导师可以处理学生异议' });
+        }
+        const currentStatus = normalizeLessonHoursConfirmationStatus(row?.confirmation_status);
+        if (currentStatus !== 'disputed') {
+            await conn.rollback();
+            return res.status(409).json({ error: '当前状态不支持导师处理，请刷新后重试' });
+        }
+        const [latestRows] = await conn.execute(`
+      SELECT message_item_id
+      FROM lesson_hour_confirmations
+      WHERE course_session_id = ?
+      ORDER BY id DESC
+      LIMIT 1
+      `, [Number(row.course_session_id)]);
+        const latestMessageItemId = Number(latestRows?.[0]?.message_item_id || 0);
+        if (latestMessageItemId > 0 && latestMessageItemId !== messageId) {
+            await conn.rollback();
+            return res.status(409).json({ error: '该课时确认已更新，请刷新后重试' });
+        }
+        const disputedHours = Number.parseFloat(String(row?.disputed_hours ?? ''));
+        if (!Number.isFinite(disputedHours) || disputedHours <= 0) {
+            await conn.rollback();
+            return res.status(409).json({ error: '学生尚未提交有效异议课时，请刷新后重试' });
+        }
+        await conn.execute(`
+      UPDATE lesson_hour_confirmations
+      SET status = ?,
+          final_hours = ?,
+          responded_by_user_id = ?,
+          responded_at = CURRENT_TIMESTAMP,
+          settled_at = CURRENT_TIMESTAMP
+      WHERE message_item_id = ?
+      `, [status, status === 'dispute_confirmed' ? disputedHours : null, req.user.id, messageId]);
+        if (status === 'dispute_confirmed') {
+            await conn.execute(`
+        UPDATE course_sessions
+        SET duration_hours = ?, status = 'completed'
+        WHERE id = ?
+        `, [disputedHours, Number(row.course_session_id)]);
+            await conn.execute(`
+        UPDATE users
+        SET lesson_balance_hours = lesson_balance_hours - ?
+        WHERE id = ?
+        `, [disputedHours, Number(row.student_user_id)]);
+        }
+        await conn.execute(`
+      UPDATE message_threads
+      SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+      `, [messageId, Number(row.thread_id)]);
+        await conn.commit();
+        return res.json({
+            ok: true,
+            messageId: String(messageId),
+            status,
+        });
+    }
+    catch (e) {
+        try {
+            await conn.rollback();
+        }
+        catch { }
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Mentor respond lesson hour dispute error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
     finally {
@@ -1484,6 +1614,129 @@ router.get('/unread-summary', auth_1.requireAuth, async (req, res) => {
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
+router.get('/pending-lesson-hours', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    try {
+        const rows = await (0, db_1.query)(`
+      SELECT
+        lhc.message_item_id,
+        lhc.thread_id,
+        lhc.course_session_id,
+        lhc.student_user_id,
+        lhc.mentor_user_id,
+        lhc.proposed_hours,
+        lhc.disputed_hours,
+        lhc.status AS confirmation_status,
+        mi.payload_json,
+        mi.created_at,
+        cs.starts_at,
+        cs.course_direction,
+        cs.course_type,
+        su.username AS student_username,
+        srole.public_id AS student_public_id,
+        sas.student_avatar_url AS student_avatar_url,
+        mu.username AS mentor_username,
+        mrole.public_id AS mentor_public_id,
+        mp.display_name AS mentor_display_name,
+        mp.avatar_url AS mentor_avatar_url
+      FROM lesson_hour_confirmations lhc
+      INNER JOIN (
+        SELECT course_session_id, MAX(id) AS latest_id
+        FROM lesson_hour_confirmations
+        WHERE (student_user_id = ? AND status = 'pending')
+           OR (mentor_user_id = ? AND status = 'disputed')
+        GROUP BY course_session_id
+      ) latest
+        ON latest.latest_id = lhc.id
+      INNER JOIN message_items mi
+        ON mi.id = lhc.message_item_id
+       AND mi.message_type = 'lesson_hours_confirmation'
+      LEFT JOIN message_item_hidden_for_users mihfu
+        ON mihfu.message_item_id = mi.id
+       AND mihfu.user_id = ?
+      LEFT JOIN course_sessions cs
+        ON cs.id = lhc.course_session_id
+      LEFT JOIN users su
+        ON su.id = lhc.student_user_id
+      LEFT JOIN user_roles srole
+        ON srole.user_id = lhc.student_user_id
+       AND srole.role = 'student'
+      LEFT JOIN account_settings sas
+        ON sas.user_id = lhc.student_user_id
+      LEFT JOIN users mu
+        ON mu.id = lhc.mentor_user_id
+      LEFT JOIN user_roles mrole
+        ON mrole.user_id = lhc.mentor_user_id
+       AND mrole.role = 'mentor'
+      LEFT JOIN mentor_profiles mp
+        ON mp.user_id = lhc.mentor_user_id
+      WHERE (
+          (lhc.student_user_id = ? AND lhc.status = 'pending')
+          OR (lhc.mentor_user_id = ? AND lhc.status = 'disputed')
+        )
+        AND mihfu.message_item_id IS NULL
+      ORDER BY COALESCE(cs.starts_at, mi.created_at) ASC, lhc.id ASC
+      `, [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]);
+        const items = (rows || [])
+            .map((row) => {
+            const payload = parseLessonHoursConfirmationPayload(row?.payload_json);
+            const status = normalizeLessonHoursConfirmationStatus(row?.confirmation_status) || 'pending';
+            if (status !== 'pending')
+                return null;
+            const messageItemId = toPositiveIntOrNull(row?.message_item_id);
+            const courseSessionId = toPositiveIntOrNull(row?.course_session_id);
+            const proposedHours = Number.parseFloat(String(row?.proposed_hours ?? payload?.proposedHours ?? ''));
+            const disputedHoursRaw = Number.parseFloat(String(row?.disputed_hours ?? ''));
+            if (messageItemId == null || !Number.isFinite(proposedHours) || proposedHours <= 0)
+                return null;
+            const startsAtRaw = row?.starts_at ?? payload?.startsAt;
+            const startsAt = startsAtRaw instanceof Date
+                ? startsAtRaw.toISOString()
+                : safeText(startsAtRaw);
+            const actionRole = Number(row?.student_user_id) === req.user.id ? 'student' : 'mentor';
+            const participantName = actionRole === 'mentor'
+                ? (safeText(row?.student_username) || safeText(row?.student_public_id) || '学生')
+                : (safeText(row?.mentor_display_name) || safeText(row?.mentor_username) || safeText(row?.mentor_public_id) || '导师');
+            const participantAvatarUrl = actionRole === 'mentor'
+                ? safeText(row?.student_avatar_url)
+                : safeText(row?.mentor_avatar_url);
+            return {
+                id: String(messageItemId),
+                threadId: String(row?.thread_id || ''),
+                courseSessionId: courseSessionId != null
+                    ? String(courseSessionId)
+                    : safeText(payload?.courseSessionId),
+                proposedHours: Number(proposedHours.toFixed(2)),
+                disputedHours: Number.isFinite(disputedHoursRaw) && disputedHoursRaw > 0
+                    ? Number(disputedHoursRaw.toFixed(2))
+                    : null,
+                startsAt,
+                courseDirectionId: safeText(row?.course_direction) || safeText(payload?.courseDirectionId),
+                courseTypeId: safeText(row?.course_type) || safeText(payload?.courseTypeId),
+                mentorName: safeText(row?.mentor_display_name) || safeText(row?.mentor_username) || safeText(row?.mentor_public_id) || '导师',
+                mentorAvatarUrl: safeText(row?.mentor_avatar_url),
+                participantName,
+                participantAvatarUrl,
+                createdAt: row?.created_at ? new Date(row.created_at).toISOString() : '',
+                actionRole,
+                status,
+            };
+        })
+            .filter(Boolean);
+        return res.json({
+            items,
+            totalCount: items.length,
+        });
+    }
+    catch (e) {
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Fetch pending lesson hours error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
 router.post('/read', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -1695,6 +1948,7 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
           mi.created_at,
           lhc.course_session_id,
           lhc.proposed_hours,
+          lhc.disputed_hours,
           lhc.final_hours,
           lhc.status AS confirmation_status,
           cs.starts_at AS course_starts_at,

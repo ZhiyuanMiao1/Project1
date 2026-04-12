@@ -576,8 +576,9 @@ CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
   `student_user_id` INT NOT NULL,
   `mentor_user_id` INT NOT NULL,
   `proposed_hours` DECIMAL(6,2) NOT NULL,
+  `disputed_hours` DECIMAL(6,2) NULL,
   `final_hours` DECIMAL(6,2) NULL,
-  `status` ENUM('pending','confirmed','disputed') NOT NULL DEFAULT 'pending',
+  `status` ENUM('pending','confirmed','disputed','dispute_confirmed','platform_review') NOT NULL DEFAULT 'pending',
   `responded_by_user_id` INT NULL,
   `responded_at` TIMESTAMP NULL DEFAULT NULL,
   `settled_at` TIMESTAMP NULL DEFAULT NULL,
@@ -596,6 +597,25 @@ CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
   CONSTRAINT `fk_lesson_hour_confirmations_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_lesson_hour_confirmations_responded_by` FOREIGN KEY (`responded_by_user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_lesson_disputed_hours := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'lesson_hour_confirmations'
+    AND COLUMN_NAME = 'disputed_hours'
+);
+SET @__mx_sql := IF(
+  @__mx_has_lesson_disputed_hours = 0,
+  'ALTER TABLE `lesson_hour_confirmations` ADD COLUMN `disputed_hours` DECIMAL(6,2) NULL AFTER `proposed_hours`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+ALTER TABLE `lesson_hour_confirmations`
+  MODIFY COLUMN `status` ENUM('pending','confirmed','disputed','dispute_confirmed','platform_review') NOT NULL DEFAULT 'pending';
 
 -- 16) Course review records (student -> mentor after session ends)
 CREATE TABLE IF NOT EXISTS `course_session_reviews` (

@@ -17,7 +17,14 @@ import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDe
 import WalletPage from './pages/Wallet/WalletPage';
 import ClassroomPage from './pages/Classroom/ClassroomPage';
 import HelpCenterPage from './pages/HelpCenter/HelpCenterPage';
+import LessonHoursDialog from './components/LessonHoursDialog/LessonHoursDialog';
+import PendingLessonHoursPrompt from './components/PendingLessonHoursPrompt/PendingLessonHoursPrompt';
+import api from './api/client';
+import { emitMessageUnreadChanged } from './hooks/useMessageUnreadSummary';
+import usePendingLessonHours, { emitPendingLessonHoursChanged } from './hooks/usePendingLessonHours';
 import { AUTH_SESSION_EXPIRED_EVENT } from './utils/auth';
+import { getAuthToken } from './utils/authStorage';
+import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lessonHours';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
 const BRAND_NAME = 'Mentory';
@@ -136,11 +143,141 @@ function AuthSessionManager() {
   );
 }
 
+function PendingLessonHoursGate() {
+  const location = useLocation();
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const [busyId, setBusyId] = useState('');
+  const [error, setError] = useState('');
+  const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
+  const [disputeValue, setDisputeValue] = useState('1');
+  const { items, refresh } = usePendingLessonHours(isLoggedIn);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (typeof event?.detail?.isLoggedIn !== 'undefined') {
+        setIsLoggedIn(Boolean(event.detail.isLoggedIn));
+      } else {
+        setIsLoggedIn(Boolean(getAuthToken()));
+      }
+    };
+
+    window.addEventListener('auth:changed', handler);
+    return () => window.removeEventListener('auth:changed', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setBusyId('');
+      setError('');
+      return;
+    }
+    refresh();
+  }, [isLoggedIn, location.pathname, refresh]);
+
+  useEffect(() => {
+    if (!items.length) {
+      setBusyId('');
+      setError('');
+      setDisputeDialogOpen(false);
+    }
+  }, [items.length]);
+
+  const activeConfirmation = items[0] || null;
+
+  const handleRespond = async (confirmation, status, extraPayload = {}) => {
+    const messageId = safeText(confirmation?.id);
+    if (!messageId) return;
+    const actionRole = safeText(confirmation?.actionRole) === 'mentor' ? 'mentor' : 'student';
+
+    setBusyId(messageId);
+    setError('');
+
+    try {
+      if (actionRole === 'mentor') {
+        await api.post(
+          `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/mentor-respond`,
+          { status, ...extraPayload }
+        );
+      } else {
+        await api.post(
+          `/api/messages/lesson-hour-confirmations/${encodeURIComponent(messageId)}/respond`,
+          { status, ...extraPayload }
+        );
+      }
+      emitPendingLessonHoursChanged();
+      emitMessageUnreadChanged();
+      setDisputeDialogOpen(false);
+    } catch (err) {
+      const message = err?.response?.data?.error || err?.message || '处理课时确认失败，请稍后再试';
+      setError(String(message));
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const handleStudentDisputeStart = (confirmation) => {
+    const initialValue = formatQuarterHourValue(
+      confirmation?.disputedHours ?? confirmation?.proposedHours,
+      '1'
+    );
+    setDisputeValue(initialValue);
+    setError('');
+    setDisputeDialogOpen(true);
+  };
+
+  const handleStudentDisputeSubmit = async () => {
+    const disputedHours = normalizeQuarterHourValue(disputeValue);
+    if (!activeConfirmation || disputedHours == null) {
+      setError('请输入你认为正确的课时，需为 0.25 小时颗粒度');
+      return;
+    }
+
+    await handleRespond(activeConfirmation, 'disputed', { disputedHours });
+  };
+
+  return (
+    <>
+      <PendingLessonHoursPrompt
+        open={Boolean(activeConfirmation) && !disputeDialogOpen}
+        confirmation={activeConfirmation}
+        totalCount={items.length}
+        busy={Boolean(activeConfirmation && busyId === activeConfirmation.id)}
+        error={error}
+        onConfirm={(confirmation) => handleRespond(
+          confirmation,
+          safeText(confirmation?.actionRole) === 'mentor' ? 'dispute_confirmed' : 'confirmed'
+        )}
+        onDispute={(confirmation) => (
+          safeText(confirmation?.actionRole) === 'mentor'
+            ? handleRespond(confirmation, 'platform_review')
+            : handleStudentDisputeStart(confirmation)
+        )}
+      />
+
+      <LessonHoursDialog
+        open={disputeDialogOpen}
+        title="填写你认为正确的课时"
+        value={disputeValue}
+        onValueChange={setDisputeValue}
+        error={error}
+        submitting={Boolean(activeConfirmation && busyId === activeConfirmation.id)}
+        onClose={() => {
+          if (busyId) return;
+          setDisputeDialogOpen(false);
+          setError('');
+        }}
+        onSubmit={handleStudentDisputeSubmit}
+      />
+    </>
+  );
+}
+
 function App() {
   return (
     <Router>
       <RouteTitleManager />
       <AuthSessionManager />
+      <PendingLessonHoursGate />
       <Routes>
         {/* 默认路径重定向到 /student */}
         <Route path="/" element={<Navigate to="/student" />} />
