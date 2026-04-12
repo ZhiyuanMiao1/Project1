@@ -71,7 +71,7 @@
 
 .lesson-hours-dialog-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
 }
 
@@ -80,6 +80,7 @@
   font-weight: 700;
   color: #0f172a;
   flex: 0 0 auto;
+  padding-top: 10px;
 }
 
 .lesson-hours-dialog-field {
@@ -87,6 +88,13 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.lesson-hours-dialog-field-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .lesson-hours-dialog-input {
@@ -113,6 +121,12 @@
   font-weight: 700;
   color: #0f172a;
   text-align: right;
+}
+
+.lesson-hours-dialog-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #64748b;
 }
 
 .lesson-hours-dialog-error {

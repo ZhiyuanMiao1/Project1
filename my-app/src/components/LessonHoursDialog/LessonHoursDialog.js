@@ -1,6 +1,7 @@
 import React from 'react';
 import { FiX } from 'react-icons/fi';
 import Button from '../common/Button/Button';
+import { formatQuarterHourValue, roundToNearestQuarterHourValue } from '../../utils/lessonHours';
 import './LessonHoursDialog.css';
 
 function LessonHoursDialog({
@@ -18,6 +19,12 @@ function LessonHoursDialog({
   const handleClose = () => {
     if (submitting) return;
     onClose?.();
+  };
+
+  const handleValueBlur = () => {
+    const roundedValue = roundToNearestQuarterHourValue(value);
+    if (roundedValue == null) return;
+    onValueChange?.(formatQuarterHourValue(roundedValue, ''));
   };
 
   return (
@@ -53,20 +60,26 @@ function LessonHoursDialog({
             <label className="lesson-hours-dialog-label" htmlFor="lesson-hours-dialog-input">
               课时
             </label>
-            <div className="lesson-hours-dialog-field">
-              <input
-                id="lesson-hours-dialog-input"
-                className="lesson-hours-dialog-input"
-                type="number"
-                min="0.25"
-                max="12"
-                step="0.25"
-                inputMode="decimal"
-                value={value}
-                onChange={(event) => onValueChange?.(event.target.value)}
-                disabled={submitting}
-              />
-              <span className="lesson-hours-dialog-unit">小时</span>
+            <div className="lesson-hours-dialog-field-wrap">
+              <div className="lesson-hours-dialog-field">
+                <input
+                  id="lesson-hours-dialog-input"
+                  className="lesson-hours-dialog-input"
+                  type="number"
+                  min="0.25"
+                  max="12"
+                  step="0.25"
+                  inputMode="decimal"
+                  value={value}
+                  onChange={(event) => onValueChange?.(event.target.value)}
+                  onBlur={handleValueBlur}
+                  disabled={submitting}
+                />
+                <span className="lesson-hours-dialog-unit">小时</span>
+              </div>
+              <div className="lesson-hours-dialog-hint">
+                按 0.25 小时为刻度计算课时；若输入的不是 0.25 的倍数，输入后会自动调整为最接近的数值
+              </div>
             </div>
           </div>
           {error ? (

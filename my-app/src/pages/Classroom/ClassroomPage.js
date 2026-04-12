@@ -3610,7 +3610,7 @@ function ClassroomPage() {
 
           {cleanupEligible ? (
             <div className="classroom-chat-feedback classroom-chat-feedback--info">
-              当前课堂临时文件已可清理。
+              当前课堂临时文件已可清理
             </div>
           ) : null}
 
@@ -3671,7 +3671,7 @@ function ClassroomPage() {
                 setChatMessageText(event.target.value.slice(0, MAX_CLASSROOM_CHAT_TEXT_LENGTH));
               }}
               onKeyDown={handleChatInputKeyDown}
-              placeholder={chatClosed ? '课堂已结束，聊天区域为只读。' : '输入课堂消息，按 Enter 发送，Shift + Enter 换行。'}
+              placeholder={chatClosed ? '课堂已结束，聊天区域为只读' : '输入课堂消息，按 Enter 发送，Shift + Enter 换行'}
               disabled={chatComposerDisabled}
               rows={3}
             />
@@ -3863,7 +3863,7 @@ function ClassroomPage() {
               </div>
 
               <div className="classroom-reschedule-meta">
-                {threadAvailabilityStatus === 'loading' ? '正在同步双方空闲时间…' : '可点击时间段，或拖动已选区间调整。'}
+                {threadAvailabilityStatus === 'loading' ? '正在同步双方空闲时间…' : '可点击时间段，或拖动已选区间调整'}
               </div>
 
               <div className="reschedule-timeline">

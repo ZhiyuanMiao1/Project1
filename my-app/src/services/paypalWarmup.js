@@ -54,7 +54,7 @@ export async function ensurePayPalReady() {
 
     const paypal = await ensurePayPalScriptLoaded();
     if (!paypal?.createInstance) {
-      throw createError('PayPal SDK 未就绪，请稍后重试。');
+      throw createError('PayPal SDK 未就绪，请稍后重试');
     }
 
     let tokenData = null;
@@ -63,12 +63,12 @@ export async function ensurePayPalReady() {
         .get('/api/paypal-api/auth/browser-safe-client-token')
         .then((r) => r?.data || null);
     } catch (e) {
-      throw createError('PayPal 初始化失败，请稍后重试。', e);
+      throw createError('PayPal 初始化失败，请稍后重试', e);
     }
 
     const clientToken = tokenData?.accessToken;
     if (!clientToken) {
-      throw createError(tokenData?.hint || tokenData?.error || 'PayPal 初始化失败，请稍后重试。');
+      throw createError(tokenData?.hint || tokenData?.error || 'PayPal 初始化失败，请稍后重试');
     }
 
     const sdkInstance = await paypal.createInstance({
@@ -93,7 +93,7 @@ export async function ensurePayPalReady() {
     return { sdkInstance, isEligible: cachedIsEligible };
   })()
     .catch((err) => {
-      const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试。';
+      const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试';
       cachedSdkInstance = null;
       cachedIsEligible = null;
       cachedInitError = message;
@@ -121,13 +121,13 @@ export async function ensurePayPalScriptLoaded() {
     const finalize = () => {
       const paypal = window.paypal;
       if (paypal?.createInstance) return resolve(paypal);
-      return reject(createError('PayPal SDK 加载失败，请检查网络后重试。'));
+      return reject(createError('PayPal SDK 加载失败，请检查网络后重试'));
     };
 
     if (existing) {
       if (window.paypal?.createInstance) return resolve(window.paypal);
       existing.addEventListener('load', finalize, { once: true });
-      existing.addEventListener('error', () => reject(createError('PayPal SDK 加载失败，请检查网络后重试。')), {
+      existing.addEventListener('error', () => reject(createError('PayPal SDK 加载失败，请检查网络后重试')), {
         once: true,
       });
       return;
@@ -138,7 +138,7 @@ export async function ensurePayPalScriptLoaded() {
     script.async = true;
     script.src = PAYPAL_SCRIPT_SRC;
     script.onload = finalize;
-    script.onerror = () => reject(createError('PayPal SDK 加载失败，请检查网络后重试。'));
+    script.onerror = () => reject(createError('PayPal SDK 加载失败，请检查网络后重试'));
     document.body.appendChild(script);
   })
     .catch((err) => {

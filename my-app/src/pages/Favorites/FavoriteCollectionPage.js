@@ -586,7 +586,7 @@ function FavoriteCollectionPage() {
                 <>
                   {!hasMoveTargets ? (
                     <p className="favorite-modal-hint">
-                      暂无其它收藏夹，请先返回收藏页新建。
+                      暂无其它收藏夹，请先返回收藏页新建
                     </p>
                   ) : (
                     <div className="favorite-select" data-open={moveSelectOpen ? 'true' : 'false'}>

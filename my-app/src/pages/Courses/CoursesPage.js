@@ -299,13 +299,13 @@ const getReviewSuccessCopy = (message) => {
   if (message === 'review_updated') {
     return {
       title: '评价已更新',
-      description: '你的评价已更新，新的评分结果已经覆盖之前的记录。',
+      description: '你的评价已更新，新的评分结果已经覆盖之前的记录',
     };
   }
 
   return {
     title: '感谢反馈',
-    description: '你的评价已成功提交，我们会认真参考你的反馈持续优化导师服务。',
+    description: '你的评价已成功提交，我们会认真参考你的反馈持续优化导师服务',
   };
 };
 
@@ -487,7 +487,7 @@ function CoursesPage() {
         }
 
         setCourses(mergeCoursesById(...nextGroups));
-        setErrorMessage(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程。' : '');
+        setErrorMessage(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程' : '');
       })
       .catch((err) => {
         if (!alive) return;
@@ -694,15 +694,15 @@ function CoursesPage() {
       const errorCode = safeText(payload?.error);
 
       const messageMap = {
-        invalid_course_id: '课程信息无效，请刷新后重试。',
-        invalid_review_scores: '请为每个评价维度选择 1 到 5 分。',
-        invalid_review_comment: '文字评价最多可填写 1000 个字符。',
-        course_not_found: '未找到这节课程，暂时无法评价。',
-        course_not_completed: '课程尚未结束，暂时还不能评价。',
-        submit_review_failed: '提交评价失败，请稍后再试。',
+        invalid_course_id: '课程信息无效，请刷新后重试',
+        invalid_review_scores: '请为每个评价维度选择 1 到 5 分',
+        invalid_review_comment: '文字评价最多可填写 1000 个字符',
+        course_not_found: '未找到这节课程，暂时无法评价',
+        course_not_completed: '课程尚未结束，暂时还不能评价',
+        submit_review_failed: '提交评价失败，请稍后再试',
       };
 
-      setReviewSubmitError(messageMap[errorCode] || err?.message || '提交评价失败，请稍后再试。');
+      setReviewSubmitError(messageMap[errorCode] || err?.message || '提交评价失败，请稍后再试');
     } finally {
       setReviewSubmitting(false);
     }
@@ -747,7 +747,7 @@ function CoursesPage() {
       return (
         <div className="courses-guard">
           <p className="courses-guard-title">加载失败</p>
-          <p className="courses-guard-subtitle">{errorMessage || '请稍后重试。'}</p>
+          <p className="courses-guard-subtitle">{errorMessage || '请稍后重试'}</p>
         </div>
       );
     }

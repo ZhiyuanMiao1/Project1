@@ -17,7 +17,7 @@ const RECENT_COLLECTION = {
   id: 'recent',
   title: '最近浏览',
   meta: '今天',
-  description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置。',
+  description: '你最近查看的收藏会暂时保留在这里，方便随时回到上次的位置',
   images: [],
 };
 const FAVORITES_SKELETON_CARDS = [0, 1, 2];
@@ -205,8 +205,8 @@ function FavoritesPage() {
   }, [showDeleteModal, showCreateModal]);
 
   const heroCopy = preferredRole === 'mentor'
-    ? '导师收藏与学生收藏完全独立，可在此建立你的学生收藏夹。'
-    : '学生收藏与导师收藏互不干扰，按方向或目标建立你的导师收藏夹。';
+    ? '导师收藏与学生收藏完全独立，可在此建立你的学生收藏夹'
+    : '学生收藏与导师收藏互不干扰，按方向或目标建立你的导师收藏夹';
 
   const requireAuth = useCallback(() => {
     if (isLoggedIn) return true;
@@ -342,8 +342,8 @@ function FavoritesPage() {
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
-    ? '按课程方向、学生特点或目标，整理出你的学生收藏分组。'
-    : '按课程方向、导师风格或目标，整理出你的导师收藏分组。';
+    ? '按课程方向、学生特点或目标，整理出你的学生收藏分组'
+    : '按课程方向、导师风格或目标，整理出你的导师收藏分组';
   const showGridSkeleton = loading && !errorMessage;
 
   const openDeleteModal = (item) => {
@@ -636,7 +636,7 @@ function FavoritesPage() {
             <div className="favorites-modal-body">
               <h3 id="delete-title">删除此收藏夹？</h3>
               <p id="delete-desc">
-                「{pendingDelete?.title ?? ''}」将被永久删除。
+                「{pendingDelete?.title ?? ''}」将被永久删除
               </p>
             </div>
 

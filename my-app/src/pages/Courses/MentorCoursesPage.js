@@ -416,7 +416,7 @@ function MentorCoursesPage() {
         }
 
         setCourses(mergeCoursesById(...nextGroups));
-        setCoursesNotice(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程。' : '');
+        setCoursesNotice(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程' : '');
       })
       .catch((err) => {
         if (!alive) return;
@@ -681,7 +681,7 @@ function MentorCoursesPage() {
       return (
         <div className="courses-guard">
           <p className="courses-guard-title">请先登录导师账号</p>
-          <p className="courses-guard-subtitle">登录后即可访问导师课程日历。</p>
+          <p className="courses-guard-subtitle">登录后即可访问导师课程日历</p>
           <div className="courses-guard-actions">
             <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>登录 / 注册</button>
           </div>
@@ -699,7 +699,7 @@ function MentorCoursesPage() {
             </svg>
             <div className="mentor-pending-title">你已准备就绪</div>
             <div className="mentor-pending-subtitle">
-              我们会尽快完成导师审核，审核通过后即可访问导师课程页面。
+              我们会尽快完成导师审核，审核通过后即可访问导师课程页面
             </div>
           </div>
         </div>
@@ -710,7 +710,7 @@ function MentorCoursesPage() {
       return (
         <div className="courses-guard">
           <p className="courses-guard-title">仅导师可访问</p>
-          <p className="courses-guard-subtitle">{errorMessage || '请使用导师身份登录后查看。'}</p>
+          <p className="courses-guard-subtitle">{errorMessage || '请使用导师身份登录后查看'}</p>
           <div className="courses-guard-actions">
             <button type="button" className="courses-btn" onClick={() => setShowMentorAuth(true)}>切换账号</button>
           </div>
@@ -721,7 +721,7 @@ function MentorCoursesPage() {
     return (
       <div className="courses-guard">
         <p className="courses-guard-title">加载失败</p>
-        <p className="courses-guard-subtitle">{errorMessage || '请稍后重试。'}</p>
+        <p className="courses-guard-subtitle">{errorMessage || '请稍后重试'}</p>
       </div>
     );
   };

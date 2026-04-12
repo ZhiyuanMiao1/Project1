@@ -72,7 +72,7 @@ function WalletPage() {
       try {
         const data = await apiClient.post('/api/paypal/fx-quote', { hours }).then((res) => res?.data || {});
         const normalized = normalizeFxQuote(data);
-        if (!normalized) throw new Error('汇率报价返回数据无效，请重试。');
+        if (!normalized) throw new Error('汇率报价返回数据无效，请重试');
 
         if (requestId !== fxRequestIdRef.current) return null;
         setFxQuote(normalized);
@@ -80,7 +80,7 @@ function WalletPage() {
         return normalized;
       } catch (err) {
         if (requestId !== fxRequestIdRef.current) return null;
-        const message = err?.response?.data?.error || err?.message || '获取汇率报价失败，请稍后重试。';
+        const message = err?.response?.data?.error || err?.message || '获取汇率报价失败，请稍后重试';
         if (!preserveExisting) {
           setFxQuote(null);
         }
@@ -208,7 +208,7 @@ function WalletPage() {
       paypalSdkInstanceRef.current = null;
       setIsPayPalInitializing(false);
       setIsPayPalEligible(false);
-      setPayPalInitError('PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面。');
+      setPayPalInitError('PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面');
       return undefined;
     }
 
@@ -236,7 +236,7 @@ function WalletPage() {
       .catch((err) => {
         if (canceled) return;
         console.error('PayPal init error:', err);
-        const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试。';
+        const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试';
         setPayPalInitError(message);
         setIsPayPalEligible(false);
       })
@@ -313,7 +313,7 @@ function WalletPage() {
 
   const handlePayPalTopUp = async () => {
     if (!isHoursValid) {
-      setTopUpNotice('请输入正确的小时数。');
+      setTopUpNotice('请输入正确的小时数');
       return;
     }
 
@@ -330,12 +330,12 @@ function WalletPage() {
     }
 
     if (!isPayPalEligible) {
-      setTopUpNotice('PayPal 当前不可用，请稍后重试。');
+      setTopUpNotice('PayPal 当前不可用，请稍后重试');
       return;
     }
 
     if (isFxLoading && !fxQuote) {
-      setTopUpNotice('正在获取实时汇率，请稍后重试。');
+      setTopUpNotice('正在获取实时汇率，请稍后重试');
       return;
     }
 
@@ -343,20 +343,20 @@ function WalletPage() {
       if (fxError) {
         setTopUpNotice(fxError);
       } else {
-        setTopUpNotice('未获取到汇率报价，请稍后重试。');
+        setTopUpNotice('未获取到汇率报价，请稍后重试');
       }
       return;
     }
 
     if (isFxQuoteExpired) {
-      setTopUpNotice('汇率报价已过期，正在刷新最新报价。');
+      setTopUpNotice('汇率报价已过期，正在刷新最新报价');
       await refreshFxQuote(Number(hoursNumber.toFixed(2)));
       return;
     }
 
     const sdkInstance = paypalSdkInstanceRef.current;
     if (!sdkInstance) {
-      setTopUpNotice('PayPal 尚未初始化完成，请稍后重试。');
+      setTopUpNotice('PayPal 尚未初始化完成，请稍后重试');
       return;
     }
 
@@ -379,7 +379,7 @@ function WalletPage() {
           applyPricingIfPresent(createData);
 
           if (String(createData?.code || '').trim() === FX_REFRESHED_CODE) {
-            setTopUpNotice('汇率已更新，已按最新报价继续支付。');
+            setTopUpNotice('汇率已更新，已按最新报价继续支付');
           }
 
           if (!createData?.id) {
@@ -427,13 +427,13 @@ function WalletPage() {
             }
           } catch (err) {
             console.error('PayPal approve/capture error:', err);
-            setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额。');
+            setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额');
           }
         },
         onCancel: () => setTopUpNotice('已取消支付'),
         onError: (err) => {
           console.error('PayPal session error:', err);
-          setTopUpNotice('支付失败，请稍后重试。');
+          setTopUpNotice('支付失败，请稍后重试');
         },
       });
 
@@ -441,15 +441,15 @@ function WalletPage() {
     } catch (err) {
       if (err?.fxIssue) {
         if (err?.fxExpired) {
-          setTopUpNotice('汇率报价已过期，正在刷新最新报价，请再次点击支付。');
+          setTopUpNotice('汇率报价已过期，正在刷新最新报价，请再次点击支付');
         } else {
-          setTopUpNotice('汇率报价已失效，正在刷新最新报价，请再次点击支付。');
+          setTopUpNotice('汇率报价已失效，正在刷新最新报价，请再次点击支付');
         }
         await refreshFxQuote(hoursSnapshot);
         return;
       }
       console.error('PayPal click error:', err);
-      setTopUpNotice('支付初始化失败，请稍后重试。');
+      setTopUpNotice('支付初始化失败，请稍后重试');
     }
   };
 
@@ -468,7 +468,7 @@ function WalletPage() {
     setTopUpNotice(
       `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，单价 ${unitPriceCny}元/小时，总计 ¥${amountCnyNumber.toFixed(
         2
-      )}。充值功能开发中，敬请期待。`
+      )}。充值功能开发中，敬请期待`
     );
   };
 
