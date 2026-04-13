@@ -33,6 +33,7 @@ import {
   subtractAvailabilityBlocks,
 } from '../../utils/availabilityBusy';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import '../../styles/rescheduleTimeline.css';
 import './MentorDetailPage.css';
 
 const RATING_CATEGORY_SPECS = [

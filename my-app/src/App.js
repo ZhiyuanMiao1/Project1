@@ -13,21 +13,57 @@ import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lesso
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
 const BRAND_NAME = 'Mentory';
-const LazyMentorPage = lazy(() => import('./components/MentorPage/MentorPage'));
-const LazyStudentCourseRequestPage = lazy(() => import('./pages/StudentCourseRequest/StudentCourseRequestPage'));
-const LazyMentorProfileEditorPage = lazy(() => import('./pages/MentorProfileEditor/MentorProfileEditorPage'));
-const LazyFavoritesPage = lazy(() => import('./pages/Favorites/FavoritesPage'));
-const LazyFavoriteCollectionPage = lazy(() => import('./pages/Favorites/FavoriteCollectionPage'));
-const LazyCoursesPage = lazy(() => import('./pages/Courses/CoursesPage'));
-const LazyMentorCoursesPage = lazy(() => import('./pages/Courses/MentorCoursesPage'));
-const LazyMessagesPage = lazy(() => import('./pages/Messages/MessagesPage'));
-const LazyRecentVisitsPage = lazy(() => import('./pages/RecentVisits/RecentVisitsPage'));
-const LazyAccountSettingsPage = lazy(() => import('./pages/AccountSettings/AccountSettingsPage'));
-const LazyMentorDetailPage = lazy(() => import('./pages/MentorDetail/MentorDetailPage'));
-const LazyCourseRequestDetailPage = lazy(() => import('./pages/CourseRequestDetail/CourseRequestDetailPage'));
-const LazyWalletPage = lazy(() => import('./pages/Wallet/WalletPage'));
-const LazyClassroomPage = lazy(() => import('./pages/Classroom/ClassroomPage'));
-const LazyHelpCenterPage = lazy(() => import('./pages/HelpCenter/HelpCenterPage'));
+const loadMentorPage = () => import(/* webpackPrefetch: true */ './components/MentorPage/MentorPage');
+const loadStudentCourseRequestPage = () => import(/* webpackPrefetch: true */ './pages/StudentCourseRequest/StudentCourseRequestPage');
+const loadMentorProfileEditorPage = () => import(/* webpackPrefetch: true */ './pages/MentorProfileEditor/MentorProfileEditorPage');
+const loadFavoritesPage = () => import(/* webpackPrefetch: true */ './pages/Favorites/FavoritesPage');
+const loadFavoriteCollectionPage = () => import(/* webpackPrefetch: true */ './pages/Favorites/FavoriteCollectionPage');
+const loadCoursesPage = () => import(/* webpackPrefetch: true */ './pages/Courses/CoursesPage');
+const loadMentorCoursesPage = () => import(/* webpackPrefetch: true */ './pages/Courses/MentorCoursesPage');
+const loadMessagesPage = () => import(/* webpackPrefetch: true */ './pages/Messages/MessagesPage');
+const loadRecentVisitsPage = () => import(/* webpackPrefetch: true */ './pages/RecentVisits/RecentVisitsPage');
+const loadAccountSettingsPage = () => import(/* webpackPrefetch: true */ './pages/AccountSettings/AccountSettingsPage');
+const loadMentorDetailPage = () => import(/* webpackPrefetch: true */ './pages/MentorDetail/MentorDetailPage');
+const loadCourseRequestDetailPage = () => import(/* webpackPrefetch: true */ './pages/CourseRequestDetail/CourseRequestDetailPage');
+const loadWalletPage = () => import(/* webpackPrefetch: true */ './pages/Wallet/WalletPage');
+const loadClassroomPage = () => import(/* webpackPrefetch: true */ './pages/Classroom/ClassroomPage');
+const loadHelpCenterPage = () => import(/* webpackPrefetch: true */ './pages/HelpCenter/HelpCenterPage');
+
+const LazyMentorPage = lazy(loadMentorPage);
+const LazyStudentCourseRequestPage = lazy(loadStudentCourseRequestPage);
+const LazyMentorProfileEditorPage = lazy(loadMentorProfileEditorPage);
+const LazyFavoritesPage = lazy(loadFavoritesPage);
+const LazyFavoriteCollectionPage = lazy(loadFavoriteCollectionPage);
+const LazyCoursesPage = lazy(loadCoursesPage);
+const LazyMentorCoursesPage = lazy(loadMentorCoursesPage);
+const LazyMessagesPage = lazy(loadMessagesPage);
+const LazyRecentVisitsPage = lazy(loadRecentVisitsPage);
+const LazyAccountSettingsPage = lazy(loadAccountSettingsPage);
+const LazyMentorDetailPage = lazy(loadMentorDetailPage);
+const LazyCourseRequestDetailPage = lazy(loadCourseRequestDetailPage);
+const LazyWalletPage = lazy(loadWalletPage);
+const LazyClassroomPage = lazy(loadClassroomPage);
+const LazyHelpCenterPage = lazy(loadHelpCenterPage);
+
+const BACKGROUND_ROUTE_LOADERS = [
+  loadMentorDetailPage,
+  loadStudentCourseRequestPage,
+  loadMessagesPage,
+  loadWalletPage,
+  loadMentorPage,
+  loadCoursesPage,
+  loadFavoritesPage,
+  loadAccountSettingsPage,
+  loadHelpCenterPage,
+  loadRecentVisitsPage,
+  loadMentorProfileEditorPage,
+  loadMentorCoursesPage,
+  loadCourseRequestDetailPage,
+  loadClassroomPage,
+  loadFavoriteCollectionPage,
+];
+
+let hasStartedBackgroundRouteWarmup = false;
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -86,6 +122,75 @@ function RouteTitleManager() {
 
   useEffect(() => {
     document.title = getDocumentTitleByPath(location.pathname);
+  }, [location.pathname]);
+
+  return null;
+}
+
+const canWarmBackgroundRoutes = () => {
+  if (typeof navigator === 'undefined') return true;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!connection) return true;
+  if (connection.saveData) return false;
+  const effectiveType = String(connection.effectiveType || '').toLowerCase();
+  return !effectiveType.includes('2g');
+};
+
+function BackgroundRouteWarmup() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (hasStartedBackgroundRouteWarmup) return undefined;
+    if (normalizePathname(location.pathname) !== '/student') return undefined;
+    if (!canWarmBackgroundRoutes()) return undefined;
+
+    hasStartedBackgroundRouteWarmup = true;
+
+    let cancelled = false;
+    let idleId = null;
+    let timeoutId = null;
+    const queue = [...BACKGROUND_ROUTE_LOADERS];
+
+    const scheduleNext = (fn, delay = 250) => {
+      if (cancelled) return;
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(fn, { timeout: 2000 });
+        return;
+      }
+      timeoutId = window.setTimeout(fn, delay);
+    };
+
+    const runNext = () => {
+      if (cancelled || queue.length === 0) return;
+      const loader = queue.shift();
+      Promise.resolve()
+        .then(() => loader())
+        .catch(() => null)
+        .finally(() => {
+          if (cancelled || queue.length === 0) return;
+          scheduleNext(runNext);
+        });
+    };
+
+    const start = () => scheduleNext(runNext, 0);
+
+    if (typeof document !== 'undefined' && document.readyState === 'complete') {
+      start();
+      return () => {
+        cancelled = true;
+        if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+        if (timeoutId != null) window.clearTimeout(timeoutId);
+      };
+    }
+
+    const onLoad = () => start();
+    window.addEventListener('load', onLoad, { once: true });
+    return () => {
+      cancelled = true;
+      window.removeEventListener('load', onLoad);
+      if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
+      if (timeoutId != null) window.clearTimeout(timeoutId);
+    };
   }, [location.pathname]);
 
   return null;
@@ -290,6 +395,7 @@ function App() {
   return (
     <Router>
       <RouteTitleManager />
+      <BackgroundRouteWarmup />
       <AuthSessionManager />
       <PendingLessonHoursGate />
       <Routes>

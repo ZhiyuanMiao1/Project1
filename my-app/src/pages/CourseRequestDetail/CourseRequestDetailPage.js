@@ -26,6 +26,7 @@ import {
   getDefaultTimeZone,
   getZonedParts,
 } from '../StudentCourseRequest/steps/timezoneUtils';
+import '../../styles/rescheduleTimeline.css';
 import '../MentorDetail/MentorDetailPage.css';
 
 const safeDecode = (value) => {
