@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import StudentNavbar from '../Navbar/StudentNavbar';
 import CategoryFilters from '../CategoryFilters/CategoryFilters';
 import StudentListings from '../Listings/StudentListings';
-import { warmupPayPal } from '../../services/paypalWarmup';
 import './StudentPage.css';
 
 function StudentPage() {
@@ -17,20 +16,30 @@ function StudentPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
+    let cancelled = false;
 
     const start = () => {
-      warmupPayPal().catch(() => {});
+      import('../../services/paypalWarmup')
+        .then(({ warmupPayPal }) => {
+          if (cancelled) return null;
+          return warmupPayPal();
+        })
+        .catch(() => {});
     };
 
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(start, { timeout: 2000 });
       return () => {
+        cancelled = true;
         if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id);
       };
     }
 
     const timeoutId = window.setTimeout(start, 0);
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   return (

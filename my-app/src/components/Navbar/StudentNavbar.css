@@ -169,6 +169,54 @@
   .icon-circle:hover i, .icon-circle:hover svg {
     color: #333; /* 鼠标悬停时更改图标颜色 */
   }
+
+  .navbar-lazy-fallback {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    pointer-events: none;
+  }
+
+  .navbar-lazy-panel {
+    padding: 14px 16px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
+    color: #3f3f46;
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: center;
+    pointer-events: none;
+  }
+
+  .navbar-lazy-panel--wide {
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .navbar-lazy-centered-fallback {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(17, 24, 39, 0.16);
+  }
+
+  .navbar-lazy-centered-card {
+    min-width: 220px;
+    max-width: min(90vw, 360px);
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+    color: #111827;
+    font-size: 14px;
+    text-align: center;
+  }
   
   
   /***** 搜索框容器 *****/

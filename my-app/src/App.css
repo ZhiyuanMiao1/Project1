@@ -71,3 +71,25 @@ a {
     max-width: none;
   }
 }
+
+.route-loading-fallback {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: #fff;
+}
+
+.route-loading-card {
+  min-width: 180px;
+  max-width: min(90vw, 360px);
+  padding: 14px 18px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  color: #3f3f46;
+  font-size: 14px;
+  text-align: center;
+}

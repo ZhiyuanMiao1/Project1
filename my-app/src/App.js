@@ -1,22 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate, matchPath } from 'react-router-dom';
 import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
-import MentorPage from './components/MentorPage/MentorPage';
-import StudentCourseRequestPage from './pages/StudentCourseRequest/StudentCourseRequestPage';
-import MentorProfileEditorPage from './pages/MentorProfileEditor/MentorProfileEditorPage';
-import FavoritesPage from './pages/Favorites/FavoritesPage';
-import FavoriteCollectionPage from './pages/Favorites/FavoriteCollectionPage';
-import CoursesPage from './pages/Courses/CoursesPage';
-import MentorCoursesPage from './pages/Courses/MentorCoursesPage';
-import MessagesPage from './pages/Messages/MessagesPage';
-import RecentVisitsPage from './pages/RecentVisits/RecentVisitsPage';
-import AccountSettingsPage from './pages/AccountSettings/AccountSettingsPage';
-import MentorDetailPage from './pages/MentorDetail/MentorDetailPage';
-import CourseRequestDetailPage from './pages/CourseRequestDetail/CourseRequestDetailPage';
-import WalletPage from './pages/Wallet/WalletPage';
-import ClassroomPage from './pages/Classroom/ClassroomPage';
-import HelpCenterPage from './pages/HelpCenter/HelpCenterPage';
 import LessonHoursDialog from './components/LessonHoursDialog/LessonHoursDialog';
 import PendingLessonHoursPrompt from './components/PendingLessonHoursPrompt/PendingLessonHoursPrompt';
 import api from './api/client';
@@ -28,6 +13,21 @@ import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lesso
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
 const BRAND_NAME = 'Mentory';
+const LazyMentorPage = lazy(() => import('./components/MentorPage/MentorPage'));
+const LazyStudentCourseRequestPage = lazy(() => import('./pages/StudentCourseRequest/StudentCourseRequestPage'));
+const LazyMentorProfileEditorPage = lazy(() => import('./pages/MentorProfileEditor/MentorProfileEditorPage'));
+const LazyFavoritesPage = lazy(() => import('./pages/Favorites/FavoritesPage'));
+const LazyFavoriteCollectionPage = lazy(() => import('./pages/Favorites/FavoriteCollectionPage'));
+const LazyCoursesPage = lazy(() => import('./pages/Courses/CoursesPage'));
+const LazyMentorCoursesPage = lazy(() => import('./pages/Courses/MentorCoursesPage'));
+const LazyMessagesPage = lazy(() => import('./pages/Messages/MessagesPage'));
+const LazyRecentVisitsPage = lazy(() => import('./pages/RecentVisits/RecentVisitsPage'));
+const LazyAccountSettingsPage = lazy(() => import('./pages/AccountSettings/AccountSettingsPage'));
+const LazyMentorDetailPage = lazy(() => import('./pages/MentorDetail/MentorDetailPage'));
+const LazyCourseRequestDetailPage = lazy(() => import('./pages/CourseRequestDetail/CourseRequestDetailPage'));
+const LazyWalletPage = lazy(() => import('./pages/Wallet/WalletPage'));
+const LazyClassroomPage = lazy(() => import('./pages/Classroom/ClassroomPage'));
+const LazyHelpCenterPage = lazy(() => import('./pages/HelpCenter/HelpCenterPage'));
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -272,6 +272,20 @@ function PendingLessonHoursGate() {
   );
 }
 
+function RouteLoadingFallback() {
+  return (
+    <div className="route-loading-fallback" role="status" aria-live="polite">
+      <div className="route-loading-card">页面加载中…</div>
+    </div>
+  );
+}
+
+const withRouteSuspense = (element) => (
+  <Suspense fallback={<RouteLoadingFallback />}>
+    {element}
+  </Suspense>
+);
+
 function App() {
   return (
     <Router>
@@ -286,36 +300,36 @@ function App() {
         <Route path="/student" element={<StudentPage />} />
 
         {/* 学生查看导师主页 */}
-        <Route path="/student/mentors/:mentorId" element={<MentorDetailPage />} />
+        <Route path="/student/mentors/:mentorId" element={withRouteSuspense(<LazyMentorDetailPage />)} />
 
         {/* 发布课程需求页面 */}
-        <Route path="/student/course-request" element={<StudentCourseRequestPage />} />
+        <Route path="/student/course-request" element={withRouteSuspense(<LazyStudentCourseRequestPage />)} />
 
         {/* 收藏页面 */}
-        <Route path="/student/favorites" element={<FavoritesPage />} />
-        <Route path="/student/favorites/:collectionId" element={<FavoriteCollectionPage />} />
-        <Route path="/student/recent-visits" element={<RecentVisitsPage />} />
+        <Route path="/student/favorites" element={withRouteSuspense(<LazyFavoritesPage />)} />
+        <Route path="/student/favorites/:collectionId" element={withRouteSuspense(<LazyFavoriteCollectionPage />)} />
+        <Route path="/student/recent-visits" element={withRouteSuspense(<LazyRecentVisitsPage />)} />
 
         {/* 课程时间轴页面 */}
-        <Route path="/student/courses" element={<CoursesPage />} />
-        <Route path="/student/messages" element={<MessagesPage />} />
-        <Route path="/student/wallet" element={<WalletPage />} />
-        <Route path="/student/settings" element={<AccountSettingsPage mode="student" />} />
-        <Route path="/student/help" element={<HelpCenterPage mode="student" />} />
-        <Route path="/classroom/:courseId" element={<ClassroomPage />} />
+        <Route path="/student/courses" element={withRouteSuspense(<LazyCoursesPage />)} />
+        <Route path="/student/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
+        <Route path="/student/wallet" element={withRouteSuspense(<LazyWalletPage />)} />
+        <Route path="/student/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="student" />)} />
+        <Route path="/student/help" element={withRouteSuspense(<LazyHelpCenterPage mode="student" />)} />
+        <Route path="/classroom/:courseId" element={withRouteSuspense(<LazyClassroomPage />)} />
 
         {/* 导师个人名片编辑页面 */}
-        <Route path="/mentor/profile-editor" element={<MentorProfileEditorPage />} />
+        <Route path="/mentor/profile-editor" element={withRouteSuspense(<LazyMentorProfileEditorPage />)} />
 
         {/* 导师课程时间轴页 */}
-        <Route path="/mentor/courses" element={<MentorCoursesPage />} />
-        <Route path="/mentor/requests/:requestId" element={<CourseRequestDetailPage />} />
-        <Route path="/mentor/messages" element={<MessagesPage />} />
-        <Route path="/mentor/settings" element={<AccountSettingsPage mode="mentor" />} />
-        <Route path="/mentor/help" element={<HelpCenterPage mode="mentor" />} />
+        <Route path="/mentor/courses" element={withRouteSuspense(<LazyMentorCoursesPage />)} />
+        <Route path="/mentor/requests/:requestId" element={withRouteSuspense(<LazyCourseRequestDetailPage />)} />
+        <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
+        <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />
+        <Route path="/mentor/help" element={withRouteSuspense(<LazyHelpCenterPage mode="mentor" />)} />
 
         {/* 导师页面 */}
-        <Route path="/mentor" element={<MentorPage />} />
+        <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
       </Routes>
     </Router>
   );

@@ -1,12 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './StudentNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import TimezoneModal from '../TimezoneModal/TimezoneModal';
-import CourseTypeModal from '../CourseTypeModal/CourseTypeModal';
 // 移除首课日期弹窗，改为直接输入
-import StudentAuthModal from '../AuthModal/StudentAuthModal';
-import CourseOnboardingModal from '../CourseOnboardingModal/CourseOnboardingModal';
 import BrandMark from '../common/BrandMark/BrandMark';
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import api from '../../api/client';
@@ -17,6 +13,71 @@ import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
+const LazyTimezoneModal = lazy(() => import('../TimezoneModal/TimezoneModal'));
+const LazyCourseTypeModal = lazy(() => import('../CourseTypeModal/CourseTypeModal'));
+const LazyStudentAuthModal = lazy(() => import('../AuthModal/StudentAuthModal'));
+const LazyCourseOnboardingModal = lazy(() => import('../CourseOnboardingModal/CourseOnboardingModal'));
+
+function AnchoredLoadingFallback({
+  anchorRef,
+  width = 220,
+  className = '',
+  align = 'left',
+  alignRef = null,
+  alignOffset = 0,
+  message = '加载中…',
+}) {
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      const anchorEl = anchorRef?.current;
+      if (!anchorEl) return;
+
+      const rect = anchorEl.getBoundingClientRect();
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const minGap = 8;
+      const baseLeft = align === 'right'
+        ? rect.right - width + alignOffset
+        : (alignRef?.current ? alignRef.current.getBoundingClientRect().left : rect.left);
+      let left = baseLeft;
+      const maxLeft = viewportWidth - width - minGap;
+
+      if (left > maxLeft) left = Math.max(minGap, maxLeft);
+      if (left < minGap) left = minGap;
+
+      setPosition({ top: rect.bottom + 10, left });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [align, alignOffset, alignRef, anchorRef, width]);
+
+  return (
+    <div className="navbar-lazy-fallback" aria-live="polite">
+      <div
+        className={`navbar-lazy-panel ${className}`.trim()}
+        role="status"
+        style={{ position: 'fixed', top: position.top, left: position.left, width }}
+      >
+        {message}
+      </div>
+    </div>
+  );
+}
+
+function CenteredLoadingFallback({ message = '加载中…' }) {
+  return (
+    <div className="navbar-lazy-centered-fallback" role="status" aria-live="polite">
+      <div className="navbar-lazy-centered-card">{message}</div>
+    </div>
+  );
+}
 
 function StudentNavbar() {
   const timezoneRef = useRef(null);
@@ -384,61 +445,96 @@ function StudentNavbar() {
 
       {/* 弹窗部分 */}
       {showTimezoneModal && (
-        <TimezoneModal
-          onClose={() => {
-            setShowTimezoneModal(false);
-            if (!pendingFilter) {
-              setActiveFilter('');
-              setIsSearchBarActive(false);
-            }
-          }}
-          onSelect={(region) => setSelectedRegion(region || '')}
-          anchorRef={timezoneRef}
-        />
+        <Suspense
+          fallback={(
+            <AnchoredLoadingFallback
+              anchorRef={timezoneRef}
+              width={360}
+              className="navbar-lazy-panel--wide"
+              message="正在加载时区筛选…"
+            />
+          )}
+        >
+          <LazyTimezoneModal
+            onClose={() => {
+              setShowTimezoneModal(false);
+              if (!pendingFilter) {
+                setActiveFilter('');
+                setIsSearchBarActive(false);
+              }
+            }}
+            onSelect={(region) => setSelectedRegion(region || '')}
+            anchorRef={timezoneRef}
+          />
+        </Suspense>
       )}
 
       {showCourseTypeModal && (
-        <CourseTypeModal
-          onClose={() => {
-            setShowCourseTypeModal(false);
-            if (!pendingFilter) {
-              setActiveFilter('');
-              setIsSearchBarActive(false);
-            }
-          }}
-          onSelect={(courseType) => {
-            setSelectedCourseType(courseType || '');
-          }}
-          anchorRef={courseTypeRef}
-          mode="studentFeatures"
-        />
+        <Suspense
+          fallback={(
+            <AnchoredLoadingFallback
+              anchorRef={courseTypeRef}
+              width={220}
+              message="正在加载导师特色…"
+            />
+          )}
+        >
+          <LazyCourseTypeModal
+            onClose={() => {
+              setShowCourseTypeModal(false);
+              if (!pendingFilter) {
+                setActiveFilter('');
+                setIsSearchBarActive(false);
+              }
+            }}
+            onSelect={(courseType) => {
+              setSelectedCourseType(courseType || '');
+            }}
+            anchorRef={courseTypeRef}
+            mode="studentFeatures"
+          />
+        </Suspense>
       )}
 
       {/* 首课日期弹窗已移除，改为直接输入 */}
 
       {showAuthModal && (
-        <StudentAuthModal
-          onClose={() => { setShowAuthModal(false); setForceLogin(false); }}
-          onPublishCourseRequest={handlePublishCourseRequest}
-          anchorRef={userIconRef}
-          leftAlignRef={publishBtnRef}
-          forceLogin={forceLogin}
-          isLoggedIn={isLoggedIn}
-          unreadCount={messageUnreadCount}
-          courseCount={newCourseCount}
-        />
+        <Suspense
+          fallback={(
+            <AnchoredLoadingFallback
+              anchorRef={userIconRef}
+              align="right"
+              width={200}
+              alignOffset={0}
+              message="正在加载菜单…"
+            />
+          )}
+        >
+          <LazyStudentAuthModal
+            onClose={() => { setShowAuthModal(false); setForceLogin(false); }}
+            onPublishCourseRequest={handlePublishCourseRequest}
+            anchorRef={userIconRef}
+            leftAlignRef={publishBtnRef}
+            forceLogin={forceLogin}
+            isLoggedIn={isLoggedIn}
+            unreadCount={messageUnreadCount}
+            courseCount={newCourseCount}
+          />
+        </Suspense>
       )}
 
       {showCourseRequestDraftModal && (
-        <CourseOnboardingModal
-          showConfirmButton={false}
-          includeSubmitted
-          onCreateCourse={() => {
-            setShowCourseRequestDraftModal(false);
-            navigate('/student/course-request');
-          }}
-          onClose={() => setShowCourseRequestDraftModal(false)}
-        />
+        <Suspense fallback={<CenteredLoadingFallback message="正在加载课程草稿…" />}>
+          <LazyCourseOnboardingModal
+            showConfirmButton={false}
+            includeSubmitted
+            onCreateCourse={() => {
+              setShowCourseRequestDraftModal(false);
+              navigate('/student/course-request');
+            }}
+            onClose={() => setShowCourseRequestDraftModal(false)}
+          />
+        </Suspense>
       )}
     </header>
   );
