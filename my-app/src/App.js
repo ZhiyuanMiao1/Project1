@@ -377,16 +377,8 @@ function PendingLessonHoursGate() {
   );
 }
 
-function RouteLoadingFallback() {
-  return (
-    <div className="route-loading-fallback" role="status" aria-live="polite">
-      <div className="route-loading-card">页面加载中…</div>
-    </div>
-  );
-}
-
 const withRouteSuspense = (element) => (
-  <Suspense fallback={<RouteLoadingFallback />}>
+  <Suspense fallback={null}>
     {element}
   </Suspense>
 );
