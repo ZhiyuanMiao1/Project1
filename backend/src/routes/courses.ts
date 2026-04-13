@@ -26,6 +26,7 @@ const REVIEW_COMMENT_MAX_LENGTH = 1000;
 
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
+let courseAlertColumnsEnsured = false;
 
 const isMissingCoursesSchemaError = (err: any) => {
   const code = typeof err?.code === 'string' ? err.code : '';
@@ -39,6 +40,10 @@ const normalizeView = (raw: unknown): CourseView | '' => {
   if (value === 'student' || value === 'mentor') return value;
   return '';
 };
+
+const getLastSeenCourseColumn = (view: CourseView) => (
+  view === 'student' ? 'student_last_seen_course_id' : 'mentor_last_seen_course_id'
+);
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
@@ -102,6 +107,13 @@ const isMissingMentorRatingColumnsError = (e: any) => {
   const message = String(e?.message || '');
   if (!(code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column'))) return false;
   return message.includes('rating') || message.includes('review_count');
+};
+
+const isMissingCourseAlertColumnError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  if (!(code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column'))) return false;
+  return message.includes('student_last_seen_course_id') || message.includes('mentor_last_seen_course_id');
 };
 
 const ensureMentorRatingColumns = async () => {
@@ -176,6 +188,32 @@ const ensureCourseReviewSchema = async () => {
 
   courseReviewSchemaEnsured = commentColumnReady;
   return courseReviewSchemaEnsured;
+};
+
+const ensureCourseAlertColumns = async () => {
+  if (courseAlertColumnsEnsured) return true;
+
+  const ensureColumn = async (sql: string) => {
+    try {
+      await query(sql);
+      return true;
+    } catch (e: any) {
+      const code = String(e?.code || '');
+      const message = String(e?.message || '');
+      if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) return true;
+      return false;
+    }
+  };
+
+  const studentReady = await ensureColumn(
+    'ALTER TABLE account_settings ADD COLUMN student_last_seen_course_id BIGINT UNSIGNED NOT NULL DEFAULT 0'
+  );
+  const mentorReady = await ensureColumn(
+    'ALTER TABLE account_settings ADD COLUMN mentor_last_seen_course_id BIGINT UNSIGNED NOT NULL DEFAULT 0'
+  );
+
+  courseAlertColumnsEnsured = studentReady && mentorReady;
+  return courseAlertColumnsEnsured;
 };
 
 const normalizeReviewScores = (payload: any): ReviewScores | null => {
@@ -253,6 +291,22 @@ const buildReviewPayload = (row: any) => {
     reviewOverallScore: toNumber(row?.review_overall_score),
     reviewComment: typeof row?.review_comment === 'string' ? row.review_comment.trim() : '',
   };
+};
+
+const fetchLastSeenCourseId = async (userId: number, view: CourseView) => {
+  const column = getLastSeenCourseColumn(view);
+  const selectSql = `SELECT ${column} AS last_seen_course_id FROM account_settings WHERE user_id = ? LIMIT 1`;
+
+  try {
+    const rows = await query<any[]>(selectSql, [userId]);
+    return Math.max(0, toInt(rows?.[0]?.last_seen_course_id) ?? 0);
+  } catch (e) {
+    if (!isMissingCourseAlertColumnError(e)) return 0;
+    const ensured = await ensureCourseAlertColumns();
+    if (!ensured) return 0;
+    const rows = await query<any[]>(selectSql, [userId]);
+    return Math.max(0, toInt(rows?.[0]?.last_seen_course_id) ?? 0);
+  }
 };
 
 const recalculateMentorRating = async (connection: any, mentorUserId: number) => {
@@ -441,7 +495,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       };
     });
 
-    return res.json({ view, courses });
+    const lastSeenCourseId = await fetchLastSeenCourseId(req.user.id, view);
+
+    return res.json({ view, courses, lastSeenCourseId });
   } catch (e) {
     if (isMissingCoursesSchemaError(e)) {
       return res.status(500).json({ error: 'courses_schema_missing' });
@@ -450,6 +506,45 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'mentor_rating_columns_missing' });
     }
     console.error('Fetch courses error:', e);
+    return res.status(500).json({ error: 'server_error' });
+  }
+});
+
+router.post('/alerts/seen', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+
+  const view = normalizeView(req.body?.view);
+  if (!view) {
+    return res.status(400).json({ error: 'invalid_view' });
+  }
+
+  const lastSeenCourseId = Math.max(0, toInt(req.body?.lastSeenCourseId) ?? 0);
+  const column = getLastSeenCourseColumn(view);
+  const upsertSql = `
+    INSERT INTO account_settings (user_id, ${column})
+    VALUES (?, ?)
+    ON DUPLICATE KEY UPDATE
+      ${column} = GREATEST(COALESCE(${column}, 0), VALUES(${column}))
+  `;
+
+  try {
+    try {
+      await query(upsertSql, [req.user.id, lastSeenCourseId]);
+    } catch (e) {
+      if (!isMissingCourseAlertColumnError(e)) throw e;
+      const ensured = await ensureCourseAlertColumns();
+      if (!ensured) throw e;
+      await query(upsertSql, [req.user.id, lastSeenCourseId]);
+    }
+
+    const persistedLastSeenCourseId = await fetchLastSeenCourseId(req.user.id, view);
+    return res.json({
+      ok: true,
+      view,
+      lastSeenCourseId: persistedLastSeenCourseId,
+    });
+  } catch (e) {
+    console.error('Mark courses seen error:', e);
     return res.status(500).json({ error: 'server_error' });
   }
 });

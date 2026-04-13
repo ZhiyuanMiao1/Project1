@@ -17,31 +17,6 @@ const getCurrentUserId = () => {
   return Number.isFinite(id) && id > 0 ? String(id) : '';
 };
 
-const buildSeenStorageKey = (view, userId) => {
-  const normalizedView = typeof view === 'string' ? view.trim().toLowerCase() : '';
-  const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
-  if (!normalizedView || !normalizedUserId) return '';
-  return `mx:courses:last-seen:${normalizedView}:${normalizedUserId}`;
-};
-
-const readLastSeenCourseId = (view, userId) => {
-  const storageKey = buildSeenStorageKey(view, userId);
-  if (!storageKey) return 0;
-  try {
-    return normalizeCourseId(window.localStorage.getItem(storageKey));
-  } catch {
-    return 0;
-  }
-};
-
-const writeLastSeenCourseId = (view, userId, lastSeenCourseId) => {
-  const storageKey = buildSeenStorageKey(view, userId);
-  if (!storageKey) return;
-  try {
-    window.localStorage.setItem(storageKey, String(Math.max(0, normalizeCourseId(lastSeenCourseId))));
-  } catch {}
-};
-
 const getMaxCourseId = (courses) => {
   if (!Array.isArray(courses) || courses.length === 0) return 0;
   return courses.reduce((max, course) => {
@@ -68,13 +43,20 @@ export const markCoursesAsSeen = ({ view, courses = [], userId = getCurrentUserI
   const normalizedUserId = typeof userId === 'string' ? userId.trim() : '';
   if (!view || !normalizedUserId) return 0;
   const maxCourseId = getMaxCourseId(courses);
-  writeLastSeenCourseId(view, normalizedUserId, maxCourseId);
-  emitCourseAlertChanged({
+  if (!getAuthToken()) return 0;
+
+  api.post('/api/courses/alerts/seen', {
     view,
-    userId: normalizedUserId,
-    newCourseCount: 0,
     lastSeenCourseId: maxCourseId,
-  });
+  }).then((res) => {
+    emitCourseAlertChanged({
+      view,
+      userId: normalizedUserId,
+      newCourseCount: 0,
+      lastSeenCourseId: normalizeCourseId(res?.data?.lastSeenCourseId ?? maxCourseId),
+    });
+  }).catch(() => {});
+
   return maxCourseId;
 };
 
@@ -95,7 +77,7 @@ export default function useCourseAlertSummary({ enabled = true, view } = {}) {
     try {
       const res = await api.get('/api/courses', { params: { view } });
       const rows = Array.isArray(res?.data?.courses) ? res.data.courses : [];
-      const nextCount = getNewCourseCount(rows, readLastSeenCourseId(view, userId));
+      const nextCount = getNewCourseCount(rows, res?.data?.lastSeenCourseId);
       if (requestIdRef.current === requestId) {
         setNewCourseCount(nextCount);
       }
@@ -135,24 +117,16 @@ export default function useCourseAlertSummary({ enabled = true, view } = {}) {
       if (document.visibilityState === 'visible') refresh();
     };
 
-    const onStorage = (event) => {
-      const storageKey = buildSeenStorageKey(view, userId);
-      if (!storageKey || event?.key !== storageKey) return;
-      refresh();
-    };
-
     const intervalId = window.setInterval(refresh, COURSE_ALERT_POLL_INTERVAL_MS);
 
     window.addEventListener(COURSE_ALERT_CHANGED_EVENT, onCourseAlertChanged);
     window.addEventListener('focus', refresh);
-    window.addEventListener('storage', onStorage);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       window.clearInterval(intervalId);
       window.removeEventListener(COURSE_ALERT_CHANGED_EVENT, onCourseAlertChanged);
       window.removeEventListener('focus', refresh);
-      window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [enabled, refresh, userId, view]);
