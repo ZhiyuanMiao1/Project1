@@ -3,6 +3,7 @@ import { FiX } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
+import MentorActivationPopup from '../MentorActivationPopup/MentorActivationPopup';
 import Button from '../common/Button/Button';
 import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
@@ -20,6 +21,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [errorFocusTick, setErrorFocusTick] = useState(0);
   const [ok, setOk] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
+  const [showMentorActivation, setShowMentorActivation] = useState(false);
   const [publicId, setPublicId] = useState('');
   const successAnim = !!ok;
   // eye + focus control
@@ -31,6 +33,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [showPw2, setShowPw2] = useState(false);
   const [focusedField, setFocusedField] = useState(''); // 'password' | 'confirmPassword' | ''
   const navigate = useNavigate();
+  const pendingUploadKeyRef = useRef(
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `mentor-${Date.now()}`
+  );
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };
@@ -41,21 +48,15 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     return null;
   };
 
-  const handleContinue = async () => {
-    const v = validate();
-    if (v) {
-      setFieldError(v.message);
-      setErrorField(v.field || '');
-      setErrorFocusTick(t => t + 1); // 强制重新聚焦同一字段
-      return;
-    }
+  const submitRegistration = async (extraPayload = {}, options = {}) => {
+    const { rethrow = false } = options;
     setSubmitting(true);
     setFieldError('');
     setErrorField('');
     setSubmitError('');
     setOk('');
     try {
-      const res = await api.post('/api/register', { email, password, role });
+      const res = await api.post('/api/register', { email, password, role, ...extraPayload });
 
       // 学生注册成功后，自动登录并跳转学生首页（显示2秒三点动画后再跳转）
       if (role === 'student') {
@@ -153,6 +154,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         setErrorField(field);
         setErrorFocusTick((t) => t + 1);
         setSubmitError('');
+        if (rethrow) throw e;
         return;
       }
 
@@ -162,6 +164,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         setErrorField('email');
         setErrorFocusTick((t) => t + 1);
         setSubmitError('');
+        if (rethrow) throw e;
         return;
       }
 
@@ -170,22 +173,43 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       setFieldError(fallbackMsg);
       setErrorField('');
       setSubmitError('');
+      if (rethrow) throw e;
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleContinue = async () => {
+    const v = validate();
+    if (v) {
+      setFieldError(v.message);
+      setErrorField(v.field || '');
+      setErrorFocusTick(t => t + 1); // 强制重新聚焦同一字段
+      return;
+    }
+
+    if (role === 'mentor') {
+      setFieldError('');
+      setErrorField('');
+      setSubmitError('');
+      setShowMentorActivation(true);
+      return;
+    }
+
+    await submitRegistration();
+  };
+
   // mask click-to-close
   const backdropMouseDownRef = useRef(false);
   const handleBackdropMouseDown = (e) => {
-    if (showWelcome) { // 欢迎弹窗显示时，禁止通过点击遮罩关闭
+    if (showWelcome || showMentorActivation) { // 子步骤显示时，禁止通过点击遮罩关闭
       backdropMouseDownRef.current = false;
       return;
     }
     backdropMouseDownRef.current = e.target === e.currentTarget;
   };
   const handleBackdropClick = (e) => {
-    if (showWelcome) return; // 欢迎弹窗显示时，点击外侧不关闭
+    if (showWelcome || showMentorActivation) return; // 子步骤显示时，点击外侧不关闭
     if (!backdropMouseDownRef.current) return;
     if (e.target !== e.currentTarget) return;
     onClose && onClose();
@@ -205,7 +229,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
     <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
       <div
         className="register-modal-content"
-        style={{ display: showWelcome ? 'none' : undefined }}
+        style={{ display: (showWelcome || showMentorActivation) ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
         <button className="register-modal-close" onClick={onClose} aria-label="关闭">
@@ -411,6 +435,16 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             if (target === '/student') {
               try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
             }
+          }}
+        />
+      )}
+      {showMentorActivation && (
+        <MentorActivationPopup
+          pendingUploadKey={pendingUploadKeyRef.current}
+          onClose={() => setShowMentorActivation(false)}
+          onSubmit={({ resumeUrls }) => submitRegistration({ resumeUrls }, { rethrow: true })}
+          onSuccess={() => {
+            setShowMentorActivation(false);
           }}
         />
       )}

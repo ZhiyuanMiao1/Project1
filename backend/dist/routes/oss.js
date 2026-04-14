@@ -6,8 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
 const crypto_1 = __importDefault(require("crypto"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const path_1 = __importDefault(require("path"));
-const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const ossClient_1 = require("../services/ossClient");
 const classroomAccess_1 = require("../services/classroomAccess");
@@ -58,6 +58,24 @@ const buildOssHost = (bucket, region) => {
     const regionForHost = cleanRegion.startsWith('oss-') ? cleanRegion : `oss-${cleanRegion}`;
     return `https://${cleanBucket}.${regionForHost}.aliyuncs.com`;
 };
+const readOptionalAuthUser = (req) => {
+    const auth = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token)
+        return null;
+    try {
+        const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
+        const payload = jsonwebtoken_1.default.verify(token, secret);
+        return { id: payload.id, role: payload.role };
+    }
+    catch {
+        return null;
+    }
+};
+const normalizePendingUploadKey = (value) => {
+    const next = typeof value === 'string' ? value.trim() : '';
+    return /^[a-zA-Z0-9_-]{8,80}$/.test(next) ? next : '';
+};
 const resolveOssKeyFromUrl = (rawUrl) => {
     const value = typeof rawUrl === 'string' ? rawUrl.trim() : '';
     if (!value)
@@ -72,7 +90,7 @@ const resolveOssKeyFromUrl = (rawUrl) => {
 };
 // POST /api/oss/policy
 // Browser direct upload policy for mentor avatar.
-router.post('/policy', auth_1.requireAuth, [
+router.post('/policy', [
     (0, express_validator_1.body)('fileName').isString().trim().isLength({ min: 1, max: 255 }).withMessage('fileName 必填'),
     (0, express_validator_1.body)('contentType').optional().isString().trim().isLength({ max: 100 }),
     (0, express_validator_1.body)('size')
@@ -96,9 +114,11 @@ router.post('/policy', auth_1.requireAuth, [
     })
         .withMessage('文件过大'),
     (0, express_validator_1.body)('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile', 'mentorApplicationResume']).withMessage('scope 无效'),
+    (0, express_validator_1.body)('pendingUploadKey').optional().isString().trim().isLength({ min: 8, max: 80 }).withMessage('pendingUploadKey 无效'),
     (0, express_validator_1.body)('requestId').optional().isInt({ min: 1 }),
     (0, express_validator_1.body)('classroomId').optional().isInt({ min: 1 }),
 ], async (req, res) => {
+    req.user = readOptionalAuthUser(req) || undefined;
     const scopeRaw = typeof req.body?.scope === 'string' ? String(req.body.scope) : '';
     const scope = scopeRaw === 'studentAvatar'
         ? 'studentAvatar'
@@ -109,6 +129,10 @@ router.post('/policy', auth_1.requireAuth, [
                 : scopeRaw === 'mentorApplicationResume'
                     ? 'mentorApplicationResume'
                     : 'mentorAvatar';
+    const pendingUploadKey = normalizePendingUploadKey(req.body?.pendingUploadKey);
+    const allowPendingMentorResume = scope === 'mentorApplicationResume' && !req.user && !!pendingUploadKey;
+    if (!allowPendingMentorResume && !req.user)
+        return res.status(401).json({ error: '未授权' });
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
     // courseRequestAttachment/classroomTempFile: allow any authed user after resource-specific checks.
@@ -155,7 +179,7 @@ router.post('/policy', auth_1.requireAuth, [
                 return res.status(403).json({ error: '未开通学生身份' });
         }
         else if (scope === 'mentorApplicationResume') {
-            businessId = String(req.user.id);
+            businessId = req.user ? String(req.user.id) : `pending/${pendingUploadKey}`;
             maxBytes = MAX_ATTACHMENT_BYTES;
         }
         if (scope === 'courseRequestAttachment') {
@@ -227,13 +251,12 @@ router.post('/policy', auth_1.requireAuth, [
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
-router.post('/delete', auth_1.requireAuth, [
+router.post('/delete', [
     (0, express_validator_1.body)('scope').isIn(['mentorApplicationResume']).withMessage('scope 无效'),
     (0, express_validator_1.body)('fileUrl').optional().isString().trim().isLength({ min: 1, max: 1200 }),
     (0, express_validator_1.body)('key').optional().isString().trim().isLength({ min: 1, max: 1024 }),
 ], async (req, res) => {
-    if (!req.user)
-        return res.status(401).json({ error: '未授权' });
+    req.user = readOptionalAuthUser(req) || undefined;
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
         const first = errors.array()[0];
@@ -244,9 +267,15 @@ router.post('/delete', auth_1.requireAuth, [
     const ossKey = keyFromBody || resolveOssKeyFromUrl(fileUrl);
     if (!ossKey)
         return res.status(400).json({ error: '缺少待删除文件标识' });
-    const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
-    if (!ossKey.startsWith(allowedPrefix)) {
-        return res.status(403).json({ error: '无权删除该文件' });
+    const pendingPrefix = 'v1/mentor-applications/pending/';
+    if (req.user) {
+        const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
+        if (!ossKey.startsWith(allowedPrefix) && !ossKey.startsWith(pendingPrefix)) {
+            return res.status(403).json({ error: '无权删除该文件' });
+        }
+    }
+    else if (!ossKey.startsWith(pendingPrefix)) {
+        return res.status(401).json({ error: '未授权' });
     }
     try {
         const client = (0, ossClient_1.getOssClient)();

@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import path from 'path';
-import { requireAuth } from '../middleware/auth';
+import { type AuthUser } from '../middleware/auth';
 import { query } from '../db';
 import { getOssClient } from '../services/ossClient';
 import {
@@ -62,6 +63,24 @@ const buildOssHost = (bucket: string, region: string) => {
   return `https://${cleanBucket}.${regionForHost}.aliyuncs.com`;
 };
 
+const readOptionalAuthUser = (req: Request): AuthUser | null => {
+  const auth = typeof req.headers.authorization === 'string' ? req.headers.authorization : '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!token) return null;
+  try {
+    const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
+    const payload = jwt.verify(token, secret) as AuthUser & { exp?: number };
+    return { id: payload.id, role: payload.role };
+  } catch {
+    return null;
+  }
+};
+
+const normalizePendingUploadKey = (value: unknown) => {
+  const next = typeof value === 'string' ? value.trim() : '';
+  return /^[a-zA-Z0-9_-]{8,80}$/.test(next) ? next : '';
+};
+
 const resolveOssKeyFromUrl = (rawUrl: string) => {
   const value = typeof rawUrl === 'string' ? rawUrl.trim() : '';
   if (!value) return '';
@@ -77,7 +96,6 @@ const resolveOssKeyFromUrl = (rawUrl: string) => {
 // Browser direct upload policy for mentor avatar.
 router.post(
   '/policy',
-  requireAuth,
   [
     body('fileName').isString().trim().isLength({ min: 1, max: 255 }).withMessage('fileName 必填'),
     body('contentType').optional().isString().trim().isLength({ max: 100 }),
@@ -103,10 +121,12 @@ router.post(
       })
       .withMessage('文件过大'),
     body('scope').optional().isIn(['mentorAvatar', 'studentAvatar', 'courseRequestAttachment', 'classroomTempFile', 'mentorApplicationResume']).withMessage('scope 无效'),
+    body('pendingUploadKey').optional().isString().trim().isLength({ min: 8, max: 80 }).withMessage('pendingUploadKey 无效'),
     body('requestId').optional().isInt({ min: 1 }),
     body('classroomId').optional().isInt({ min: 1 }),
   ],
   async (req: Request, res: Response) => {
+    req.user = readOptionalAuthUser(req) || undefined;
     const scopeRaw = typeof (req.body as any)?.scope === 'string' ? String((req.body as any).scope) : '';
     const scope: 'mentorAvatar' | 'studentAvatar' | 'courseRequestAttachment' | 'classroomTempFile' | 'mentorApplicationResume' =
       scopeRaw === 'studentAvatar'
@@ -118,6 +138,9 @@ router.post(
             : scopeRaw === 'mentorApplicationResume'
               ? 'mentorApplicationResume'
           : 'mentorAvatar';
+    const pendingUploadKey = normalizePendingUploadKey((req.body as any)?.pendingUploadKey);
+    const allowPendingMentorResume = scope === 'mentorApplicationResume' && !req.user && !!pendingUploadKey;
+    if (!allowPendingMentorResume && !req.user) return res.status(401).json({ error: '未授权' });
     if (scope === 'mentorAvatar' && req.user?.role !== 'mentor') return res.status(403).json({ error: '仅导师可访问' });
     // courseRequestAttachment/classroomTempFile: allow any authed user after resource-specific checks.
 
@@ -169,7 +192,7 @@ router.post(
         businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : '';
         if (!businessId) return res.status(403).json({ error: '未开通学生身份' });
       } else if (scope === 'mentorApplicationResume') {
-        businessId = String(req.user!.id);
+        businessId = req.user ? String(req.user.id) : `pending/${pendingUploadKey}`;
         maxBytes = MAX_ATTACHMENT_BYTES;
       }
 
@@ -251,14 +274,13 @@ router.post(
 
 router.post(
   '/delete',
-  requireAuth,
   [
     body('scope').isIn(['mentorApplicationResume']).withMessage('scope 无效'),
     body('fileUrl').optional().isString().trim().isLength({ min: 1, max: 1200 }),
     body('key').optional().isString().trim().isLength({ min: 1, max: 1024 }),
   ],
   async (req: Request, res: Response) => {
-    if (!req.user) return res.status(401).json({ error: '未授权' });
+    req.user = readOptionalAuthUser(req) || undefined;
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -271,9 +293,14 @@ router.post(
     const ossKey = keyFromBody || resolveOssKeyFromUrl(fileUrl);
     if (!ossKey) return res.status(400).json({ error: '缺少待删除文件标识' });
 
-    const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
-    if (!ossKey.startsWith(allowedPrefix)) {
-      return res.status(403).json({ error: '无权删除该文件' });
+    const pendingPrefix = 'v1/mentor-applications/pending/';
+    if (req.user) {
+      const allowedPrefix = `v1/mentor-applications/${req.user.id}/`;
+      if (!ossKey.startsWith(allowedPrefix) && !ossKey.startsWith(pendingPrefix)) {
+        return res.status(403).json({ error: '无权删除该文件' });
+      }
+    } else if (!ossKey.startsWith(pendingPrefix)) {
+      return res.status(401).json({ error: '未授权' });
     }
 
     try {

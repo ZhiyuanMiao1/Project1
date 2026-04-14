@@ -6,7 +6,14 @@ import './MentorActivationPopup.css';
 
 const RESUME_ACCEPT = '.pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip';
 
-function MentorActivationPopup({ onClose, onSuccess }) {
+function MentorActivationPopup({
+  onClose,
+  onSuccess,
+  onSubmit,
+  pendingUploadKey = '',
+  title = '欢迎注册Mentory导师',
+  submitLabel = '继续',
+}) {
   const fileInputRef = useRef(null);
   const backdropMouseDownRef = useRef(false);
   const [resumeFiles, setResumeFiles] = useState([]);
@@ -14,6 +21,15 @@ function MentorActivationPopup({ onClose, onSuccess }) {
   const [deletingKey, setDeletingKey] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const getErrorMessage = (error, fallback) => {
+    const data = error?.response?.data;
+    const firstValidationMessage = Array.isArray(data?.errors) ? data.errors[0]?.msg : '';
+    return firstValidationMessage
+      || data?.error
+      || error?.message
+      || fallback;
+  };
 
   const isBusy = uploading || !!deletingKey || submitting;
 
@@ -45,12 +61,16 @@ function MentorActivationPopup({ onClose, onSuccess }) {
   };
 
   const uploadResumeFile = async (file) => {
-    const signRes = await api.post('/api/oss/policy', {
+    const payload = {
       fileName: file.name,
       contentType: file.type,
       size: file.size,
       scope: 'mentorApplicationResume',
-    });
+    };
+    const normalizedPendingUploadKey = typeof pendingUploadKey === 'string' ? pendingUploadKey.trim() : '';
+    if (normalizedPendingUploadKey) payload.pendingUploadKey = normalizedPendingUploadKey;
+
+    const signRes = await api.post('/api/oss/policy', payload);
 
     const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
     if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
@@ -98,11 +118,7 @@ function MentorActivationPopup({ onClose, onSuccess }) {
       } catch (error) {
         failedFileNames.push(file.name);
         if (!failedFileNames.length) {
-          setErrorMessage(
-            error?.response?.data?.error
-              || error?.message
-              || '简历上传失败，请稍后再试'
-          );
+          setErrorMessage(getErrorMessage(error, '简历上传失败，请稍后再试'));
         }
       }
     }
@@ -132,11 +148,7 @@ function MentorActivationPopup({ onClose, onSuccess }) {
       await deleteResumeFromOss({ key: file?.ossKey, fileUrl: file?.url });
       setResumeFiles((current) => current.filter((item) => (item.ossKey || item.url) !== targetKey));
     } catch (error) {
-      setErrorMessage(
-        error?.response?.data?.error
-          || error?.message
-          || '删除简历失败，请稍后再试'
-      );
+      setErrorMessage(getErrorMessage(error, '删除简历失败，请稍后再试'));
     } finally {
       setDeletingKey('');
     }
@@ -153,17 +165,13 @@ function MentorActivationPopup({ onClose, onSuccess }) {
     setSubmitting(true);
     try {
       const resumeUrls = resumeFiles.map((file) => file.url).filter(Boolean);
-      const res = await api.post('/api/account/mentor-activation', {
-        resumeUrls,
-      });
-      if (typeof onSuccess === 'function') onSuccess(res?.data || {});
+      const submitPayload = typeof onSubmit === 'function'
+        ? await onSubmit({ resumeFiles, resumeUrls })
+        : await api.post('/api/account/mentor-activation', { resumeUrls }).then((res) => res?.data || {});
+      if (typeof onSuccess === 'function') onSuccess(submitPayload || { resumeUrls, resumeFiles });
       if (typeof onClose === 'function') onClose();
     } catch (error) {
-      setErrorMessage(
-        error?.response?.data?.error
-          || error?.message
-          || '提交失败，请稍后再试'
-      );
+      setErrorMessage(getErrorMessage(error, '提交失败，请稍后再试'));
     } finally {
       setSubmitting(false);
     }
@@ -188,7 +196,7 @@ function MentorActivationPopup({ onClose, onSuccess }) {
           <FiX aria-hidden="true" />
         </button>
 
-        <h2 className="mentor-activation-title">欢迎注册Mentory导师</h2>
+        <h2 className="mentor-activation-title">{title}</h2>
         <input
           ref={fileInputRef}
           type="file"
@@ -259,7 +267,7 @@ function MentorActivationPopup({ onClose, onSuccess }) {
           onClick={handleSubmit}
           fullWidth
         >
-          {submitting ? '提交中...' : '继续'}
+          {submitting ? '提交中...' : submitLabel}
         </Button>
       </div>
     </div>

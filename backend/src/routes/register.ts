@@ -19,6 +19,39 @@ type RoleRow = {
   public_id: string;
 };
 
+let mentorResumeColumnEnsured = false;
+
+const isMissingMentorResumeColumnError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('mentor_resume_url');
+};
+
+const ensureMentorResumeColumn = async () => {
+  if (mentorResumeColumnEnsured) return true;
+  try {
+    await query('ALTER TABLE account_settings MODIFY COLUMN mentor_resume_url TEXT NULL');
+    mentorResumeColumnEnsured = true;
+    return true;
+  } catch (e: any) {
+    if (isMissingMentorResumeColumnError(e)) {
+      try {
+        await query('ALTER TABLE account_settings ADD COLUMN mentor_resume_url TEXT NULL');
+        mentorResumeColumnEnsured = true;
+        return true;
+      } catch (inner: any) {
+        const code = String(inner?.code || '');
+        const message = String(inner?.message || '');
+        if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+          mentorResumeColumnEnsured = true;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
 const getRoleRow = async (userId: number, role: Role): Promise<RoleRow | null> => {
   const rows = await query<RoleRow[]>(
     'SELECT role, public_id FROM user_roles WHERE user_id = ? AND role = ? LIMIT 1',
@@ -49,6 +82,8 @@ router.post(
     body('email').isEmail().withMessage('请输入有效的邮箱'),
     body('password').isLength({ min: 6 }).withMessage('密码至少6个字符'),
     body('role').isIn(['student', 'mentor']).withMessage('角色无效'),
+    body('resumeUrls').optional().isArray({ min: 1, max: 10 }).withMessage('请上传 1 到 10 个文件'),
+    body('resumeUrls.*').optional().isString().trim().isLength({ min: 1, max: 500 }).withMessage('简历地址无效'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -62,6 +97,17 @@ router.post(
       password: string;
       role: 'mentor' | 'student';
     };
+    const resumeUrls = Array.isArray(req.body?.resumeUrls)
+      ? req.body.resumeUrls
+        .map((item: unknown) => (typeof item === 'string' ? item.trim() : ''))
+        .filter((item: string) => item)
+      : [];
+
+    if (role === 'mentor' && !resumeUrls.length) {
+      return res.status(400).json({
+        errors: [{ msg: '请先上传简历', param: 'resumeUrls', location: 'body' }],
+      });
+    }
 
     try {
       const accountRows = await query<AccountRow[]>(
@@ -108,6 +154,18 @@ router.post(
       if (role === 'mentor') {
         const studentRole = await ensureRole(userId, 'student');
         pairedStudent = { userId, public_id: studentRole.public_id || null };
+
+        const ensured = await ensureMentorResumeColumn();
+        if (!ensured) {
+          return res.status(500).json({ error: '服务器错误，请稍后再试' });
+        }
+
+        await query(
+          `INSERT INTO account_settings (user_id, email_notifications, mentor_resume_url)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE mentor_resume_url = VALUES(mentor_resume_url)`,
+          [userId, 1, JSON.stringify(resumeUrls)]
+        );
       }
 
       return res.status(201).json({
