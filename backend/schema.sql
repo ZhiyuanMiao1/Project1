@@ -640,3 +640,31 @@ CREATE TABLE IF NOT EXISTS `course_session_reviews` (
   CONSTRAINT `fk_course_session_reviews_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_course_session_reviews_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 17) Email verification codes
+CREATE TABLE IF NOT EXISTS `email_verification_codes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(255) NOT NULL,
+  `purpose` VARCHAR(32) NOT NULL,
+  `code_hash` CHAR(64) NOT NULL,
+  `code_salt` CHAR(32) NOT NULL,
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `max_attempts` INT NOT NULL DEFAULT 5,
+  `resend_available_at` TIMESTAMP NOT NULL DEFAULT '1970-01-02 00:00:00',
+  `expires_at` TIMESTAMP NOT NULL DEFAULT '1970-01-02 00:00:00',
+  `verified_at` TIMESTAMP NULL DEFAULT NULL,
+  `consumed_at` TIMESTAMP NULL DEFAULT NULL,
+  `invalidated_at` TIMESTAMP NULL DEFAULT NULL,
+  `verification_token_hash` CHAR(64) NULL DEFAULT NULL,
+  `verification_expires_at` TIMESTAMP NULL DEFAULT NULL,
+  `verification_consumed_at` TIMESTAMP NULL DEFAULT NULL,
+  `last_attempt_at` TIMESTAMP NULL DEFAULT NULL,
+  `sent_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `request_ip` VARCHAR(45) NULL DEFAULT NULL,
+  `user_agent` VARCHAR(255) NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_email_verification_lookup` (`email`, `purpose`, `id`),
+  KEY `idx_email_verification_token` (`email`, `purpose`, `verification_token_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

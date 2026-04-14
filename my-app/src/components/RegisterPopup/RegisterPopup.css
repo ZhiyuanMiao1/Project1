@@ -642,3 +642,151 @@ input[type="password"]::-ms-clear {
        16px 0 0 rgba(255,255,255,.7);
   }
 }
+
+/* Responsive modal layout */
+.register-modal-overlay {
+  height: 100dvh;
+  padding: 24px 16px;
+  box-sizing: border-box;
+}
+
+.register-modal-content {
+  width: min(560px, 100%);
+  max-width: 560px;
+  max-height: min(860px, calc(100dvh - 48px));
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 32px;
+}
+
+.register-modal-content h2 {
+  margin: 24px 64px 0;
+}
+
+.register-modal-content h3 {
+  margin: 18px 33px 12px;
+  line-height: 1.25;
+}
+
+@media (max-width: 768px) {
+  .register-modal-overlay {
+    align-items: flex-end;
+    padding: 12px 12px calc(env(safe-area-inset-bottom) + 12px);
+  }
+
+  .register-modal-content {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 12px);
+    border-radius: 24px 24px 0 0;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 24px);
+  }
+
+  .register-modal-close {
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .register-modal-content h2 {
+    margin: 18px 56px 0;
+    font-size: 17px;
+  }
+
+  .register-modal-content h3 {
+    margin: 18px 20px 12px;
+    font-size: clamp(22px, 6vw, 28px);
+  }
+
+  .register-input-area,
+  .register-validation-slot,
+  .register-button-group,
+  .register-continue-area,
+  .register-modal-divider-with-text,
+  .register-message,
+  .register-modal-content .social-button {
+    width: calc(100% - 32px);
+  }
+
+  .register-input-area {
+    margin-top: 16px;
+  }
+
+  .register-input {
+    padding: 16px 48px 16px 16px;
+  }
+
+  .toggle-password {
+    right: 10px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .register-validation-slot {
+    min-height: 42px;
+    align-items: flex-start;
+  }
+
+  .register-button-group {
+    flex-direction: column;
+    gap: 10px;
+    margin: 12px auto 18px;
+  }
+
+  .register-button {
+    width: 100%;
+    padding: 14px 16px;
+  }
+
+  .register-modal-divider-with-text {
+    margin: 18px auto;
+  }
+
+  .register-modal-content .social-login-buttons {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .register-modal-content .social-button {
+    min-height: 52px;
+    padding: 12px 16px 12px 48px;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .register-modal-content .social-icon {
+    left: 16px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+@media (max-width: 420px) {
+  .register-modal-overlay {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .register-modal-content {
+    border-radius: 22px 22px 0 0;
+  }
+
+  .register-modal-content h3 {
+    font-size: 20px;
+  }
+
+  .register-validation-slot {
+    min-height: 56px;
+  }
+
+  .validation-error,
+  .validation-tip {
+    line-height: 1.45;
+  }
+}

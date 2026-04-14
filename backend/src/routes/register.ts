@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { query, InsertResult } from '../db';
+import { consumeEmailVerificationToken, EmailVerificationError } from '../services/emailVerificationService';
 
 const router = Router();
 
@@ -82,6 +83,11 @@ router.post(
     body('email').isEmail().withMessage('请输入有效的邮箱'),
     body('password').isLength({ min: 6 }).withMessage('密码至少6个字符'),
     body('role').isIn(['student', 'mentor']).withMessage('角色无效'),
+    body('emailVerificationToken')
+      .isString()
+      .trim()
+      .isLength({ min: 20, max: 256 })
+      .withMessage('请先完成邮箱验证'),
     body('resumeUrls').optional().isArray({ min: 1, max: 10 }).withMessage('请上传 1 到 10 个文件'),
     body('resumeUrls.*').optional().isString().trim().isLength({ min: 1, max: 500 }).withMessage('简历地址无效'),
   ],
@@ -91,11 +97,12 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { username = null, email, password, role } = req.body as {
+    const { username = null, email, password, role, emailVerificationToken } = req.body as {
       username?: string | null;
       email: string;
       password: string;
       role: 'mentor' | 'student';
+      emailVerificationToken: string;
     };
     const resumeUrls = Array.isArray(req.body?.resumeUrls)
       ? req.body.resumeUrls
@@ -115,22 +122,13 @@ router.post(
         [email]
       );
 
-      let userId: number;
-      let passwordHash: string;
+      let userId = 0;
+      const account = accountRows[0] || null;
 
-      if (accountRows.length === 0) {
-        passwordHash = await bcrypt.hash(password, 10);
-        const created = await query<InsertResult>(
-          'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-          [username, email, passwordHash]
-        );
-        userId = created.insertId;
-      } else {
-        const account = accountRows[0];
+      if (account) {
         userId = account.id;
-        passwordHash = account.password_hash;
 
-        const ok = await bcrypt.compare(password, passwordHash);
+        const ok = await bcrypt.compare(password, account.password_hash);
         if (!ok) {
           // 统一返回“邮箱或密码错误”，避免泄露邮箱是否存在
           return res.status(401).json({ error: '邮箱或密码错误' });
@@ -142,9 +140,24 @@ router.post(
         }
       }
 
-      const existingRole = await getRoleRow(userId, role);
+      const existingRole = account ? await getRoleRow(userId, role) : null;
       if (existingRole) {
         return res.status(409).json({ error: '该邮箱在该角色下已被注册' });
+      }
+
+      await consumeEmailVerificationToken({
+        email,
+        purpose: 'register',
+        verificationToken: emailVerificationToken,
+      });
+
+      if (!account) {
+        const passwordHash = await bcrypt.hash(password, 10);
+        const created = await query<InsertResult>(
+          'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+          [username, email, passwordHash]
+        );
+        userId = created.insertId;
       }
 
       const mainRole = await ensureRole(userId, role);
@@ -176,6 +189,14 @@ router.post(
         paired_student: pairedStudent,
       });
     } catch (err: any) {
+      if (err instanceof EmailVerificationError) {
+        return res.status(err.status || 400).json({
+          error: err.message,
+          code: err.code,
+          ...err.details,
+        });
+      }
+
       // MySQL 唯一键冲突（如 users.email / user_roles PK / public_id 唯一约束）
       if (err && err.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({ error: '该邮箱在该角色下已被注册' });

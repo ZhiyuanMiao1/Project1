@@ -19,7 +19,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
   const [showPw, setShowPw] = useState(false);
   const [focusedPw, setFocusedPw] = useState(false);
 
-  const handleBackdropMouseDown = (e) => {
+  const handleBackdropPressStart = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
   };
 
@@ -103,7 +103,8 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
   return (
     <div
       className="login-modal-overlay"
-      onMouseDown={handleBackdropMouseDown}
+      onMouseDown={handleBackdropPressStart}
+      onTouchStart={handleBackdropPressStart}
       onClick={handleBackdropClick}
     >
       <div className="login-modal-content" onClick={(e) => e.stopPropagation()}>

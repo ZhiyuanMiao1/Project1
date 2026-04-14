@@ -116,7 +116,13 @@ client.interceptors.response.use(
     if (status !== 401) return Promise.reject(error);
 
     // Avoid loops / refresh recursion
-    const isAuthEndpoint = url.includes('/api/login') || url.includes('/api/register') || url.includes('/api/auth/refresh') || url.includes('/api/auth/logout');
+    const isAuthEndpoint =
+      url.includes('/api/login')
+      || url.includes('/api/register')
+      || url.includes('/api/auth/refresh')
+      || url.includes('/api/auth/logout')
+      || url.includes('/api/auth/send-email-code')
+      || url.includes('/api/auth/verify-email-code');
     if (isAuthEndpoint) return Promise.reject(error);
 
     const config = error?.config || {};

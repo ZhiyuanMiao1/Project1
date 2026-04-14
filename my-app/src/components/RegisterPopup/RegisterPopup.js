@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import MentorActivationPopup from '../MentorActivationPopup/MentorActivationPopup';
+import EmailCodePopup from '../EmailCodePopup/EmailCodePopup';
 import Button from '../common/Button/Button';
 import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
+import { getEmailCodeErrorMessage, sendRegisterEmailCode } from '../../services/emailCodeService';
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -22,6 +24,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const [ok, setOk] = useState('');
   const [showWelcome, setShowWelcome] = useState(false);
   const [showMentorActivation, setShowMentorActivation] = useState(false);
+  const [showEmailCodePopup, setShowEmailCodePopup] = useState(false);
+  const [emailCodeAvailableAt, setEmailCodeAvailableAt] = useState(0);
+  const [emailVerificationToken, setEmailVerificationToken] = useState('');
+  const [pendingEmailCodeEmail, setPendingEmailCodeEmail] = useState('');
   const [publicId, setPublicId] = useState('');
   const successAnim = !!ok;
   // eye + focus control
@@ -38,6 +44,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       ? crypto.randomUUID().replace(/-/g, '')
       : `mentor-${Date.now()}`
   );
+  const normalizeEmailValue = (value) => String(value || '').trim().toLowerCase();
 
   const validate = () => {
     if (!email) return { message: '请输入邮箱', field: 'email' };
@@ -188,28 +195,56 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       return;
     }
 
-    if (role === 'mentor') {
-      setFieldError('');
-      setErrorField('');
-      setSubmitError('');
-      setShowMentorActivation(true);
+    if (emailVerificationToken && normalizeEmailValue(pendingEmailCodeEmail) === normalizeEmailValue(email)) {
+      if (role === 'mentor') {
+        setFieldError('');
+        setErrorField('');
+        setSubmitError('');
+        setShowMentorActivation(true);
+        return;
+      }
+
+      await submitRegistration({ emailVerificationToken });
       return;
     }
 
-    await submitRegistration();
+    if (normalizeEmailValue(pendingEmailCodeEmail) === normalizeEmailValue(email)) {
+      setFieldError('');
+      setErrorField('');
+      setSubmitError('');
+      setShowEmailCodePopup(true);
+      return;
+    }
+
+    setSubmitting(true);
+    setFieldError('');
+    setErrorField('');
+    setSubmitError('');
+    setOk('');
+    try {
+      const payload = await sendRegisterEmailCode({ email });
+      setPendingEmailCodeEmail(email);
+      setEmailCodeAvailableAt(Date.now() + (Math.max(0, Number(payload?.resendAfterSeconds) || 60) * 1000));
+      setShowEmailCodePopup(true);
+    } catch (error) {
+      setFieldError(getEmailCodeErrorMessage(error, '验证码发送失败，请稍后再试'));
+      setErrorField('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // mask click-to-close
   const backdropMouseDownRef = useRef(false);
-  const handleBackdropMouseDown = (e) => {
-    if (showWelcome || showMentorActivation) { // 子步骤显示时，禁止通过点击遮罩关闭
+  const handleBackdropPressStart = (e) => {
+    if (showWelcome || showMentorActivation || showEmailCodePopup) { // 子步骤显示时，禁止通过点击遮罩关闭
       backdropMouseDownRef.current = false;
       return;
     }
     backdropMouseDownRef.current = e.target === e.currentTarget;
   };
   const handleBackdropClick = (e) => {
-    if (showWelcome || showMentorActivation) return; // 子步骤显示时，点击外侧不关闭
+    if (showWelcome || showMentorActivation || showEmailCodePopup) return; // 子步骤显示时，点击外侧不关闭
     if (!backdropMouseDownRef.current) return;
     if (e.target !== e.currentTarget) return;
     onClose && onClose();
@@ -226,10 +261,10 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   }, [errorField, errorFocusTick]);
 
   return (
-    <div className="register-modal-overlay" onMouseDown={handleBackdropMouseDown} onClick={handleBackdropClick}>
+    <div className="register-modal-overlay" onMouseDown={handleBackdropPressStart} onTouchStart={handleBackdropPressStart} onClick={handleBackdropClick}>
       <div
         className="register-modal-content"
-        style={{ display: (showWelcome || showMentorActivation) ? 'none' : undefined }}
+        style={{ display: (showWelcome || showMentorActivation || showEmailCodePopup) ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
         <button className="register-modal-close" onClick={onClose} aria-label="关闭">
@@ -251,6 +286,9 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             onChange={(e) => {
               const v = e.target.value;
               setEmail(v);
+              setPendingEmailCodeEmail('');
+              setEmailCodeAvailableAt(0);
+              setEmailVerificationToken('');
               if (errorField === 'email') {
                 if (/^\S+@\S+\.\S+$/.test(v))  { setErrorField(''); setFieldError(''); }
               }
@@ -438,11 +476,34 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           }}
         />
       )}
+      {showEmailCodePopup && (
+        <EmailCodePopup
+          email={email}
+          initialCountdownSeconds={Math.max(0, Math.ceil((emailCodeAvailableAt - Date.now()) / 1000))}
+          onClose={() => setShowEmailCodePopup(false)}
+          onResendSuccess={(seconds) => {
+            setEmailCodeAvailableAt(Date.now() + (Math.max(0, Number(seconds) || 60) * 1000));
+          }}
+          onVerified={async (payload) => {
+            const verificationToken = String(payload?.verificationToken || '');
+            setEmailVerificationToken(verificationToken);
+            setPendingEmailCodeEmail(email);
+            setShowEmailCodePopup(false);
+
+            if (role === 'mentor') {
+              setShowMentorActivation(true);
+              return;
+            }
+
+            await submitRegistration({ emailVerificationToken: verificationToken });
+          }}
+        />
+      )}
       {showMentorActivation && (
         <MentorActivationPopup
           pendingUploadKey={pendingUploadKeyRef.current}
           onClose={() => setShowMentorActivation(false)}
-          onSubmit={({ resumeUrls }) => submitRegistration({ resumeUrls }, { rethrow: true })}
+          onSubmit={({ resumeUrls }) => submitRegistration({ resumeUrls, emailVerificationToken }, { rethrow: true })}
           onSuccess={() => {
             setShowMentorActivation(false);
           }}

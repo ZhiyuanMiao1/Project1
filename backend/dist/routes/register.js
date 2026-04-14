@@ -7,6 +7,7 @@ const express_1 = require("express");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
+const emailVerificationService_1 = require("../services/emailVerificationService");
 const router = (0, express_1.Router)();
 let mentorResumeColumnEnsured = false;
 const isMissingMentorResumeColumnError = (e) => {
@@ -61,6 +62,11 @@ router.post('/', [
     (0, express_validator_1.body)('email').isEmail().withMessage('请输入有效的邮箱'),
     (0, express_validator_1.body)('password').isLength({ min: 6 }).withMessage('密码至少6个字符'),
     (0, express_validator_1.body)('role').isIn(['student', 'mentor']).withMessage('角色无效'),
+    (0, express_validator_1.body)('emailVerificationToken')
+        .isString()
+        .trim()
+        .isLength({ min: 20, max: 256 })
+        .withMessage('请先完成邮箱验证'),
     (0, express_validator_1.body)('resumeUrls').optional().isArray({ min: 1, max: 10 }).withMessage('请上传 1 到 10 个文件'),
     (0, express_validator_1.body)('resumeUrls.*').optional().isString().trim().isLength({ min: 1, max: 500 }).withMessage('简历地址无效'),
 ], async (req, res) => {
@@ -68,7 +74,7 @@ router.post('/', [
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-    const { username = null, email, password, role } = req.body;
+    const { username = null, email, password, role, emailVerificationToken } = req.body;
     const resumeUrls = Array.isArray(req.body?.resumeUrls)
         ? req.body.resumeUrls
             .map((item) => (typeof item === 'string' ? item.trim() : ''))
@@ -81,18 +87,11 @@ router.post('/', [
     }
     try {
         const accountRows = await (0, db_1.query)('SELECT id, username, email, password_hash FROM users WHERE email = ? LIMIT 1', [email]);
-        let userId;
-        let passwordHash;
-        if (accountRows.length === 0) {
-            passwordHash = await bcryptjs_1.default.hash(password, 10);
-            const created = await (0, db_1.query)('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, passwordHash]);
-            userId = created.insertId;
-        }
-        else {
-            const account = accountRows[0];
+        let userId = 0;
+        const account = accountRows[0] || null;
+        if (account) {
             userId = account.id;
-            passwordHash = account.password_hash;
-            const ok = await bcryptjs_1.default.compare(password, passwordHash);
+            const ok = await bcryptjs_1.default.compare(password, account.password_hash);
             if (!ok) {
                 // 统一返回“邮箱或密码错误”，避免泄露邮箱是否存在
                 return res.status(401).json({ error: '邮箱或密码错误' });
@@ -102,9 +101,19 @@ router.post('/', [
                 await (0, db_1.query)('UPDATE users SET username = ? WHERE id = ?', [username, userId]);
             }
         }
-        const existingRole = await getRoleRow(userId, role);
+        const existingRole = account ? await getRoleRow(userId, role) : null;
         if (existingRole) {
             return res.status(409).json({ error: '该邮箱在该角色下已被注册' });
+        }
+        await (0, emailVerificationService_1.consumeEmailVerificationToken)({
+            email,
+            purpose: 'register',
+            verificationToken: emailVerificationToken,
+        });
+        if (!account) {
+            const passwordHash = await bcryptjs_1.default.hash(password, 10);
+            const created = await (0, db_1.query)('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)', [username, email, passwordHash]);
+            userId = created.insertId;
         }
         const mainRole = await ensureRole(userId, role);
         // 若开通导师身份，则确保也有 student 身份（与旧逻辑一致，方便后续切换）
@@ -129,6 +138,13 @@ router.post('/', [
         });
     }
     catch (err) {
+        if (err instanceof emailVerificationService_1.EmailVerificationError) {
+            return res.status(err.status || 400).json({
+                error: err.message,
+                code: err.code,
+                ...err.details,
+            });
+        }
         // MySQL 唯一键冲突（如 users.email / user_roles PK / public_id 唯一约束）
         if (err && err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ error: '该邮箱在该角色下已被注册' });

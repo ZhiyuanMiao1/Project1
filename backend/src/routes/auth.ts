@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
 import { query } from '../db';
 import {
   ACCESS_TOKEN_EXPIRES_IN,
@@ -10,6 +11,11 @@ import {
   rotateRefreshToken,
   setRefreshTokenCookie,
 } from '../auth/refreshTokens';
+import {
+  EmailVerificationError,
+  sendEmailVerificationCode,
+  verifyEmailCode,
+} from '../services/emailVerificationService';
 
 type Role = 'mentor' | 'student';
 
@@ -26,6 +32,81 @@ type RoleRow = {
 };
 
 const router = Router();
+
+const handleEmailVerificationError = (res: Response, error: unknown) => {
+  if (error instanceof EmailVerificationError) {
+    return res.status(error.status || 400).json({
+      error: error.message,
+      code: error.code,
+      ...error.details,
+    });
+  }
+
+  console.error('Email verification error:', error);
+  return res.status(500).json({
+    error: '服务器错误，请稍后再试',
+    code: 'EMAIL_CODE_UNKNOWN_ERROR',
+  });
+};
+
+router.post(
+  '/send-email-code',
+  [
+    body('email').isEmail().withMessage('请输入有效的邮箱'),
+    body('purpose').isIn(['register']).withMessage('验证码用途无效'),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const payload = await sendEmailVerificationCode({
+        email: String(req.body?.email || ''),
+        purpose: String(req.body?.purpose || ''),
+        ip: String(req.ip || '').slice(0, 45) || null,
+        userAgent: String(req.get('user-agent') || '').slice(0, 255) || null,
+      });
+
+      return res.json(payload);
+    } catch (error) {
+      return handleEmailVerificationError(res, error);
+    }
+  }
+);
+
+router.post(
+  '/verify-email-code',
+  [
+    body('email').isEmail().withMessage('请输入有效的邮箱'),
+    body('purpose').isIn(['register']).withMessage('验证码用途无效'),
+    body('code')
+      .isLength({ min: 6, max: 6 })
+      .withMessage('请输入 6 位验证码')
+      .bail()
+      .matches(/^\d{6}$/)
+      .withMessage('验证码格式不正确'),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    try {
+      const payload = await verifyEmailCode({
+        email: String(req.body?.email || ''),
+        purpose: String(req.body?.purpose || ''),
+        code: String(req.body?.code || ''),
+      });
+
+      return res.json(payload);
+    } catch (error) {
+      return handleEmailVerificationError(res, error);
+    }
+  }
+);
 
 router.post('/refresh', async (req: Request, res: Response) => {
   const refreshToken = getRefreshTokenFromReq(req);
@@ -94,4 +175,3 @@ router.post('/logout', async (req: Request, res: Response) => {
 });
 
 export default router;
-
