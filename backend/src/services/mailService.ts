@@ -24,6 +24,18 @@ const parsePort = (value: any, fallback = 465) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+
+const getBrandLogoHtml = () => {
+  const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
+  const publicBaseUrl = String(process.env.MAIL_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || '').trim();
+  const logoUrl = explicitLogoUrl || (publicBaseUrl ? `${trimTrailingSlash(publicBaseUrl)}/Logo-removebg.png` : '');
+
+  if (!/^https?:\/\//i.test(logoUrl)) return '';
+
+  return `<img src="${logoUrl}" alt="Mentory" width="132" style="display: block; width: 132px; max-width: 100%; height: auto; border: 0;" />`;
+};
+
 const getMailRuntimeConfig = () => {
   const host = String(process.env.MAIL_HOST || '').trim();
   const port = parsePort(process.env.MAIL_PORT, 465);
@@ -83,10 +95,12 @@ export const sendRegisterEmailCodeMail = async ({
   const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
   const subject = 'Mentory 注册验证码';
   const text = `您的 Mentory 注册验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。`;
+  const brandLogoHtml = getBrandLogoHtml();
   const html = `
     <div style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; line-height: 1.6;">
       <div style="max-width: 520px; margin: 0 auto; padding: 28px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
-        <div style="font-size: 22px; font-weight: 700; margin-bottom: 10px;">Mentory 注册验证码</div>
+        ${brandLogoHtml ? `<div style="margin-bottom: 22px;">${brandLogoHtml}</div>` : ''}
+        <div style="font-size: 22px; font-weight: 700; margin-bottom: 10px;">欢迎注册Mentory</div>
         <div style="font-size: 14px; color: #475569; margin-bottom: 18px;">您正在进行 Mentory 邮箱注册验证。</div>
         <div style="padding: 18px 20px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
           <div style="font-size: 30px; font-weight: 700; letter-spacing: 8px; color: #111827;">${code}</div>
