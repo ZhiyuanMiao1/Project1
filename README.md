@@ -15,6 +15,18 @@ Make learning go further.
 cd /opt/mentory/
 ```
 
+### 更新后端 `.env` 并重启
+
+在生产环境 ECS 上修改后端环境变量后，需要重启 PM2 进程并更新环境变量：
+
+```bash
+cd /opt/mentory/backend
+nano .env
+# 添加或修改需要的环境变量
+# Ctrl+O 回车保存，Ctrl+X 退出
+pm2 restart mentory-backend --update-env
+```
+
 ## 学生首页课程 Tab 与导师排序机制
 
 Mentory 支持导师在个人名片中自定义「可授课课程」，并在学生首页按课程方向（Tab）浏览导师。其核心逻辑如下：
