@@ -122,7 +122,8 @@ client.interceptors.response.use(
       || url.includes('/api/auth/refresh')
       || url.includes('/api/auth/logout')
       || url.includes('/api/auth/send-email-code')
-      || url.includes('/api/auth/verify-email-code');
+      || url.includes('/api/auth/verify-email-code')
+      || url.includes('/api/auth/reset-password');
     if (isAuthEndpoint) return Promise.reject(error);
 
     const config = error?.config || {};

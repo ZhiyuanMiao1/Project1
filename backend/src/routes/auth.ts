@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { body, validationResult } from 'express-validator';
 import { query } from '../db';
 import {
@@ -8,10 +9,12 @@ import {
   getRefreshTokenFromReq,
   RefreshAuthError,
   revokeRefreshToken,
+  revokeAllRefreshTokensForUser,
   rotateRefreshToken,
   setRefreshTokenCookie,
 } from '../auth/refreshTokens';
 import {
+  consumeEmailVerificationToken,
   EmailVerificationError,
   sendEmailVerificationCode,
   verifyEmailCode,
@@ -32,6 +35,7 @@ type RoleRow = {
 };
 
 const router = Router();
+const EMAIL_CODE_PURPOSES = ['register', 'reset_password'];
 
 const handleEmailVerificationError = (res: Response, error: unknown) => {
   if (error instanceof EmailVerificationError) {
@@ -53,7 +57,7 @@ router.post(
   '/send-email-code',
   [
     body('email').isEmail().withMessage('请输入有效的邮箱'),
-    body('purpose').isIn(['register']).withMessage('验证码用途无效'),
+    body('purpose').isIn(EMAIL_CODE_PURPOSES).withMessage('验证码用途无效'),
   ],
   async (req: Request, res: Response) => {
     const errors = validationResult(req);
@@ -62,9 +66,20 @@ router.post(
     }
 
     try {
+      const purpose = String(req.body?.purpose || '');
+      if (purpose === 'reset_password') {
+        const users = await query<UserRow[]>(
+          'SELECT id, username, email FROM users WHERE email = ? LIMIT 1',
+          [String(req.body?.email || '').trim().toLowerCase()]
+        );
+        if (!users[0]) {
+          return res.status(404).json({ error: '该邮箱尚未注册' });
+        }
+      }
+
       const payload = await sendEmailVerificationCode({
         email: String(req.body?.email || ''),
-        purpose: String(req.body?.purpose || ''),
+        purpose,
         ip: String(req.ip || '').slice(0, 45) || null,
         userAgent: String(req.get('user-agent') || '').slice(0, 255) || null,
       });
@@ -80,7 +95,7 @@ router.post(
   '/verify-email-code',
   [
     body('email').isEmail().withMessage('请输入有效的邮箱'),
-    body('purpose').isIn(['register']).withMessage('验证码用途无效'),
+    body('purpose').isIn(EMAIL_CODE_PURPOSES).withMessage('验证码用途无效'),
     body('code')
       .isLength({ min: 6, max: 6 })
       .withMessage('请输入 6 位验证码')
@@ -102,6 +117,65 @@ router.post(
       });
 
       return res.json(payload);
+    } catch (error) {
+      return handleEmailVerificationError(res, error);
+    }
+  }
+);
+
+router.post(
+  '/reset-password',
+  [
+    body('email').isEmail().withMessage('请输入有效的邮箱'),
+    body('emailVerificationToken').isString().isLength({ min: 16 }).withMessage('请先完成邮箱验证码验证'),
+    body('newPassword').isString().isLength({ min: 6 }).withMessage('密码至少6位'),
+    body('confirmPassword')
+      .isString()
+      .custom((value, { req }) => value === req.body.newPassword)
+      .withMessage('两次输入的密码不一致'),
+  ],
+  async (req: Request, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const newPassword = String(req.body?.newPassword || '');
+    const emailVerificationToken = String(req.body?.emailVerificationToken || '');
+
+    try {
+      await consumeEmailVerificationToken({
+        email,
+        purpose: 'reset_password',
+        verificationToken: emailVerificationToken,
+      });
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      const result = await query<any>(
+        'UPDATE users SET password_hash = ? WHERE email = ?',
+        [passwordHash, email]
+      );
+      const affected = typeof result?.affectedRows === 'number' ? result.affectedRows : 0;
+      if (affected === 0) {
+        return res.status(404).json({ error: '该邮箱尚未注册' });
+      }
+
+      const users = await query<UserRow[]>(
+        'SELECT id, username, email FROM users WHERE email = ? LIMIT 1',
+        [email]
+      );
+      const user = users[0];
+      if (user?.id) {
+        try {
+          await revokeAllRefreshTokensForUser(user.id, 'password_reset');
+        } catch (e) {
+          console.error('Revoke refresh tokens on password reset error:', e);
+        }
+      }
+      clearRefreshTokenCookie(res);
+
+      return res.json({ message: '密码已重置，请使用新密码登录' });
     } catch (error) {
       return handleEmailVerificationError(res, error);
     }

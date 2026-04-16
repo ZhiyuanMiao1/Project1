@@ -1,11 +1,11 @@
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { pool, query, type InsertResult } from '../db';
-import { sendRegisterEmailCodeMail } from './mailService';
+import { sendPasswordResetEmailCodeMail, sendRegisterEmailCodeMail } from './mailService';
 
 dotenv.config();
 
-export type EmailVerificationPurpose = 'register';
+export type EmailVerificationPurpose = 'register' | 'reset_password';
 
 type EmailVerificationRow = {
   id: number;
@@ -25,7 +25,7 @@ type EmailVerificationRow = {
   verification_consumed_at: Date | string | null;
 };
 
-const SUPPORTED_PURPOSES = new Set<EmailVerificationPurpose>(['register']);
+const SUPPORTED_PURPOSES = new Set<EmailVerificationPurpose>(['register', 'reset_password']);
 
 let emailVerificationTableEnsured = false;
 
@@ -131,6 +131,7 @@ export const ensureEmailVerificationTable = async () => {
 const assertSupportedPurpose = (purpose: string): EmailVerificationPurpose => {
   const normalized = String(purpose || '').trim().toLowerCase();
   if (normalized === 'register' && SUPPORTED_PURPOSES.has('register')) return 'register';
+  if (normalized === 'reset_password' && SUPPORTED_PURPOSES.has('reset_password')) return 'reset_password';
   throw new EmailVerificationError('EMAIL_CODE_PURPOSE_INVALID', '验证码用途无效', 400);
 };
 
@@ -217,6 +218,12 @@ export const sendEmailVerificationCode = async ({
   try {
     if (normalizedPurpose === 'register') {
       await sendRegisterEmailCodeMail({
+        to: normalizedEmail,
+        code,
+        expiresMinutes: EMAIL_CODE_EXPIRES_MINUTES,
+      });
+    } else if (normalizedPurpose === 'reset_password') {
+      await sendPasswordResetEmailCodeMail({
         to: normalizedEmail,
         code,
         expiresMinutes: EMAIL_CODE_EXPIRES_MINUTES,

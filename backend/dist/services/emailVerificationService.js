@@ -9,7 +9,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const db_1 = require("../db");
 const mailService_1 = require("./mailService");
 dotenv_1.default.config();
-const SUPPORTED_PURPOSES = new Set(['register']);
+const SUPPORTED_PURPOSES = new Set(['register', 'reset_password']);
 let emailVerificationTableEnsured = false;
 const parsePositiveInt = (value, fallback) => {
     const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
@@ -87,6 +87,8 @@ const assertSupportedPurpose = (purpose) => {
     const normalized = String(purpose || '').trim().toLowerCase();
     if (normalized === 'register' && SUPPORTED_PURPOSES.has('register'))
         return 'register';
+    if (normalized === 'reset_password' && SUPPORTED_PURPOSES.has('reset_password'))
+        return 'reset_password';
     throw new EmailVerificationError('EMAIL_CODE_PURPOSE_INVALID', '验证码用途无效', 400);
 };
 const sendEmailVerificationCode = async ({ email, purpose, ip, userAgent, }) => {
@@ -140,6 +142,13 @@ const sendEmailVerificationCode = async ({ email, purpose, ip, userAgent, }) => 
     try {
         if (normalizedPurpose === 'register') {
             await (0, mailService_1.sendRegisterEmailCodeMail)({
+                to: normalizedEmail,
+                code,
+                expiresMinutes: EMAIL_CODE_EXPIRES_MINUTES,
+            });
+        }
+        else if (normalizedPurpose === 'reset_password') {
+            await (0, mailService_1.sendPasswordResetEmailCodeMail)({
                 to: normalizedEmail,
                 code,
                 expiresMinutes: EMAIL_CODE_EXPIRES_MINUTES,

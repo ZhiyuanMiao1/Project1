@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendRegisterEmailCodeMail = exports.sendMail = void 0;
+exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendMail = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 dotenv_1.default.config();
@@ -102,3 +102,33 @@ const sendRegisterEmailCodeMail = async ({ to, code, expiresMinutes, }) => {
     await (0, exports.sendMail)({ to, subject, text, html });
 };
 exports.sendRegisterEmailCodeMail = sendRegisterEmailCodeMail;
+const sendPasswordResetEmailCodeMail = async ({ to, code, expiresMinutes, }) => {
+    const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
+    const subject = 'Mentory 重置密码验证码';
+    const text = `您的 Mentory 重置密码验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。`;
+    const brandLogoHtml = getBrandLogoHtml();
+    const headerHtml = brandLogoHtml
+        ? `
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 18px;">
+          <tr>
+            <td style="vertical-align: middle; padding-right: 14px;">${brandLogoHtml}</td>
+            <td style="vertical-align: middle; font-size: 22px; font-weight: 700; color: #0f172a;">重置Mentory密码</td>
+          </tr>
+        </table>
+      `
+        : '<div style="font-size: 22px; font-weight: 700; margin-bottom: 10px;">重置Mentory密码</div>';
+    const html = `
+    <div style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; line-height: 1.6;">
+      <div style="max-width: 520px; margin: 0 auto; padding: 28px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
+        ${headerHtml}
+        <div style="font-size: 14px; color: #475569; margin-bottom: 18px;">您正在通过邮箱重新设置 Mentory 登录密码。</div>
+        <div style="padding: 18px 20px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
+          <div style="font-size: 30px; font-weight: 700; letter-spacing: 8px; color: #111827;">${code}</div>
+        </div>
+        <div style="margin-top: 18px; font-size: 14px; color: #475569;">验证码 ${safeMinutes} 分钟内有效，仅可使用一次。如非本人操作，请直接忽略此邮件。</div>
+      </div>
+    </div>
+  `;
+    await (0, exports.sendMail)({ to, subject, text, html });
+};
+exports.sendPasswordResetEmailCodeMail = sendPasswordResetEmailCodeMail;

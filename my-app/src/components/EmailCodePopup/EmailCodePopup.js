@@ -20,6 +20,8 @@ function EmailCodePopup({
   onClose,
   onVerified,
   onResendSuccess,
+  sendEmailCode = sendRegisterEmailCode,
+  verifyEmailCode = verifyRegisterEmailCode,
   initialCountdownSeconds = 60,
   title = '邮箱验证码',
 }) {
@@ -101,7 +103,7 @@ function EmailCodePopup({
     setVerifying(true);
     setErrorMessage('');
     try {
-      const payload = await verifyRegisterEmailCode({ email, code: nextCode });
+      const payload = await verifyEmailCode({ email, code: nextCode });
       if (typeof onVerified === 'function') {
         await onVerified(payload || {});
       }
@@ -119,7 +121,7 @@ function EmailCodePopup({
     setResending(true);
     setErrorMessage('');
     try {
-      const payload = await sendRegisterEmailCode({ email });
+      const payload = await sendEmailCode({ email });
       const nextSeconds = Math.max(0, Number(payload?.resendAfterSeconds) || 60);
       setCountdown(nextSeconds);
       setCode('');

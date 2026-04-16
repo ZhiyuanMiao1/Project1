@@ -4,6 +4,12 @@ import './LoginPopup.css';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
+import EmailCodePopup from '../EmailCodePopup/EmailCodePopup';
+import {
+  getEmailCodeErrorMessage,
+  sendPasswordResetEmailCode,
+  verifyPasswordResetEmailCode,
+} from '../../services/emailCodeService';
 
 const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '', onGoRegister }) => {
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
@@ -18,6 +24,17 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [focusedPw, setFocusedPw] = useState(false);
+  const [mode, setMode] = useState('login');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetCodeAvailableAt, setResetCodeAvailableAt] = useState(0);
+  const [showResetCodePopup, setShowResetCodePopup] = useState(false);
+  const [resetOk, setResetOk] = useState('');
+  const resetEmailRef = useRef(null);
+  const resetPwRef = useRef(null);
+  const resetConfirmPwRef = useRef(null);
 
   const handleBackdropPressStart = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
@@ -40,6 +57,107 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
     if (v.includes('@') && !/\S+@\S+\.\S+/.test(v)) return { message: '邮箱格式不正确', field: 'email' };
     if (!password) return { message: '请输入密码', field: 'password' };
     return null;
+  };
+
+  const resetLoginFormError = () => {
+    setFieldError('');
+    setErrorFieldState('');
+  };
+
+  const validateResetEmail = () => {
+    const v = String(resetEmail || '').trim();
+    if (!v) return { message: '请输入注册邮箱', field: 'resetEmail' };
+    if (!/^\S+@\S+\.\S+$/.test(v)) return { message: '邮箱格式不正确', field: 'resetEmail' };
+    return null;
+  };
+
+  const validateResetPassword = () => {
+    if (!resetToken) return { message: '请先完成邮箱验证码验证', field: '' };
+    if (!resetNewPassword || resetNewPassword.length < 6) return { message: '密码至少6位', field: 'resetNewPassword' };
+    if (resetNewPassword !== resetConfirmPassword) return { message: '两次输入的密码不一致', field: 'resetConfirmPassword' };
+    return null;
+  };
+
+  const handleForgotPassword = () => {
+    setMode('resetEmail');
+    setResetEmail(String(email || '').includes('@') ? String(email || '').trim() : '');
+    setResetNewPassword('');
+    setResetConfirmPassword('');
+    setResetToken('');
+    setResetOk('');
+    resetLoginFormError();
+  };
+
+  const handleBackToLogin = () => {
+    setMode('login');
+    setResetOk('');
+    resetLoginFormError();
+  };
+
+  const handleSendResetCode = async () => {
+    if (submitting) return;
+    const v = validateResetEmail();
+    if (v) {
+      setFieldError(v.message);
+      setErrorFieldState(v.field);
+      return;
+    }
+
+    setSubmitting(true);
+    resetLoginFormError();
+    setResetOk('');
+    try {
+      const payload = await sendPasswordResetEmailCode({ email: resetEmail });
+      setResetCodeAvailableAt(Date.now() + (Math.max(0, Number(payload?.resendAfterSeconds) || 60) * 1000));
+      setShowResetCodePopup(true);
+    } catch (error) {
+      setFieldError(getEmailCodeErrorMessage(error, '验证码发送失败，请稍后再试'));
+      setErrorFieldState('');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (submitting) return;
+    const v = validateResetPassword();
+    if (v) {
+      setFieldError(v.message);
+      setErrorFieldState(v.field);
+      return;
+    }
+
+    setSubmitting(true);
+    resetLoginFormError();
+    setResetOk('');
+    try {
+      const res = await api.post('/api/auth/reset-password', {
+        email: resetEmail,
+        emailVerificationToken: resetToken,
+        newPassword: resetNewPassword,
+        confirmPassword: resetConfirmPassword,
+      });
+      setResetOk(res?.data?.message || '密码已重置，请使用新密码登录');
+      setPassword('');
+      setEmail(resetEmail);
+      setTimeout(() => {
+        setMode('login');
+        setResetNewPassword('');
+        setResetConfirmPassword('');
+        setResetToken('');
+      }, 1000);
+    } catch (e) {
+      const data = e?.response?.data;
+      const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
+      if (serverErrors && serverErrors.length > 0) {
+        setFieldError(serverErrors[0]?.msg || '提交信息有误');
+      } else {
+        setFieldError(data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '密码重置失败，请稍后再试'));
+      }
+      setErrorFieldState('');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleContinue = async () => {
@@ -111,117 +229,191 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
         <button className="login-modal-close" onClick={onClose} aria-label="关闭">
           <FiX aria-hidden="true" />
         </button>
-        <h2>登录</h2>
+        <h2>{mode === 'login' ? '登录' : '重置密码'}</h2>
         <div className="login-modal-divider"></div>
-        <h3>欢迎回来，Mentory用户</h3>
-        <div className="login-input-area">
-          <input
-            ref={emailRef}
-            type="text"
-            placeholder="请输入邮箱、StudentID或MentorID"
-            className={`login-input ${errorFieldState === 'email' ? 'error' : ''}`}
-            value={email}
-            onChange={(e) => {
-              const v = e.target.value;
-              setEmail(v);
-              const vv = String(v || '').trim();
-              const ok = vv && (!vv.includes('@') || /\S+@\S+\.\S+/.test(vv));
-              if (errorFieldState === 'email' && ok) {
-                setErrorFieldState('');
-                setFieldError('');
-              }
-            }}
-          />
-          <div className="input-with-toggle">
+        <h3>{mode === 'login' ? '欢迎回来，Mentory用户' : (mode === 'resetEmail' ? '通过邮箱验证身份' : '设置新的登录密码')}</h3>
+        {mode === 'login' ? (
+          <div className="login-input-area">
             <input
-              ref={pwRef}
-              type={showPw ? 'text' : 'password'}
-              placeholder="请输入密码"
-              className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
-              value={password}
-              onFocus={() => setFocusedPw(true)}
-              onBlur={() => setFocusedPw(false)}
+              ref={emailRef}
+              type="text"
+              placeholder="请输入邮箱、StudentID或MentorID"
+              className={`login-input ${errorFieldState === 'email' ? 'error' : ''}`}
+              value={email}
               onChange={(e) => {
                 const v = e.target.value;
-                setPassword(v);
-                if (errorFieldState === 'password' && v) {
+                setEmail(v);
+                const vv = String(v || '').trim();
+                const ok = vv && (!vv.includes('@') || /\S+@\S+\.\S+/.test(vv));
+                if (errorFieldState === 'email' && ok) {
                   setErrorFieldState('');
                   setFieldError('');
                 }
               }}
             />
-            {(focusedPw && password) && (
-              <button
-                type="button"
-                className="toggle-password"
-                aria-label={showPw ? '隐藏密码' : '显示密码'}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => setShowPw((s) => !s)}
-              >
-                {showPw ? (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
-                          stroke="currentColor" strokeWidth="1.5"
-                          strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="16" r="3.2"
-                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
-                  </svg>
-                ) : (
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M4.5 14.4 Q12 7 19.5 14.4"
-                          stroke="currentColor" strokeWidth="1.5"
-                          strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12" cy="16" r="3.2"
-                            fill="none" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M18 10 L6 22"
-                      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                )}
-              </button>
+            <div className="input-with-toggle">
+              <input
+                ref={pwRef}
+                type={showPw ? 'text' : 'password'}
+                placeholder="请输入密码"
+                className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
+                value={password}
+                onFocus={() => setFocusedPw(true)}
+                onBlur={() => setFocusedPw(false)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setPassword(v);
+                  if (errorFieldState === 'password' && v) {
+                    setErrorFieldState('');
+                    setFieldError('');
+                  }
+                }}
+              />
+              {(focusedPw && password) && (
+                <button
+                  type="button"
+                  className="toggle-password"
+                  aria-label={showPw ? '隐藏密码' : '显示密码'}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setShowPw((s) => !s)}
+                >
+                  {showPw ? (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                            stroke="currentColor" strokeWidth="1.5"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="16" r="3.2"
+                              fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                    </svg>
+                  ) : (
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M4.5 14.4 Q12 7 19.5 14.4"
+                            stroke="currentColor" strokeWidth="1.5"
+                            strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="16" r="3.2"
+                              fill="none" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M18 10 L6 22"
+                        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="login-input-area">
+            <input
+              ref={resetEmailRef}
+              type="email"
+              placeholder="请输入注册邮箱"
+              className={`login-input ${errorFieldState === 'resetEmail' ? 'error' : ''}`}
+              value={resetEmail}
+              disabled={mode === 'resetPassword'}
+              onChange={(e) => {
+                setResetEmail(e.target.value);
+                if (errorFieldState === 'resetEmail') resetLoginFormError();
+              }}
+            />
+            {mode === 'resetPassword' && (
+              <>
+                <input
+                  ref={resetPwRef}
+                  type="password"
+                  placeholder="请输入新密码"
+                  className={`login-input ${errorFieldState === 'resetNewPassword' ? 'error' : ''}`}
+                  value={resetNewPassword}
+                  autoComplete="new-password"
+                  onChange={(e) => {
+                    setResetNewPassword(e.target.value);
+                    if (errorFieldState === 'resetNewPassword') resetLoginFormError();
+                  }}
+                />
+                <input
+                  ref={resetConfirmPwRef}
+                  type="password"
+                  placeholder="请再次输入新密码"
+                  className={`login-input ${errorFieldState === 'resetConfirmPassword' ? 'error' : ''}`}
+                  value={resetConfirmPassword}
+                  autoComplete="new-password"
+                  onChange={(e) => {
+                    setResetConfirmPassword(e.target.value);
+                    if (errorFieldState === 'resetConfirmPassword') resetLoginFormError();
+                  }}
+                />
+              </>
             )}
           </div>
-        </div>
+        )}
 
         {/* 顶部辅助链接行：左“忘记密码”，右“前往注册” */}
         <div className="login-helper-row">
           <button
             type="button"
             className="helper-link left"
-            onClick={(e) => { e.preventDefault(); /* 预留：忘记密码 */ }}
+            onClick={(e) => { e.preventDefault(); mode === 'login' ? handleForgotPassword() : handleBackToLogin(); }}
           >
-            忘记密码？
+            {mode === 'login' ? '忘记密码？' : '返回登录'}
           </button>
-          <button
-            type="button"
-            className="helper-link right"
-            onClick={(e) => { e.preventDefault(); if (typeof onGoRegister === 'function') onGoRegister(); }}
-          >
-            前往注册
-          </button>
+          {mode === 'login' ? (
+            <button
+              type="button"
+              className="helper-link right"
+              onClick={(e) => { e.preventDefault(); if (typeof onGoRegister === 'function') onGoRegister(); }}
+            >
+              前往注册
+            </button>
+          ) : null}
         </div>
 
         {/* 错误提示行（下移一行显示） */}
         <div className="login-validation-slot">
-          {fieldError ? <span className="validation-error">{fieldError}</span> : null}
+          {fieldError ? <span className="validation-error">{fieldError}</span> : (resetOk ? <span className="validation-success">{resetOk}</span> : null)}
         </div>
         <div className="login-continue-area">
-          <Button className="login-continue-button" onClick={handleContinue} disabled={submitting} fullWidth>继续</Button>
+          <Button
+            className="login-continue-button"
+            onClick={mode === 'login' ? handleContinue : (mode === 'resetEmail' ? handleSendResetCode : handleResetPassword)}
+            disabled={submitting}
+            fullWidth
+          >
+            {submitting ? '处理中...' : (mode === 'login' ? '继续' : (mode === 'resetEmail' ? '发送验证码' : '重置密码'))}
+          </Button>
         </div>
-        {/* 添加中间带文字的分割线 */}
-        <div className="login-modal-divider-with-text">
-          <span className="divider-text">或（暂未开放）</span>
-        </div>
-        {/* 添加微信和 Google 登录按钮 */}
-        <div className="social-login-buttons">
-          <button className="social-button wechat-login">
-            <img src="/images/wechat-icon.png" alt="WeChat" className="social-icon" />
-            使用微信登录
-          </button>
-          <button className="social-button google-login">
-            <img src="/images/google-icon.png" alt="Google" className="social-icon" />
-            使用 Google 账号登录
-          </button>
-        </div>
+        {mode === 'login' && (
+          <>
+            <div className="login-modal-divider-with-text">
+              <span className="divider-text">或（暂未开放）</span>
+            </div>
+            <div className="social-login-buttons">
+              <button className="social-button wechat-login">
+                <img src="/images/wechat-icon.png" alt="WeChat" className="social-icon" />
+                使用微信登录
+              </button>
+              <button className="social-button google-login">
+                <img src="/images/google-icon.png" alt="Google" className="social-icon" />
+                使用 Google 账号登录
+              </button>
+            </div>
+          </>
+        )}
+        {showResetCodePopup && (
+          <EmailCodePopup
+            email={resetEmail}
+            title="重置密码验证码"
+            initialCountdownSeconds={Math.max(0, Math.ceil((resetCodeAvailableAt - Date.now()) / 1000))}
+            sendEmailCode={sendPasswordResetEmailCode}
+            verifyEmailCode={verifyPasswordResetEmailCode}
+            onClose={() => setShowResetCodePopup(false)}
+            onResendSuccess={(seconds) => setResetCodeAvailableAt(Date.now() + seconds * 1000)}
+            onVerified={(payload) => {
+              setResetToken(payload?.verificationToken || '');
+              setShowResetCodePopup(false);
+              setMode('resetPassword');
+              resetLoginFormError();
+              requestAnimationFrame(() => resetPwRef.current?.focus());
+            }}
+          />
+        )}
       </div>
     </div>
   );

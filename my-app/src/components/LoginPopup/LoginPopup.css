@@ -369,6 +369,13 @@ input[type="password"]::-ms-clear { display: none; }
   font: inherit;
 }
 
+.validation-success {
+  color: #16794c;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Responsive modal layout */
 .login-modal-overlay {
   height: 100dvh;
