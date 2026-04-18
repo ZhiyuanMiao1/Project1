@@ -1288,7 +1288,14 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
     }
     if (!row) return res.status(404).json({ error: '预约不存在或无权限' });
 
-    if (Number(row.sender_user_id) === req.user.id) {
+    const currentStatus = normalizeDecisionStatus(row.appointment_status) || 'pending';
+    const isSender = Number(row.sender_user_id) === req.user.id;
+    const canSenderMarkRescheduling =
+      isSender
+      && status === 'rescheduling'
+      && (currentStatus === 'accepted' || currentStatus === 'rejected');
+
+    if (isSender && !canSenderMarkRescheduling) {
       await conn.rollback();
       return res.status(403).json({ error: '不能对自己发的预约更改状态' });
     }

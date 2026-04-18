@@ -1443,7 +1443,7 @@ function MessagesPage() {
     });
 
     try {
-      if (currentIntent === 'reschedule' && sourceAppointmentId && sourceCard?.direction !== 'outgoing') {
+      if (currentIntent === 'reschedule' && sourceAppointmentId) {
         // Mark the original proposal as "rescheduling" so both parties see the state.
         await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
       }
