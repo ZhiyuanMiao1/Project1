@@ -3,9 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendAppointmentNotificationMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendMail = exports.getPublicAppUrl = void 0;
+exports.sendAppointmentNotificationMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendNotificationMail = exports.areEmailNotificationsEnabledForUser = exports.sendMail = exports.getPublicAppUrl = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
+const db_1 = require("../db");
 dotenv_1.default.config();
 const parseBoolean = (value, fallback = false) => {
     const raw = typeof value === 'string' ? value.trim().toLowerCase() : String(value ?? '').trim().toLowerCase();
@@ -106,6 +107,28 @@ const sendMail = async ({ to, subject, text, html }) => {
     });
 };
 exports.sendMail = sendMail;
+const areEmailNotificationsEnabledForUser = async (userId) => {
+    if (!Number.isFinite(userId) || userId <= 0)
+        return false;
+    const rows = await (0, db_1.query)(`
+    SELECT COALESCE(email_notifications, 1) AS email_notifications
+    FROM account_settings
+    WHERE user_id = ?
+    LIMIT 1
+    `, [userId]);
+    if (!Array.isArray(rows) || rows.length === 0)
+        return true;
+    return Number(rows[0]?.email_notifications) === 1;
+};
+exports.areEmailNotificationsEnabledForUser = areEmailNotificationsEnabledForUser;
+const sendNotificationMail = async ({ recipientUserId, to, subject, text, html, }) => {
+    const enabled = await (0, exports.areEmailNotificationsEnabledForUser)(recipientUserId);
+    if (!enabled)
+        return false;
+    await (0, exports.sendMail)({ to, subject, text, html });
+    return true;
+};
+exports.sendNotificationMail = sendNotificationMail;
 const sendRegisterEmailCodeMail = async ({ to, code, expiresMinutes, }) => {
     const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
     const subject = 'Mentory 注册验证码';
@@ -134,7 +157,7 @@ const sendPasswordResetEmailCodeMail = async ({ to, code, expiresMinutes, }) => 
     await (0, exports.sendMail)({ to, subject, text, html });
 };
 exports.sendPasswordResetEmailCodeMail = sendPasswordResetEmailCodeMail;
-const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, }) => {
+const sendAppointmentNotificationMail = async ({ recipientUserId, to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, }) => {
     const safeActor = actorDisplayName.trim() || '对方';
     const safeWindowText = windowText.trim();
     const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
@@ -168,6 +191,6 @@ const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorD
         </div>
       ` : ''}
     `);
-    await (0, exports.sendMail)({ to, subject, text, html });
+    await (0, exports.sendNotificationMail)({ recipientUserId, to, subject, text, html });
 };
 exports.sendAppointmentNotificationMail = sendAppointmentNotificationMail;

@@ -789,6 +789,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     setSavingEmailNotifications(true);
     try {
       await api.put('/api/account/notifications', { emailNotificationsEnabled: nextValue });
+      showToast(nextValue ? '邮件提醒已开启' : '邮件提醒已关闭', 'success');
     } catch (e) {
       setEmailNotificationsEnabled(!nextValue);
       const msg = e?.response?.data?.error || '保存失败，请稍后再试';

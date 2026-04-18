@@ -1445,7 +1445,13 @@ function MessagesPage() {
     try {
       if (currentIntent === 'reschedule' && sourceAppointmentId) {
         // Mark the original proposal as "rescheduling" so both parties see the state.
-        await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
+        const sourceMarked = await persistAppointmentDecision(sourceAppointmentId, 'rescheduling');
+        if (!sourceMarked) {
+          try {
+            await reloadThreads();
+          } catch {}
+          return;
+        }
       }
 
       const courseDirectionId = String(sourceCard?.courseDirectionId || activeThread?.courseDirectionId || '');
@@ -1457,7 +1463,8 @@ function MessagesPage() {
         meetingId: meetingIdText,
         courseDirectionId,
         courseTypeId,
-        ...(currentIntent === 'next_lesson' && sourceAppointmentId
+        intent: currentIntent,
+        ...((currentIntent === 'next_lesson' || currentIntent === 'reschedule') && sourceAppointmentId
           ? { sourceAppointmentId: String(sourceAppointmentId) }
           : {}),
       });

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
+import { query } from '../db';
 
 dotenv.config();
 
@@ -10,7 +11,12 @@ type SendMailInput = {
   html: string;
 };
 
+type SendNotificationMailInput = SendMailInput & {
+  recipientUserId: number;
+};
+
 type AppointmentNotificationMailInput = {
+  recipientUserId: number;
   to: string;
   subject: string;
   eventTitle: string;
@@ -133,6 +139,37 @@ export const sendMail = async ({ to, subject, text, html }: SendMailInput) => {
   });
 };
 
+export const areEmailNotificationsEnabledForUser = async (userId: number) => {
+  if (!Number.isFinite(userId) || userId <= 0) return false;
+
+  const rows = await query<Array<{ email_notifications: number | string | null }>>(
+    `
+    SELECT COALESCE(email_notifications, 1) AS email_notifications
+    FROM account_settings
+    WHERE user_id = ?
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  if (!Array.isArray(rows) || rows.length === 0) return true;
+  return Number(rows[0]?.email_notifications) === 1;
+};
+
+export const sendNotificationMail = async ({
+  recipientUserId,
+  to,
+  subject,
+  text,
+  html,
+}: SendNotificationMailInput) => {
+  const enabled = await areEmailNotificationsEnabledForUser(recipientUserId);
+  if (!enabled) return false;
+
+  await sendMail({ to, subject, text, html });
+  return true;
+};
+
 export const sendRegisterEmailCodeMail = async ({
   to,
   code,
@@ -186,6 +223,7 @@ export const sendPasswordResetEmailCodeMail = async ({
 };
 
 export const sendAppointmentNotificationMail = async ({
+  recipientUserId,
   to,
   subject,
   eventTitle,
@@ -235,5 +273,5 @@ export const sendAppointmentNotificationMail = async ({
     `
   );
 
-  await sendMail({ to, subject, text, html });
+  await sendNotificationMail({ recipientUserId, to, subject, text, html });
 };

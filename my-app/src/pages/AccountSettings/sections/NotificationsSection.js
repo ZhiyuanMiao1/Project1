@@ -9,7 +9,7 @@ function NotificationsSection({
     <div className="settings-row">
       <div className="settings-row-main">
         <div className="settings-row-title">邮件通知</div>
-        <div className="settings-row-value">重要更新与课程提醒</div>
+        <div className="settings-row-value">重要更新与课程提醒，验证码除外</div>
       </div>
       <label className="settings-switch">
         <input
@@ -25,4 +25,3 @@ function NotificationsSection({
 }
 
 export default NotificationsSection;
-
