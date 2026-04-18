@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import AvailabilityEditor from '../AvailabilityEditor';
 import {
@@ -8,6 +8,7 @@ import {
   extractCityName,
   orderTimeZoneOptionsAroundSelected,
 } from '../../StudentCourseRequest/steps/timezoneUtils';
+import { useI18n } from '../../../i18n/language';
 
 const DEGREE_OPTIONS = [
   { value: '本科', label: '本科' },
@@ -16,6 +17,7 @@ const DEGREE_OPTIONS = [
 ];
 
 function DegreeSelect({ id, value, onChange }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
   const listRef = useRef(null);
@@ -47,7 +49,17 @@ function DegreeSelect({ id, value, onChange }) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
-  const selectedLabel = useMemo(() => DEGREE_OPTIONS.find((o) => o.value === value)?.label || '', [value]);
+  const optionLabel = useCallback((option) => {
+    if (option.value === '本科') return t('profile.degree.bachelor', option.label);
+    if (option.value === '硕士') return t('profile.degree.master', option.label);
+    if (option.value === 'PhD') return t('profile.degree.phd', option.label);
+    return option.label;
+  }, [t]);
+
+  const selectedLabel = useMemo(() => {
+    const option = DEGREE_OPTIONS.find((o) => o.value === value);
+    return option ? optionLabel(option) : '';
+  }, [optionLabel, value]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') { setOpen(false); return; }
@@ -71,7 +83,7 @@ function DegreeSelect({ id, value, onChange }) {
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleKeyDown}
       >
-        <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+        <span className="mx-select__label">{selectedLabel || t('profile.choose', '请选择')}</span>
         <span className="mx-select__caret" aria-hidden>
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
             <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -92,7 +104,7 @@ function DegreeSelect({ id, value, onChange }) {
                   className={`mx-select__option ${selected ? 'selected' : ''}`}
                   onClick={() => { onChange(opt.value); setOpen(false); }}
                 >
-                  {opt.label}
+                  {optionLabel(opt)}
                 </li>
               );
             })}
@@ -104,6 +116,7 @@ function DegreeSelect({ id, value, onChange }) {
 }
 
 function TimeZoneSelect({ id, value, onChange, options }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
   const listRef = useRef(null);
@@ -159,7 +172,7 @@ function TimeZoneSelect({ id, value, onChange, options }) {
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleKeyDown}
       >
-        <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+        <span className="mx-select__label">{selectedLabel || t('profile.choose', '请选择')}</span>
         <span className="mx-select__caret" aria-hidden>
           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
             <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -212,6 +225,7 @@ function ProfileSection({
   onPersistAvailability,
   onActivateMentor,
 }) {
+  const { t } = useI18n();
   const [editingDegree, setEditingDegree] = useState(false);
   const [degreeDraft, setDegreeDraft] = useState('');
   const [editingSchool, setEditingSchool] = useState(false);
@@ -229,11 +243,11 @@ function ProfileSection({
   const timeZoneCity = useMemo(() => extractCityName(availabilityTimeZone), [availabilityTimeZone]);
   const timeZoneShort = useMemo(() => buildShortUTC(availabilityTimeZone), [availabilityTimeZone]);
   const timeZoneDisplayValue = useMemo(() => {
-    if (!isLoggedIn) return '请先登录';
-    if (availabilityStatus === 'loading') return '加载中...';
-    if (availabilityStatus === 'error') return '加载失败';
-    return `${timeZoneShort}（${timeZoneCity || '时区'}）`;
-  }, [availabilityStatus, isLoggedIn, timeZoneCity, timeZoneShort]);
+    if (!isLoggedIn) return t('common.loginFirst', '请先登录');
+    if (availabilityStatus === 'loading') return t('common.loading', '加载中...');
+    if (availabilityStatus === 'error') return t('common.loadFailed', '加载失败');
+    return `${timeZoneShort} (${timeZoneCity || t('profile.timeZoneFallback', '时区')})`;
+  }, [availabilityStatus, isLoggedIn, t, timeZoneCity, timeZoneShort]);
 
   const orderedTimeZoneOptions = useMemo(() => {
     const now = new Date();
@@ -262,7 +276,7 @@ function ProfileSection({
                 className="settings-inline-link"
                 onClick={onActivateMentor}
               >
-                点击开通
+                {t('common.openMentor', '点击开通')}
               </button>
             ) : (
               mentorIdValue
@@ -272,14 +286,14 @@ function ProfileSection({
       </div>
       <div className="settings-row">
         <div className="settings-row-main">
-          <div className="settings-row-title">邮箱</div>
+          <div className="settings-row-title">{t('profile.email', '邮箱')}</div>
           <div className="settings-row-value">{emailValue}</div>
         </div>
       </div>
 
       <div className={`settings-row ${editingDegree ? 'settings-row--overlay' : ''}`}>
         <div className="settings-row-main">
-          <div className="settings-row-title">学历</div>
+          <div className="settings-row-title">{t('profile.degree', '学历')}</div>
           <div className={`settings-row-value ${canEditEducationProfile && editingDegree ? 'settings-row-value--interactive' : ''}`}>
             {canEditEducationProfile && editingDegree ? (
               <DegreeSelect
@@ -307,21 +321,21 @@ function ProfileSection({
               setEditingDegree(false);
             }}
           >
-            {editingDegree ? '保存' : '编辑'}
+            {editingDegree ? t('common.save', '保存') : t('common.edit', '编辑')}
           </button>
         )}
       </div>
 
       <div className={`settings-row ${editingSchool ? 'settings-row--overlay' : ''}`}>
         <div className="settings-row-main">
-          <div className="settings-row-title">学校</div>
+          <div className="settings-row-title">{t('profile.school', '学校')}</div>
           <div className={`settings-row-value ${canEditEducationProfile && editingSchool ? 'settings-row-value--interactive' : ''}`}>
             {canEditEducationProfile && editingSchool ? (
               <input
                 type="text"
                 className="settings-inline-input"
                 value={schoolDraft}
-                placeholder="可选填"
+                placeholder={t('common.optional', '可选填')}
                 onChange={(e) => setSchoolDraft(e.target.value)}
               />
             ) : (
@@ -344,14 +358,14 @@ function ProfileSection({
               setEditingSchool(false);
             }}
           >
-            {editingSchool ? '保存' : '编辑'}
+            {editingSchool ? t('common.save', '保存') : t('common.edit', '编辑')}
           </button>
         )}
       </div>
 
       <div className={`settings-row ${editingTimeZone ? 'settings-row--overlay' : ''}`}>
         <div className="settings-row-main">
-          <div className="settings-row-title">时区</div>
+          <div className="settings-row-title">{t('profile.timeZone', '时区')}</div>
           <div className={`settings-row-value ${canEditTimeZone && editingTimeZone ? 'settings-row-value--interactive' : ''}`}>
             {canEditTimeZone && editingTimeZone ? (
               <TimeZoneSelect
@@ -389,12 +403,12 @@ function ProfileSection({
                   timeZone: nextTimeZone,
                   daySelections: nextDaySelections,
                 },
-                { successMessage: '时区已保存' }
+                { successMessage: t('profile.timeZoneSaved', '时区已保存') }
               );
               if (ok) setEditingTimeZone(false);
             }}
           >
-            {editingTimeZone ? '保存' : '编辑'}
+            {editingTimeZone ? t('common.save', '保存') : t('common.edit', '编辑')}
           </button>
         )}
       </div>
@@ -408,7 +422,7 @@ function ProfileSection({
           onClick={() => setAvailabilityExpanded((prev) => !prev)}
         >
           <div className="settings-row-main">
-            <div className="settings-row-title">空余时间</div>
+            <div className="settings-row-title">{t('profile.availability', '空余时间')}</div>
             <div className="settings-row-value">{availabilitySummary}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">

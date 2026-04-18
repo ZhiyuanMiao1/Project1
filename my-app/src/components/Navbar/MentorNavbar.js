@@ -16,6 +16,7 @@ import { getAuthToken } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
+import { useI18n } from '../../i18n/language';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -25,7 +26,15 @@ const START_DATE_LABELS = {
   gt7: '长期',
 };
 
+const START_DATE_EN_LABELS = {
+  '0_1': 'Urgent (within 1 day)',
+  '1_3': 'Soon (within 3 days)',
+  '3_7': 'Within a week',
+  gt7: 'Long term',
+};
+
 function MentorNavbar() {
+  const { isEnglish, t } = useI18n();
   const timezoneRef = useRef(null); // 时区筛选锚点
   const courseTypeRef = useRef(null); // 课程类型锚点
   const startDateRef = useRef(null); // 首课日期锚点
@@ -162,7 +171,7 @@ function MentorNavbar() {
         return;
       }
       // 后端非预期的返回，做兜底提示
-      alert(res?.data?.error || '暂不可编辑个人名片');
+      alert(res?.data?.error || t('nav.editUnavailable', '暂不可编辑个人名片'));
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
@@ -173,10 +182,10 @@ function MentorNavbar() {
         return;
       }
       if (status === 403) {
-        alert(msg || '导师审核中，暂不可编辑个人名片');
+        alert(msg || t('nav.mentorReviewing', '导师审核中，暂不可编辑个人名片'));
         return;
       }
-      alert(msg || '操作失败，请稍后再试');
+      alert(msg || t('nav.actionFailed', '操作失败，请稍后再试'));
     }
   };
 
@@ -199,13 +208,13 @@ function MentorNavbar() {
               className={`nav-tab ${isStudentActive ? 'active' : ''}`}
               onClick={() => navigate('/student')}
             >
-              学生
+              {t('nav.students', '学生')}
             </button>
             <button
               className={`nav-tab ${isMentorActive ? 'active' : ''}`}
               onClick={() => navigate('/mentor')}
             >
-              导师
+              {t('nav.mentors', '导师')}
             </button>
           </nav>
         </div>
@@ -217,9 +226,9 @@ function MentorNavbar() {
             onClick={handleEditProfileClick}
             disabled={canEditProfile === false}
             aria-disabled={canEditProfile === false}
-            title={canEditProfile === false ? '审核中，暂不可编辑' : undefined}
+            title={canEditProfile === false ? t('nav.reviewingCannotEdit', '审核中，暂不可编辑') : undefined}
           >
-            编辑个人名片
+            {t('nav.editProfileCard', '编辑个人名片')}
           </button>
           <span
             className="icon-circle nav-menu-trigger"
@@ -246,7 +255,7 @@ function MentorNavbar() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="nav-unread-badge"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </span>
@@ -265,10 +274,10 @@ function MentorNavbar() {
                 setPendingFilter('timezone');
               }}
             >
-              <label>时区</label>
+              <label>{t('nav.timeZone', '时区')}</label>
               <input
                 type="text"
-                placeholder="选择学生时区"
+                placeholder={t('nav.chooseStudentTimeZone', '选择学生时区')}
                 value={selectedRegion}
                 readOnly
               />
@@ -281,10 +290,10 @@ function MentorNavbar() {
                 setPendingFilter('courseType');
               }}
             >
-              <label>课程类型</label>
+              <label>{t('nav.courseType', '课程类型')}</label>
               <input
                 type="text"
-                placeholder="选择课程类型"
+                placeholder={t('nav.chooseCourseType', '选择课程类型')}
                 value={courseTypeToCnLabel(selectedCourseType)}
                 readOnly
               />
@@ -297,16 +306,16 @@ function MentorNavbar() {
                 setPendingFilter('startDate');
               }}
             >
-              <label>首课日期</label>
+              <label>{t('nav.firstLessonDate', '首课日期')}</label>
               <input
                 type="text"
-                placeholder="选择首课日期"
-                value={START_DATE_LABELS[selectedStartDate] || ''}
+                placeholder={t('nav.chooseFirstLessonDate', '选择首课日期')}
+                value={(isEnglish ? START_DATE_EN_LABELS : START_DATE_LABELS)[selectedStartDate] || ''}
                 readOnly
               />
             </div>
           </div>
-          <button type="button" className="search-btn" onClick={applySearch} aria-label="搜索">
+          <button type="button" className="search-btn" onClick={applySearch} aria-label={t('common.search', '搜索')}>
             <i className="fas fa-search"></i>
           </button>
         </div>

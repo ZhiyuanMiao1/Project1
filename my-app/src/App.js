@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation, useNavigate, matchPath } from 'react-router-dom';
 import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
@@ -9,6 +9,7 @@ import { emitMessageUnreadChanged } from './hooks/useMessageUnreadSummary';
 import usePendingLessonHours, { emitPendingLessonHoursChanged } from './hooks/usePendingLessonHours';
 import { AUTH_SESSION_EXPIRED_EVENT } from './utils/auth';
 import { getAuthToken } from './utils/authStorage';
+import { LanguageProvider, useI18n } from './i18n/language';
 import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lessonHours';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 
@@ -67,24 +68,24 @@ let hasStartedBackgroundRouteWarmup = false;
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
-  { path: '/student/mentors/:mentorId', title: '导师主页' },
-  { path: '/student/course-request', title: '发布课程需求' },
-  { path: '/student/favorites', title: '收藏' },
-  { path: '/student/favorites/:collectionId', title: '收藏夹' },
-  { path: '/student/recent-visits', title: '最近浏览' },
-  { path: '/student/courses', title: '课程' },
-  { path: '/student/messages', title: '消息' },
-  { path: '/student/wallet', title: '钱包' },
-  { path: '/student/settings', title: '设置' },
-  { path: '/student/help', title: '帮助中心' },
+  { path: '/student/mentors/:mentorId', title: '导师主页', titleKey: 'app.route.mentorProfile' },
+  { path: '/student/course-request', title: '发布课程需求', titleKey: 'app.route.courseRequest' },
+  { path: '/student/favorites', title: '收藏', titleKey: 'app.route.favorites' },
+  { path: '/student/favorites/:collectionId', title: '收藏夹', titleKey: 'app.route.favoriteCollection' },
+  { path: '/student/recent-visits', title: '最近浏览', titleKey: 'app.route.recentVisits' },
+  { path: '/student/courses', title: '课程', titleKey: 'app.route.courses' },
+  { path: '/student/messages', title: '消息', titleKey: 'app.route.messages' },
+  { path: '/student/wallet', title: '钱包', titleKey: 'app.route.wallet' },
+  { path: '/student/settings', title: '设置', titleKey: 'app.route.settings' },
+  { path: '/student/help', title: '帮助中心', titleKey: 'app.route.help' },
   { path: '/mentor', title: 'Mentory' },
-  { path: '/mentor/profile-editor', title: '编辑个人名片' },
-  { path: '/mentor/courses', title: '导师课程' },
-  { path: '/mentor/requests/:requestId', title: '课程需求详情' },
-  { path: '/mentor/messages', title: '消息' },
-  { path: '/mentor/settings', title: '设置' },
-  { path: '/mentor/help', title: '帮助中心' },
-  { path: '/classroom/:courseId', title: '课堂' },
+  { path: '/mentor/profile-editor', title: '编辑个人名片', titleKey: 'app.route.profileEditor' },
+  { path: '/mentor/courses', title: '导师课程', titleKey: 'app.route.mentorCourses' },
+  { path: '/mentor/requests/:requestId', title: '课程需求详情', titleKey: 'app.route.requestDetail' },
+  { path: '/mentor/messages', title: '消息', titleKey: 'app.route.messages' },
+  { path: '/mentor/settings', title: '设置', titleKey: 'app.route.settings' },
+  { path: '/mentor/help', title: '帮助中心', titleKey: 'app.route.help' },
+  { path: '/classroom/:courseId', title: '课堂', titleKey: 'app.route.classroom' },
 ];
 
 const normalizePathname = (pathname) => {
@@ -94,15 +95,12 @@ const normalizePathname = (pathname) => {
   return pathname.replace(/\/+$/, '') || '/';
 };
 
-const getDocumentTitleByPath = (pathname) => {
+const getDocumentTitleRouteByPath = (pathname) => {
   const normalizedPath = normalizePathname(pathname);
   const matchedRoute = ROUTE_TITLE_MAP.find((route) =>
     Boolean(matchPath({ path: route.path, end: true }, normalizedPath))
   );
-  if (!matchedRoute) {
-    return BRAND_NAME;
-  }
-  return matchedRoute.title;
+  return matchedRoute || null;
 };
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -119,10 +117,12 @@ const getCurrentPath = () => {
 
 function RouteTitleManager() {
   const location = useLocation();
+  const { t } = useI18n();
 
   useEffect(() => {
-    document.title = getDocumentTitleByPath(location.pathname);
-  }, [location.pathname]);
+    const route = getDocumentTitleRouteByPath(location.pathname);
+    document.title = route ? t(route.titleKey || '', route.title) : BRAND_NAME;
+  }, [location.pathname, t]);
 
   return null;
 }
@@ -198,15 +198,16 @@ function BackgroundRouteWarmup() {
 
 function AuthSessionManager() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [toastMessage, setToastMessage] = useState('');
   const toastTimerRef = useRef(null);
 
-  const showToast = (message) => {
-    const next = safeText(message) || '登录已失效，请重新登录';
+  const showToast = useCallback((message) => {
+    const next = safeText(message) || t('auth.sessionExpired', '登录已失效，请重新登录');
     setToastMessage(next);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToastMessage(''), 2600);
-  };
+  }, [t]);
 
   useEffect(() => () => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -217,7 +218,7 @@ function AuthSessionManager() {
       const detail = event?.detail || {};
       const from = safeText(detail.from) || getCurrentPath();
       const requiredRole = safeText(detail.requiredRole) || inferRequiredRoleFromPath(from);
-      const message = safeText(detail.message) || '登录已失效，请重新登录';
+      const message = safeText(detail.message) || t('auth.sessionExpired', '登录已失效，请重新登录');
 
       showToast(message);
       setPostLoginRedirect(from, requiredRole);
@@ -238,7 +239,7 @@ function AuthSessionManager() {
 
     window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
     return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, [navigate]);
+  }, [navigate, showToast, t]);
 
   if (!toastMessage) return null;
   return (
@@ -250,6 +251,7 @@ function AuthSessionManager() {
 
 function PendingLessonHoursGate() {
   const location = useLocation();
+  const { t } = useI18n();
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [busyId, setBusyId] = useState('');
   const [error, setError] = useState('');
@@ -313,7 +315,7 @@ function PendingLessonHoursGate() {
       emitMessageUnreadChanged();
       setDisputeDialogOpen(false);
     } catch (err) {
-      const message = err?.response?.data?.error || err?.message || '处理课时确认失败，请稍后再试';
+      const message = err?.response?.data?.error || err?.message || t('lessonHours.respondFailed', '处理课时确认失败，请稍后再试');
       setError(String(message));
     } finally {
       setBusyId('');
@@ -333,7 +335,7 @@ function PendingLessonHoursGate() {
   const handleStudentDisputeSubmit = async () => {
     const disputedHours = normalizeQuarterHourValue(disputeValue);
     if (!activeConfirmation || disputedHours == null) {
-      setError('请输入你认为正确的课时，需为 0.25 小时颗粒度');
+      setError(t('lessonHours.disputeInvalid', '请输入你认为正确的课时，需为 0.25 小时颗粒度'));
       return;
     }
 
@@ -361,7 +363,7 @@ function PendingLessonHoursGate() {
 
       <LessonHoursDialog
         open={disputeDialogOpen}
-        title="填写你认为正确的课时"
+        title={t('lessonHours.disputeTitle', '填写你认为正确的课时')}
         value={disputeValue}
         onValueChange={setDisputeValue}
         error={error}
@@ -385,51 +387,53 @@ const withRouteSuspense = (element) => (
 
 function App() {
   return (
-    <Router>
-      <RouteTitleManager />
-      <BackgroundRouteWarmup />
-      <AuthSessionManager />
-      <PendingLessonHoursGate />
-      <Routes>
-        {/* 默认路径重定向到 /student */}
-        <Route path="/" element={<Navigate to="/student" />} />
+    <LanguageProvider>
+      <Router>
+        <RouteTitleManager />
+        <BackgroundRouteWarmup />
+        <AuthSessionManager />
+        <PendingLessonHoursGate />
+        <Routes>
+          {/* 默认路径重定向到 /student */}
+          <Route path="/" element={<Navigate to="/student" />} />
 
-        {/* 学生页面 */}
-        <Route path="/student" element={<StudentPage />} />
+          {/* 学生页面 */}
+          <Route path="/student" element={<StudentPage />} />
 
-        {/* 学生查看导师主页 */}
-        <Route path="/student/mentors/:mentorId" element={withRouteSuspense(<LazyMentorDetailPage />)} />
+          {/* 学生查看导师主页 */}
+          <Route path="/student/mentors/:mentorId" element={withRouteSuspense(<LazyMentorDetailPage />)} />
 
-        {/* 发布课程需求页面 */}
-        <Route path="/student/course-request" element={withRouteSuspense(<LazyStudentCourseRequestPage />)} />
+          {/* 发布课程需求页面 */}
+          <Route path="/student/course-request" element={withRouteSuspense(<LazyStudentCourseRequestPage />)} />
 
-        {/* 收藏页面 */}
-        <Route path="/student/favorites" element={withRouteSuspense(<LazyFavoritesPage />)} />
-        <Route path="/student/favorites/:collectionId" element={withRouteSuspense(<LazyFavoriteCollectionPage />)} />
-        <Route path="/student/recent-visits" element={withRouteSuspense(<LazyRecentVisitsPage />)} />
+          {/* 收藏页面 */}
+          <Route path="/student/favorites" element={withRouteSuspense(<LazyFavoritesPage />)} />
+          <Route path="/student/favorites/:collectionId" element={withRouteSuspense(<LazyFavoriteCollectionPage />)} />
+          <Route path="/student/recent-visits" element={withRouteSuspense(<LazyRecentVisitsPage />)} />
 
-        {/* 课程时间轴页面 */}
-        <Route path="/student/courses" element={withRouteSuspense(<LazyCoursesPage />)} />
-        <Route path="/student/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
-        <Route path="/student/wallet" element={withRouteSuspense(<LazyWalletPage />)} />
-        <Route path="/student/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="student" />)} />
-        <Route path="/student/help" element={withRouteSuspense(<LazyHelpCenterPage mode="student" />)} />
-        <Route path="/classroom/:courseId" element={withRouteSuspense(<LazyClassroomPage />)} />
+          {/* 课程时间轴页面 */}
+          <Route path="/student/courses" element={withRouteSuspense(<LazyCoursesPage />)} />
+          <Route path="/student/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
+          <Route path="/student/wallet" element={withRouteSuspense(<LazyWalletPage />)} />
+          <Route path="/student/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="student" />)} />
+          <Route path="/student/help" element={withRouteSuspense(<LazyHelpCenterPage mode="student" />)} />
+          <Route path="/classroom/:courseId" element={withRouteSuspense(<LazyClassroomPage />)} />
 
-        {/* 导师个人名片编辑页面 */}
-        <Route path="/mentor/profile-editor" element={withRouteSuspense(<LazyMentorProfileEditorPage />)} />
+          {/* 导师个人名片编辑页面 */}
+          <Route path="/mentor/profile-editor" element={withRouteSuspense(<LazyMentorProfileEditorPage />)} />
 
-        {/* 导师课程时间轴页 */}
-        <Route path="/mentor/courses" element={withRouteSuspense(<LazyMentorCoursesPage />)} />
-        <Route path="/mentor/requests/:requestId" element={withRouteSuspense(<LazyCourseRequestDetailPage />)} />
-        <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
-        <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />
-        <Route path="/mentor/help" element={withRouteSuspense(<LazyHelpCenterPage mode="mentor" />)} />
+          {/* 导师课程时间轴页 */}
+          <Route path="/mentor/courses" element={withRouteSuspense(<LazyMentorCoursesPage />)} />
+          <Route path="/mentor/requests/:requestId" element={withRouteSuspense(<LazyCourseRequestDetailPage />)} />
+          <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
+          <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />
+          <Route path="/mentor/help" element={withRouteSuspense(<LazyHelpCenterPage mode="mentor" />)} />
 
-        {/* 导师页面 */}
-        <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
-      </Routes>
-    </Router>
+          {/* 导师页面 */}
+          <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
+        </Routes>
+      </Router>
+    </LanguageProvider>
   );
 }
 

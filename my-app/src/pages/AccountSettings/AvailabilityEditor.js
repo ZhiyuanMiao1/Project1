@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
 import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } from '../StudentCourseRequest/steps/timezoneUtils';
 import { buildAvailabilityDaySet, mergeAvailabilityBlocks, normalizeBlockMap } from '../../utils/availabilityBusy';
+import { useI18n } from '../../i18n/language';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -131,6 +132,7 @@ function AvailabilityEditor({
   onChange,
   onSave,
 }) {
+  const { language, t } = useI18n();
   const timesListRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState(() => toNoonDate(new Date()));
   const [viewMonth, setViewMonth] = useState(() => {
@@ -189,12 +191,16 @@ function AvailabilityEditor({
     return d;
   }, [nowParts.day, nowParts.month, nowParts.year]);
 
-  const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
+  const weekDays = useMemo(() => (
+    language === 'en'
+      ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      : ['日', '一', '二', '三', '四', '五', '六']
+  ), [language]);
 
   const monthLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    const fmt = new Intl.DateTimeFormat(language === 'en' ? 'en' : 'zh-CN', { year: 'numeric', month: 'long' });
     return fmt.format(viewMonth);
-  }, [viewMonth]);
+  }, [language, viewMonth]);
 
   const calendarGrid = useMemo(() => buildCalendarGrid(viewMonth), [viewMonth]);
 
@@ -357,21 +363,21 @@ function AvailabilityEditor({
   }, [multiDayCommonBlocks, normalizeAvailability, onChange, selectedKey, selectedKeys]);
 
   if (loading) {
-    return <div className="settings-availability-hint">加载中...</div>;
+    return <div className="settings-availability-hint">{t('common.loading', '加载中...')}</div>;
   }
 
   if (disabled) {
-    return <div className="settings-availability-hint">请先登录后设置空余时间</div>;
+    return <div className="settings-availability-hint">{t('profile.availabilityEditor.loginHint', '请先登录后设置空余时间')}</div>;
   }
 
   return (
       <div className="settings-availability">
       <div className="settings-availability-meta">
-        <span>时区：{buildShortUTC(selectedTimeZone)} {selectedTimeZone}</span>
+        <span>{t('profile.availabilityEditor.timeZone', `时区：${buildShortUTC(selectedTimeZone)} ${selectedTimeZone}`, { zone: `${buildShortUTC(selectedTimeZone)} ${selectedTimeZone}` })}</span>
       </div>
 
-      <div className="schedule-sidebar" aria-label="空余时间选择">
-        <div className="calendar-card" aria-label="空余时间日历">
+      <div className="schedule-sidebar" aria-label={t('profile.availabilityEditor.selector', '空余时间选择')}>
+        <div className="calendar-card" aria-label={t('profile.availabilityEditor.calendar', '空余时间日历')}>
           <div className="calendar-header">
             <div className="month-label">{monthLabel}</div>
             <div className="calendar-nav">
@@ -388,7 +394,7 @@ function AvailabilityEditor({
             </div>
           </div>
           <div className="calendar-grid">
-            {zhDays.map((d) => (
+            {weekDays.map((d) => (
               <div key={d} className="day-name">{d}</div>
             ))}
             {calendarGrid.map(({ date, outside }) => {
@@ -494,7 +500,7 @@ function AvailabilityEditor({
           disabled={saving}
           onClick={() => onSave(safeValue)}
         >
-          {saving ? '保存中...' : '保存'}
+          {saving ? t('common.saving', '保存中...') : t('common.save', '保存')}
         </button>
       </div>
     </div>

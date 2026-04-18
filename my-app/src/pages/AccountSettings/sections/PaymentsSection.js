@@ -7,16 +7,15 @@ import {
   DIRECTION_ICON_MAP,
   DIRECTION_ID_TO_LABEL,
 } from '../../../constants/courseMappings';
+import { useI18n } from '../../../i18n/language';
 
-const cnyFormatter = new Intl.NumberFormat('zh-CN', {
-  style: 'currency',
-  currency: 'CNY',
-  maximumFractionDigits: 2,
-});
-
-const formatCny = (value) => {
+const formatCny = (value, language = 'zh-CN') => {
   if (typeof value !== 'number' || !Number.isFinite(value)) return '--';
-  return cnyFormatter.format(value);
+  return new Intl.NumberFormat(language === 'en' ? 'en-US' : 'zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    maximumFractionDigits: 2,
+  }).format(value);
 };
 
 const formatCourseHours = (value) => {
@@ -35,11 +34,11 @@ const toOffsetLabel = (date) => {
   return `UTC${sign}${hours}:${minutes}`;
 };
 
-const formatDateTime = (value) => {
+const formatDateTime = (value, language = 'zh-CN') => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '--';
 
-  const parts = new Intl.DateTimeFormat('zh-CN', {
+  const parts = new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -86,23 +85,24 @@ const normalizeIncomeRecord = (item) => {
 };
 
 function RechargeTable({ records = [] }) {
+  const { language, t } = useI18n();
   return (
     <div className="settings-orders-table-wrapper">
       <table className="settings-orders-table">
         <thead>
           <tr>
-            <th scope="col">时区</th>
-            <th scope="col">时间</th>
-            <th scope="col">金额</th>
-            <th scope="col">获得课时</th>
+            <th scope="col">{t('payments.timeZone', '时区')}</th>
+            <th scope="col">{t('payments.time', '时间')}</th>
+            <th scope="col">{t('payments.amount', '金额')}</th>
+            <th scope="col">{t('payments.courseHours', '获得课时')}</th>
           </tr>
         </thead>
         <tbody>
           {records.map((record) => (
             <tr key={record.id}>
               <td className="settings-recharge-timezone">{toOffsetLabel(new Date(record.time))}</td>
-              <td className="settings-orders-time">{formatDateTime(record.time)}</td>
-              <td className="settings-orders-amount">{formatCny(record.amount)}</td>
+              <td className="settings-orders-time">{formatDateTime(record.time, language)}</td>
+              <td className="settings-orders-amount">{formatCny(record.amount, language)}</td>
               <td className="settings-recharge-hours">{formatCourseHours(record.courseHours)}</td>
             </tr>
           ))}
@@ -113,6 +113,7 @@ function RechargeTable({ records = [] }) {
 }
 
 function IncomeTable({ records = [] }) {
+  const { language, t, getCourseDirectionLabel } = useI18n();
   const [expandedRecordIds, setExpandedRecordIds] = useState(() => ({}));
 
   const toggleExpanded = (id) => {
@@ -131,10 +132,10 @@ function IncomeTable({ records = [] }) {
       <table className="settings-orders-table">
         <thead>
           <tr>
-            <th scope="col">时区</th>
-            <th scope="col">时间</th>
-            <th scope="col">金额</th>
-            <th scope="col">授课时长</th>
+            <th scope="col">{t('payments.timeZone', '时区')}</th>
+            <th scope="col">{t('payments.time', '时间')}</th>
+            <th scope="col">{t('payments.amount', '金额')}</th>
+            <th scope="col">{t('payments.teachingHours', '授课时长')}</th>
           </tr>
         </thead>
         <tbody>
@@ -142,8 +143,8 @@ function IncomeTable({ records = [] }) {
             const expanded = !!expandedRecordIds[record.id];
             const directionId = record.courseDirectionId || 'others';
             const courseTypeId = record.courseTypeId || 'others';
-            const courseName = DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || '其它课程方向';
-            const courseTypeName = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || '其它类型';
+            const courseName = getCourseDirectionLabel(directionId, DIRECTION_ID_TO_LABEL[directionId] || DIRECTION_ID_TO_LABEL.others || t('payments.otherDirection', '其它课程方向'));
+            const courseTypeName = COURSE_TYPE_ID_TO_LABEL[courseTypeId] || COURSE_TYPE_ID_TO_LABEL.others || t('payments.otherType', '其它类型');
             const DirectionIcon = DIRECTION_ICON_MAP[directionId] || DIRECTION_ICON_MAP.others;
             const CourseTypeIcon = COURSE_TYPE_ICON_MAP[courseTypeId] || COURSE_TYPE_ICON_MAP.others;
             const detailsId = `settings-income-detail-${record.id}`;
@@ -160,8 +161,8 @@ function IncomeTable({ records = [] }) {
                   onKeyDown={(e) => handleRowKeyDown(e, record.id)}
                 >
                   <td className="settings-recharge-timezone">{toOffsetLabel(new Date(record.time))}</td>
-                  <td className="settings-orders-time">{formatDateTime(record.time)}</td>
-                  <td className="settings-orders-amount">{formatCny(record.amount)}</td>
+                  <td className="settings-orders-time">{formatDateTime(record.time, language)}</td>
+                  <td className="settings-orders-amount">{formatCny(record.amount, language)}</td>
                   <td className="settings-recharge-hours">{formatCourseHours(record.teachingHours)}</td>
                 </tr>
                 <tr
@@ -199,6 +200,7 @@ function IncomeTable({ records = [] }) {
 }
 
 function PaymentsSection({ isLoggedIn = false }) {
+  const { t } = useI18n();
   const [paymentsExpanded, setPaymentsExpanded] = useState(false);
   const [incomeExpanded, setIncomeExpanded] = useState(false);
   const [status, setStatus] = useState('idle');
@@ -243,11 +245,11 @@ function PaymentsSection({ isLoggedIn = false }) {
   }, [isLoggedIn]);
 
   const paymentSummary = status === 'loading'
-    ? '加载中...'
-    : (paymentRecords.length ? `充值记录（${paymentRecords.length}）` : '暂无记录');
+    ? t('payments.loading', '加载中...')
+    : (paymentRecords.length ? t('payments.rechargeRecords', `充值记录（${paymentRecords.length}）`, { count: paymentRecords.length }) : t('payments.noRecords', '暂无记录'));
   const incomeSummary = status === 'loading'
-    ? '加载中...'
-    : (incomeRecords.length ? `收入记录（${incomeRecords.length}）` : '暂无记录');
+    ? t('payments.loading', '加载中...')
+    : (incomeRecords.length ? t('payments.incomeRecords', `收入记录（${incomeRecords.length}）`, { count: incomeRecords.length }) : t('payments.noRecords', '暂无记录'));
 
   return (
     <>
@@ -260,7 +262,7 @@ function PaymentsSection({ isLoggedIn = false }) {
           onClick={() => setPaymentsExpanded((prev) => !prev)}
         >
           <div className="settings-row-main">
-            <div className="settings-row-title">付款</div>
+            <div className="settings-row-title">{t('payments.payment', '付款')}</div>
             <div className="settings-row-value">{paymentSummary}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">
@@ -273,13 +275,13 @@ function PaymentsSection({ isLoggedIn = false }) {
           hidden={!paymentsExpanded}
         >
           {status === 'loading' ? (
-            <div className="settings-orders-empty">加载中...</div>
+            <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
           ) : status === 'error' ? (
-            <div className="settings-orders-empty">付款记录加载失败，请稍后再试</div>
+            <div className="settings-orders-empty">{t('payments.loadPaymentsFailed', '付款记录加载失败，请稍后再试')}</div>
           ) : paymentRecords.length ? (
             <RechargeTable records={paymentRecords} />
           ) : (
-            <div className="settings-orders-empty">暂无充值记录</div>
+            <div className="settings-orders-empty">{t('payments.noRechargeRecords', '暂无充值记录')}</div>
           )}
         </div>
       </div>
@@ -293,7 +295,7 @@ function PaymentsSection({ isLoggedIn = false }) {
           onClick={() => setIncomeExpanded((prev) => !prev)}
         >
           <div className="settings-row-main">
-            <div className="settings-row-title">收入</div>
+            <div className="settings-row-title">{t('payments.income', '收入')}</div>
             <div className="settings-row-value">{incomeSummary}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">
@@ -306,13 +308,13 @@ function PaymentsSection({ isLoggedIn = false }) {
           hidden={!incomeExpanded}
         >
           {status === 'loading' ? (
-            <div className="settings-orders-empty">加载中...</div>
+            <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
           ) : status === 'error' ? (
-            <div className="settings-orders-empty">收入记录加载失败，请稍后再试</div>
+            <div className="settings-orders-empty">{t('payments.loadIncomeFailed', '收入记录加载失败，请稍后再试')}</div>
           ) : incomeRecords.length ? (
             <IncomeTable records={incomeRecords} />
           ) : (
-            <div className="settings-orders-empty">暂无收入记录</div>
+            <div className="settings-orders-empty">{t('payments.noIncomeRecords', '暂无收入记录')}</div>
           )}
         </div>
       </div>

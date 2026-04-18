@@ -11,6 +11,7 @@ import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
+import { useI18n } from '../../i18n/language';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const LazyTimezoneModal = lazy(() => import('../TimezoneModal/TimezoneModal'));
@@ -80,6 +81,7 @@ function CenteredLoadingFallback({ message = '加载中…' }) {
 }
 
 function StudentNavbar() {
+  const { t } = useI18n();
   const timezoneRef = useRef(null);
   const courseTypeRef = useRef(null);
   const exactSearchInputRef = useRef(null);
@@ -308,7 +310,7 @@ function StudentNavbar() {
               className={`nav-tab ${isStudentActive ? 'active' : ''}`}
               onClick={() => navigate('/student')}
             >
-              学生
+              {t('nav.students', '学生')}
             </button>
             <button
               className={`nav-tab ${isMentorActive ? 'active' : ''} ${!isMentorRegistered ? 'disabled' : ''}`}
@@ -316,7 +318,7 @@ function StudentNavbar() {
               disabled={!isMentorRegistered}
               aria-disabled={!isMentorRegistered}
             >
-              导师
+              {t('nav.mentors', '导师')}
             </button>
           </nav>
         </div>
@@ -328,7 +330,7 @@ function StudentNavbar() {
             onClick={handlePublishCourseRequest}
             disabled={checkingCourseRequestDrafts}
           >
-            发布课程需求
+            {t('nav.publishCourseRequest', '发布课程需求')}
           </button>
           <span
             className="icon-circle nav-menu-trigger"
@@ -355,7 +357,7 @@ function StudentNavbar() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="nav-unread-badge"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </span>
@@ -377,10 +379,10 @@ function StudentNavbar() {
                 setPendingFilter('timezone');
               }}
             >
-              <label>时区</label>
+              <label>{t('nav.timeZone', '时区')}</label>
               <input
                 type="text"
-                placeholder="选择导师时区"
+                placeholder={t('nav.chooseMentorTimeZone', '选择导师时区')}
                 value={selectedRegion}
                 readOnly
               />
@@ -393,10 +395,10 @@ function StudentNavbar() {
                 setPendingFilter('courseType');
               }}
             >
-              <label>导师特色</label>
+              <label>{t('nav.mentorSpecialty', '导师特色')}</label>
               <input
                 type="text"
-                placeholder="选择导师特色"
+                placeholder={t('nav.chooseMentorSpecialty', '选择导师特色')}
                 value={selectedCourseType}
                 readOnly
               />
@@ -410,11 +412,11 @@ function StudentNavbar() {
                 try { exactSearchInputRef.current && exactSearchInputRef.current.focus(); } catch {}
               }}
             >
-              <label>精确搜索</label>
+              <label>{t('nav.exactSearch', '精确搜索')}</label>
               <input
                 ref={exactSearchInputRef}
                 type="text"
-                placeholder="输入导师的MentorID或姓名"
+                placeholder={t('nav.exactSearchPlaceholder', '输入导师的MentorID或姓名')}
                 value={exactSearch}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -437,7 +439,7 @@ function StudentNavbar() {
               />
             </div>
           </div>
-          <button type="button" className="search-btn" onClick={applySearch} aria-label="搜索">
+          <button type="button" className="search-btn" onClick={applySearch} aria-label={t('common.search', '搜索')}>
             <i className="fas fa-search"></i>
           </button>
         </div>
@@ -451,7 +453,7 @@ function StudentNavbar() {
               anchorRef={timezoneRef}
               width={360}
               className="navbar-lazy-panel--wide"
-              message="正在加载时区筛选…"
+              message={t('nav.loadingTimeZoneFilter', '正在加载时区筛选…')}
             />
           )}
         >
@@ -475,7 +477,7 @@ function StudentNavbar() {
             <AnchoredLoadingFallback
               anchorRef={courseTypeRef}
               width={220}
-              message="正在加载导师特色…"
+              message={t('nav.loadingMentorSpecialty', '正在加载导师特色…')}
             />
           )}
         >
@@ -506,7 +508,7 @@ function StudentNavbar() {
               align="right"
               width={200}
               alignOffset={0}
-              message="正在加载菜单…"
+              message={t('nav.loadingMenu', '正在加载菜单…')}
             />
           )}
         >
@@ -524,7 +526,7 @@ function StudentNavbar() {
       )}
 
       {showCourseRequestDraftModal && (
-        <Suspense fallback={<CenteredLoadingFallback message="正在加载课程草稿…" />}>
+        <Suspense fallback={<CenteredLoadingFallback message={t('nav.loadingCourseDrafts', '正在加载课程草稿…')} />}>
           <LazyCourseOnboardingModal
             showConfirmButton={false}
             includeSubmitted

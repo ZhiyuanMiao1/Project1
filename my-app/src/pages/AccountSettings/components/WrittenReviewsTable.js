@@ -1,16 +1,20 @@
 import React from 'react';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
+import { useI18n } from '../../../i18n/language';
 
 const STAR_PATH =
   'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z';
 
-const formatReviewMonth = (value) => {
+const formatReviewMonth = (value, language = 'zh-CN') => {
   if (typeof value !== 'string' || !value) return '';
   const match = value.match(/(\d{4})[/-](\d{1,2})/);
   if (!match) return value;
   const year = Number(match[1]);
   const month = Number(match[2]);
   if (!Number.isFinite(year) || !Number.isFinite(month)) return value;
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short' }).format(new Date(year, month - 1, 1));
+  }
   return `${year}年${month}月`;
 };
 
@@ -23,18 +27,19 @@ const getReviewDisplayName = (value) => {
 };
 
 function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFallback = '导师' }) {
+  const { language, t } = useI18n();
   return (
     <ul className="settings-written-reviews-list" aria-label={ariaLabel}>
       {reviews.map((review) => {
         const displayName = getReviewDisplayName(review.target) || nameFallback;
-        const monthLabel = formatReviewMonth(review.time);
+        const monthLabel = formatReviewMonth(review.time, language);
         const ratingLabel = typeof review.rating === 'number' ? String(review.rating) : String(review.rating || '--');
         const numericRating = Number(review.rating);
         const clampedRating = Number.isFinite(numericRating) ? Math.max(0, Math.min(5, numericRating)) : 0;
         const ratingForStars = Math.round(clampedRating * 10) / 10;
         const reviewContent = typeof review.content === 'string' && review.content.trim()
           ? review.content.trim()
-          : '未填写文字评价';
+          : t('reviews.emptyText', '未填写文字评价');
         const avatarSeed = review.id || displayName || nameFallback;
         const avatarSrc = resolveAvatarSrc({
           src: review.avatarUrl,
@@ -64,7 +69,7 @@ function WrittenReviewsTable({ reviews = [], ariaLabel = '评价列表', nameFal
               </div>
               <div className="settings-written-review-text">{reviewContent}</div>
             </div>
-            <div className="settings-written-review-rating" aria-label={`评分 ${ratingLabel}`}>
+            <div className="settings-written-review-rating" aria-label={t('reviews.ratingAria', `评分 ${ratingLabel}`, { rating: ratingLabel })}>
               <div className="settings-written-review-stars" aria-hidden="true">
                 {Array.from({ length: 5 }).map((_, starIndex) => {
                   const fillRatio = Math.max(0, Math.min(1, ratingForStars - starIndex));

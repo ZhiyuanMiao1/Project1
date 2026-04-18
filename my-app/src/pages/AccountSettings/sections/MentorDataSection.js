@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
+import { useI18n } from '../../../i18n/language';
 
 function MentorDataSection({
   mentorAvatarUrl,
@@ -20,6 +21,7 @@ function MentorDataSection({
   reviewsLoading = false,
   aboutMeReviews = [],
 }) {
+  const { t } = useI18n();
   const [aboutMeReviewsExpanded, setAboutMeReviewsExpanded] = useState(false);
   const normalizedClassCount = Number.isFinite(Number(classCount))
     ? Math.max(0, Math.floor(Number(classCount)))
@@ -37,6 +39,7 @@ function MentorDataSection({
   const normalizedMentorAvatarName = typeof mentorAvatarName === 'string' ? mentorAvatarName.trim() : '';
   const avatarDisplayName = !normalizedMentorAvatarUrl && !normalizedMentorAvatarName ? 'M' : mentorAvatarName;
   const avatarSeed = mentorIdValue || mentorAvatarName || schoolValue || 'mentor';
+  const hasSchoolValue = schoolValue && schoolValue !== '未提供' && schoolValue !== t('common.notProvided', '未提供');
   const avatarSrc = resolveAvatarSrc({
     src: mentorAvatarUrl,
     name: avatarDisplayName,
@@ -45,14 +48,14 @@ function MentorDataSection({
   });
 
   return (
-    <div className="settings-data-section" aria-label="导师数据">
-      <section className="settings-mentor-card" aria-label="导师数据概览">
+    <div className="settings-data-section" aria-label={t('mentorData.aria', '导师数据')}>
+      <section className="settings-mentor-card" aria-label={t('mentorData.overview', '导师数据概览')}>
         <div className="settings-mentor-card-left">
           <div className="settings-mentor-avatar-wrap">
             <button
               type="button"
               className={`settings-mentor-avatar-btn ${mentorAvatarUrl ? 'has-avatar' : ''} ${mentorAvatarUploading ? 'is-uploading' : ''}`}
-              aria-label="更换头像"
+              aria-label={t('mentorData.changeAvatar', '更换头像')}
               onClick={onPickMentorAvatar}
               disabled={mentorAvatarUploading}
             >
@@ -68,7 +71,7 @@ function MentorDataSection({
               />
             </button>
             {mentorAvatarUploading && (
-              <span className="settings-mentor-avatar-uploading" aria-live="polite">上传中…</span>
+              <span className="settings-mentor-avatar-uploading" aria-live="polite">{t('common.uploading', '上传中…')}</span>
             )}
             <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <circle cx="12" cy="12" r="12" fill="currentColor" />
@@ -89,33 +92,33 @@ function MentorDataSection({
           ) : null}
           <div className="settings-mentor-main">
             <div className="settings-mentor-name">{mentorIdValue}</div>
-            <div className="settings-mentor-subtitle">{schoolValue !== '未提供' ? schoolValue : 'Mentory 导师'}</div>
+            <div className="settings-mentor-subtitle">{hasSchoolValue ? schoolValue : t('mentorData.subtitleFallback', 'Mentory 导师')}</div>
           </div>
         </div>
 
-        <div className="settings-mentor-metrics" aria-label="导师数据指标">
+        <div className="settings-mentor-metrics" aria-label={t('mentorData.metrics', '导师数据指标')}>
           <div className="settings-mentor-metric">
-            <div className="settings-mentor-metric-label">上课</div>
+            <div className="settings-mentor-metric-label">{t('mentorData.classes', '上课')}</div>
             <div className="settings-mentor-metric-value">
               {classCountDisplay}
               {normalizedClassCount != null && !classCountLoading ? (
-                <span className="settings-mentor-metric-unit">次</span>
+                <span className="settings-mentor-metric-unit">{t('studentData.unit.times', '次')}</span>
               ) : null}
             </div>
           </div>
           <div className="settings-mentor-metric">
-            <div className="settings-mentor-metric-label">被评价</div>
+            <div className="settings-mentor-metric-label">{t('mentorData.receivedReviews', '被评价')}</div>
             <div className="settings-mentor-metric-value">
               {reviewCountDisplay}
               {normalizedReviewCount != null && !reviewsLoading ? (
-                <span className="settings-mentor-metric-unit">条</span>
+                <span className="settings-mentor-metric-unit">{t('studentData.unit.items', '条')}</span>
               ) : null}
             </div>
           </div>
           <div className="settings-mentor-metric">
-            <div className="settings-mentor-metric-label">加入Mentory</div>
+            <div className="settings-mentor-metric-label">{t('mentorData.joined', '加入Mentory')}</div>
             <div className="settings-mentor-metric-value">
-              {mentorJoinedMentoryDaysDisplay}<span className="settings-mentor-metric-unit">天</span>
+              {mentorJoinedMentoryDaysDisplay}<span className="settings-mentor-metric-unit">{t('studentData.unit.days', '天')}</span>
             </div>
           </div>
         </div>
@@ -134,7 +137,7 @@ function MentorDataSection({
             <div className="settings-row-main">
               <div className="settings-row-title settings-student-reviews-title">
                 <FiMessageSquare aria-hidden="true" focusable="false" strokeWidth={1.5} size={18} />
-                <span>关于我的评价</span>
+                <span>{t('mentorData.aboutMeReviews', '关于我的评价')}</span>
               </div>
             </div>
             <span className="settings-accordion-icon" aria-hidden="true">
@@ -147,11 +150,11 @@ function MentorDataSection({
             hidden={!aboutMeReviewsExpanded}
           >
             {reviewsLoading ? (
-              <div className="settings-orders-empty">加载中...</div>
+              <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
             ) : aboutMeReviews.length ? (
-              <WrittenReviewsTable reviews={aboutMeReviews} ariaLabel="关于我的评价列表" nameFallback="StudentID" />
+              <WrittenReviewsTable reviews={aboutMeReviews} ariaLabel={t('mentorData.aboutMeReviewsList', '关于我的评价列表')} nameFallback="StudentID" />
             ) : (
-              <div className="settings-orders-empty">暂无评价</div>
+              <div className="settings-orders-empty">{t('studentData.emptyReviews', '暂无评价')}</div>
             )}
           </div>
         </div>

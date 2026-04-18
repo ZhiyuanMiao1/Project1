@@ -20,6 +20,7 @@ import {
   normalizeHomeCourseOrderIds,
 } from '../../utils/homeCourseOrder';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { useI18n } from '../../i18n/language';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import ProfileSection from './sections/ProfileSection';
@@ -35,36 +36,43 @@ const SETTINGS_SECTIONS = [
   {
     id: 'profile',
     label: '个人信息',
+    labelKey: 'settings.section.profile',
     icon: FiUser,
   },
   {
     id: 'studentData',
     label: '学生数据',
+    labelKey: 'settings.section.studentData',
     icon: FiBookOpen,
   },
   {
     id: 'mentorData',
     label: '导师数据',
+    labelKey: 'settings.section.mentorData',
     icon: FiAward,
   },
   {
     id: 'security',
     label: '安全与隐私',
+    labelKey: 'settings.section.security',
     icon: FiShield,
   },
   {
     id: 'notifications',
     label: '通知',
+    labelKey: 'settings.section.notifications',
     icon: FiBell,
   },
   {
     id: 'payments',
     label: '付款与账单',
+    labelKey: 'settings.section.payments',
     icon: FiCreditCard,
   },
   {
     id: 'language',
     label: '语言与偏好',
+    labelKey: 'settings.section.language',
     icon: FiGlobe,
   },
 ];
@@ -137,6 +145,7 @@ const countCompletedCourses = (courses) => {
 };
 
 function AccountSettingsPage({ mode = 'student' }) {
+  const { t } = useI18n();
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
@@ -198,6 +207,13 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [studentWrittenReviewCount, setStudentWrittenReviewCount] = useState(null);
   const [mentorReceivedReviewCount, setMentorReceivedReviewCount] = useState(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const settingsSections = useMemo(
+    () => SETTINGS_SECTIONS.map((section) => ({
+      ...section,
+      label: t(section.labelKey, section.label),
+    })),
+    [t],
+  );
 
   useEffect(() => {
     const handler = (e) => {
@@ -428,16 +444,18 @@ function AccountSettingsPage({ mode = 'student' }) {
   }, [isLoggedIn]);
 
   const activeSection = useMemo(
-    () => SETTINGS_SECTIONS.find((section) => section.id === activeSectionId) || SETTINGS_SECTIONS[0],
-    [activeSectionId],
+    () => settingsSections.find((section) => section.id === activeSectionId) || settingsSections[0],
+    [activeSectionId, settingsSections],
   );
 
-  const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? '加载中...' : '未提供');
-  const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? '加载中...' : '暂未开通');
+  const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
+  const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notActivated', '暂未开通'));
   const canActivateMentor = isLoggedIn && idsStatus !== 'loading' && !accountProfile.mentorId;
-  const emailValue = accountProfile.email || (idsStatus === 'loading' ? '加载中...' : '未提供');
-  const degreeValue = accountProfile.degree || (idsStatus === 'loading' ? '加载中...' : '未提供');
-  const schoolValue = accountProfile.school || (idsStatus === 'loading' ? '加载中...' : '未提供');
+  const emailValue = accountProfile.email || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
+  const degreeValue = accountProfile.degree
+    ? ({ '本科': t('profile.degree.bachelor', '本科'), '硕士': t('profile.degree.master', '硕士'), PhD: t('profile.degree.phd', 'PhD') }[accountProfile.degree] || accountProfile.degree)
+    : (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
+  const schoolValue = accountProfile.school || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
   const canEditEducationProfile = isLoggedIn && idsStatus !== 'loading';
   const emailNotificationsDisabled = !isLoggedIn || idsStatus === 'loading' || savingEmailNotifications;
   const availabilityDaysCount = useMemo(() => {
@@ -457,12 +475,12 @@ function AccountSettingsPage({ mode = 'student' }) {
     }).length;
   }, [availability?.daySelections, availability?.timeZone]);
   const availabilitySummary = useMemo(() => {
-    if (!isLoggedIn) return '请先登录';
-    if (availabilityStatus === 'loading') return '加载中...';
-    if (availabilityStatus === 'error') return '加载失败';
-    if (!availabilityDaysCount) return '未设置';
-    return `已设置 ${availabilityDaysCount} 天`;
-  }, [availabilityDaysCount, availabilityStatus, isLoggedIn]);
+    if (!isLoggedIn) return t('common.loginFirst', '请先登录');
+    if (availabilityStatus === 'loading') return t('common.loading', '加载中...');
+    if (availabilityStatus === 'error') return t('common.loadFailed', '加载失败');
+    if (!availabilityDaysCount) return t('common.unset', '未设置');
+    return t('profile.availabilityDays', `已设置 ${availabilityDaysCount} 天`, { count: availabilityDaysCount });
+  }, [availabilityDaysCount, availabilityStatus, isLoggedIn, t]);
 
   const joinedMentoryDays = useMemo(() => {
     const rawCreatedAt = accountProfile.studentCreatedAt || accountProfile.mentorCreatedAt;
@@ -494,7 +512,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const onPickStudentAvatar = () => {
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       setShowStudentAuth(true);
       return;
     }
@@ -503,7 +521,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const onPickMentorAvatar = () => {
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       setShowMentorAuth(true);
       return;
     }
@@ -516,7 +534,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (!file) return;
 
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       setShowStudentAuth(true);
       return;
     }
@@ -524,14 +542,14 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (studentAvatarUploading) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      const msg = '头像文件需 ≤ 5MB';
+      const msg = t('common.avatarTooLarge', '头像文件需 ≤ 5MB');
       setStudentAvatarUploadError(msg);
       showToast(msg, 'error');
       return;
     }
 
     if (file.type && !String(file.type).toLowerCase().startsWith('image/')) {
-      const msg = '请选择图片文件';
+      const msg = t('common.chooseImageFile', '请选择图片文件');
       setStudentAvatarUploadError(msg);
       showToast(msg, 'error');
       return;
@@ -556,7 +574,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
       const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
       if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
-        throw new Error('签名响应不完整');
+        throw new Error(t('common.incompleteSignature', '签名响应不完整'));
       }
 
       const formData = new FormData();
@@ -569,18 +587,18 @@ function AccountSettingsPage({ mode = 'student' }) {
 
       const uploadRes = await fetch(host, { method: 'POST', body: formData });
       if (seq !== studentAvatarUploadSeqRef.current) return;
-      if (!uploadRes.ok) throw new Error('上传失败');
+      if (!uploadRes.ok) throw new Error(t('common.uploadFailed', '上传失败'));
 
       await api.put('/api/account/student-avatar', { avatarUrl: fileUrl });
       if (seq !== studentAvatarUploadSeqRef.current) return;
 
       setStudentAvatarUrl(fileUrl);
-      showToast('头像已更新', 'success');
+      showToast(t('common.avatarUpdated', '头像已更新'), 'success');
     } catch (err) {
       if (seq !== studentAvatarUploadSeqRef.current) return;
-      let msg = err?.response?.data?.error || err?.message || '上传失败，请稍后再试';
+      let msg = err?.response?.data?.error || err?.message || t('common.uploadFailed', '上传失败，请稍后再试');
       if (msg === 'Failed to fetch' || msg === 'NetworkError') {
-        msg = '上传失败（请检查 OSS CORS 配置）';
+        msg = t('common.ossCorsUploadFailed', '上传失败（请检查 OSS CORS 配置）');
       }
       setStudentAvatarUploadError(msg);
       setStudentAvatarUrl(prevUrl || null);
@@ -597,7 +615,7 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (!file) return;
 
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       setShowMentorAuth(true);
       return;
     }
@@ -605,14 +623,14 @@ function AccountSettingsPage({ mode = 'student' }) {
     if (mentorAvatarUploading) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      const msg = '头像文件需 ≤ 5MB';
+      const msg = t('common.avatarTooLarge', '头像文件需 ≤ 5MB');
       setMentorAvatarUploadError(msg);
       showToast(msg, 'error');
       return;
     }
 
     if (file.type && !String(file.type).toLowerCase().startsWith('image/')) {
-      const msg = '请选择图片文件';
+      const msg = t('common.chooseImageFile', '请选择图片文件');
       setMentorAvatarUploadError(msg);
       showToast(msg, 'error');
       return;
@@ -636,7 +654,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
       const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
       if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
-        throw new Error('签名响应不完整');
+        throw new Error(t('common.incompleteSignature', '签名响应不完整'));
       }
 
       const formData = new FormData();
@@ -649,18 +667,18 @@ function AccountSettingsPage({ mode = 'student' }) {
 
       const uploadRes = await fetch(host, { method: 'POST', body: formData });
       if (seq !== mentorAvatarUploadSeqRef.current) return;
-      if (!uploadRes.ok) throw new Error('上传失败');
+      if (!uploadRes.ok) throw new Error(t('common.uploadFailed', '上传失败'));
 
       await api.put('/api/mentor/profile', { avatarUrl: fileUrl });
       if (seq !== mentorAvatarUploadSeqRef.current) return;
 
       setMentorAvatarUrl(fileUrl);
-      showToast('头像已更新', 'success');
+      showToast(t('common.avatarUpdated', '头像已更新'), 'success');
     } catch (err) {
       if (seq !== mentorAvatarUploadSeqRef.current) return;
-      let msg = err?.response?.data?.error || err?.message || '上传失败，请稍后再试';
+      let msg = err?.response?.data?.error || err?.message || t('common.uploadFailed', '上传失败，请稍后再试');
       if (msg === 'Failed to fetch' || msg === 'NetworkError') {
-        msg = '上传失败（请检查 OSS CORS 配置）';
+        msg = t('common.ossCorsUploadFailed', '上传失败（请检查 OSS CORS 配置）');
       }
       setMentorAvatarUploadError(msg);
       setMentorAvatarUrl(prevUrl || null);
@@ -694,17 +712,17 @@ function AccountSettingsPage({ mode = 'student' }) {
       await api.put('/api/account/profile', patch);
       setAccountProfile((prev) => ({ ...prev, ...patch }));
     } catch (e) {
-      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('common.saveFailed', '保存失败，请稍后再试');
       alert(msg);
     } finally {
       setSavingAccountProfile(false);
     }
   };
 
-  const persistAvailability = async (nextAvailability, { successMessage = '空余时间已保存' } = {}) => {
+  const persistAvailability = async (nextAvailability, { successMessage = t('profile.availabilitySaved', '空余时间已保存') } = {}) => {
     if (savingAvailability) return false;
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       return false;
     }
 
@@ -733,7 +751,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       return true;
     } catch (e) {
       setAvailability(prev);
-      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '保存失败，请稍后再试';
+      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || t('common.saveFailed', '保存失败，请稍后再试');
       showToast(msg, 'error');
       return false;
     } finally {
@@ -741,10 +759,10 @@ function AccountSettingsPage({ mode = 'student' }) {
     }
   };
 
-  const persistHomeCourseOrder = async (nextOrderIds, { successMessage = '首页课程顺序已保存' } = {}) => {
+  const persistHomeCourseOrder = async (nextOrderIds, { successMessage = t('language.orderSaved', '首页课程顺序已保存') } = {}) => {
     if (savingHomeCourseOrder) return false;
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       return false;
     }
 
@@ -763,7 +781,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       return true;
     } catch (e) {
       setHomeCourseOrderIds(prev);
-      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || '保存失败，请稍后再试';
+      const msg = e?.response?.data?.error || e?.response?.data?.errors?.[0]?.msg || t('common.saveFailed', '保存失败，请稍后再试');
       showToast(msg, 'error');
       return false;
     } finally {
@@ -772,7 +790,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   };
 
   const resetHomeCourseOrder = () => {
-    persistHomeCourseOrder([...DEFAULT_HOME_COURSE_ORDER_IDS], { successMessage: '已恢复默认顺序' });
+    persistHomeCourseOrder([...DEFAULT_HOME_COURSE_ORDER_IDS], { successMessage: t('language.orderDefaultRestored', '已恢复默认顺序') });
   };
 
   const homeCourseOrderDisabled = !isLoggedIn || idsStatus === 'loading' || savingHomeCourseOrder;
@@ -780,7 +798,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const toggleEmailNotifications = async () => {
     if (savingEmailNotifications) return;
     if (!isLoggedIn) {
-      showToast('请先登录', 'error');
+      showToast(t('common.loginFirst', '请先登录'), 'error');
       return;
     }
 
@@ -789,10 +807,10 @@ function AccountSettingsPage({ mode = 'student' }) {
     setSavingEmailNotifications(true);
     try {
       await api.put('/api/account/notifications', { emailNotificationsEnabled: nextValue });
-      showToast(nextValue ? '邮件提醒已开启' : '邮件提醒已关闭', 'success');
+      showToast(nextValue ? t('notifications.enabled', '邮件提醒已开启') : t('notifications.disabled', '邮件提醒已关闭'), 'success');
     } catch (e) {
       setEmailNotificationsEnabled(!nextValue);
-      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('common.saveFailed', '保存失败，请稍后再试');
       showToast(msg, 'error');
     } finally {
       setSavingEmailNotifications(false);
@@ -825,7 +843,7 @@ function AccountSettingsPage({ mode = 'student' }) {
           <button
             type="button"
             className="icon-circle settings-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
           >
@@ -845,20 +863,20 @@ function AccountSettingsPage({ mode = 'student' }) {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
         </header>
 
         <section className="settings-hero">
-          <h1>设置与数据</h1>
+          <h1>{t('settings.title', '设置与数据')}</h1>
         </section>
 
-        <section className="settings-shell" aria-label="设置与数据">
+        <section className="settings-shell" aria-label={t('settings.aria', '设置与数据')}>
           <div className="settings-nav-pane">
-            <nav className="settings-nav" aria-label="设置选项">
-              {SETTINGS_SECTIONS.map((section) => {
+            <nav className="settings-nav" aria-label={t('settings.options', '设置选项')}>
+              {settingsSections.map((section) => {
                 const Icon = section.icon;
                 const isActive = section.id === activeSectionId;
                 return (
@@ -885,13 +903,13 @@ function AccountSettingsPage({ mode = 'student' }) {
 
           <div className="settings-detail-pane">
             <div className="settings-detail-head">
-              <div className="settings-detail-title">{activeSection?.label || '设置与数据'}</div>
+              <div className="settings-detail-title">{activeSection?.label || t('settings.title', '设置与数据')}</div>
             </div>
 
             <div
               className={`settings-card ${activeSectionId === 'profile' ? 'settings-card--profile' : ''}`}
               role="region"
-              aria-label={`${activeSection?.label || '设置'}内容`}
+              aria-label={t('settings.sectionContent', `${activeSection?.label || '设置'}内容`, { section: activeSection?.label || t('app.route.settings', '设置') })}
             >
               {activeSectionId === 'profile' && (
                 <ProfileSection
@@ -977,6 +995,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   homeCourseOrderDisabled={homeCourseOrderDisabled}
                   onChangeHomeCourseOrder={persistHomeCourseOrder}
                   onResetHomeCourseOrder={resetHomeCourseOrder}
+                  onShowToast={showToast}
                 />
               )}
             </div>
@@ -1018,7 +1037,7 @@ function AccountSettingsPage({ mode = 'student' }) {
               mentorCreatedAt: prev.mentorCreatedAt || new Date().toISOString(),
             }));
             setIdsStatus('loaded');
-            showToast('导师申请已提交，我们会尽快审核');
+            showToast(t('settings.toast.mentorSubmitted', '导师申请已提交，我们会尽快审核'));
           }}
         />
       )}
