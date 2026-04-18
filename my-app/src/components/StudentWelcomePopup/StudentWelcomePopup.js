@@ -3,8 +3,10 @@ import { FiX } from 'react-icons/fi';
 import '../RegisterPopup/RegisterPopup.css';
 import './StudentWelcomePopup.css';
 import Button from '../common/Button/Button';
+import { useI18n } from '../../i18n/language';
 
 const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
+  const { t } = useI18n();
   const handleConfirm = () => {
     if (typeof onConfirm === 'function') onConfirm();
   };
@@ -26,20 +28,20 @@ const StudentWelcomePopup = ({ publicId, onConfirm, onClose }) => {
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
       >
-        <button className="register-modal-close" onClick={handleClose} aria-label="关闭">
+        <button className="register-modal-close" onClick={handleClose} aria-label={t('common.close', '关闭')}>
           <FiX aria-hidden="true" />
         </button>
-        <h2>注册</h2>
+        <h2>{t('auth.registerTitle', '注册')}</h2>
         <div className="register-modal-divider" />
-        <h3>欢迎来到Mentory！</h3>
+        <h3>{t('auth.studentWelcomeTitle', '欢迎来到Mentory！')}</h3>
 
         <div className="student-welcome-body">
-          <p className="student-welcome-line">这是你的 StudentID: <span className="student-welcome-id">{publicId || '—'}</span></p>
+          <p className="student-welcome-line">{t('auth.studentIdLine', '这是你的 StudentID:')} <span className="student-welcome-id">{publicId || '—'}</span></p>
         </div>
 
         <div className="register-continue-area">
           <Button className="register-continue-button" onClick={handleConfirm} fullWidth>
-            我知道了
+            {t('auth.gotIt', '我知道了')}
           </Button>
         </div>
       </div>

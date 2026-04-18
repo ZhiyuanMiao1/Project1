@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import {
   getEmailCodeErrorMessage,
   sendRegisterEmailCode,
   verifyRegisterEmailCode,
 } from '../../services/emailCodeService';
+import { useI18n } from '../../i18n/language';
 import './EmailCodePopup.css';
 
 const maskEmail = (value) => {
@@ -15,6 +16,16 @@ const maskEmail = (value) => {
   return `${local.slice(0, 2)}***${local.slice(-1)}@${domain}`;
 };
 
+const translateEmailCodeMessage = (message, t) => {
+  const raw = String(message || '').trim();
+  const map = {
+    '请输入 6 位验证码': t('emailCode.invalidCode', '请输入 6 位验证码'),
+    '验证码校验失败，请稍后再试': t('emailCode.verifyFailed', '验证码校验失败，请稍后再试'),
+    '验证码发送失败，请稍后再试': t('emailCode.sendFailed', '验证码发送失败，请稍后再试'),
+  };
+  return map[raw] || raw;
+};
+
 function EmailCodePopup({
   email,
   onClose,
@@ -23,8 +34,9 @@ function EmailCodePopup({
   sendEmailCode = sendRegisterEmailCode,
   verifyEmailCode = verifyRegisterEmailCode,
   initialCountdownSeconds = 60,
-  title = '邮箱验证码',
+  title = '',
 }) {
+  const { t } = useI18n();
   const inputRef = useRef(null);
   const backdropMouseDownRef = useRef(false);
   const submittedCodeRef = useRef('');
@@ -35,6 +47,8 @@ function EmailCodePopup({
   const [errorMessage, setErrorMessage] = useState('');
 
   const maskedEmail = useMemo(() => maskEmail(email), [email]);
+  const displayTitle = title || t('emailCode.title', '邮箱验证码');
+  const displayEmail = maskedEmail || email;
 
   useEffect(() => {
     if (inputRef.current) {
@@ -54,16 +68,6 @@ function EmailCodePopup({
     return () => window.clearInterval(timer);
   }, [countdown]);
 
-  useEffect(() => {
-    if (code.length !== 6) {
-      submittedCodeRef.current = '';
-      return;
-    }
-    if (submittedCodeRef.current === code) return;
-    submittedCodeRef.current = code;
-    handleVerify(code);
-  }, [code]);
-
   const handleBackdropMouseDown = (e) => {
     backdropMouseDownRef.current = e.target === e.currentTarget;
   };
@@ -74,9 +78,9 @@ function EmailCodePopup({
     if (typeof onClose === 'function') onClose();
   };
 
-  const focusCodeInput = () => {
+  const focusCodeInput = useCallback(() => {
     if (inputRef.current) inputRef.current.focus();
-  };
+  }, []);
 
   const resetCodeInput = () => {
     submittedCodeRef.current = '';
@@ -93,10 +97,10 @@ function EmailCodePopup({
     focusCodeInput();
   };
 
-  const handleVerify = async (nextCode = code) => {
+  const handleVerify = useCallback(async (nextCode = code) => {
     if (verifying || resending) return;
     if (nextCode.length !== 6) {
-      setErrorMessage('请输入 6 位验证码');
+      setErrorMessage(t('emailCode.invalidCode', '请输入 6 位验证码'));
       return;
     }
 
@@ -108,12 +112,22 @@ function EmailCodePopup({
         await onVerified(payload || {});
       }
     } catch (error) {
-      setErrorMessage(getEmailCodeErrorMessage(error, '验证码校验失败，请稍后再试'));
+      setErrorMessage(translateEmailCodeMessage(getEmailCodeErrorMessage(error, t('emailCode.verifyFailed', '验证码校验失败，请稍后再试')), t));
       focusCodeInput();
     } finally {
       setVerifying(false);
     }
-  };
+  }, [code, email, focusCodeInput, onVerified, resending, t, verifyEmailCode, verifying]);
+
+  useEffect(() => {
+    if (code.length !== 6) {
+      submittedCodeRef.current = '';
+      return;
+    }
+    if (submittedCodeRef.current === code) return;
+    submittedCodeRef.current = code;
+    handleVerify(code);
+  }, [code, handleVerify]);
 
   const handleResend = async () => {
     if (countdown > 0 || resending || verifying) return;
@@ -129,7 +143,7 @@ function EmailCodePopup({
       if (typeof onResendSuccess === 'function') onResendSuccess(nextSeconds);
       requestAnimationFrame(() => focusCodeInput());
     } catch (error) {
-      setErrorMessage(getEmailCodeErrorMessage(error, '验证码发送失败，请稍后再试'));
+      setErrorMessage(translateEmailCodeMessage(getEmailCodeErrorMessage(error, t('emailCode.sendFailed', '验证码发送失败，请稍后再试')), t));
     } finally {
       setResending(false);
     }
@@ -146,16 +160,16 @@ function EmailCodePopup({
           type="button"
           className="email-code-close"
           onClick={onClose}
-          aria-label="关闭"
+          aria-label={t('common.close', '关闭')}
         >
           <FiX aria-hidden="true" />
         </button>
 
-        <h2 className="email-code-title">{title}</h2>
+        <h2 className="email-code-title">{displayTitle}</h2>
         <div className="email-code-divider" />
         <div className="email-code-meta">
           <p className="email-code-copy">
-            验证码已发送至 <span>{maskedEmail || email}</span>
+            {t('emailCode.sentToPrefix', '验证码已发送至')} <span>{displayEmail}</span>
           </p>
           <button
             type="button"
@@ -163,7 +177,7 @@ function EmailCodePopup({
             onClick={handleResend}
             disabled={countdown > 0 || verifying || resending}
           >
-            {resending ? '发送中...' : '重新发送'}
+            {resending ? t('emailCode.resending', '发送中...') : t('emailCode.resend', '重新发送')}
           </button>
         </div>
 
@@ -223,10 +237,10 @@ function EmailCodePopup({
             className="email-code-error"
             role={errorMessage ? 'alert' : undefined}
           >
-            {errorMessage || (verifying ? '验证中...' : '\u00A0')}
+            {errorMessage || (verifying ? t('emailCode.verifying', '验证中...') : '\u00A0')}
           </span>
           <span className="email-code-countdown">
-            {countdown > 0 ? `${countdown}s 后可重发` : '\u00A0'}
+            {countdown > 0 ? t('emailCode.resendAfter', '{seconds}s 后可重发', { seconds: countdown }) : '\u00A0'}
           </span>
         </div>
       </div>

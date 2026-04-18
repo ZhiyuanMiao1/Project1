@@ -2,18 +2,33 @@ import React, { useRef, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
+import { useI18n } from '../../i18n/language';
 import './MentorActivationPopup.css';
 
 const RESUME_ACCEPT = '.pdf,.ppt,.pptx,.doc,.docx,.png,.jpg,.jpeg,.zip';
+
+const translateMentorActivationMessage = (message, t) => {
+  const raw = String(message || '').trim();
+  const map = {
+    '上传签名获取失败': t('mentorActivation.uploadSignatureFailed', '上传签名获取失败'),
+    '简历上传失败': t('mentorActivation.uploadFailed', '简历上传失败'),
+    '简历上传失败，请稍后再试': t('mentorActivation.uploadFailedRetry', '简历上传失败，请稍后再试'),
+    '删除简历失败，请稍后再试': t('mentorActivation.deleteFailed', '删除简历失败，请稍后再试'),
+    '请先上传简历': t('mentorActivation.required', '请先上传简历'),
+    '提交失败，请稍后再试': t('mentorActivation.submitFailed', '提交失败，请稍后再试'),
+  };
+  return map[raw] || raw;
+};
 
 function MentorActivationPopup({
   onClose,
   onSuccess,
   onSubmit,
   pendingUploadKey = '',
-  title = '欢迎注册Mentory导师',
-  submitLabel = '继续',
+  title = '',
+  submitLabel = '',
 }) {
+  const { isEnglish, t } = useI18n();
   const fileInputRef = useRef(null);
   const backdropMouseDownRef = useRef(false);
   const [resumeFiles, setResumeFiles] = useState([]);
@@ -21,14 +36,17 @@ function MentorActivationPopup({
   const [deletingKey, setDeletingKey] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const displayTitle = title || t('mentorActivation.title', '欢迎注册Mentory导师');
+  const displaySubmitLabel = submitLabel || t('auth.continue', '继续');
 
   const getErrorMessage = (error, fallback) => {
     const data = error?.response?.data;
     const firstValidationMessage = Array.isArray(data?.errors) ? data.errors[0]?.msg : '';
-    return firstValidationMessage
+    const raw = firstValidationMessage
       || data?.error
       || error?.message
       || fallback;
+    return translateMentorActivationMessage(raw, t);
   };
 
   const isBusy = uploading || !!deletingKey || submitting;
@@ -132,7 +150,9 @@ function MentorActivationPopup({
     }
 
     if (failedFileNames.length) {
-      setErrorMessage(`以下文件上传失败：${failedFileNames.join('、')}`);
+      setErrorMessage(t('mentorActivation.failedFiles', '以下文件上传失败：{files}', {
+        files: failedFileNames.join(isEnglish ? ', ' : '、'),
+      }));
     }
 
     setUploading(false);
@@ -157,7 +177,7 @@ function MentorActivationPopup({
   const handleSubmit = async () => {
     if (uploading || deletingKey || submitting) return;
     if (!resumeFiles.length) {
-      setErrorMessage('请先上传简历');
+      setErrorMessage(t('mentorActivation.required', '请先上传简历'));
       return;
     }
 
@@ -191,12 +211,12 @@ function MentorActivationPopup({
           type="button"
           className="mentor-activation-close"
           onClick={onClose}
-          aria-label="关闭"
+          aria-label={t('common.close', '关闭')}
         >
           <FiX aria-hidden="true" />
         </button>
 
-        <h2 className="mentor-activation-title">{title}</h2>
+        <h2 className="mentor-activation-title">{displayTitle}</h2>
         <input
           ref={fileInputRef}
           type="file"
@@ -225,14 +245,14 @@ function MentorActivationPopup({
             </svg>
           </span>
           <span className="mentor-activation-upload-text">
-            {uploading ? '上传中...' : '上传简历'}
+            {uploading ? t('mentorActivation.uploading', '上传中...') : t('mentorActivation.uploadResume', '上传简历')}
           </span>
         </button>
 
         <div className="mentor-activation-status" aria-live="polite">
           {resumeFiles.length ? (
             <div className="mentor-activation-file-list-row">
-              <span className="mentor-activation-status-label">已上传：</span>
+              <span className="mentor-activation-status-label">{t('mentorActivation.uploaded', '已上传：')}</span>
               <div className="mentor-activation-file-list">
                 {resumeFiles.map((file) => {
                   const itemKey = file.ossKey || file.url;
@@ -245,7 +265,7 @@ function MentorActivationPopup({
                         className="mentor-activation-file-remove"
                         onClick={() => handleDeleteResume(file)}
                         disabled={isBusy || deleting}
-                        aria-label={`删除文件 ${file.name}`}
+                        aria-label={t('mentorActivation.deleteFile', '删除文件 {name}', { name: file.name })}
                       >
                         &times;
                       </button>
@@ -267,7 +287,7 @@ function MentorActivationPopup({
           onClick={handleSubmit}
           fullWidth
         >
-          {submitting ? '提交中...' : submitLabel}
+          {submitting ? t('mentorActivation.submitting', '提交中...') : displaySubmitLabel}
         </Button>
       </div>
     </div>

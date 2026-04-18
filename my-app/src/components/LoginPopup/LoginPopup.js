@@ -10,8 +10,31 @@ import {
   sendPasswordResetEmailCode,
   verifyPasswordResetEmailCode,
 } from '../../services/emailCodeService';
+import { useI18n } from '../../i18n/language';
+
+const translateAuthMessage = (message, t) => {
+  const raw = String(message || '').trim();
+  const map = {
+    '请输入邮箱、StudentID或MentorID': t('auth.emailOrIdRequired', '请输入邮箱、StudentID或MentorID'),
+    '请输入注册邮箱': t('auth.registerEmailRequired', '请输入注册邮箱'),
+    '邮箱格式不正确': t('auth.emailInvalid', '邮箱格式不正确'),
+    '请输入密码': t('auth.passwordRequired', '请输入密码'),
+    '请先完成邮箱验证码验证': t('auth.needEmailCodeFirst', '请先完成邮箱验证码验证'),
+    '密码至少6位': t('auth.passwordMin', '密码至少6位'),
+    '两次输入的密码不一致': t('auth.passwordMismatch', '两次输入的密码不一致'),
+    '验证码发送失败，请稍后再试': t('emailCode.sendFailed', '验证码发送失败，请稍后再试'),
+    '密码已重置，请使用新密码登录': t('auth.resetDone', '密码已重置，请使用新密码登录'),
+    '提交信息有误': t('auth.submitInvalid', '提交信息有误'),
+    '网络异常，请检查网络后重试': t('auth.networkError', '网络异常，请检查网络后重试'),
+    '密码重置失败，请稍后再试': t('auth.resetFailed', '密码重置失败，请稍后再试'),
+    '邮箱或密码错误': t('auth.loginInvalid', '邮箱或密码错误'),
+    '登录失败，请稍后再试': t('auth.loginFailed', '登录失败，请稍后再试'),
+  };
+  return map[raw] || raw;
+};
 
 const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', errorField = '', onGoRegister }) => {
+  const { t } = useI18n();
   // 仅在按下也发生在遮罩层上时，才允许点击关闭
   const backdropMouseDownRef = useRef(false);
   const emailRef = useRef(null);
@@ -19,7 +42,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fieldError, setFieldError] = useState(errorMessage || '');
+  const [fieldError, setFieldError] = useState(() => translateAuthMessage(errorMessage, t) || '');
   const [errorFieldState, setErrorFieldState] = useState(errorField || '');
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -53,9 +76,9 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
 
   const validate = () => {
     const v = String(email || '').trim();
-    if (!v) return { message: '请输入邮箱、StudentID或MentorID', field: 'email' };
-    if (v.includes('@') && !/\S+@\S+\.\S+/.test(v)) return { message: '邮箱格式不正确', field: 'email' };
-    if (!password) return { message: '请输入密码', field: 'password' };
+    if (!v) return { message: t('auth.emailOrIdRequired', '请输入邮箱、StudentID或MentorID'), field: 'email' };
+    if (v.includes('@') && !/\S+@\S+\.\S+/.test(v)) return { message: t('auth.emailInvalid', '邮箱格式不正确'), field: 'email' };
+    if (!password) return { message: t('auth.passwordRequired', '请输入密码'), field: 'password' };
     return null;
   };
 
@@ -66,15 +89,15 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
 
   const validateResetEmail = () => {
     const v = String(resetEmail || '').trim();
-    if (!v) return { message: '请输入注册邮箱', field: 'resetEmail' };
-    if (!/^\S+@\S+\.\S+$/.test(v)) return { message: '邮箱格式不正确', field: 'resetEmail' };
+    if (!v) return { message: t('auth.registerEmailRequired', '请输入注册邮箱'), field: 'resetEmail' };
+    if (!/^\S+@\S+\.\S+$/.test(v)) return { message: t('auth.emailInvalid', '邮箱格式不正确'), field: 'resetEmail' };
     return null;
   };
 
   const validateResetPassword = () => {
-    if (!resetToken) return { message: '请先完成邮箱验证码验证', field: '' };
-    if (!resetNewPassword || resetNewPassword.length < 6) return { message: '密码至少6位', field: 'resetNewPassword' };
-    if (resetNewPassword !== resetConfirmPassword) return { message: '两次输入的密码不一致', field: 'resetConfirmPassword' };
+    if (!resetToken) return { message: t('auth.needEmailCodeFirst', '请先完成邮箱验证码验证'), field: '' };
+    if (!resetNewPassword || resetNewPassword.length < 6) return { message: t('auth.passwordMin', '密码至少6位'), field: 'resetNewPassword' };
+    if (resetNewPassword !== resetConfirmPassword) return { message: t('auth.passwordMismatch', '两次输入的密码不一致'), field: 'resetConfirmPassword' };
     return null;
   };
 
@@ -111,7 +134,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       setResetCodeAvailableAt(Date.now() + (Math.max(0, Number(payload?.resendAfterSeconds) || 60) * 1000));
       setShowResetCodePopup(true);
     } catch (error) {
-      setFieldError(getEmailCodeErrorMessage(error, '验证码发送失败，请稍后再试'));
+      setFieldError(translateAuthMessage(getEmailCodeErrorMessage(error, t('emailCode.sendFailed', '验证码发送失败，请稍后再试')), t));
       setErrorFieldState('');
     } finally {
       setSubmitting(false);
@@ -137,7 +160,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
         newPassword: resetNewPassword,
         confirmPassword: resetConfirmPassword,
       });
-      setResetOk(res?.data?.message || '密码已重置，请使用新密码登录');
+      setResetOk(translateAuthMessage(res?.data?.message || t('auth.resetDone', '密码已重置，请使用新密码登录'), t));
       setPassword('');
       setEmail(resetEmail);
       setTimeout(() => {
@@ -150,9 +173,9 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       const data = e?.response?.data;
       const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
       if (serverErrors && serverErrors.length > 0) {
-        setFieldError(serverErrors[0]?.msg || '提交信息有误');
+        setFieldError(translateAuthMessage(serverErrors[0]?.msg || t('auth.submitInvalid', '提交信息有误'), t));
       } else {
-        setFieldError(data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '密码重置失败，请稍后再试'));
+        setFieldError(translateAuthMessage(data?.error || (e?.request && !e?.response ? t('auth.networkError', '网络异常，请检查网络后重试') : t('auth.resetFailed', '密码重置失败，请稍后再试')), t));
       }
       setErrorFieldState('');
     } finally {
@@ -193,7 +216,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
       if (serverErrors && serverErrors.length > 0) {
         const first = serverErrors[0];
-        const message = first?.msg || '提交信息有误';
+        const message = translateAuthMessage(first?.msg || t('auth.submitInvalid', '提交信息有误'), t);
         let field = '';
         if (first?.param === 'email') field = 'email';
         else if (first?.param === 'password') field = 'password';
@@ -204,14 +227,14 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       }
 
       if (status === 401) {
-        setFieldError(data?.error || '邮箱或密码错误');
+        setFieldError(translateAuthMessage(data?.error || t('auth.loginInvalid', '邮箱或密码错误'), t));
         setErrorFieldState('password');
         setSubmitting(false);
         return;
       }
 
-      const fallbackMsg = data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '登录失败，请稍后再试');
-      setFieldError(fallbackMsg);
+      const fallbackMsg = data?.error || (e?.request && !e?.response ? t('auth.networkError', '网络异常，请检查网络后重试') : t('auth.loginFailed', '登录失败，请稍后再试'));
+      setFieldError(translateAuthMessage(fallbackMsg, t));
       setErrorFieldState('');
     } finally {
       setSubmitting(false);
@@ -226,18 +249,20 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
       onClick={handleBackdropClick}
     >
       <div className="login-modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="login-modal-close" onClick={onClose} aria-label="关闭">
+        <button className="login-modal-close" onClick={onClose} aria-label={t('common.close', '关闭')}>
           <FiX aria-hidden="true" />
         </button>
-        <h2>{mode === 'login' ? '登录' : '重置密码'}</h2>
+        <h2>{mode === 'login' ? t('auth.loginTitle', '登录') : t('auth.resetTitle', '重置密码')}</h2>
         <div className="login-modal-divider"></div>
-        <h3>{mode === 'login' ? '欢迎回来，Mentory用户' : (mode === 'resetEmail' ? '通过邮箱验证身份' : '设置新的登录密码')}</h3>
+        <h3>{mode === 'login'
+          ? t('auth.loginWelcome', '欢迎回来，Mentory用户')
+          : (mode === 'resetEmail' ? t('auth.resetEmailTitle', '通过邮箱验证身份') : t('auth.resetPasswordTitle', '设置新的登录密码'))}</h3>
         {mode === 'login' ? (
           <div className="login-input-area">
             <input
               ref={emailRef}
               type="text"
-              placeholder="请输入邮箱、StudentID或MentorID"
+              placeholder={t('auth.emailOrIdPlaceholder', '请输入邮箱、StudentID或MentorID')}
               className={`login-input ${errorFieldState === 'email' ? 'error' : ''}`}
               value={email}
               onChange={(e) => {
@@ -255,7 +280,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
               <input
                 ref={pwRef}
                 type={showPw ? 'text' : 'password'}
-                placeholder="请输入密码"
+                placeholder={t('auth.passwordPlaceholder', '请输入密码')}
                 className={`login-input ${errorFieldState === 'password' ? 'error' : ''}`}
                 value={password}
                 onFocus={() => setFocusedPw(true)}
@@ -273,7 +298,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
                 <button
                   type="button"
                   className="toggle-password"
-                  aria-label={showPw ? '隐藏密码' : '显示密码'}
+                  aria-label={showPw ? t('auth.hidePassword', '隐藏密码') : t('auth.showPassword', '显示密码')}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => setShowPw((s) => !s)}
                 >
@@ -305,7 +330,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             <input
               ref={resetEmailRef}
               type="email"
-              placeholder="请输入注册邮箱"
+              placeholder={t('auth.registerEmailPlaceholder', '请输入注册邮箱')}
               className={`login-input ${errorFieldState === 'resetEmail' ? 'error' : ''}`}
               value={resetEmail}
               disabled={mode === 'resetPassword'}
@@ -319,7 +344,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
                 <input
                   ref={resetPwRef}
                   type="password"
-                  placeholder="请输入新密码"
+                  placeholder={t('auth.newPasswordPlaceholder', '请输入新密码')}
                   className={`login-input ${errorFieldState === 'resetNewPassword' ? 'error' : ''}`}
                   value={resetNewPassword}
                   autoComplete="new-password"
@@ -331,7 +356,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
                 <input
                   ref={resetConfirmPwRef}
                   type="password"
-                  placeholder="请再次输入新密码"
+                  placeholder={t('auth.confirmNewPasswordPlaceholder', '请再次输入新密码')}
                   className={`login-input ${errorFieldState === 'resetConfirmPassword' ? 'error' : ''}`}
                   value={resetConfirmPassword}
                   autoComplete="new-password"
@@ -352,7 +377,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             className="helper-link left"
             onClick={(e) => { e.preventDefault(); mode === 'login' ? handleForgotPassword() : handleBackToLogin(); }}
           >
-            {mode === 'login' ? '忘记密码？' : '返回登录'}
+            {mode === 'login' ? t('auth.forgotPassword', '忘记密码？') : t('auth.backToLogin', '返回登录')}
           </button>
           {mode === 'login' ? (
             <button
@@ -360,7 +385,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
               className="helper-link right"
               onClick={(e) => { e.preventDefault(); if (typeof onGoRegister === 'function') onGoRegister(); }}
             >
-              前往注册
+              {t('auth.goRegister', '前往注册')}
             </button>
           ) : null}
         </div>
@@ -376,22 +401,22 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             disabled={submitting}
             fullWidth
           >
-            {submitting ? '处理中...' : (mode === 'login' ? '继续' : (mode === 'resetEmail' ? '发送验证码' : '重置密码'))}
+            {submitting ? t('common.processing', '处理中...') : (mode === 'login' ? t('auth.continue', '继续') : (mode === 'resetEmail' ? t('auth.sendCode', '发送验证码') : t('auth.resetPassword', '重置密码')))}
           </Button>
         </div>
         {mode === 'login' && (
           <>
             <div className="login-modal-divider-with-text">
-              <span className="divider-text">或（暂未开放）</span>
+              <span className="divider-text">{t('auth.socialUnavailable', '或（暂未开放）')}</span>
             </div>
             <div className="social-login-buttons">
               <button className="social-button wechat-login">
                 <img src="/images/wechat-icon.png" alt="WeChat" className="social-icon" />
-                使用微信登录
+                {t('auth.wechatLogin', '使用微信登录')}
               </button>
               <button className="social-button google-login">
                 <img src="/images/google-icon.png" alt="Google" className="social-icon" />
-                使用 Google 账号登录
+                {t('auth.googleLogin', '使用 Google 账号登录')}
               </button>
             </div>
           </>
@@ -399,7 +424,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
         {showResetCodePopup && (
           <EmailCodePopup
             email={resetEmail}
-            title="重置密码验证码"
+            title={t('auth.resetCodeTitle', '重置密码验证码')}
             initialCountdownSeconds={Math.max(0, Math.ceil((resetCodeAvailableAt - Date.now()) / 1000))}
             sendEmailCode={sendPasswordResetEmailCode}
             verifyEmailCode={verifyPasswordResetEmailCode}

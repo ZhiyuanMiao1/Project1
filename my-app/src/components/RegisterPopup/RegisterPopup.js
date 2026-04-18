@@ -10,8 +10,30 @@ import api from '../../api/client';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 import { getEmailCodeErrorMessage, sendRegisterEmailCode } from '../../services/emailCodeService';
+import { useI18n } from '../../i18n/language';
+
+const translateAuthMessage = (message, t) => {
+  const raw = String(message || '').trim();
+  const map = {
+    '请输入邮箱': t('auth.emailRequired', '请输入邮箱'),
+    '邮箱格式不正确': t('auth.emailInvalid', '邮箱格式不正确'),
+    '密码至少6位': t('auth.passwordMin', '密码至少6位'),
+    '两次输入的密码不一致': t('auth.passwordMismatch', '两次输入的密码不一致'),
+    '请选择角色': t('auth.roleRequired', '请选择角色'),
+    '提交信息有误': t('auth.submitInvalid', '提交信息有误'),
+    '该邮箱已被注册': t('auth.emailRegistered', '该邮箱已被注册'),
+    '网络异常，请检查网络后重试': t('auth.networkError', '网络异常，请检查网络后重试'),
+    '注册失败，请稍后再试': t('auth.registerFailed', '注册失败，请稍后再试'),
+    '注册成功，已自动登录': t('auth.registerDone', '注册成功，已自动登录'),
+    '注册成功，但自动登录失败，请手动登录': t('auth.autoLoginFailed', '注册成功，但自动登录失败，请手动登录'),
+    '注册成功，正在关闭...': t('auth.registerClosing', '注册成功，正在关闭...'),
+    '验证码发送失败，请稍后再试': t('emailCode.sendFailed', '验证码发送失败，请稍后再试'),
+  };
+  return map[raw] || raw;
+};
 
 const RegisterPopup = ({ onClose, onSuccess }) => {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -47,11 +69,11 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
   const normalizeEmailValue = (value) => String(value || '').trim().toLowerCase();
 
   const validate = () => {
-    if (!email) return { message: '请输入邮箱', field: 'email' };
-    if (!/^\S+@\S+\.\S+$/.test(email)) return { message: '邮箱格式不正确', field: 'email' };
-    if (!password || password.length < 6) return { message: '密码至少6位', field: 'password' };
-    if (password !== confirmPassword) return { message: '两次输入的密码不一致', field: 'confirmPassword' };
-    if (!['student', 'mentor'].includes(role)) return { message: '请选择角色', field: 'role' };
+    if (!email) return { message: t('auth.emailRequired', '请输入邮箱'), field: 'email' };
+    if (!/^\S+@\S+\.\S+$/.test(email)) return { message: t('auth.emailInvalid', '邮箱格式不正确'), field: 'email' };
+    if (!password || password.length < 6) return { message: t('auth.passwordMin', '密码至少6位'), field: 'password' };
+    if (password !== confirmPassword) return { message: t('auth.passwordMismatch', '两次输入的密码不一致'), field: 'confirmPassword' };
+    if (!['student', 'mentor'].includes(role)) return { message: t('auth.roleRequired', '请选择角色'), field: 'role' };
     return null;
   };
 
@@ -83,7 +105,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           // 触发成功动画（按钮显示三点），2秒后显示欢迎弹窗
           const pid = (user && user.public_id) || res?.data?.public_id || '';
           setPublicId(pid || '');
-          setOk('注册成功，已自动登录');
+          setOk(t('auth.registerDone', '注册成功，已自动登录'));
           setTimeout(() => {
             setShowWelcome(true);
           }, 2000);
@@ -91,8 +113,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         } catch (loginErr) {
           // 自动登录失败时的提示，但保留注册成功结果
           const data = loginErr?.response?.data;
-          const fallbackMsg = data?.error || '注册成功，但自动登录失败，请手动登录';
-          setFieldError(fallbackMsg);
+          const fallbackMsg = data?.error || t('auth.autoLoginFailed', '注册成功，但自动登录失败，请手动登录');
+          setFieldError(translateAuthMessage(fallbackMsg, t));
           setErrorField('');
           setSubmitError('');
           if (typeof onSuccess === 'function') {
@@ -117,7 +139,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));
             } catch {}
           }
-          setOk('注册成功，已自动登录');
+          setOk(t('auth.registerDone', '注册成功，已自动登录'));
           // 三点动画 2 秒后，关闭弹窗并进入导师页
           setTimeout(() => {
             try { onClose && onClose(); } catch {}
@@ -128,8 +150,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           return;
         } catch (loginErr) {
           const data = loginErr?.response?.data;
-          const fallbackMsg = data?.error || '注册成功，但自动登录失败，请手动登录';
-          setFieldError(fallbackMsg);
+          const fallbackMsg = data?.error || t('auth.autoLoginFailed', '注册成功，但自动登录失败，请手动登录');
+          setFieldError(translateAuthMessage(fallbackMsg, t));
           setErrorField('');
           setSubmitError('');
           if (typeof onSuccess === 'function') {
@@ -140,7 +162,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       }
 
       // 其他情况：沿用原有成功提示与自动关闭（2秒）
-      setOk('注册成功，正在关闭...');
+      setOk(t('auth.registerClosing', '注册成功，正在关闭...'));
       if (typeof onSuccess === 'function') setTimeout(() => onSuccess(res.data), 2000);
       setTimeout(() => { onClose && onClose(); }, 2000);
     } catch (e) {
@@ -151,7 +173,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       const serverErrors = Array.isArray(data?.errors) ? data.errors : null;
       if (serverErrors && serverErrors.length > 0) {
         const first = serverErrors[0];
-        const message = first?.msg || '提交信息有误';
+        const message = translateAuthMessage(first?.msg || t('auth.submitInvalid', '提交信息有误'), t);
         let field = '';
         if (first?.param === 'email') field = 'email';
         else if (first?.param === 'password') field = 'password';
@@ -167,7 +189,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
 
       // 2) 邮箱重复（409）— 行内提示并聚焦邮箱
       if (data?.error === '该邮箱已被注册' || status === 409) {
-        setFieldError('该邮箱已被注册');
+        setFieldError(t('auth.emailRegistered', '该邮箱已被注册'));
         setErrorField('email');
         setErrorFocusTick((t) => t + 1);
         setSubmitError('');
@@ -176,8 +198,8 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       }
 
       // 3) 服务器或网络等其它错误 — 统一行内提示（不聚焦具体字段）
-      const fallbackMsg = data?.error || (e?.request && !e?.response ? '网络异常，请检查网络后重试' : '注册失败，请稍后再试');
-      setFieldError(fallbackMsg);
+      const fallbackMsg = data?.error || (e?.request && !e?.response ? t('auth.networkError', '网络异常，请检查网络后重试') : t('auth.registerFailed', '注册失败，请稍后再试'));
+      setFieldError(translateAuthMessage(fallbackMsg, t));
       setErrorField('');
       setSubmitError('');
       if (rethrow) throw e;
@@ -227,7 +249,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
       setEmailCodeAvailableAt(Date.now() + (Math.max(0, Number(payload?.resendAfterSeconds) || 60) * 1000));
       setShowEmailCodePopup(true);
     } catch (error) {
-      setFieldError(getEmailCodeErrorMessage(error, '验证码发送失败，请稍后再试'));
+      setFieldError(translateAuthMessage(getEmailCodeErrorMessage(error, t('emailCode.sendFailed', '验证码发送失败，请稍后再试')), t));
       setErrorField('');
     } finally {
       setSubmitting(false);
@@ -267,18 +289,18 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
         style={{ display: (showWelcome || showMentorActivation || showEmailCodePopup) ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="register-modal-close" onClick={onClose} aria-label="关闭">
+        <button className="register-modal-close" onClick={onClose} aria-label={t('common.close', '关闭')}>
           <FiX aria-hidden="true" />
         </button>
-        <h2>注册</h2>
+        <h2>{t('auth.registerTitle', '注册')}</h2>
         <div className="register-modal-divider" />
-        <h3>Mentory欢迎您</h3>
+        <h3>{t('auth.registerWelcome', 'Mentory欢迎您')}</h3>
 
         <div className="register-input-area">
           <input
             ref={emailRef}
             type="email"
-            placeholder="请输入邮箱"
+            placeholder={t('auth.emailPlaceholder', '请输入邮箱')}
             className={`register-input ${errorField === 'email' ? 'error' : ''}`}
             value={email}
             onFocus={() => setFocusedField('email')}   // 不清空错误
@@ -300,7 +322,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             <input
               ref={pw1Ref}
               type={showPw1 ? 'text' : 'password'}
-              placeholder="请输入密码"
+              placeholder={t('auth.passwordPlaceholder', '请输入密码')}
               className={`register-input ${errorField === 'password' ? 'error' : ''}`}
               value={password}
               onFocus={() => { setFocusedField('password'); }}   // 不清空错误
@@ -317,7 +339,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               <button
                 type="button"
                 className="toggle-password"
-                aria-label={showPw1 ? '隐藏密码' : '显示密码'}
+                aria-label={showPw1 ? t('auth.hidePassword', '隐藏密码') : t('auth.showPassword', '显示密码')}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPw1((s) => !s)}
               >
@@ -349,7 +371,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             <input
               ref={pw2Ref}
               type={showPw2 ? 'text' : 'password'}
-              placeholder="请确认密码"
+              placeholder={t('auth.confirmPasswordPlaceholder', '请确认密码')}
               className={`register-input ${errorField === 'confirmPassword' ? 'error' : ''}`}
               value={confirmPassword}
               onFocus={() => { setFocusedField('confirmPassword'); }}   // 不清空错误
@@ -366,7 +388,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               <button
                 type="button"
                 className="toggle-password"
-                aria-label={showPw2 ? '隐藏密码' : '显示密码'}
+                aria-label={showPw2 ? t('auth.hidePassword', '隐藏密码') : t('auth.showPassword', '显示密码')}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowPw2((s) => !s)}
               >
@@ -398,7 +420,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
           {fieldError ? (
             <span className="validation-error">{fieldError}</span>
           ) : (
-            <span className="validation-tip">同一邮箱可注册两种身份，需分别完成学生/导师注册</span>
+            <span className="validation-tip">{t('auth.sameEmailTip', '同一邮箱可注册两种身份，需分别完成学生/导师注册')}</span>
           )}
         </div>
 
@@ -408,14 +430,14 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             onClick={() => setRole('student')}
             type="button"
           >
-            我是学生
+            {t('auth.studentRole', '我是学生')}
           </button>
           <button
             className={`register-button mentor-button ${role === 'mentor' ? 'active' : ''}`}
             onClick={() => setRole('mentor')}
             type="button"
           >
-            我是导师（需审核）
+            {t('auth.mentorRole', '我是导师（需审核）')}
           </button>
         </div>
 
@@ -426,22 +448,22 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
             disabled={submitting || successAnim}
             fullWidth
           >
-            继续
+            {t('auth.continue', '继续')}
           </Button>
         </div>
 
         {submitError && <div className="register-message error">{submitError}</div>}
 
-        <div className="register-modal-divider-with-text"><span className="divider-text">或（暂未开放）</span></div>
+        <div className="register-modal-divider-with-text"><span className="divider-text">{t('auth.socialUnavailable', '或（暂未开放）')}</span></div>
 
         <div className="social-login-buttons">
           <button className="social-button wechat-login" disabled>
             <img src="/images/wechat-icon.png" alt="WeChat" className="social-icon" />
-            使用微信登录
+            {t('auth.wechatLogin', '使用微信登录')}
           </button>
           <button className="social-button google-login" disabled>
             <img src="/images/google-icon.png" alt="Google" className="social-icon" />
-            使用 Google 账号登录
+            {t('auth.googleLogin', '使用 Google 账号登录')}
           </button>
         </div>
       </div>
