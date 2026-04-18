@@ -582,10 +582,6 @@ const toPositiveIntOrNull = (value: unknown) => {
 };
 
 type RestoredAppointmentStatus = 'pending' | 'accepted' | 'rejected';
-type RestoredAppointmentStatusResult = {
-  status: RestoredAppointmentStatus;
-  updatedByUserId: number | null;
-};
 
 const resolveRestoredAppointmentStatus = async (
   conn: PoolConnection,
@@ -732,115 +728,58 @@ const restoreRescheduleSourceAfterRecall = async (
   await syncCourseSessionForAppointmentDecision(conn, sourceRow, restoredStatus);
 };
 
-const resolveRestoredAppointmentStatusFromDecisionRows = (
-  decisionRows: any[],
-  appointmentId: number
-): RestoredAppointmentStatusResult => {
-  const appointmentIdText = String(appointmentId);
-  for (let index = (decisionRows || []).length - 1; index >= 0; index -= 1) {
-    const decisionRow = decisionRows[index];
-    const decision = parseAppointmentDecisionPayload(decisionRow?.payload_json);
-    if (!decision) continue;
-    const decisionAppointmentId = safeText(decision.appointmentId)
-      || (decision.appointmentId == null ? '' : String(decision.appointmentId).trim());
-    if (decisionAppointmentId !== appointmentIdText) continue;
+const applyExplicitRescheduleSourceStatuses = async (rowsForThread: any[]) => {
+  const rescheduleSourceUpdates = new Map<number, number>();
+  let previousAppointmentId: number | null = null;
 
-    const status = normalizeDecisionStatus(decision.status);
-    if (status === 'accepted' || status === 'rejected') {
-      return {
-        status,
-        updatedByUserId: toPositiveIntOrNull(decisionRow?.sender_user_id),
-      };
-    }
-  }
-  return { status: 'pending', updatedByUserId: null };
-};
-
-const hasActiveRescheduleReplacement = (rowsForThread: any[], sourceRow: any) => {
-  const sourceId = toPositiveIntOrNull(sourceRow?.id);
-  if (sourceId == null) return false;
-
-  const sourcePayload = parseAppointmentPayload(sourceRow?.payload_json);
-  const sourceDirectionId = safeText(sourcePayload?.courseDirectionId);
-  const sourceTypeId = safeText(sourcePayload?.courseTypeId);
-
-  for (const candidateRow of rowsForThread || []) {
-    const candidateId = toPositiveIntOrNull(candidateRow?.id);
-    if (candidateId == null || candidateId <= sourceId) continue;
-
-    const candidateStatus = normalizeDecisionStatus(candidateRow?.appointment_status) || 'pending';
-    if (candidateStatus !== 'pending') continue;
-
-    const candidatePayload = parseAppointmentPayload(candidateRow?.payload_json);
-    if (!candidatePayload) continue;
-
-    const candidateSourceId = toPositiveIntOrNull(candidatePayload.sourceAppointmentId);
-    const candidateIntent = safeText(candidatePayload.intent).toLowerCase();
-    if (candidateSourceId != null) {
-      if (candidateSourceId !== sourceId) continue;
-      return candidateIntent !== 'next_lesson';
-    }
-
-    if (sourceDirectionId && safeText(candidatePayload.courseDirectionId) !== sourceDirectionId) continue;
-    if (sourceTypeId && safeText(candidatePayload.courseTypeId) !== sourceTypeId) continue;
-    return true;
-  }
-
-  return false;
-};
-
-const normalizeOrphanedReschedulingRows = async (
-  rowsForThread: any[],
-  decisionRowsForThread: any[]
-) => {
-  const normalizedRows = [];
   for (const row of rowsForThread || []) {
-    const status = normalizeDecisionStatus(row?.appointment_status) || 'pending';
-    if (status !== 'rescheduling') {
-      normalizedRows.push(row);
-      continue;
-    }
-    if (hasActiveRescheduleReplacement(rowsForThread, row)) {
-      normalizedRows.push(row);
-      continue;
-    }
-
+    const payload = parseAppointmentPayload(row?.payload_json);
+    if (!payload) continue;
+    const sourceAppointmentId = toPositiveIntOrNull(payload.sourceAppointmentId);
     const appointmentId = toPositiveIntOrNull(row?.id);
-    if (appointmentId == null) {
-      normalizedRows.push(row);
+    const updatedByUserId = toPositiveIntOrNull(row?.sender_user_id);
+
+    if (sourceAppointmentId != null && sourceAppointmentId !== appointmentId) {
+      if (safeText(payload.intent).toLowerCase() === 'reschedule' && updatedByUserId != null) {
+        rescheduleSourceUpdates.set(sourceAppointmentId, updatedByUserId);
+      }
+      if (appointmentId != null) previousAppointmentId = appointmentId;
       continue;
     }
 
-    const restored = resolveRestoredAppointmentStatusFromDecisionRows(decisionRowsForThread, appointmentId);
-    if (restored.status === 'pending') {
-      await query(
-        'DELETE FROM appointment_statuses WHERE appointment_message_id = ? LIMIT 1',
-        [appointmentId]
-      );
-    } else {
-      const updatedByUserId = restored.updatedByUserId || toPositiveIntOrNull(row?.sender_user_id);
-      if (updatedByUserId != null) {
-        await query(
-          `
-          INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
-          VALUES (?, ?, ?)
-          ON DUPLICATE KEY UPDATE
-            status = VALUES(status),
-            updated_by_user_id = VALUES(updated_by_user_id),
-            updated_at = CURRENT_TIMESTAMP
-          `,
-          [appointmentId, restored.status, updatedByUserId]
-        );
-      }
+    const intent = safeText(payload.intent).toLowerCase();
+    if (!intent && previousAppointmentId != null && updatedByUserId != null) {
+      const legacySourceAppointmentId = previousAppointmentId;
+      rescheduleSourceUpdates.set(legacySourceAppointmentId, updatedByUserId);
     }
 
-    normalizedRows.push({
-      ...row,
-      appointment_status: restored.status,
-    });
+    if (appointmentId != null) previousAppointmentId = appointmentId;
   }
 
-  return normalizedRows;
+  for (const [sourceAppointmentId, updatedByUserId] of rescheduleSourceUpdates.entries()) {
+    await query(
+      `
+      INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+      VALUES (?, 'rescheduling', ?)
+      ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_at = CURRENT_TIMESTAMP
+      `,
+      [sourceAppointmentId, updatedByUserId]
+    );
+  }
+
+  if (rescheduleSourceUpdates.size === 0) return rowsForThread || [];
+
+  return (rowsForThread || []).map((row) => {
+    const appointmentId = toPositiveIntOrNull(row?.id);
+    if (appointmentId == null || !rescheduleSourceUpdates.has(appointmentId)) return row;
+    return {
+      ...row,
+      appointment_status: 'rescheduling',
+    };
+  });
 };
 
 const ensureCourseSessionForAcceptedAppointment = async ({
@@ -2978,10 +2917,7 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         const thread = threadMap.get(tid);
         if (!thread) continue;
 
-        const normalizedRowsForThread = await normalizeOrphanedReschedulingRows(
-          rowsForThread,
-          decisionByThread.get(String(tid)) || []
-        );
+        const normalizedRowsForThread = await applyExplicitRescheduleSourceStatuses(rowsForThread);
         const MAX_PER_THREAD = 30;
         const recentRows = normalizedRowsForThread.length > MAX_PER_THREAD
           ? normalizedRowsForThread.slice(-MAX_PER_THREAD)
