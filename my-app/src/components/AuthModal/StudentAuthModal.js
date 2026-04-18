@@ -12,6 +12,7 @@ import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/post
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
+import { useI18n } from '../../i18n/language';
 
 const StudentAuthModal = ({
   onClose,
@@ -26,6 +27,7 @@ const StudentAuthModal = ({
   unreadCount = null,
   courseCount = null,
 }) => {
+  const { t } = useI18n();
   const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const navigate = useNavigate();
@@ -176,7 +178,7 @@ const StudentAuthModal = ({
                 onClick={() => handleAuthAction('favorites')}
               >
                 <i className="far fa-heart auth-icon" aria-hidden="true"></i>
-                收藏
+                {t('app.route.favorites', '收藏')}
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
@@ -184,9 +186,9 @@ const StudentAuthModal = ({
               >
                 <span className="auth-modal-option-main">
                   <FiBookOpen className="auth-icon" />
-                  课程
+                  {t('app.route.courses', '课程')}
                 </span>
-                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel="新课程提醒" />
+                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel={t('common.newCourseAlert', '新课程提醒')} />
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
@@ -194,43 +196,43 @@ const StudentAuthModal = ({
               >
                 <span className="auth-modal-option-main">
                   <i className="far fa-comment auth-icon" aria-hidden="true"></i>
-                  消息
+                  {t('app.route.messages', '消息')}
                 </span>
-                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel="未读消息" />
+                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel={t('common.unreadMessages', '未读消息')} />
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('wallet')}
               >
                 <FiCreditCard className="auth-icon" />
-                钱包
+                {t('app.route.wallet', '钱包')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('settings')}
               >
                 <FiSettings className="auth-icon" />
-                设置与数据
+                {t('app.route.settings', '设置与数据')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('help')}
               >
                 <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
-                帮助中心
+                {t('app.route.help', '帮助中心')}
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('publish')}
               >
                 <RiMegaphoneLine className="auth-icon" />
-                发布课程需求
+                {t('app.route.courseRequest', '发布课程需求')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('logout')}
               >
-                退出
+                {t('common.logout', '退出')}
               </button>
             </>
           ) : (
@@ -239,25 +241,25 @@ const StudentAuthModal = ({
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('register')}
               >
-                注册
+                {t('common.register', '注册')}
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('login')}
               >
-                登录
+                {t('common.login', '登录')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('publish')}
               >
-                发布课程需求
+                {t('app.route.courseRequest', '发布课程需求')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('help')}
               >
-                帮助中心
+                {t('app.route.help', '帮助中心')}
               </button>
             </>
           )}

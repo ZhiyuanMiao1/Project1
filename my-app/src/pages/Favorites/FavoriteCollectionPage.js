@@ -16,10 +16,20 @@ import {
 } from '../../api/favorites';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
+import { useI18n } from '../../i18n/language';
 import '../RecentVisits/RecentVisitsPage.css';
 import './FavoriteCollectionPage.css';
 
+const normalizeCollectionTitle = (value, t = (_key, fallback) => fallback) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (raw === '最近浏览') return t('favorites.recent', '最近浏览');
+  if (raw === '默认收藏夹') return t('favorites.defaultCollection', '默认收藏夹');
+  if (raw === '默认 收藏夹') return t('favorites.defaultCollectionSpaced', '默认 收藏夹');
+  return raw;
+};
+
 function FavoriteCollectionPage() {
+  const { t } = useI18n();
   const { collectionId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -106,18 +116,19 @@ function FavoriteCollectionPage() {
   const collectionTitle = location.state?.title
     || location.state?.name
     || location.state?.collectionName
-    || (collectionId === 'recent' ? '最近浏览' : '收藏夹');
+    || (collectionId === 'recent' ? t('favorites.recent', '最近浏览') : t('favorites.title', '收藏夹'));
+  const displayCollectionTitle = normalizeCollectionTitle(collectionTitle, t);
 
   useEffect(() => {
     let alive = true;
     if (!isLoggedIn) {
       setItems([]);
-      setErrorMessage('请登录后查看收藏');
+      setErrorMessage(t('favorites.loginRequiredFavorites', '请登录后查看收藏'));
       return () => { alive = false; };
     }
     if (!numericCollectionId) {
       setItems([]);
-      setErrorMessage('收藏夹ID无效');
+      setErrorMessage(t('favorites.invalidCollectionId', '收藏夹ID无效'));
       return () => { alive = false; };
     }
 
@@ -134,13 +145,13 @@ function FavoriteCollectionPage() {
         const status = e?.response?.status;
         const msg = e?.response?.data?.error;
         if (status === 401) {
-          setErrorMessage('请登录后查看收藏');
+          setErrorMessage(t('favorites.loginRequiredFavorites', '请登录后查看收藏'));
         } else if (status === 403) {
-          setErrorMessage(msg || '当前身份暂无权限访问该收藏夹');
+          setErrorMessage(msg || t('favorites.noPermissionCollection', '当前身份暂无权限访问该收藏夹'));
         } else if (status === 404) {
-          setErrorMessage(msg || '未找到该收藏夹');
+          setErrorMessage(msg || t('favorites.collectionNotFound', '未找到该收藏夹'));
         } else {
-          setErrorMessage(msg || '加载失败，请稍后再试');
+          setErrorMessage(msg || t('favorites.loadFailed', '加载失败，请稍后再试'));
         }
       })
       .finally(() => {
@@ -149,7 +160,7 @@ function FavoriteCollectionPage() {
       });
 
     return () => { alive = false; };
-  }, [isLoggedIn, preferredRole, numericCollectionId]);
+  }, [isLoggedIn, numericCollectionId, preferredRole, t]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -245,7 +256,7 @@ function FavoriteCollectionPage() {
       setCollectionsLoaded(true);
       return true;
     } catch (e) {
-      const msg = e?.response?.data?.error || '加载收藏夹失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('favorites.loadCollectionsFailed', '加载收藏夹失败，请稍后再试');
       setCollectionsError(msg);
       setCollections([]);
       setCollectionsLoaded(true);
@@ -295,7 +306,7 @@ function FavoriteCollectionPage() {
     }
 
     setBulkWorking(false);
-    if (failed) alert(`有 ${failed} 项取消收藏失败，请稍后重试`);
+    if (failed) alert(t('favorites.moveFailedCount', `有 ${failed} 项取消收藏失败，请稍后重试`, { count: failed }));
   };
 
   const confirmMove = async () => {
@@ -306,7 +317,7 @@ function FavoriteCollectionPage() {
     }
     const targetIdNum = Number(moveTargetId);
     if (!Number.isFinite(targetIdNum) || targetIdNum <= 0) {
-      setCollectionsError('请选择目标收藏夹');
+      setCollectionsError(t('favorites.moveTargetRequired', '请选择目标收藏夹'));
       return;
     }
     if (numericCollectionId && targetIdNum === numericCollectionId) {
@@ -328,7 +339,7 @@ function FavoriteCollectionPage() {
       setMoveModalOpen(false);
       setMoveTargetId('');
     } catch (e) {
-      const msg = e?.response?.data?.error || '移动失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('favorites.moveFailed', '移动失败，请稍后再试');
       setCollectionsError(msg);
     } finally {
       setBulkWorking(false);
@@ -378,7 +389,7 @@ function FavoriteCollectionPage() {
           <button
             type="button"
             className="icon-circle recent-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
           >
@@ -398,7 +409,7 @@ function FavoriteCollectionPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
@@ -409,13 +420,13 @@ function FavoriteCollectionPage() {
             <button
               type="button"
               className="recent-back"
-              aria-label="返回收藏"
+              aria-label={t('favorites.back', '返回收藏')}
               onClick={handleBack}
             >
               <FiChevronLeft size={20} />
             </button>
             <div className="recent-hero-text">
-              <h1>{collectionTitle}</h1>
+              <h1>{displayCollectionTitle}</h1>
             </div>
           </div>
           <button
@@ -423,7 +434,7 @@ function FavoriteCollectionPage() {
             className="recent-edit-link recent-hero-edit"
             onClick={toggleMultiSelect}
           >
-            {multiSelectMode ? '完成' : '多选'}
+            {multiSelectMode ? t('common.done', '完成') : t('common.multiSelect', '多选')}
           </button>
         </section>
 
@@ -444,7 +455,7 @@ function FavoriteCollectionPage() {
         )}
         {loading && (
           <p style={{ margin: '0 0 12px', color: '#64748b' }}>
-            加载中...
+            {t('common.loading', '加载中...')}
           </p>
         )}
 
@@ -452,7 +463,7 @@ function FavoriteCollectionPage() {
           <div className="recent-grid" role="list">
             {!loading && !errorMessage && items.length === 0 && (
               <p style={{ margin: 0, color: '#64748b' }}>
-                暂无收藏
+                {t('favorites.empty', '暂无收藏')}
               </p>
             )}
 
@@ -470,7 +481,7 @@ function FavoriteCollectionPage() {
                   <button
                     type="button"
                     className="favorite-multi-overlay"
-                    aria-label={selected ? '取消选中' : '选中'}
+                    aria-label={selected ? t('common.deselect', '取消选中') : t('common.select', '选中')}
                     aria-pressed={selected}
                     onClick={() => toggleSelected(entryId)}
                   >
@@ -516,10 +527,10 @@ function FavoriteCollectionPage() {
       </div>
 
       {multiSelectMode && (
-        <div className="favorite-bulk-bar" role="region" aria-label="批量操作">
+        <div className="favorite-bulk-bar" role="region" aria-label={t('favorites.bulkActions', '批量操作')}>
           <div className="favorite-bulk-bar-inner">
             <div className="favorite-bulk-count">
-              已选 {selectedCount} 项
+              {t('favorites.selectedCount', `已选 ${selectedCount} 项`, { count: selectedCount })}
             </div>
             <div className="favorite-bulk-actions">
               <Button
@@ -527,14 +538,14 @@ function FavoriteCollectionPage() {
                 onClick={bulkUnfavorite}
                 disabled={selectedCount === 0 || bulkWorking}
               >
-                {bulkWorking ? '处理中...' : '取消收藏'}
+                {bulkWorking ? t('common.processing', '处理中...') : t('favorites.unfavorite', '取消收藏')}
               </Button>
               <Button
                 className="favorite-bulk-btn primary"
                 onClick={openMoveModal}
                 disabled={selectedCount === 0 || bulkWorking}
               >
-                移动到...
+                {t('favorites.moveTo', '移动到...')}
               </Button>
             </div>
           </div>
@@ -563,7 +574,7 @@ function FavoriteCollectionPage() {
             <button
               type="button"
               className="favorite-modal-close"
-              aria-label="关闭"
+              aria-label={t('common.close', '关闭')}
               onClick={() => {
                 if (bulkWorking) return;
                 setMoveModalOpen(false);
@@ -579,14 +590,14 @@ function FavoriteCollectionPage() {
             </button>
 
             <div className="favorite-modal-body">
-              <h3 id="move-title">移动到收藏夹</h3>
+              <h3 id="move-title">{t('favorites.moveTitle', '移动到收藏夹')}</h3>
               {(collectionsLoading || !collectionsLoaded) ? (
-                <p className="favorite-modal-hint">加载中...</p>
+                <p className="favorite-modal-hint">{t('common.loading', '加载中...')}</p>
               ) : (
                 <>
                   {!hasMoveTargets ? (
                     <p className="favorite-modal-hint">
-                      暂无其它收藏夹，请先返回收藏页新建
+                      {t('favorites.noOtherCollections', '暂无其它收藏夹，请先返回收藏页新建')}
                     </p>
                   ) : (
                     <div className="favorite-select" data-open={moveSelectOpen ? 'true' : 'false'}>
@@ -602,7 +613,7 @@ function FavoriteCollectionPage() {
                         }}
                         onKeyDown={handleMoveSelectKeyDown}
                       >
-                        <span className="favorite-select__label">{moveTargetLabel || '请选择'}</span>
+                        <span className="favorite-select__label">{normalizeCollectionTitle(moveTargetLabel, t) || t('favorites.chooseTarget', '请选择')}</span>
                         <span className="favorite-select__caret" aria-hidden="true">
                           <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
                             <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -611,7 +622,7 @@ function FavoriteCollectionPage() {
                       </button>
                       {moveSelectOpen && (
                         <div className="favorite-select__popover">
-                          <ul ref={moveSelectListRef} role="listbox" className="favorite-select__list" aria-label="选择收藏夹">
+                          <ul ref={moveSelectListRef} role="listbox" className="favorite-select__list" aria-label={t('favorites.chooseCollection', '选择收藏夹')}>
                             <li
                               role="option"
                               aria-selected={!moveTargetId}
@@ -622,7 +633,7 @@ function FavoriteCollectionPage() {
                                 setMoveSelectOpen(false);
                               }}
                             >
-                              请选择
+                              {t('favorites.chooseTarget', '请选择')}
                             </li>
                             {moveTargets.map((c) => {
                               const selected = String(c.id) === String(moveTargetId);
@@ -638,7 +649,7 @@ function FavoriteCollectionPage() {
                                     setMoveSelectOpen(false);
                                   }}
                                 >
-                                  {c.name}
+                                  {normalizeCollectionTitle(c.name, t)}
                                 </li>
                               );
                             })}
@@ -666,14 +677,14 @@ function FavoriteCollectionPage() {
                 }}
                 disabled={bulkWorking}
               >
-                取消
+                {t('common.cancel', '取消')}
               </Button>
               <Button
                 className="favorite-bulk-btn primary"
                 onClick={confirmMove}
                 disabled={bulkWorking || collectionsLoading || !collectionsLoaded || !hasMoveTargets}
               >
-                {bulkWorking ? '移动中...' : '移动'}
+                {bulkWorking ? t('favorites.moving', '移动中...') : t('favorites.move', '移动')}
               </Button>
             </div>
           </div>

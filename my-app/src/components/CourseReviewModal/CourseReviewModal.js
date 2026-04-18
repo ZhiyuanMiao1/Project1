@@ -2,14 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiAward, FiBookOpen, FiClipboard, FiClock, FiMessageCircle, FiX } from 'react-icons/fi';
 import Button from '../common/Button/Button';
+import { useI18n } from '../../i18n/language';
 import './CourseReviewModal.css';
 
 const REVIEW_CATEGORY_SPECS = [
-  { key: 'clarity', label: '讲解清晰', Icon: FiBookOpen },
-  { key: 'communication', label: '沟通顺畅', Icon: FiMessageCircle },
-  { key: 'preparation', label: '备课充分', Icon: FiClipboard },
-  { key: 'expertise', label: '知识专业', Icon: FiAward },
-  { key: 'punctuality', label: '上课守时', Icon: FiClock },
+  { key: 'clarity', fallback: '讲解清晰', Icon: FiBookOpen },
+  { key: 'communication', fallback: '沟通顺畅', Icon: FiMessageCircle },
+  { key: 'preparation', fallback: '备课充分', Icon: FiClipboard },
+  { key: 'expertise', fallback: '知识专业', Icon: FiAward },
+  { key: 'punctuality', fallback: '上课守时', Icon: FiClock },
 ];
 
 const createInitialScores = () =>
@@ -37,6 +38,7 @@ function CourseReviewModal({
   isSubmitting = false,
   submitError = '',
 }) {
+  const { t } = useI18n();
   const [scores, setScores] = useState(() => normalizeInitialScores(course?.reviewScores));
   const [hoveredScores, setHoveredScores] = useState(() => createInitialScores());
   const [comment, setComment] = useState(() => (typeof course?.reviewComment === 'string' ? course.reviewComment : ''));
@@ -94,14 +96,14 @@ function CourseReviewModal({
       className="course-review-modal__overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="评价导师"
+      aria-label={t('courseReview.aria', '评价导师')}
       onMouseDown={handleBlankAreaMouseDown}
     >
       <div className="course-review-modal__card">
         <button
           type="button"
           className="course-review-modal__close"
-          aria-label="关闭评价弹窗"
+          aria-label={t('courseReview.close', '关闭评价弹窗')}
           onClick={onClose}
           disabled={isSubmitting}
         >
@@ -109,11 +111,12 @@ function CourseReviewModal({
         </button>
 
         <div className="course-review-modal__head">
-          <h2 className="course-review-modal__title">{course?.mentorName || '导师'}</h2>
+          <h2 className="course-review-modal__title">{course?.mentorName || t('lessonHours.mentor', '导师')}</h2>
         </div>
 
         <div className="course-review-modal__list">
-          {REVIEW_CATEGORY_SPECS.map(({ key, label, Icon }) => {
+          {REVIEW_CATEGORY_SPECS.map(({ key, fallback, Icon }) => {
+            const label = t(`courseReview.category.${key}`, fallback);
             const value = Number(scores[key]) || 0;
             const hoverValue = Number(hoveredScores[key]) || 0;
             const displayValue = hoverValue || value;
@@ -130,7 +133,7 @@ function CourseReviewModal({
                 <div
                   className="course-review-modal__stars"
                   role="radiogroup"
-                  aria-label={`${label}评分`}
+                  aria-label={t('courseReview.scoreGroupAria', `${label}评分`, { label })}
                   onMouseLeave={() => handleScoreHoverLeave(key)}
                 >
                   {Array.from({ length: 5 }).map((_, index) => {
@@ -142,7 +145,7 @@ function CourseReviewModal({
                         className={`course-review-modal__star-btn${score <= displayValue ? ' is-active' : ''}${
                           hoverValue && score <= hoverValue ? ' is-hover-preview' : ''
                         }`}
-                        aria-label={`${label}${score}分`}
+                        aria-label={t('courseReview.scoreAria', `${label}${score}分`, { label, score })}
                         aria-pressed={score === value}
                         onMouseEnter={() => handleScoreHover(key, score)}
                         onFocus={() => handleScoreHover(key, score)}
@@ -159,7 +162,7 @@ function CourseReviewModal({
                 <span
                   className={`course-review-modal__item-score${value ? ' course-review-modal__item-score--filled' : ''}`}
                 >
-                  {value ? `${value}.0` : '未评分'}
+                  {value ? `${value}.0` : t('courseReview.unrated', '未评分')}
                 </span>
               </div>
             );
@@ -168,7 +171,7 @@ function CourseReviewModal({
 
         <div className="course-review-modal__comment">
           <label className="course-review-modal__comment-label" htmlFor="course-review-comment">
-            文字评价（可选）
+            {t('courseReview.commentLabel', '文字评价（可选）')}
           </label>
           <textarea
             id="course-review-comment"
@@ -176,7 +179,7 @@ function CourseReviewModal({
             className="course-review-modal__comment-input"
             value={comment}
             onChange={(event) => setComment(event.target.value)}
-            placeholder="可以写下这节课的体验、收获或建议，为其他学生提供参考"
+            placeholder={t('courseReview.commentPlaceholder', '可以写下这节课的体验、收获或建议，为其他学生提供参考')}
             rows={5}
             maxLength={1000}
             disabled={isSubmitting}
@@ -191,14 +194,18 @@ function CourseReviewModal({
             onClick={onClose}
             disabled={isSubmitting}
           >
-            取消
+            {t('common.cancel', '取消')}
           </Button>
           <Button
             className="course-review-modal__action"
             disabled={!isReviewComplete || isSubmitting}
             onClick={handleSubmit}
           >
-            {isSubmitting ? '提交中...' : hasExistingReview ? '更新评价' : '提交评价'}
+            {isSubmitting
+              ? t('courseReview.submitting', '提交中...')
+              : hasExistingReview
+                ? t('courseReview.update', '更新评价')
+                : t('courseReview.submit', '提交评价')}
           </Button>
         </div>
       </div>

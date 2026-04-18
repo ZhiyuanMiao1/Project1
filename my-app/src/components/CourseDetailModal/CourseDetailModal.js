@@ -3,6 +3,7 @@ import { FaRegStar, FaStar } from 'react-icons/fa';
 import { FiX } from 'react-icons/fi';
 import './CourseDetailModal.css';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 
 function CourseDetailModal({
   participantName,
@@ -17,10 +18,16 @@ function CourseDetailModal({
   onClose,
   actions,
 }) {
-  const avatarSeed = title || participantName || 'course-detail';
+  const { t } = useI18n();
+  const displayParticipantName = (() => {
+    if (participantName === '导师') return t('lessonHours.mentor', '导师');
+    if (participantName === '学生') return t('lessonHours.student', '学生');
+    return participantName || t('lessonHours.mentor', '导师');
+  })();
+  const avatarSeed = title || displayParticipantName || 'course-detail';
   const avatarSrc = resolveAvatarSrc({
     src: avatarUrl,
-    name: participantName,
+    name: displayParticipantName,
     seed: avatarSeed,
     size: 240,
   });
@@ -45,12 +52,17 @@ function CourseDetailModal({
   };
 
   return (
-    <div className="course-detail-modal__overlay" role="dialog" aria-modal="true">
+    <div
+      className="course-detail-modal__overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('courseDetail.aria', '课程详情')}
+    >
       <div className="course-detail-modal__card">
         <button
           type="button"
           className="course-detail-modal__close"
-          aria-label="关闭课程详情"
+          aria-label={t('courseDetail.close', '关闭课程详情')}
           onClick={onClose}
         >
           <FiX size={20} />
@@ -63,14 +75,14 @@ function CourseDetailModal({
               src={avatarSrc}
               alt=""
               onError={(event) => applyAvatarFallback(event, {
-                name: participantName,
+                name: displayParticipantName,
                 seed: avatarSeed,
                 size: 240,
               })}
             />
           </div>
           <div className="course-detail-modal__mentor-info">
-            <span className="course-detail-modal__mentor-name">{participantName}</span>
+            <span className="course-detail-modal__mentor-name">{displayParticipantName}</span>
           </div>
           {ratingValue != null && (
             <div className="course-detail-modal__rating">
@@ -88,7 +100,7 @@ function CourseDetailModal({
 
           <div className="course-detail-modal__meta-grid">
             <div className="course-detail-modal__meta-chip">
-              <span className="course-detail-modal__chip-label">课程类型</span>
+              <span className="course-detail-modal__chip-label">{t('courseDetail.courseType', '课程类型')}</span>
               <div className="course-detail-modal__chip-value">
                 <TypeIcon size={14} />
                 <span>{typeLabel}</span>
@@ -96,12 +108,12 @@ function CourseDetailModal({
             </div>
 
             <div className="course-detail-modal__meta-chip">
-              <span className="course-detail-modal__chip-label">日期</span>
+              <span className="course-detail-modal__chip-label">{t('courseDetail.date', '日期')}</span>
               <div className="course-detail-modal__chip-value">{dateLabel}</div>
             </div>
 
             <div className="course-detail-modal__meta-chip">
-              <span className="course-detail-modal__chip-label">时长</span>
+              <span className="course-detail-modal__chip-label">{t('courseDetail.duration', '时长')}</span>
               <div className="course-detail-modal__chip-value">{durationLabel}</div>
             </div>
           </div>

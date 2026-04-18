@@ -11,6 +11,7 @@ import { fetchFavoriteItems } from '../../api/favorites';
 import { deleteRecentVisit, fetchRecentVisits } from '../../api/recentVisits';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
+import { useI18n } from '../../i18n/language';
 import './RecentVisitsPage.css';
 
 const PAGE_SIZE = 10;
@@ -60,9 +61,9 @@ const getDateKey = (value) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-const formatSectionLabel = (value) => {
+const formatSectionLabel = (value, { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
   const date = new Date(value || '');
-  if (Number.isNaN(date.getTime())) return TEXT.older;
+  if (Number.isNaN(date.getTime())) return t('recent.older', TEXT.older);
 
   const now = new Date();
   const todayKey = getDateKey(now);
@@ -71,9 +72,9 @@ const formatSectionLabel = (value) => {
   const yesterdayKey = getDateKey(yesterday);
   const targetKey = getDateKey(date);
 
-  if (targetKey === todayKey) return TEXT.today;
-  if (targetKey === yesterdayKey) return TEXT.yesterday;
-  return date.toLocaleDateString('zh-CN', {
+  if (targetKey === todayKey) return t('favorites.today', TEXT.today);
+  if (targetKey === yesterdayKey) return t('favorites.yesterday', TEXT.yesterday);
+  return date.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -122,6 +123,7 @@ const mergeItems = (prev, next) => {
 };
 
 function RecentVisitsPage() {
+  const { language, t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
@@ -143,7 +145,9 @@ function RecentVisitsPage() {
   const favoriteItemType = preferredRole === 'mentor' ? 'student_request' : 'tutor';
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const heroCopy = preferredRole === 'mentor' ? TEXT.mentorHero : TEXT.studentHero;
-  const emptyCopy = preferredRole === 'mentor' ? TEXT.mentorEmpty : TEXT.studentEmpty;
+  const emptyCopy = preferredRole === 'mentor'
+    ? t('recent.mentorEmpty', TEXT.mentorEmpty)
+    : t('recent.studentEmpty', TEXT.studentEmpty);
 
   useEffect(() => {
     if (!preferredRole) return;
@@ -168,7 +172,7 @@ function RecentVisitsPage() {
     if (!isLoggedIn) {
       setItems([]);
       setFavoriteIds(new Set());
-      setErrorMessage(TEXT.loginRequired);
+      setErrorMessage(t('recent.loginRequired', TEXT.loginRequired));
       setLoading(false);
       setLoadingMore(false);
       setHasMore(false);
@@ -200,11 +204,11 @@ function RecentVisitsPage() {
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
       if (status === 401) {
-        setErrorMessage(TEXT.loginRequired);
+        setErrorMessage(t('recent.loginRequired', TEXT.loginRequired));
       } else if (status === 403) {
-        setErrorMessage(msg || TEXT.noPermission);
+        setErrorMessage(msg || t('recent.noPermission', TEXT.noPermission));
       } else {
-        setErrorMessage(msg || TEXT.loadFailed);
+        setErrorMessage(msg || t('recent.loadFailed', TEXT.loadFailed));
       }
       if (reset) {
         setItems([]);
@@ -215,7 +219,7 @@ function RecentVisitsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [isLoggedIn, preferredRole]);
+  }, [isLoggedIn, preferredRole, t]);
 
   useEffect(() => {
     setEditMode(false);
@@ -271,7 +275,7 @@ function RecentVisitsPage() {
       if (!indexMap.has(key)) {
         const section = {
           id: key,
-          dateLabel: formatSectionLabel(visitedAt),
+          dateLabel: formatSectionLabel(visitedAt, { language, t }),
           visits: [],
         };
         indexMap.set(key, section);
@@ -281,7 +285,7 @@ function RecentVisitsPage() {
     });
 
     return groups;
-  }, [items]);
+  }, [items, language, t]);
 
   const handleBack = () => {
     if (window.history.length > 1) {
@@ -321,7 +325,7 @@ function RecentVisitsPage() {
       await deleteRecentVisit(id);
       setItems((prev) => prev.filter((item) => item.id !== id));
     } catch (e) {
-      const msg = e?.response?.data?.error || TEXT.deleteFailed;
+      const msg = e?.response?.data?.error || t('recent.deleteFailed', TEXT.deleteFailed);
       alert(msg);
     } finally {
       setDeletingIds((prev) => {
@@ -340,7 +344,7 @@ function RecentVisitsPage() {
           <button
             type="button"
             className="icon-circle recent-menu unread-badge-anchor"
-            aria-label={TEXT.moreMenu}
+            aria-label={t('common.menuMore', TEXT.moreMenu)}
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
           >
@@ -354,7 +358,7 @@ function RecentVisitsPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
@@ -362,11 +366,11 @@ function RecentVisitsPage() {
 
         <section className="recent-hero">
           <div className="recent-hero-left">
-            <button type="button" className="recent-back" aria-label={TEXT.backToFavorites} onClick={handleBack}>
+            <button type="button" className="recent-back" aria-label={t('favorites.back', TEXT.backToFavorites)} onClick={handleBack}>
               <FiChevronLeft size={20} />
             </button>
             <div className="recent-hero-text">
-              <h1>{TEXT.heroTitle}</h1>
+              <h1>{t('recent.title', TEXT.heroTitle)}</h1>
               <p className="recent-hero-sub">{heroCopy}</p>
             </div>
           </div>
@@ -375,7 +379,7 @@ function RecentVisitsPage() {
             className="recent-edit-link recent-hero-edit"
             onClick={() => setEditMode((value) => !value)}
           >
-            {editMode ? TEXT.done : TEXT.edit}
+            {editMode ? t('common.done', TEXT.done) : t('recent.edit', TEXT.edit)}
           </button>
         </section>
 
@@ -410,7 +414,7 @@ function RecentVisitsPage() {
                         <button
                           type="button"
                           className="recent-edit-remove"
-                          aria-label={TEXT.removeRecord}
+                          aria-label={t('recent.removeRecord', TEXT.removeRecord)}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleDelete(visit.id);
@@ -463,7 +467,7 @@ function RecentVisitsPage() {
 
         {(loading || loadingMore) && !errorMessage ? (
           <div className="recent-loading-more" aria-live="polite">
-            {TEXT.loading}
+            {t('common.loading', TEXT.loading)}
           </div>
         ) : null}
 

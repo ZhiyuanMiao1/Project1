@@ -21,6 +21,7 @@ export const normalizeScheduleStatus = (value) => {
 };
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const weekdayEnLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const parseTimezoneOffsetMinutes = (raw) => {
   const text = String(raw || '')
@@ -136,7 +137,7 @@ const formatTimeLabel = (hour, minute) => {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 };
 
-export const formatScheduleWindowForTimeZone = (windowText, referenceTime, timeZone) => {
+export const formatScheduleWindowForTimeZone = (windowText, referenceTime, timeZone, language = 'zh-CN') => {
   const targetTimeZone = typeof timeZone === 'string' ? timeZone.trim() : '';
   if (!targetTimeZone) return typeof windowText === 'string' ? windowText : '';
 
@@ -148,9 +149,12 @@ export const formatScheduleWindowForTimeZone = (windowText, referenceTime, timeZ
   const startParts = getZonedParts(targetTimeZone, startDate);
   const endParts = getZonedParts(targetTimeZone, endDate);
   const zonedDate = new Date(startParts.year, startParts.month - 1, startParts.day);
-  const weekdayLabel = weekdayLabels[zonedDate.getDay()] || '';
+  const weekdayLabel = language === 'en' ? (weekdayEnLabels[zonedDate.getDay()] || '') : (weekdayLabels[zonedDate.getDay()] || '');
   const gmtLabel = buildGmtLabel(targetTimeZone, startDate);
 
+  if (language === 'en') {
+    return `${startParts.month}/${startParts.day} ${weekdayLabel} ${formatTimeLabel(startParts.hour, startParts.minute)}-${formatTimeLabel(endParts.hour, endParts.minute)} (${gmtLabel})`;
+  }
   return `${startParts.month}月${startParts.day}日 ${weekdayLabel} ${formatTimeLabel(startParts.hour, startParts.minute)}-${formatTimeLabel(endParts.hour, endParts.minute)} (${gmtLabel})`;
 };
 

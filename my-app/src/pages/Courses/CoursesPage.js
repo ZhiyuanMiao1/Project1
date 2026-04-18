@@ -19,6 +19,7 @@ import {
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import { getAuthToken } from '../../utils/authStorage';
+import { useI18n } from '../../i18n/language';
 import { getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
 import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
 import './CoursesPage.css';
@@ -157,6 +158,8 @@ const normalizeStudentCourse = (row) => {
   return {
     id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
     roleInCourse: 'student',
+    directionId,
+    courseTypeId,
     title,
     type,
     date,
@@ -208,6 +211,8 @@ const normalizeMentorCourse = (row) => {
   return {
     id: safeText(row?.id) || `${date || 'unknown'}-${directionId || title}`,
     roleInCourse: 'mentor',
+    directionId,
+    courseTypeId,
     title,
     type,
     date,
@@ -295,21 +300,22 @@ const isCompletedCourse = (course) => {
   return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
 };
 
-const getReviewSuccessCopy = (message) => {
+const getReviewSuccessCopy = (message, t = (_key, fallback) => fallback) => {
   if (message === 'review_updated') {
     return {
-      title: '评价已更新',
-      description: '你的评价已更新，新的评分结果已经覆盖之前的记录',
+      title: t('courses.reviewUpdatedTitle', '评价已更新'),
+      description: t('courses.reviewUpdatedDesc', '你的评价已更新，新的评分结果已经覆盖之前的记录'),
     };
   }
 
   return {
-    title: '感谢反馈',
-    description: '你的评价已成功提交，我们会认真参考你的反馈持续优化导师服务',
+    title: t('courses.reviewSubmittedTitle', '感谢反馈'),
+    description: t('courses.reviewSubmittedDesc', '你的评价已成功提交，我们会认真参考你的反馈持续优化导师服务'),
   };
 };
 
 function CoursesPage() {
+  const { t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const navigate = useNavigate();
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -323,7 +329,7 @@ function CoursesPage() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitError, setReviewSubmitError] = useState('');
   const [showReviewThanks, setShowReviewThanks] = useState(false);
-  const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted'));
+  const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted', t));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const [timeZoneLoading, setTimeZoneLoading] = useState(() => !!getAuthToken());
   const [lessonHoursCourse, setLessonHoursCourse] = useState(null);
@@ -441,7 +447,7 @@ function CoursesPage() {
       setLessonHoursValue('1');
       setLessonHoursSubmitting(false);
       setLessonHoursError('');
-      setErrorMessage('请登录后查看课程');
+      setErrorMessage(t('courses.loginRequired', '请登录后查看课程'));
       return () => {
         alive = false;
       };
@@ -467,7 +473,7 @@ function CoursesPage() {
           nextGroups.push(normalizedStudentRows);
           markCoursesAsSeen({ view: 'student', courses: normalizedStudentRows });
         } else {
-          errors.push(studentResult.reason?.response?.data?.error || studentResult.reason?.message || '学生课程加载失败');
+          errors.push(studentResult.reason?.response?.data?.error || studentResult.reason?.message || t('courses.studentLoadFailed', '学生课程加载失败'));
         }
 
         if (mentorResult.status === 'fulfilled') {
@@ -476,22 +482,22 @@ function CoursesPage() {
           nextGroups.push(normalizedMentorRows);
           markCoursesAsSeen({ view: 'mentor', courses: normalizedMentorRows });
         } else {
-          errors.push(mentorResult.reason?.response?.data?.error || mentorResult.reason?.message || '导师课程加载失败');
+          errors.push(mentorResult.reason?.response?.data?.error || mentorResult.reason?.message || t('courses.mentorLoadFailed', '导师课程加载失败'));
         }
 
         if (!nextGroups.length) {
           setCourses([]);
           setLoadFailed(true);
-          setErrorMessage(String(errors[0] || '加载课程失败，请稍后重试'));
+          setErrorMessage(String(errors[0] || t('courses.loadFailed', '加载课程失败，请稍后重试')));
           return;
         }
 
         setCourses(mergeCoursesById(...nextGroups));
-        setErrorMessage(errors.length ? '部分课程加载失败，当前仅显示已成功加载的课程' : '');
+        setErrorMessage(errors.length ? t('courses.partialLoadFailed', '部分课程加载失败，当前仅显示已成功加载的课程') : '');
       })
       .catch((err) => {
         if (!alive) return;
-        const msg = err?.response?.data?.error || err?.message || '加载课程失败，请稍后重试';
+        const msg = err?.response?.data?.error || err?.message || t('courses.loadFailed', '加载课程失败，请稍后重试');
         setCourses([]);
         setLoadFailed(true);
         setErrorMessage(String(msg));
@@ -504,7 +510,7 @@ function CoursesPage() {
     return () => {
       alive = false;
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, t]);
 
   const timelineData = useMemo(() => {
     const sorted = [...courses].sort((a, b) => toDateTimestamp(b) - toDateTimestamp(a));
@@ -635,7 +641,7 @@ function CoursesPage() {
   const handleOpenReplay = (course) => {
     const replayUrl = safeText(course?.replayUrl);
     if (!replayUrl) {
-      window.alert('回放功能即将上线');
+      window.alert(t('courses.replaySoon', '回放功能即将上线'));
       return;
     }
     window.open(replayUrl, '_blank', 'noopener,noreferrer');
@@ -686,7 +692,7 @@ function CoursesPage() {
       const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/review`, reviewForm);
       const payload = response?.data || {};
       syncReviewedCourseState(courseId, payload);
-      setReviewSuccessCopy(getReviewSuccessCopy(payload?.message));
+      setReviewSuccessCopy(getReviewSuccessCopy(payload?.message, t));
       setReviewCourse(null);
       setShowReviewThanks(true);
     } catch (err) {
@@ -694,15 +700,15 @@ function CoursesPage() {
       const errorCode = safeText(payload?.error);
 
       const messageMap = {
-        invalid_course_id: '课程信息无效，请刷新后重试',
-        invalid_review_scores: '请为每个评价维度选择 1 到 5 分',
-        invalid_review_comment: '文字评价最多可填写 1000 个字符',
-        course_not_found: '未找到这节课程，暂时无法评价',
-        course_not_completed: '课程尚未结束，暂时还不能评价',
-        submit_review_failed: '提交评价失败，请稍后再试',
+        invalid_course_id: t('courses.invalidCourseId', '课程信息无效，请刷新后重试'),
+        invalid_review_scores: t('courses.invalidReviewScores', '请为每个评价维度选择 1 到 5 分'),
+        invalid_review_comment: t('courses.invalidReviewComment', '文字评价最多可填写 1000 个字符'),
+        course_not_found: t('courses.courseNotFound', '未找到这节课程，暂时无法评价'),
+        course_not_completed: t('courses.courseNotCompleted', '课程尚未结束，暂时还不能评价'),
+        submit_review_failed: t('courses.submitReviewFailed', '提交评价失败，请稍后再试'),
       };
 
-      setReviewSubmitError(messageMap[errorCode] || err?.message || '提交评价失败，请稍后再试');
+      setReviewSubmitError(messageMap[errorCode] || err?.message || t('courses.submitReviewFailed', '提交评价失败，请稍后再试'));
     } finally {
       setReviewSubmitting(false);
     }
@@ -712,7 +718,7 @@ function CoursesPage() {
     const courseId = safeText(lessonHoursCourse?.id);
     const proposedHours = normalizeQuarterHourValue(lessonHoursValue);
     if (!courseId || proposedHours == null) {
-      setLessonHoursError('请输入 0.25 小时颗粒度的有效课时');
+      setLessonHoursError(t('courses.lessonHoursInvalid', '请输入 0.25 小时颗粒度的有效课时'));
       return;
     }
 
@@ -727,7 +733,7 @@ function CoursesPage() {
       syncLessonHoursCourseState(courseId, payload);
       setLessonHoursCourse(null);
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '提交课时失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || t('courses.submitLessonHoursFailed', '提交课时失败，请稍后再试');
       setLessonHoursError(String(msg));
     } finally {
       setLessonHoursSubmitting(false);
@@ -738,7 +744,7 @@ function CoursesPage() {
     if (loading || timeZoneLoading) {
       return (
         <div className="courses-guard">
-          <p className="courses-guard-hint">加载中...</p>
+          <p className="courses-guard-hint">{t('courses.loading', '加载中...')}</p>
         </div>
       );
     }
@@ -746,8 +752,8 @@ function CoursesPage() {
     if (loadFailed) {
       return (
         <div className="courses-guard">
-          <p className="courses-guard-title">加载失败</p>
-          <p className="courses-guard-subtitle">{errorMessage || '请稍后重试'}</p>
+          <p className="courses-guard-title">{t('courses.loadFailedTitle', '加载失败')}</p>
+          <p className="courses-guard-subtitle">{errorMessage || t('courses.tryAgain', '请稍后重试')}</p>
         </div>
       );
     }
@@ -755,8 +761,8 @@ function CoursesPage() {
     if (!timelineData.length) {
       return (
         <div className="courses-guard courses-guard--empty-state">
-          <p className="courses-guard-title">暂无课程</p>
-          <p className="courses-guard-subtitle">创建或接受课程后，课程会显示在这里</p>
+          <p className="courses-guard-title">{t('courses.emptyTitle', '暂无课程')}</p>
+          <p className="courses-guard-subtitle">{t('courses.emptySubtitle', '创建或接受课程后，课程会显示在这里')}</p>
         </div>
       );
     }
@@ -773,12 +779,14 @@ function CoursesPage() {
               {yearBlock.months.map((monthBlock, idx) => (
                 <div className="month-row" key={`${yearBlock.year}-${monthBlock.month}`}>
                   <div className={`month-marker ${idx === yearBlock.months.length - 1 ? 'is-last' : ''}`}>
-                    <span className="month-label">{monthBlock.month}月</span>
+                    <span className="month-label">{t('courses.month', `${monthBlock.month}月`, { month: monthBlock.month })}</span>
                   </div>
                   <div className="month-cards" role="list">
                     {monthBlock.courses.map((course) => {
                       const normalizedTitle = normalizeCourseLabel(course.title) || course.title;
                       const typeLabel = safeText(course.type) || '其他课程类型';
+                      const displayTitle = getCourseDirectionDisplayLabel(course.directionId || normalizedTitle, normalizedTitle);
+                      const displayType = getCourseTypeLabel(course.courseTypeId || typeLabel, typeLabel);
                       const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
                       const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
                       const isPast = isCompletedCourse(course);
@@ -791,7 +799,7 @@ function CoursesPage() {
                           tabIndex={0}
                           onClick={() => handleCourseOpen(course)}
                           onKeyDown={(event) => handleCardKeyDown(event, course)}
-                          aria-label={`${normalizedTitle} ${typeLabel}`}
+                          aria-label={`${displayTitle} ${displayType}`}
                         >
                           <div className="course-head">
                             <div className="course-title-wrap">
@@ -801,7 +809,7 @@ function CoursesPage() {
                               <span className="course-title-icon">
                                 <TitleIcon size={20} />
                               </span>
-                              <span className="course-title">{normalizedTitle}</span>
+                              <span className="course-title">{displayTitle}</span>
                             </div>
                           </div>
                           <div className="course-type-row">
@@ -809,7 +817,7 @@ function CoursesPage() {
                               <span className="course-pill-icon">
                                 <TypeIcon size={14} />
                               </span>
-                              <span>{typeLabel}</span>
+                              <span>{displayType}</span>
                             </span>
                           </div>
                           <div className="course-meta">
@@ -838,7 +846,7 @@ function CoursesPage() {
           <button
             type="button"
             className="icon-circle courses-menu nav-menu-trigger"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleStudentAuthModal}
           >
@@ -848,13 +856,13 @@ function CoursesPage() {
               <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
             {isLoggedIn ? (
-              <UnreadBadge count={totalBadgeCount} variant="nav" className="nav-unread-badge" ariaLabel="待处理提醒" />
+              <UnreadBadge count={totalBadgeCount} variant="nav" className="nav-unread-badge" ariaLabel={t('common.pendingReminders', '待处理提醒')} />
             ) : null}
           </button>
         </header>
 
         <section className="courses-hero">
-          <h1>课程</h1>
+          <h1>{t('courses.title', '课程')}</h1>
         </section>
 
         {errorMessage && !loadFailed ? <div className="courses-alert">{errorMessage}</div> : null}
@@ -879,6 +887,8 @@ function CoursesPage() {
       {activeCourse ? (() => {
         const normalizedTitle = normalizeCourseLabel(activeCourse.title) || activeCourse.title;
         const typeLabel = safeText(activeCourse.type) || '其他课程类型';
+        const displayTitle = getCourseDirectionDisplayLabel(activeCourse.directionId || normalizedTitle, normalizedTitle);
+        const displayType = getCourseTypeLabel(activeCourse.courseTypeId || typeLabel, typeLabel);
         const TitleIcon = DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH;
         const TypeIcon = COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH;
         const ratingValue = activeCourse.roleInCourse === 'student'
@@ -900,12 +910,12 @@ function CoursesPage() {
           safeText(activeCourse?.latestLessonHoursStatus).toLowerCase()
         );
         const classroomButtonLabel = (() => {
-          if (!isUpcomingScheduledCourse) return '进入课堂';
-          if (!requiresLessonHourCheck) return '进入课堂';
-          if (walletSummaryStatus === 'loading' || walletSummaryStatus === 'idle') return '检查课时中...';
-          if (walletSummaryStatus === 'error') return '课时信息加载失败';
-          if (shouldRedirectToWallet) return '前往充值';
-          return '进入课堂';
+          if (!isUpcomingScheduledCourse) return t('courses.enterClassroom', '进入课堂');
+          if (!requiresLessonHourCheck) return t('courses.enterClassroom', '进入课堂');
+          if (walletSummaryStatus === 'loading' || walletSummaryStatus === 'idle') return t('courses.checkingHours', '检查课时中...');
+          if (walletSummaryStatus === 'error') return t('courses.hoursLoadFailed', '课时信息加载失败');
+          if (shouldRedirectToWallet) return t('courses.goTopUp', '前往充值');
+          return t('courses.enterClassroom', '进入课堂');
         })();
         const classroomButtonDisabled = !canEnterClassroom && !shouldRedirectToWallet;
 
@@ -914,9 +924,9 @@ function CoursesPage() {
             participantName={activeCourse.counterpartName || activeCourse.mentorName}
             avatarUrl={activeCourse.counterpartAvatar || activeCourse.mentorAvatar}
             ratingValue={ratingValue}
-            title={normalizedTitle}
+            title={displayTitle}
             TitleIcon={TitleIcon}
-            typeLabel={typeLabel}
+            typeLabel={displayType}
             TypeIcon={TypeIcon}
             dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
@@ -928,14 +938,14 @@ function CoursesPage() {
                     className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
                     onClick={() => handleOpenReplay(activeCourse)}
                   >
-                    查看回放
+                    {t('courses.viewReplay', '查看回放')}
                   </Button>
                   <Button
                     className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
                     onClick={() => handleOpenReview(activeCourse)}
                     disabled={reviewSubmitting}
                   >
-                    {isReviewed ? '我的评价' : '评价导师'}
+                    {isReviewed ? t('courses.myReview', '我的评价') : t('courses.reviewMentor', '评价导师')}
                   </Button>
                 </div>
               ) : (
@@ -944,15 +954,15 @@ function CoursesPage() {
                     className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
                     onClick={() => handleOpenReplay(activeCourse)}
                   >
-                    查看回放
+                    {t('courses.viewReplay', '查看回放')}
                   </Button>
                   <Button
                     className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
                     onClick={() => handleOpenLessonHoursDialog(activeCourse)}
                     disabled={lessonHoursSubmitting || lessonHoursLocked}
-                    title={lessonHoursLocked ? '学生已确认课时，当前不可修改' : ''}
+                    title={lessonHoursLocked ? t('courses.lessonHoursLocked', '学生已确认课时，当前不可修改') : ''}
                   >
-                    填写课时
+                    {t('courses.fillLessonHours', '填写课时')}
                   </Button>
                 </div>
               )
@@ -981,7 +991,7 @@ function CoursesPage() {
 
       <LessonHoursDialog
         open={Boolean(lessonHoursCourse)}
-        title="提交本节课实际课时"
+        title={t('courses.submitLessonHoursTitle', '提交本节课实际课时')}
         value={lessonHoursValue}
         onValueChange={setLessonHoursValue}
         error={lessonHoursError}

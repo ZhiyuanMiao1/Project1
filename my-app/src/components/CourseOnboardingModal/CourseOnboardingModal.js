@@ -11,10 +11,11 @@ import {
 } from '../../constants/courseMappings';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
+import { useI18n } from '../../i18n/language';
 import './CourseOnboardingModal.css';
 
 function CourseOnboardingModal({
-  title = '完善课程资料',
+  title = '',
   showConfirmButton = true,
   includeSubmitted = true,
   mentorId,
@@ -24,6 +25,7 @@ function CourseOnboardingModal({
   onCreateCourse,
   onClose,
 }) {
+  const { language, t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const navigate = useNavigate();
   const closeButtonRef = useRef(null);
   const [draftCards, setDraftCards] = useState([]);
@@ -87,12 +89,12 @@ function CourseOnboardingModal({
   }, [onClose]);
 
   const createdDateLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const fmt = new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
     return fmt.format(new Date());
-  }, []);
+  }, [language]);
 
   const courseCards = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    const fmt = new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
     const statusRank = { draft: 0, submitted: 1 };
 
     if (!Array.isArray(draftCards) || draftCards.length === 0) return [];
@@ -119,6 +121,7 @@ function CourseOnboardingModal({
       const rawDirection = String(draft?.courseDirection || '').trim();
       const courseDirectionId = rawDirection;
       const label = normalizeCourseLabel(rawDirection) || rawDirection || '其它课程方向';
+      const displayLabel = getCourseDirectionDisplayLabel(courseDirectionId || label, label || t('courseOnboarding.otherDirection', '其它课程方向'));
 
       const rawType = String(draft?.courseType || '').trim();
       const courseTypeId = rawType;
@@ -134,6 +137,9 @@ function CourseOnboardingModal({
           .filter(Boolean)
       ));
       const type = normalizedTypeLabels.length ? normalizedTypeLabels.join('、') : '未知类型';
+      const displayType = normalizedTypeLabels.length
+        ? normalizedTypeLabels.map((typeLabel) => getCourseTypeLabel(typeLabel, typeLabel)).join(language === 'en' ? ', ' : '、')
+        : t('courseOnboarding.unknownType', '未知类型');
       const typeIconKey = normalizedTypeLabels[0] || '未知类型';
 
       const dt = draft?.createdAt || draft?.updatedAt || Date.now();
@@ -149,14 +155,16 @@ function CourseOnboardingModal({
         requestId: draft?.id,
         status,
         label,
+        displayLabel,
         type,
+        displayType,
         typeIconKey,
         createdLabel,
         courseDirectionId,
         courseTypeId,
       };
     });
-  }, [createdDateLabel, draftCards, includeSubmitted]);
+  }, [createdDateLabel, draftCards, getCourseDirectionDisplayLabel, getCourseTypeLabel, includeSubmitted, language, t]);
 
   const courseButtonRefs = useRef([]);
   const [selectedCourseIndex, setSelectedCourseIndex] = useState(null);
@@ -178,6 +186,7 @@ function CourseOnboardingModal({
   }, [courseCards.length]);
 
   const selectedCourse = typeof selectedCourseIndex === 'number' ? (courseCards[selectedCourseIndex] || null) : null;
+  const displayTitle = title || t('courseOnboarding.title', '完善课程资料');
 
   const deleteDraft = async (requestId) => {
     const id = Number(requestId);
@@ -203,7 +212,7 @@ function CourseOnboardingModal({
         return prev;
       });
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '删除失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || t('courseOnboarding.deleteFailed', '删除失败，请稍后再试');
       alert(msg);
     } finally {
       setDeletingIds((prev) => {
@@ -241,7 +250,7 @@ function CourseOnboardingModal({
       className="course-onboarding-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label={displayTitle}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}
@@ -251,26 +260,26 @@ function CourseOnboardingModal({
           type="button"
           className="course-onboarding-close"
           onClick={() => onClose?.()}
-          aria-label="关闭"
+          aria-label={t('courseOnboarding.close', '关闭')}
           ref={closeButtonRef}
         >
           <FiX aria-hidden="true" />
         </button>
 
         <div className="course-onboarding-header">
-          <h2 className="course-onboarding-title">{title}</h2>
+          <h2 className="course-onboarding-title">{displayTitle}</h2>
         </div>
 
         <div className="course-onboarding-body">
           <div className="course-onboarding-content">
-            <div className="course-onboarding-card-stack" role="radiogroup" aria-label="选择课程">
+            <div className="course-onboarding-card-stack" role="radiogroup" aria-label={t('courseOnboarding.chooseCourse', '选择课程')}>
               {draftLoading ? (
                 <div className="course-onboarding-empty" role="status" aria-live="polite">
-                  加载中…
+                  {t('courseOnboarding.loading', '加载中…')}
                 </div>
               ) : courseCards.length === 0 ? (
                 <div className="course-onboarding-empty" role="note">
-                  暂无课程
+                  {t('courseOnboarding.empty', '暂无课程')}
                 </div>
               ) : courseCards.map((item, idx) => {
                 const TitleIcon = DIRECTION_LABEL_ICON_MAP[item.label] || FiBookOpen;
@@ -283,7 +292,9 @@ function CourseOnboardingModal({
                   && Number.isFinite(Number(item.requestId))
                   && Number(item.requestId) > 0;
                 const isDeleting = canDelete && deletingIds.has(Number(item.requestId));
-                const deleteAriaLabel = status === 'draft' ? '删除草稿' : '删除已提交需求';
+                const deleteAriaLabel = status === 'draft'
+                  ? t('courseOnboarding.deleteDraft', '删除草稿')
+                  : t('courseOnboarding.deleteSubmitted', '删除已提交需求');
                 const canOpenForEditing = !showConfirmButton && item?.requestId && (status === 'draft' || status === 'submitted');
                 return (
                   <div
@@ -324,32 +335,34 @@ function CourseOnboardingModal({
                               <TitleIcon size={20} />
                             </span>
                             <span className="course-onboarding-course-title-text">
-                              {item.label}
+                              {item.displayLabel}
                             </span>
                           </div>
                           <div className="course-onboarding-course-type-row">
                             <span className="course-onboarding-course-type-icon" aria-hidden="true">
                               <TypeIcon size={14} />
                             </span>
-                            <span className="course-onboarding-course-type-text">{item.type}</span>
+                            <span className="course-onboarding-course-type-text">{item.displayType}</span>
                           </div>
                         </div>
                         {status === 'draft' ? (
                           <span className="course-onboarding-course-badge course-onboarding-course-status-badge">
-                            未发布
+                            {t('courseOnboarding.unpublished', '未发布')}
                           </span>
                         ) : null}
                       </div>
                     </button>
 
                     <div className="course-onboarding-course-meta" aria-hidden="true">
-                      <span className="course-onboarding-course-created">创建于{item.createdLabel || createdDateLabel}</span>
+                      <span className="course-onboarding-course-created">
+                        {t('courseOnboarding.createdAt', `创建于${item.createdLabel || createdDateLabel}`, { date: item.createdLabel || createdDateLabel })}
+                      </span>
                       {canDelete ? (
                         <button
                           type="button"
                           className="course-onboarding-course-delete"
                           aria-label={deleteAriaLabel}
-                          title="删除"
+                          title={t('courseOnboarding.delete', '删除')}
                           disabled={isDeleting}
                           onClick={(e) => {
                             e.preventDefault();
@@ -368,8 +381,8 @@ function CourseOnboardingModal({
           </div>
         </div>
 
-        <div className="course-onboarding-footer" aria-label="创建课程入口">
-          <h3 className="course-onboarding-section-title">开始创建新课程</h3>
+        <div className="course-onboarding-footer" aria-label={t('courseOnboarding.createEntryAria', '创建课程入口')}>
+          <h3 className="course-onboarding-section-title">{t('courseOnboarding.startCreating', '开始创建新课程')}</h3>
           <div className="course-onboarding-action-list">
             <button
               type="button"
@@ -380,7 +393,7 @@ function CourseOnboardingModal({
                 <span className="course-onboarding-action-icon" aria-hidden="true">
                   <FiPlus />
                 </span>
-                <span className="course-onboarding-action-text">创建新课程</span>
+                <span className="course-onboarding-action-text">{t('courseOnboarding.createNew', '创建新课程')}</span>
               </span>
               <span className="course-onboarding-action-chevron" aria-hidden="true">
                 <FiChevronRight />
@@ -396,7 +409,7 @@ function CourseOnboardingModal({
                 else onClose?.();
               }}
             >
-              确认
+              {t('common.confirm', '确认')}
             </Button>
           ) : null}
         </div>

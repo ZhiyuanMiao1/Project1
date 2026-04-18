@@ -1,16 +1,19 @@
 import React, { useEffect, useId, useRef } from 'react';
+import { useI18n } from '../../i18n/language';
 import './SuccessModal.css';
 
 function SuccessModal({
   open,
-  title = '成功',
+  title = '',
   description,
   autoCloseMs = 2200,
   onClose,
 }) {
+  const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef(null);
   const shouldAutoClose = Number.isFinite(autoCloseMs) && autoCloseMs > 0;
+  const displayTitle = title || t('common.success', '成功');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -68,7 +71,7 @@ function SuccessModal({
         </div>
 
         <h3 id={titleId} className="success-modal-title">
-          {title}
+          {displayTitle}
         </h3>
 
         {description ? (
@@ -81,7 +84,7 @@ function SuccessModal({
           </div>
         ) : null}
 
-        {shouldAutoClose ? <div className="success-modal-hint">将自动关闭</div> : null}
+        {shouldAutoClose ? <div className="success-modal-hint">{t('common.autoClose', '将自动关闭')}</div> : null}
         {shouldAutoClose ? <div className="success-modal-progress" aria-hidden="true" /> : null}
       </div>
     </div>

@@ -2,11 +2,12 @@ import React from 'react';
 import { FiX } from 'react-icons/fi';
 import Button from '../common/Button/Button';
 import { formatQuarterHourValue, roundToNearestQuarterHourValue } from '../../utils/lessonHours';
+import { useI18n } from '../../i18n/language';
 import './LessonHoursDialog.css';
 
 function LessonHoursDialog({
   open,
-  title = '提交本节课实际课时',
+  title = '',
   value,
   onValueChange,
   error = '',
@@ -14,6 +15,7 @@ function LessonHoursDialog({
   onClose,
   onSubmit,
 }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   const handleClose = () => {
@@ -37,17 +39,17 @@ function LessonHoursDialog({
         className="lesson-hours-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="填写课时"
+        aria-label={t('lessonHours.dialogAria', '填写课时')}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="lesson-hours-dialog-head">
           <div>
-            <h2 className="lesson-hours-dialog-title">{title}</h2>
+            <h2 className="lesson-hours-dialog-title">{title || t('courses.submitLessonHoursTitle', '提交本节课实际课时')}</h2>
           </div>
           <button
             type="button"
             className="lesson-hours-dialog-close"
-            aria-label="关闭"
+            aria-label={t('lessonHours.close', '关闭')}
             onClick={handleClose}
             disabled={submitting}
           >
@@ -58,7 +60,7 @@ function LessonHoursDialog({
         <div className="lesson-hours-dialog-body">
           <div className="lesson-hours-dialog-row">
             <label className="lesson-hours-dialog-label" htmlFor="lesson-hours-dialog-input">
-              课时
+              {t('lessonHours.hoursLabel', '课时')}
             </label>
             <div className="lesson-hours-dialog-field-wrap">
               <div className="lesson-hours-dialog-field">
@@ -75,10 +77,10 @@ function LessonHoursDialog({
                   onBlur={handleValueBlur}
                   disabled={submitting}
                 />
-                <span className="lesson-hours-dialog-unit">小时</span>
+                <span className="lesson-hours-dialog-unit">{t('lessonHours.hoursUnit', '小时')}</span>
               </div>
               <div className="lesson-hours-dialog-hint">
-                按 0.25 小时为刻度计算课时；若输入的不是 0.25 的倍数，输入后会自动调整为最接近的数值
+                {t('lessonHours.hint', '按 0.25 小时为刻度计算课时；若输入的不是 0.25 的倍数，输入后会自动调整为最接近的数值')}
               </div>
             </div>
           </div>
@@ -95,14 +97,14 @@ function LessonHoursDialog({
             onClick={handleClose}
             disabled={submitting}
           >
-            取消
+            {t('common.cancel', '取消')}
           </Button>
           <Button
             className="lesson-hours-dialog-btn lesson-hours-dialog-btn--submit"
             onClick={onSubmit}
             disabled={submitting}
           >
-            {submitting ? '提交中...' : '提交'}
+            {submitting ? t('lessonHours.submitting', '提交中...') : t('lessonHours.submit', '提交')}
           </Button>
         </div>
       </div>

@@ -31,6 +31,7 @@ import {
   getZonedParts,
 } from '../StudentCourseRequest/steps/timezoneUtils';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 
 const stripDisplaySuffix = (value) => {
   if (typeof value !== 'string') return '';
@@ -159,13 +160,17 @@ const sanitizeThreadsForMessagesPage = (rows) => {
 
 
 
-const formatHoverTime = (rawValue) => {
+const formatHoverTime = (rawValue, { language = 'zh-CN' } = {}) => {
   if (!rawValue) return '';
   const text = String(rawValue).trim();
   if (!text) return '';
 
   const now = new Date();
-  const toDateLabel = (date) => `${date.getMonth() + 1}\u6708${date.getDate()}\u65e5`;
+  const toDateLabel = (date) => (
+    language === 'en'
+      ? `${date.getMonth() + 1}/${date.getDate()}`
+      : `${date.getMonth() + 1}\u6708${date.getDate()}\u65e5`
+  );
   const timeMatch = text.match(/(\d{1,2}:\d{2})/);
   const timePart = timeMatch ? timeMatch[1] : '';
 
@@ -216,6 +221,13 @@ const formatHoverTime = (rawValue) => {
 
   const monthDayMatch = text.match(/(\d{1,2}月\d{1,2}日)/);
   if (monthDayMatch) {
+    if (language === 'en') {
+      const parsedMonthDay = monthDayMatch[1].match(/(\d{1,2})月(\d{1,2})日/);
+      if (parsedMonthDay) {
+        const dateLabel = `${Number(parsedMonthDay[1])}/${Number(parsedMonthDay[2])}`;
+        return timePart ? `${dateLabel} ${timePart}` : dateLabel;
+      }
+    }
     return timePart ? `${monthDayMatch[1]} ${timePart}` : monthDayMatch[1];
   }
 
@@ -225,11 +237,36 @@ const formatHoverTime = (rawValue) => {
 };
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const weekdayEnLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const formatThreadTimeLabel = (rawValue) => {
+const formatThreadTimeLabel = (rawValue, { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
   const text = String(rawValue || '').trim();
   if (!text) return '';
-  if (/^(今天|昨天|周[一二三四五六日天])\b/.test(text) || /月\\d{1,2}日/.test(text)) return text;
+  const directTimeMatch = text.match(/(\d{1,2}:\d{2})/);
+  const directTimePart = directTimeMatch ? directTimeMatch[1] : '';
+  if (/^(今天|昨天|周[一二三四五六日天])\b/.test(text) || /\d{1,2}月\d{1,2}日/.test(text)) {
+    if (language !== 'en') return text;
+    if (text.startsWith('今天')) return `${t('messages.today', '今天')}${directTimePart ? ` ${directTimePart}` : ''}`;
+    if (text.startsWith('昨天')) return `${t('messages.yesterday', '昨天')}${directTimePart ? ` ${directTimePart}` : ''}`;
+
+    const weekMatch = text.match(/^(周[一二三四五六日天])/);
+    if (weekMatch) {
+      const map = { 周日: 0, 周天: 0, 周一: 1, 周二: 2, 周三: 3, 周四: 4, 周五: 5, 周六: 6 };
+      const dayIndex = map[weekMatch[1]];
+      const week = typeof dayIndex === 'number' ? weekdayEnLabels[dayIndex] : weekMatch[1];
+      return `${week}${directTimePart ? ` ${directTimePart}` : ''}`;
+    }
+
+    const monthDayMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+    if (monthDayMatch) {
+      return t('messages.dateTime.monthDay', `${Number(monthDayMatch[1])}/${Number(monthDayMatch[2])}${directTimePart ? ` ${directTimePart}` : ''}`, {
+        month: Number(monthDayMatch[1]),
+        day: Number(monthDayMatch[2]),
+        time: directTimePart,
+      }).trim();
+    }
+    return text;
+  }
 
   const parsed = Date.parse(text);
   if (Number.isNaN(parsed)) return text;
@@ -242,24 +279,39 @@ const formatThreadTimeLabel = (rawValue) => {
   const sameYmd = (a, b) =>
     a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
-  if (sameYmd(dt, now)) return `今天 ${timePart}`;
+  if (sameYmd(dt, now)) return `${t('messages.today', '今天')} ${timePart}`;
 
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (sameYmd(dt, yesterday)) return `昨天 ${timePart}`;
+  if (sameYmd(dt, yesterday)) return `${t('messages.yesterday', '昨天')} ${timePart}`;
 
   const diffDays = Math.floor((now.getTime() - dt.getTime()) / (24 * 60 * 60 * 1000));
   if (diffDays >= 0 && diffDays < 7) {
-    const week = weekdayLabels[dt.getDay()] || '';
+    const week = language === 'en' ? (weekdayEnLabels[dt.getDay()] || '') : (weekdayLabels[dt.getDay()] || '');
     return `${week} ${timePart}`;
   }
 
+  if (language === 'en') {
+    return t('messages.dateTime.monthDay', `${dt.getMonth() + 1}/${dt.getDate()} ${timePart}`, {
+      month: dt.getMonth() + 1,
+      day: dt.getDate(),
+      time: timePart,
+    });
+  }
   return `${dt.getMonth() + 1}月${dt.getDate()}日 ${timePart}`;
 };
 
-const formatFullDate = (date) => {
+const formatFullDate = (date, { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
   if (!(date instanceof Date)) return '';
-  const label = weekdayLabels[date.getDay()] || '';
+  const label = language === 'en' ? (weekdayEnLabels[date.getDay()] || '') : (weekdayLabels[date.getDay()] || '');
+  if (language === 'en') {
+    return t('messages.dateTime.fullDate', `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${label}`, {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      label,
+    });
+  }
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
 };
 
@@ -271,12 +323,22 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
-const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08') => {
+const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08', { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
   if (!(date instanceof Date)) return '';
-  const weekdayLabel = weekdayLabels[date.getDay()] || '';
+  const weekdayLabel = language === 'en' ? (weekdayEnLabels[date.getDay()] || '') : (weekdayLabels[date.getDay()] || '');
   const startLabel = minutesToTimeLabel(startMinutes);
   const endLabel = minutesToTimeLabel(endMinutes);
   if (!startLabel || !endLabel) return '';
+  if (language === 'en') {
+    return t('messages.dateTime.window', `${date.getMonth() + 1}/${date.getDate()} ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`, {
+      month: date.getMonth() + 1,
+      day: date.getDate(),
+      weekday: weekdayLabel,
+      start: startLabel,
+      end: endLabel,
+      timezone: timezoneLabel,
+    });
+  }
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
 };
 
@@ -355,6 +417,7 @@ const availabilityBlocksToSlots = (blocks) => {
 };
 
 function MessagesPage() {
+  const { language, t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const location = useLocation();
   const isMentorView = useMemo(() => {
     return location.pathname.startsWith('/mentor');
@@ -418,8 +481,8 @@ function MessagesPage() {
       setErrorMessage('');
       return;
     }
-    setErrorMessage('请登录后查看消息');
-  }, [isLoggedIn]);
+    setErrorMessage(t('messages.loginRequired', '请登录后查看消息'));
+  }, [isLoggedIn, t]);
 
   useEffect(() => {
     if (isLoggedIn) return;
@@ -625,14 +688,14 @@ function MessagesPage() {
       })
       .catch((err) => {
         if (!alive) return;
-        const msg = err?.response?.data?.error || err?.message || '加载会话失败，请稍后再试';
+        const msg = err?.response?.data?.error || err?.message || t('messages.loadThreadsFailed', '加载会话失败，请稍后再试');
         setThreads([]);
         setThreadsStatus('error');
         setThreadsError(String(msg));
       });
 
     return () => { alive = false; };
-  }, [applyThreadsPayload, isLoggedIn]);
+  }, [applyThreadsPayload, isLoggedIn, t]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [openMoreId, setOpenMoreId] = useState(null);
@@ -675,7 +738,7 @@ function MessagesPage() {
       size: 192,
     });
   }, [activeCounterpartDisplayName, activeThread]);
-  const scheduleTitle = activeThread?.subject || '日程';
+  const scheduleTitle = activeThread?.subject || t('messages.schedule', '日程');
   const activeSchedule = activeThread?.schedule && typeof activeThread.schedule === 'object' ? activeThread.schedule : null;
   const scheduleWindow = (typeof activeSchedule?.window === 'string' && activeSchedule.window.trim())
     ? activeSchedule.window
@@ -887,12 +950,12 @@ function MessagesPage() {
       )));
       setOpenMoreId(null);
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || (nextIsStarred ? '加星标失败，请稍后再试' : '取消星标失败，请稍后再试');
+      const msg = err?.response?.data?.error || err?.message || (nextIsStarred ? t('messages.starFailed', '加星标失败，请稍后再试') : t('messages.unstarFailed', '取消星标失败，请稍后再试'));
       setActionError(String(msg));
     } finally {
       setThreadStarBusyId(null);
     }
-  }, []);
+  }, [t]);
 
   const handleThreadArchive = useCallback(async (thread) => {
     const threadId = String(thread?.id || '').trim();
@@ -913,12 +976,12 @@ function MessagesPage() {
         await reloadThreads();
       } catch {}
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '归档会话失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || t('messages.archiveFailed', '归档会话失败，请稍后再试');
       setActionError(String(msg));
     } finally {
       setThreadArchiveBusyId(null);
     }
-  }, [emitUnreadSummaryFromThreads, reloadThreads]);
+  }, [emitUnreadSummaryFromThreads, reloadThreads, t]);
 
   useEffect(() => {
     if (!isLoggedIn || !activeThread?.id) return undefined;
@@ -1254,10 +1317,10 @@ function MessagesPage() {
 
   const participantLabels = useMemo(() => {
     return {
-      left: '\u6211',
-      right: counterpartDisplayName,
+      left: t('messages.me', '我'),
+      right: counterpartDisplayName || t('messages.otherParty', '对方'),
     };
-  }, [counterpartDisplayName]);
+  }, [counterpartDisplayName, t]);
 
   const selectionDayKey = useMemo(() => toYmdKey(rescheduleDate), [rescheduleDate]);
 
@@ -1360,6 +1423,7 @@ function MessagesPage() {
       rescheduleSelection.startMinutes,
       rescheduleSelection.endMinutes,
       timelineConfig.timezoneLabel,
+      { language, t },
     );
     if (!nextWindow) return;
 
@@ -1529,7 +1593,7 @@ function MessagesPage() {
           <button
             type="button"
             className="icon-circle messages-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
           >
@@ -1549,14 +1613,14 @@ function MessagesPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
         </header>
 
         <section className="messages-hero">
-          <h1>消息</h1>
+          <h1>{t('messages.title', '消息')}</h1>
         </section>
 
         {(errorMessage || threadsError || actionError) && (
@@ -1564,16 +1628,16 @@ function MessagesPage() {
         )}
 
         {isLoggedIn && (
-        <section className="messages-shell" aria-label="消息列表与详情">
+        <section className="messages-shell" aria-label={t('messages.shellAria', '消息列表与详情')}>
           <div className="messages-list-pane">
             <div className="messages-list-title">
               <div>
-                <div className="messages-title-label">最近</div>
+                <div className="messages-title-label">{t('messages.recent', '最近')}</div>
                 <div className="messages-title-sub">
-                  会话
+                  {t('messages.conversations', '会话')}
                 </div>
               </div>
-              <div className="messages-pill">{threads.length} 个会话</div>
+              <div className="messages-pill">{t('messages.conversationCount', `${threads.length} 个会话`, { count: threads.length })}</div>
             </div>
             <div className="messages-list">
               {threads.length === 0
@@ -1591,16 +1655,16 @@ function MessagesPage() {
                     const isThreadStarBusy = String(threadStarBusyId || '') === String(thread.id || '');
                     const isThreadArchiveBusy = String(threadArchiveBusyId || '') === String(thread.id || '');
                     const isThreadMenuBusy = isThreadStarBusy || isThreadArchiveBusy;
-                    const timeLabel = formatThreadTimeLabel(thread.time || '');
+                    const timeLabel = formatThreadTimeLabel(thread.time || '', { language, t });
                     const timeParts = timeLabel.split(/\s+/).filter(Boolean);
-                    const displayDate = (timeParts[0] === '今天' && timeParts[1]) ? timeParts[1] : (timeParts[0] || timeLabel);
+                    const displayDate = (timeParts[0] === t('messages.today', '今天') && timeParts[1]) ? timeParts[1] : (timeParts[0] || timeLabel);
 
                     const hasCourseMeta =
                       Boolean(thread?.courseDirectionId || thread?.courseTypeId) ||
                       Boolean(thread?.schedule?.courseDirectionId || thread?.schedule?.courseTypeId);
                     const listTitleParts = hasCourseMeta ? getCourseTitleParts(thread, thread?.schedule) : null;
                     const listSubtitle = listTitleParts
-                      ? `${listTitleParts.courseName} - ${listTitleParts.courseType}`
+                      ? `${getCourseDirectionDisplayLabel(listTitleParts.directionId || listTitleParts.courseName, listTitleParts.courseName)} - ${getCourseTypeLabel(listTitleParts.courseTypeId || listTitleParts.courseType, listTitleParts.courseType)}`
                       : (thread.subject || '');
                     return (
                       <button
@@ -1634,7 +1698,7 @@ function MessagesPage() {
                           <div className="message-meta-col">
                             <div className="message-time-row">
                               {thread?.isStarred ? (
-                                <span className="message-star-badge" aria-label="已加星标">
+                                <span className="message-star-badge" aria-label={t('messages.starred', '已加星标')}>
                                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path
                                       d="M12 4.5l1.88 3.81 4.2.61-3.04 2.96.72 4.19L12 14.97l-3.76 1.98.72-4.19-3.04-2.96 4.2-.61L12 4.5z"
@@ -1649,11 +1713,11 @@ function MessagesPage() {
                               count={threadUnreadCount}
                               variant="thread"
                               className="message-thread-unread-badge"
-                              ariaLabel="该会话未读消息"
+                              ariaLabel={t('messages.unreadThread', '该会话未读消息')}
                             />
                             <div
                               className="message-more"
-                              aria-label="更多操作"
+                              aria-label={t('messages.moreActions', '更多操作')}
                               role="presentation"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1682,7 +1746,7 @@ function MessagesPage() {
                                         />
                                       </svg>
                                     </span>
-                                    {thread?.isStarred ? '取消星标' : '加星标'}
+                                    {thread?.isStarred ? t('messages.unstar', '取消星标') : t('messages.star', '加星标')}
                                   </button>
                                   <button
                                     type="button"
@@ -1710,7 +1774,7 @@ function MessagesPage() {
                                         <path d="M8 11.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                                       </svg>
                                     </span>
-                                    归档
+                                    {t('messages.archive', '归档')}
                                   </button>
                                 </div>
                               )}
@@ -1752,7 +1816,7 @@ function MessagesPage() {
                     if (item.kind === 'decision') {
                       const decisionStatus = item?.decision?.status;
                       if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected') return null;
-                      const verb = decisionStatus === 'accepted' ? '\u63a5\u53d7' : '\u62d2\u7edd';
+                      const verb = decisionStatus === 'accepted' ? t('appointment.accept', '接受') : t('appointment.reject', '拒绝');
                       const isUnreadIncoming = !item?.decision?.isByMe && !item?.decision?.isRead;
                       return (
                         <div
@@ -1763,7 +1827,9 @@ function MessagesPage() {
                           data-unread={isUnreadIncoming ? 'true' : 'false'}
                         >
                           <div className="message-decision-notice" role="status">
-                            {`${activeCounterpartDisplayName}${verb}\u4e86\u4f60\u7684\u9080\u8bf7`}
+                            {language === 'en'
+                              ? `${activeCounterpartDisplayName} ${decisionStatus === 'accepted' ? 'accepted' : 'rejected'} your invitation`
+                              : `${activeCounterpartDisplayName}${verb}了你的邀请`}
                           </div>
                         </div>
                         );
@@ -1771,7 +1837,7 @@ function MessagesPage() {
 
                     const scheduleCard = item.card;
                     const isPrimary = Boolean(scheduleCard?.__primary);
-                    const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '');
+                    const cardHoverTime = formatHoverTime(scheduleCard?.time || activeThread?.time || '', { language });
 
                     const rawWindowText = (typeof scheduleCard?.window === 'string' && scheduleCard.window.trim())
                       ? scheduleCard.window
@@ -1780,6 +1846,7 @@ function MessagesPage() {
                       rawWindowText,
                       scheduleCard?.time || activeThread?.time || '',
                       scheduleViewTimeZone,
+                      language,
                     );
 
                     const isSendingCard = Boolean(
@@ -1825,9 +1892,9 @@ function MessagesPage() {
                 </div>
               </>
             ) : (
-              <div className="messages-empty messages-empty-center">{'\u9009\u62e9\u5de6\u4fa7\u7684\u4e00\u6761\u4f1a\u8bdd\u67e5\u770b\u8be6\u60c5'}</div>
+              <div className="messages-empty messages-empty-center">{t('messages.selectConversation', '选择左侧的一条会话查看详情')}</div>
             )) : (
-              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? '\u52a0\u8f7d\u4e2d\u2026' : '\u6682\u65e0\u4f1a\u8bdd'}</div>
+              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? t('common.loadingEllipsis', '加载中…') : t('messages.noConversations', '暂无会话')}</div>
             )}
           </div>
         </section>
@@ -1869,7 +1936,7 @@ function MessagesPage() {
             className="reschedule-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label={rescheduleIntent === 'next_lesson' ? '预约下节课' : '修改时间'}
+            aria-label={rescheduleIntent === 'next_lesson' ? t('messages.scheduleNextLesson', '预约下节课') : t('messages.reschedule', '修改时间')}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="reschedule-header">
@@ -1877,7 +1944,7 @@ function MessagesPage() {
                 <button
                   type="button"
                   className="reschedule-header-btn icon"
-                  aria-label="前一天"
+                  aria-label={t('messages.prevDay', '前一天')}
                   disabled={isReschedulePrevDisabled}
                   onClick={() => shiftRescheduleDate(-1)}
                 >
@@ -1886,17 +1953,17 @@ function MessagesPage() {
                 <button
                   type="button"
                   className="reschedule-header-btn icon"
-                  aria-label="后一天"
+                  aria-label={t('messages.nextDay', '后一天')}
                   onClick={() => shiftRescheduleDate(1)}
                 >
                   <FiChevronRight size={18} aria-hidden="true" />
                 </button>
-                <div className="reschedule-date-title">{formatFullDate(rescheduleDate)}</div>
+                <div className="reschedule-date-title">{formatFullDate(rescheduleDate, { language, t })}</div>
               </div>
               <button
                 type="button"
                 className="reschedule-header-btn icon close"
-                aria-label="关闭"
+                aria-label={t('messages.close', '关闭')}
                 onClick={() => setRescheduleOpen(false)}
               >
                 <FiX size={18} aria-hidden="true" />
@@ -1939,7 +2006,7 @@ function MessagesPage() {
 
                   <div
                     className="reschedule-column left"
-                    aria-label="我的空闲时间"
+                    aria-label={t('messages.myAvailability', '我的空闲时间')}
                     onClick={handleRescheduleTimelineClick}
                   >
                     {(isMentorInThread ? availability.mentorBusySlots : availability.studentBusySlots).map((slot, index) => (
@@ -1971,7 +2038,7 @@ function MessagesPage() {
 
                   <div
                     className="reschedule-column right"
-                    aria-label="对方空闲时间"
+                    aria-label={t('messages.otherAvailability', '对方空闲时间')}
                     onClick={handleRescheduleTimelineClick}
                   >
                     {(isMentorInThread ? availability.studentBusySlots : availability.mentorBusySlots).map((slot, index) => (
@@ -2042,7 +2109,7 @@ function MessagesPage() {
                 onClick={handleRescheduleSend}
                 disabled={!rescheduleSelection}
               >
-                发送预约
+                {t('messages.sendAppointment', '发送预约')}
               </button>
             </div>
           </aside>

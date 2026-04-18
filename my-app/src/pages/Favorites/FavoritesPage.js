@@ -11,6 +11,7 @@ import { fetchRecentVisits } from '../../api/recentVisits';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { buildAvatarPlaceholderSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 import './FavoritesPage.css';
 
 const RECENT_COLLECTION = {
@@ -99,37 +100,48 @@ const getFallbackCoverImageUrl = (payload, seed = '', role = 'student') => {
   });
 };
 
-const formatCreatedAt = (value) => {
-  if (!value) return '新建收藏夹';
+const formatCreatedAt = (value, { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
+  if (!value) return t('favorites.newCollection', '新建收藏夹');
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '新建收藏夹';
-  return `创建于 ${d.toLocaleDateString()}`;
+  if (Number.isNaN(d.getTime())) return t('favorites.newCollection', '新建收藏夹');
+  const date = d.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN');
+  return t('favorites.createdAt', `创建于 ${date}`, { date });
 };
 
-const getRecentVisitMeta = (value) => {
+const getRecentVisitMeta = (value, { language = 'zh-CN', t = (_key, fallback) => fallback } = {}) => {
   const d = new Date(value || '');
-  if (Number.isNaN(d.getTime())) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
+  if (Number.isNaN(d.getTime())) return t('favorites.noRecent', '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const diffDays = Math.round((today - target) / (24 * 60 * 60 * 1000));
 
-  if (diffDays === 0) return '\u4eca\u5929';
-  if (diffDays === 1) return '\u6628\u5929';
-  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  if (diffDays === 0) return t('favorites.today', '\u4eca\u5929');
+  if (diffDays === 1) return t('favorites.yesterday', '\u6628\u5929');
+  return d.toLocaleDateString(language === 'en' ? 'en-US' : 'zh-CN', { month: 'numeric', day: 'numeric' });
 };
 
-const normalizeRecentMetaText = (value) => {
+const normalizeRecentMetaText = (value, { t = (_key, fallback) => fallback } = {}) => {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
-  if (/^(閺|鎏|鏆|鏈€|杩戞祻瑙)/.test(raw)) return '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8';
-  if (/^(娴|浠)/.test(raw)) return '\u4eca\u5929';
-  if (/^(閺勩劌|鏄)/.test(raw)) return '\u6628\u5929';
+  if (!raw) return t('favorites.noRecent', '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
+  if (/^(閺|鎏|鏆|鏈€|杩戞祻瑙)/.test(raw)) return t('favorites.noRecent', '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
+  if (raw === '暂无最近浏览') return t('favorites.noRecent', '暂无最近浏览');
+  if (/^(娴|浠)/.test(raw) || raw === '今天') return t('favorites.today', '\u4eca\u5929');
+  if (/^(閺勩劌|鏄)/.test(raw) || raw === '昨天') return t('favorites.yesterday', '\u6628\u5929');
+  return raw;
+};
+
+const normalizeCollectionTitle = (value, t = (_key, fallback) => fallback) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (raw === '最近浏览') return t('favorites.recent', '最近浏览');
+  if (raw === '默认收藏夹') return t('favorites.defaultCollection', '默认收藏夹');
+  if (raw === '默认 收藏夹') return t('favorites.defaultCollectionSpaced', '默认 收藏夹');
   return raw;
 };
 
 function FavoritesPage() {
+  const { language, t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -142,7 +154,7 @@ function FavoritesPage() {
   const [collectionCovers, setCollectionCovers] = useState(() => ({}));
   const [recentVisitMetaLabel, setRecentVisitMetaLabel] = useState('\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
   const [recentVisitCover, setRecentVisitCover] = useState([]);
-  const [recentVisitLabel] = useState(RECENT_COLLECTION.meta || '今天');
+  const recentVisitLabel = t('favorites.today', RECENT_COLLECTION.meta || '今天');
   const [loading, setLoading] = useState(() => !!getAuthToken());
   const [errorMessage, setErrorMessage] = useState('');
   const [createError, setCreateError] = useState('');
@@ -205,8 +217,8 @@ function FavoritesPage() {
   }, [showDeleteModal, showCreateModal]);
 
   const heroCopy = preferredRole === 'mentor'
-    ? '导师收藏与学生收藏完全独立，可在此建立你的学生收藏夹'
-    : '学生收藏与导师收藏互不干扰，按方向或目标建立你的导师收藏夹';
+    ? t('favorites.heroMentor', '导师收藏与学生收藏完全独立，可在此建立你的学生收藏夹')
+    : t('favorites.heroStudent', '学生收藏与导师收藏互不干扰，按方向或目标建立你的导师收藏夹');
 
   const requireAuth = useCallback(() => {
     if (isLoggedIn) return true;
@@ -231,7 +243,7 @@ function FavoritesPage() {
     if (!isLoggedIn) {
       setUserCollections([]);
       setCollectionCovers({});
-      setErrorMessage('请登录后查看收藏夹');
+      setErrorMessage(t('favorites.loginRequiredCollections', '请登录后查看收藏夹'));
       setLoading(false);
       return;
     }
@@ -266,18 +278,18 @@ function FavoritesPage() {
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
       if (status === 401) {
-        setErrorMessage('请登录后查看收藏夹');
+        setErrorMessage(t('favorites.loginRequiredCollections', '请登录后查看收藏夹'));
       } else if (status === 403) {
-        setErrorMessage(msg || '当前身份暂无权限访问收藏夹');
+        setErrorMessage(msg || t('favorites.noPermissionCollections', '当前身份暂无权限访问收藏夹'));
       } else {
-        setErrorMessage(msg || '加载收藏夹失败，请稍后再试');
+        setErrorMessage(msg || t('favorites.loadCollectionsFailed', '加载收藏夹失败，请稍后再试'));
       }
       setUserCollections([]);
       setCollectionCovers({});
     } finally {
       if (loadSeqRef.current === seq) setLoading(false);
     }
-  }, [isLoggedIn, preferredRole]);
+  }, [isLoggedIn, preferredRole, t]);
 
   useEffect(() => {
     loadCollections();
@@ -297,7 +309,7 @@ function FavoritesPage() {
         if (!alive) return;
         const list = Array.isArray(res?.data?.items) ? res.data.items : [];
         if (!list.length) {
-          setRecentVisitMetaLabel('\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8');
+          setRecentVisitMetaLabel(t('favorites.noRecent', '\u6682\u65e0\u6700\u8fd1\u6d4f\u89c8'));
           setRecentVisitCover([]);
           return;
         }
@@ -307,7 +319,7 @@ function FavoritesPage() {
           .slice(0, 4);
         const latestVisitedAt = list[0]?.visitedAt || list[0]?.updatedAt || list[0]?.createdAt;
 
-        setRecentVisitMetaLabel(getRecentVisitMeta(latestVisitedAt));
+        setRecentVisitMetaLabel(getRecentVisitMeta(latestVisitedAt, { language, t }));
         setRecentVisitCover(cover);
       })
       .catch(() => {
@@ -317,33 +329,33 @@ function FavoritesPage() {
       });
 
     return () => { alive = false; };
-  }, [isLoggedIn, preferredRole, recentVisitLabel]);
+  }, [isLoggedIn, language, preferredRole, recentVisitLabel, t]);
 
   const normalizedCollections = useMemo(() => {
     const recentCard = {
       id: RECENT_COLLECTION.id,
-      title: RECENT_COLLECTION.title,
+      title: t('favorites.recent', RECENT_COLLECTION.title),
       cover: Array.isArray(recentVisitCover) ? recentVisitCover : [],
-      metaText: normalizeRecentMetaText(recentVisitMetaLabel),
+      metaText: normalizeRecentMetaText(recentVisitMetaLabel, { t }),
       isRecent: true,
     };
 
     const mapped = userCollections.map((item) => ({
       isDefault: !!item.isDefault,
       id: item.id,
-      title: item.name,
+      title: normalizeCollectionTitle(item.name, t),
       cover: Array.isArray(collectionCovers?.[String(item.id)]) ? collectionCovers[String(item.id)] : [],
-      metaText: item.isDefault ? '系统默认' : formatCreatedAt(item.createdAt),
+      metaText: item.isDefault ? t('favorites.systemDefault', '系统默认') : formatCreatedAt(item.createdAt, { language, t }),
       isRecent: false,
     }));
 
     return [recentCard, ...mapped];
-  }, [collectionCovers, recentVisitCover, recentVisitMetaLabel, userCollections]);
+  }, [collectionCovers, language, recentVisitCover, recentVisitMetaLabel, t, userCollections]);
 
   const logoTo = preferredRole === 'mentor' ? '/mentor' : '/student';
   const createDesc = preferredRole === 'mentor'
-    ? '按课程方向、学生特点或目标，整理出你的学生收藏分组'
-    : '按课程方向、导师风格或目标，整理出你的导师收藏分组';
+    ? t('favorites.createStudentDesc', '按课程方向、学生特点或目标，整理出你的学生收藏分组')
+    : t('favorites.createMentorDesc', '按课程方向、导师风格或目标，整理出你的导师收藏分组');
   const showGridSkeleton = loading && !errorMessage;
 
   const openDeleteModal = (item) => {
@@ -372,7 +384,7 @@ function FavoritesPage() {
         closeDeleteModal();
       })
       .catch((e) => {
-        const msg = e?.response?.data?.error || '删除失败，请稍后再试';
+        const msg = e?.response?.data?.error || t('favorites.deleteFailed', '删除失败，请稍后再试');
         alert(msg); // 快速反馈给用户
       })
       .finally(() => setDeletingId(null));
@@ -393,7 +405,7 @@ function FavoritesPage() {
 
   const handleCreateConfirm = async () => {
     if (!newCollectionName.trim()) {
-      setCreateError('请填写收藏夹名称');
+      setCreateError(t('favorites.nameRequired', '请填写收藏夹名称'));
       return;
     }
     if (!requireAuth()) return;
@@ -409,9 +421,9 @@ function FavoritesPage() {
       closeCreateModal();
     } catch (e) {
       const status = e?.response?.status;
-      const msg = e?.response?.data?.error || '创建失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('favorites.createFailed', '创建失败，请稍后再试');
       if (status === 401) {
-        setCreateError('请登录后再创建收藏夹');
+        setCreateError(t('favorites.loginBeforeCreate', '请登录后再创建收藏夹'));
       } else if (status === 409) {
         setCreateError(msg);
       } else if (status === 403) {
@@ -432,7 +444,7 @@ function FavoritesPage() {
           <button
             type="button"
             className="icon-circle favorites-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleMenuAuthModal}
           >
@@ -452,22 +464,22 @@ function FavoritesPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
         </header>
 
         <section className="favorites-hero">
-          <h1>收藏</h1>
+          <h1>{t('favorites.title', '收藏')}</h1>
           <p>{heroCopy}</p>
         </section>
 
         {errorMessage && <div className="favorites-alert">{errorMessage}</div>}
 
         {showGridSkeleton ? (
-          <section className="favorites-grid favorites-grid--skeleton" aria-busy="true" aria-label="收藏夹加载中">
-            <span className="favorites-sr-only">收藏夹加载中</span>
+          <section className="favorites-grid favorites-grid--skeleton" aria-busy="true" aria-label={t('favorites.loadingCollections', '收藏夹加载中')}>
+            <span className="favorites-sr-only">{t('favorites.loadingCollections', '收藏夹加载中')}</span>
             {FAVORITES_SKELETON_CARDS.map((item) => (
               <article key={`skeleton-card-${item}`} className="favorites-card favorites-card--skeleton" aria-hidden="true">
                 <div className="favorites-cover favorites-cover--skeleton">
@@ -540,7 +552,7 @@ function FavoritesPage() {
                       <button
                         type="button"
                         className="favorites-remove"
-                        aria-label="移除收藏"
+                        aria-label={t('favorites.removeFavorite', '移除收藏')}
                         onClick={(e) => {
                           e.stopPropagation();
                           openDeleteModal(item);
@@ -559,7 +571,7 @@ function FavoritesPage() {
                       </button>
                     )}
                     {coverCount === 0 ? (
-                      <div className="cover-empty" aria-label="空收藏夹">
+                      <div className="cover-empty" aria-label={t('favorites.emptyCollection', '空收藏夹')}>
                         <div className="cover-empty-icon" aria-hidden="true">
                           <svg className="cover-empty-heart" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                             <path
@@ -577,7 +589,7 @@ function FavoritesPage() {
                       <div className="cover-grid" data-count={coverCount}>
                         {cover.map((src, idx) => (
                           <div key={idx} className={`cover-cell cover-cell-${idx}`}>
-                            <img src={src} alt={`${item.title} 封面 ${idx + 1}`} />
+                            <img src={src} alt={t('favorites.coverAlt', `${item.title} 封面 ${idx + 1}`, { title: item.title, index: idx + 1 })} />
                           </div>
                         ))}
                       </div>
@@ -597,14 +609,14 @@ function FavoritesPage() {
               <div className="create-icon">
                 <FaHeart />
               </div>
-              <h3>创建新的收藏夹</h3>
+              <h3>{t('favorites.createNewTitle', '创建新的收藏夹')}</h3>
               <p className="favorites-desc">{createDesc}</p>
               <button
                 type="button"
                 className="create-btn"
                 onClick={openCreateModal}
               >
-                新建收藏
+                {t('favorites.newFavorite', '新建收藏')}
               </button>
             </article>
           </section>
@@ -624,7 +636,7 @@ function FavoritesPage() {
             <button
               type="button"
               className="favorites-modal-close"
-              aria-label="关闭"
+              aria-label={t('common.close', '关闭')}
               onClick={closeDeleteModal}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -634,19 +646,19 @@ function FavoritesPage() {
             </button>
 
             <div className="favorites-modal-body">
-              <h3 id="delete-title">删除此收藏夹？</h3>
+              <h3 id="delete-title">{t('favorites.deleteTitle', '删除此收藏夹？')}</h3>
               <p id="delete-desc">
-                「{pendingDelete?.title ?? ''}」将被永久删除
+                {t('favorites.deleteDesc', `「${pendingDelete?.title ?? ''}」将被永久删除`, { title: pendingDelete?.title ?? '' })}
               </p>
             </div>
 
             <div className="favorites-modal-footer">
-              <Button className="favorites-btn ghost" onClick={closeDeleteModal}>取消</Button>
+              <Button className="favorites-btn ghost" onClick={closeDeleteModal}>{t('common.cancel', '取消')}</Button>
               <Button className="favorites-btn danger"
                 onClick={handleDeleteConfirm}
                 disabled={deletingId === pendingDelete?.id}
               >
-                {deletingId === pendingDelete?.id ? '删除中...' : '删除'}
+                {deletingId === pendingDelete?.id ? t('common.deleting', '删除中...') : t('common.delete', '删除')}
               </Button>
             </div>
           </div>
@@ -666,7 +678,7 @@ function FavoritesPage() {
             <button
               type="button"
               className="favorites-modal-close"
-              aria-label="关闭"
+              aria-label={t('common.close', '关闭')}
               onClick={closeCreateModal}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -676,11 +688,11 @@ function FavoritesPage() {
             </button>
 
             <div className="favorites-modal-body">
-              <h3 id="create-title">新建收藏夹</h3>
+              <h3 id="create-title">{t('favorites.createTitle', '新建收藏夹')}</h3>
               <input
                 type="text"
                 className="favorites-input"
-                placeholder="名称"
+                placeholder={t('favorites.namePlaceholder', '名称')}
                 value={newCollectionName}
                 onChange={(e) => setNewCollectionName(e.target.value)}
               />
@@ -688,12 +700,12 @@ function FavoritesPage() {
             </div>
 
             <div className="favorites-modal-footer">
-              <Button className="favorites-btn ghost" onClick={closeCreateModal}>取消</Button>
+              <Button className="favorites-btn ghost" onClick={closeCreateModal}>{t('common.cancel', '取消')}</Button>
               <Button className="favorites-btn danger"
                 onClick={handleCreateConfirm}
                 disabled={creating}
               >
-                {creating ? '创建中...' : '创建'}
+                {creating ? t('common.creating', '创建中...') : t('common.create', '创建')}
               </Button>
             </div>
           </div>

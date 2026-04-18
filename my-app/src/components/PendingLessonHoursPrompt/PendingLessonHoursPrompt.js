@@ -6,6 +6,7 @@ import {
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 import './PendingLessonHoursPrompt.css';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
@@ -16,12 +17,12 @@ const formatHours = (value) => {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '');
 };
 
-const formatSessionTime = (value) => {
+const formatSessionTime = (value, language = 'zh-CN') => {
   const text = safeText(value);
   if (!text) return '--';
   const date = new Date(text);
   if (Number.isNaN(date.getTime())) return text;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -40,18 +41,20 @@ function PendingLessonHoursPrompt({
   onConfirm,
   onDispute,
 }) {
+  const { language, t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const actionRole = safeText(confirmation?.actionRole) === 'mentor' ? 'mentor' : 'student';
   const courseName = useMemo(() => {
-    return normalizeCourseLabel(confirmation?.courseDirectionId) || '课程';
-  }, [confirmation?.courseDirectionId]);
+    const normalized = normalizeCourseLabel(confirmation?.courseDirectionId);
+    return getCourseDirectionDisplayLabel(confirmation?.courseDirectionId, normalized || t('lessonHours.pendingCourse', '课程'));
+  }, [confirmation?.courseDirectionId, getCourseDirectionDisplayLabel, t]);
 
   const courseType = useMemo(() => {
     const courseTypeId = safeText(confirmation?.courseTypeId);
-    return COURSE_TYPE_ID_TO_LABEL[courseTypeId] || '';
-  }, [confirmation?.courseTypeId]);
+    return getCourseTypeLabel(courseTypeId, COURSE_TYPE_ID_TO_LABEL[courseTypeId] || '');
+  }, [confirmation?.courseTypeId, getCourseTypeLabel]);
 
   const isMentorAction = actionRole === 'mentor';
-  const participantLabel = isMentorAction ? '学生' : '导师';
+  const participantLabel = isMentorAction ? t('lessonHours.student', '学生') : t('lessonHours.mentor', '导师');
   const participantName = safeText(confirmation?.participantName || confirmation?.mentorName) || participantLabel;
   const avatarSrc = resolveAvatarSrc({
     src: confirmation?.participantAvatarUrl || confirmation?.mentorAvatarUrl,
@@ -82,15 +85,15 @@ function PendingLessonHoursPrompt({
 
   if (!open || !confirmation) return null;
 
-  const title = isMentorAction ? '学生对本节课时提出了异议' : '请确认本节课实际课时';
-  const subtitle = isMentorAction ? '' : '处理完成前，此窗口不会关闭';
-  const valueLabel = isMentorAction ? '导师原提交课时' : '导师提交课时';
+  const title = isMentorAction ? t('lessonHours.pendingTitleMentor', '学生对本节课时提出了异议') : t('lessonHours.pendingTitleStudent', '请确认本节课实际课时');
+  const subtitle = isMentorAction ? '' : t('lessonHours.pendingSubtitle', '处理完成前，此窗口不会关闭');
+  const valueLabel = isMentorAction ? t('lessonHours.originalHours', '导师原提交课时') : t('lessonHours.mentorSubmittedHours', '导师提交课时');
   const disputedHoursText = formatHours(confirmation?.disputedHours);
   const tipText = isMentorAction
-    ? '确认后将按学生异议结案；提交平台处理后，将进入平台介入状态'
-    : '若课时不一致，请直接提出异议，导师需要重新处理';
-  const secondaryLabel = isMentorAction ? '提交平台处理' : '提出异议';
-  const primaryLabel = isMentorAction ? '确认学生异议' : '确认课时';
+    ? t('lessonHours.tipMentor', '确认后将按学生异议结案；提交平台处理后，将进入平台介入状态')
+    : t('lessonHours.tipStudent', '若课时不一致，请直接提出异议，导师需要重新处理');
+  const secondaryLabel = isMentorAction ? t('lessonHours.submitPlatformReview', '提交平台处理') : t('lessonHours.dispute', '提出异议');
+  const primaryLabel = isMentorAction ? t('lessonHours.confirmStudentDispute', '确认学生异议') : t('lessonHours.confirmHours', '确认课时');
 
   return (
     <div className="pending-lesson-hours-overlay" role="presentation">
@@ -98,7 +101,7 @@ function PendingLessonHoursPrompt({
         className="pending-lesson-hours-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="待确认课时"
+        aria-label={t('lessonHours.pendingAria', '待确认课时')}
       >
         <div className="pending-lesson-hours-head">
           <h2 className="pending-lesson-hours-title">{title}</h2>
@@ -134,19 +137,19 @@ function PendingLessonHoursPrompt({
           </div>
           <div className="pending-lesson-hours-course-time">
             <FiClock size={15} aria-hidden="true" />
-            <span>{formatSessionTime(confirmation?.startsAt)}</span>
+            <span>{formatSessionTime(confirmation?.startsAt, language)}</span>
           </div>
         </div>
 
         <div className="pending-lesson-hours-value-card">
           <div className="pending-lesson-hours-value-label">{valueLabel}</div>
-          <div className="pending-lesson-hours-value">{formatHours(confirmation?.proposedHours)} 小时</div>
+            <div className="pending-lesson-hours-value">{formatHours(confirmation?.proposedHours)} {t('lessonHours.hoursUnit', '小时')}</div>
         </div>
 
         {isMentorAction && confirmation?.disputedHours ? (
           <div className="pending-lesson-hours-value-card pending-lesson-hours-value-card--secondary">
-            <div className="pending-lesson-hours-value-label">学生主张课时</div>
-            <div className="pending-lesson-hours-value">{disputedHoursText} 小时</div>
+            <div className="pending-lesson-hours-value-label">{t('lessonHours.studentClaimedHours', '学生主张课时')}</div>
+            <div className="pending-lesson-hours-value">{disputedHoursText} {t('lessonHours.hoursUnit', '小时')}</div>
           </div>
         ) : null}
 
@@ -157,7 +160,7 @@ function PendingLessonHoursPrompt({
 
         {totalCount > 1 ? (
           <div className="pending-lesson-hours-queue">
-            当前还有 {totalCount} 条待处理课时确认，会按顺序逐条处理
+            {t('lessonHours.queue', `当前还有 ${totalCount} 条待处理课时确认，会按顺序逐条处理`, { count: totalCount })}
           </div>
         ) : null}
 
@@ -173,14 +176,14 @@ function PendingLessonHoursPrompt({
             onClick={() => onDispute?.(confirmation)}
             disabled={busy}
           >
-            {busy ? '处理中...' : secondaryLabel}
+            {busy ? t('lessonHours.processing', '处理中...') : secondaryLabel}
           </Button>
           <Button
             className="pending-lesson-hours-btn pending-lesson-hours-btn--primary"
             onClick={() => onConfirm?.(confirmation)}
             disabled={busy}
           >
-            {busy ? '处理中...' : primaryLabel}
+            {busy ? t('lessonHours.processing', '处理中...') : primaryLabel}
           </Button>
         </div>
       </div>

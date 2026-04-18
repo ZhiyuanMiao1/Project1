@@ -7,6 +7,7 @@ import apiClient from '../../api/client';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
+import { useI18n } from '../../i18n/language';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
 import './WalletPage.css';
@@ -16,6 +17,7 @@ const FX_INVALID_CODE = 'FX_QUOTE_INVALID';
 const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 
 function WalletPage() {
+  const { t } = useI18n();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: ['student'] });
@@ -72,7 +74,7 @@ function WalletPage() {
       try {
         const data = await apiClient.post('/api/paypal/fx-quote', { hours }).then((res) => res?.data || {});
         const normalized = normalizeFxQuote(data);
-        if (!normalized) throw new Error('汇率报价返回数据无效，请重试');
+        if (!normalized) throw new Error(t('wallet.fxInvalid', '汇率报价返回数据无效，请重试'));
 
         if (requestId !== fxRequestIdRef.current) return null;
         setFxQuote(normalized);
@@ -80,7 +82,7 @@ function WalletPage() {
         return normalized;
       } catch (err) {
         if (requestId !== fxRequestIdRef.current) return null;
-        const message = err?.response?.data?.error || err?.message || '获取汇率报价失败，请稍后重试';
+        const message = err?.response?.data?.error || err?.message || t('wallet.fxFailed', '获取汇率报价失败，请稍后重试');
         if (!preserveExisting) {
           setFxQuote(null);
         }
@@ -92,7 +94,7 @@ function WalletPage() {
         }
       }
     },
-    [normalizeFxQuote]
+    [normalizeFxQuote, t]
   );
 
   const refreshFxQuote = useCallback(
@@ -128,8 +130,8 @@ function WalletPage() {
   }, []);
 
   useEffect(() => {
-    setErrorMessage(isLoggedIn ? '' : '请登录后查看钱包');
-  }, [isLoggedIn]);
+    setErrorMessage(isLoggedIn ? '' : t('wallet.loginRequired', '请登录后查看钱包'));
+  }, [isLoggedIn, t]);
 
   useEffect(() => {
     if (!topUpNotice) return undefined;
@@ -138,7 +140,10 @@ function WalletPage() {
   }, [topUpNotice]);
 
   const isPayPalPlainNotice =
-    selectedTopUpMethod === 'paypal' && ['正在跳转 PayPal…', '已取消支付'].includes(topUpNotice);
+    selectedTopUpMethod === 'paypal' && [
+      t('wallet.redirectingPayPal', '正在跳转 PayPal…'),
+      t('wallet.paymentCanceled', '已取消支付'),
+    ].includes(topUpNotice);
 
   const formatHours = (value) => {
     const n = Number(value);
@@ -208,7 +213,7 @@ function WalletPage() {
       paypalSdkInstanceRef.current = null;
       setIsPayPalInitializing(false);
       setIsPayPalEligible(false);
-      setPayPalInitError('PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面');
+      setPayPalInitError(t('wallet.localhostUnsupported', 'PayPal sandbox client token 不支持 localhost，请用 127.0.0.1 打开本页面'));
       return undefined;
     }
 
@@ -236,7 +241,7 @@ function WalletPage() {
       .catch((err) => {
         if (canceled) return;
         console.error('PayPal init error:', err);
-        const message = err instanceof Error && err.message ? err.message : 'PayPal 初始化失败，请稍后重试';
+        const message = err instanceof Error && err.message ? err.message : t('wallet.paypalInitFailed', 'PayPal 初始化失败，请稍后重试');
         setPayPalInitError(message);
         setIsPayPalEligible(false);
       })
@@ -247,7 +252,7 @@ function WalletPage() {
     return () => {
       canceled = true;
     };
-  }, [isLoggedIn, selectedTopUpMethod]);
+  }, [isLoggedIn, selectedTopUpMethod, t]);
 
   useEffect(() => {
     if (!isLoggedIn || selectedTopUpMethod !== 'paypal' || !isHoursValid) {
@@ -313,7 +318,7 @@ function WalletPage() {
 
   const handlePayPalTopUp = async () => {
     if (!isHoursValid) {
-      setTopUpNotice('请输入正确的小时数');
+      setTopUpNotice(t('wallet.invalidHours', '请输入正确的小时数'));
       return;
     }
 
@@ -330,12 +335,12 @@ function WalletPage() {
     }
 
     if (!isPayPalEligible) {
-      setTopUpNotice('PayPal 当前不可用，请稍后重试');
+      setTopUpNotice(t('wallet.paypalTryLater', 'PayPal 当前不可用，请稍后重试'));
       return;
     }
 
     if (isFxLoading && !fxQuote) {
-      setTopUpNotice('正在获取实时汇率，请稍后重试');
+      setTopUpNotice(t('wallet.fxLoading', '正在获取实时汇率，请稍后重试'));
       return;
     }
 
@@ -343,20 +348,20 @@ function WalletPage() {
       if (fxError) {
         setTopUpNotice(fxError);
       } else {
-        setTopUpNotice('未获取到汇率报价，请稍后重试');
+        setTopUpNotice(t('wallet.noFxQuote', '未获取到汇率报价，请稍后重试'));
       }
       return;
     }
 
     if (isFxQuoteExpired) {
-      setTopUpNotice('汇率报价已过期，正在刷新最新报价');
+      setTopUpNotice(t('wallet.fxExpiredRefreshing', '汇率报价已过期，正在刷新最新报价'));
       await refreshFxQuote(Number(hoursNumber.toFixed(2)));
       return;
     }
 
     const sdkInstance = paypalSdkInstanceRef.current;
     if (!sdkInstance) {
-      setTopUpNotice('PayPal 尚未初始化完成，请稍后重试');
+      setTopUpNotice(t('wallet.paypalNotReady', 'PayPal 尚未初始化完成，请稍后重试'));
       return;
     }
 
@@ -365,7 +370,7 @@ function WalletPage() {
 
     try {
       setIsPaySuccessOpen(false);
-      setTopUpNotice('正在跳转 PayPal…');
+      setTopUpNotice(t('wallet.redirectingPayPal', '正在跳转 PayPal…'));
 
       const createOrder = async () => {
         try {
@@ -379,7 +384,7 @@ function WalletPage() {
           applyPricingIfPresent(createData);
 
           if (String(createData?.code || '').trim() === FX_REFRESHED_CODE) {
-            setTopUpNotice('汇率已更新，已按最新报价继续支付');
+            setTopUpNotice(t('wallet.fxUpdatedContinue', '汇率已更新，已按最新报价继续支付'));
           }
 
           if (!createData?.id) {
@@ -423,17 +428,17 @@ function WalletPage() {
               }
               setIsPaySuccessOpen(true);
             } else {
-              setTopUpNotice(`支付完成，状态：${status || 'UNKNOWN'}`);
+              setTopUpNotice(t('wallet.paymentCompletedStatus', `支付完成，状态：${status || 'UNKNOWN'}`, { status: status || 'UNKNOWN' }));
             }
           } catch (err) {
             console.error('PayPal approve/capture error:', err);
-            setTopUpNotice('支付已批准，但收款确认失败，请稍后查看余额');
+            setTopUpNotice(t('wallet.captureFailed', '支付已批准，但收款确认失败，请稍后查看余额'));
           }
         },
-        onCancel: () => setTopUpNotice('已取消支付'),
+        onCancel: () => setTopUpNotice(t('wallet.paymentCanceled', '已取消支付')),
         onError: (err) => {
           console.error('PayPal session error:', err);
-          setTopUpNotice('支付失败，请稍后重试');
+          setTopUpNotice(t('wallet.paymentFailed', '支付失败，请稍后重试'));
         },
       });
 
@@ -441,34 +446,36 @@ function WalletPage() {
     } catch (err) {
       if (err?.fxIssue) {
         if (err?.fxExpired) {
-          setTopUpNotice('汇率报价已过期，正在刷新最新报价，请再次点击支付');
+          setTopUpNotice(t('wallet.fxExpiredClickAgain', '汇率报价已过期，正在刷新最新报价，请再次点击支付'));
         } else {
-          setTopUpNotice('汇率报价已失效，正在刷新最新报价，请再次点击支付');
+          setTopUpNotice(t('wallet.fxInvalidClickAgain', '汇率报价已失效，正在刷新最新报价，请再次点击支付'));
         }
         await refreshFxQuote(hoursSnapshot);
         return;
       }
       console.error('PayPal click error:', err);
-      setTopUpNotice('支付初始化失败，请稍后重试');
+      setTopUpNotice(t('wallet.paymentInitFailed', '支付初始化失败，请稍后重试'));
     }
   };
 
   const topUpMethods = useMemo(
     () => [
-      { id: 'paypal', title: 'PayPal', description: '支持国际信用卡与余额' },
-      { id: 'alipay', title: '支付宝', description: '推荐国内用户使用' },
-      { id: 'wechat', title: '微信', description: '微信支付快捷到账' },
+      { id: 'paypal', title: 'PayPal', description: t('wallet.paypalDesc', '支持国际信用卡与余额') },
+      { id: 'alipay', title: t('wallet.alipay', '支付宝'), description: t('wallet.alipayDesc', '推荐国内用户使用') },
+      { id: 'wechat', title: t('wallet.wechat', '微信'), description: t('wallet.wechatDesc', '微信支付快捷到账') },
     ],
-    []
+    [t]
   );
 
   const handleTopUp = () => {
     if (!canSubmitTopUp) return;
-    const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? '所选方式';
+    const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? t('wallet.selectedFallback', '所选方式');
     setTopUpNotice(
-      `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，单价 ${unitPriceCny}元/小时，总计 ¥${amountCnyNumber.toFixed(
-        2
-      )}。充值功能开发中，敬请期待`
+      t(
+        'wallet.selectedMethod',
+        `已选择 ${methodLabel}，小时数 ${hoursNumber.toFixed(2)}，单价 ${unitPriceCny}元/小时，总计 ¥${amountCnyNumber.toFixed(2)}。充值功能开发中，敬请期待`,
+        { method: methodLabel, hours: hoursNumber.toFixed(2), unitPrice: unitPriceCny, total: amountCnyNumber.toFixed(2) }
+      )
     );
   };
 
@@ -487,7 +494,7 @@ function WalletPage() {
           <button
             type="button"
             className="icon-circle wallet-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleStudentAuthModal}
           >
@@ -501,39 +508,39 @@ function WalletPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
         </header>
 
         <section className="wallet-hero">
-          <h1>钱包</h1>
+          <h1>{t('wallet.title', '钱包')}</h1>
         </section>
 
         {errorMessage && <div className="wallet-alert">{errorMessage}</div>}
 
         {isLoggedIn && (
-          <section className="wallet-layout" aria-label="钱包概览">
+          <section className="wallet-layout" aria-label={t('wallet.summaryAria', '钱包概览')}>
             <div className="wallet-left">
-              <div className="wallet-panel wallet-balance-card" aria-label="余额">
+              <div className="wallet-panel wallet-balance-card" aria-label={t('wallet.balanceAria', '余额')}>
                 <div className="wallet-panel-header">
                   <div>
-                    <div className="wallet-panel-eyebrow">剩余课时</div>
+                    <div className="wallet-panel-eyebrow">{t('wallet.remainingHours', '剩余课时')}</div>
                     <div className="wallet-balance-amount">
                       <span className="wallet-balance-value">{formatHours(remainingHours)}</span>
-                      <span className="wallet-balance-unit">小时</span>
+                      <span className="wallet-balance-unit">{t('wallet.hours', '小时')}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="wallet-stat-grid" aria-label="余额统计">
+                <div className="wallet-stat-grid" aria-label={t('wallet.balanceAria', '余额统计')}>
                   <div className="wallet-stat">
-                    <div className="wallet-stat-label">本月支出</div>
+                    <div className="wallet-stat-label">{t('wallet.monthSpending', '本月支出')}</div>
                     <div className="wallet-stat-value">¥ {formatCny(monthTopUpCny)}</div>
                   </div>
                   <div className="wallet-stat">
-                    <div className="wallet-stat-label">累计充值</div>
+                    <div className="wallet-stat-label">{t('wallet.totalTopUp', '累计充值')}</div>
                     <div className="wallet-stat-value">¥ {formatCny(totalTopUpCny)}</div>
                   </div>
                 </div>
@@ -541,10 +548,10 @@ function WalletPage() {
             </div>
 
             <div className="wallet-right">
-              <div className="wallet-panel wallet-topup-card" aria-label="充值">
-                <div className="wallet-panel-title">充值</div>
+              <div className="wallet-panel wallet-topup-card" aria-label={t('wallet.topUp', '充值')}>
+                <div className="wallet-panel-title">{t('wallet.topUp', '充值')}</div>
 
-                <div className="wallet-method-grid" role="group" aria-label="充值方式">
+                <div className="wallet-method-grid" role="group" aria-label={t('wallet.topUpMethod', '充值方式')}>
                   {topUpMethods.map((method) => (
                     <button
                       key={method.id}
@@ -599,12 +606,12 @@ function WalletPage() {
                   ))}
                 </div>
 
-                <div className="wallet-topup-form" aria-label="充值小时">
+                <div className="wallet-topup-form" aria-label={t('wallet.topUpHours', '充值小时')}>
                   <label className="wallet-input-label" htmlFor="wallet-topup-amount">
-                    充值时长
+                    {t('wallet.duration', '充值时长')}
                   </label>
-                  <div className="wallet-hours-row" aria-label="选择小时数">
-                    <div className="wallet-quick-amount" aria-label="快捷小时数">
+                  <div className="wallet-hours-row" aria-label={t('wallet.chooseHours', '选择小时数')}>
+                    <div className="wallet-quick-amount" aria-label={t('wallet.quickHours', '快捷小时数')}>
                       {[1, 2, 5, 10, 20].map((value) => (
                         <button
                           key={value}
@@ -630,29 +637,29 @@ function WalletPage() {
                         step="0.5"
                         value={topUpHours}
                         onChange={(e) => setTopUpHours(e.target.value)}
-                        placeholder="请输入小时数"
+                        placeholder={t('wallet.enterHours', '请输入小时数')}
                       />
                       <span className="wallet-unit" aria-hidden="true">
-                        小时
+                        {t('wallet.hours', '小时')}
                       </span>
                     </div>
                   </div>
 
-                  <div className="wallet-derived-amount" aria-label="价格详情">
-                    <div className="wallet-derived-label">价格详情</div>
+                  <div className="wallet-derived-amount" aria-label={t('wallet.priceDetails', '价格详情')}>
+                    <div className="wallet-derived-label">{t('wallet.priceDetails', '价格详情')}</div>
                     <div className="wallet-derived-value">
                       <div className="wallet-derived-rule">
                         <div className="wallet-derived-row">
-                          <span className="wallet-derived-left">充值时长 &lt; 10小时</span>
-                          <span className="wallet-derived-right">600元/小时</span>
+                          <span className="wallet-derived-left">{t('wallet.lessThan10', '充值时长 < 10小时')}</span>
+                          <span className="wallet-derived-right">{t('wallet.price600', '600元/小时')}</span>
                         </div>
                         <div className="wallet-derived-row">
-                          <span className="wallet-derived-left">充值时长 ≥ 10小时</span>
-                          <span className="wallet-derived-right">500元/小时</span>
+                          <span className="wallet-derived-left">{t('wallet.atLeast10', '充值时长 ≥ 10小时')}</span>
+                          <span className="wallet-derived-right">{t('wallet.price500', '500元/小时')}</span>
                         </div>
                       </div>
                       <div className="wallet-derived-total wallet-derived-row">
-                        <span className="wallet-derived-left">总计</span>
+                        <span className="wallet-derived-left">{t('wallet.total', '总计')}</span>
                         <span className="wallet-derived-right">
                           ¥{Number.isFinite(amountCnyNumber) ? amountCnyNumber.toFixed(2) : '0.00'}
                           {Number.isFinite(amountUsdNumber) ? ` ($${amountUsdNumber.toFixed(2)})` : ''}
@@ -671,7 +678,7 @@ function WalletPage() {
                       >
                         <span className="wallet-paypal-primary-content">
                           <paypal-mark className="wallet-paypal-primary-mark" aria-hidden="true"></paypal-mark>
-                          <span>立即充值</span>
+                          <span>{t('wallet.topUpNow', '立即充值')}</span>
                         </span>
                       </button>
                       {!isPayPalInitializing && payPalInitError && (
@@ -679,18 +686,18 @@ function WalletPage() {
                           <div>{payPalInitError}</div>
                           {isLocalhost && openWith127Url && (
                             <div style={{ marginTop: 8 }}>
-                              <a href={openWith127Url}>用 127.0.0.1 打开</a>
+                              <a href={openWith127Url}>{t('wallet.open127', '用 127.0.0.1 打开')}</a>
                             </div>
                           )}
                         </div>
                       )}
                       {!isPayPalInitializing && !payPalInitError && !isPayPalEligible && (
-                        <div className="wallet-empty">PayPal 当前不可用</div>
+                        <div className="wallet-empty">{t('wallet.paypalUnavailable', 'PayPal 当前不可用')}</div>
                       )}
                     </div>
                   ) : (
                     <button type="button" className="wallet-primary" onClick={handleTopUp} disabled={!canSubmitTopUp}>
-                      立即充值
+                      {t('wallet.topUpNow', '立即充值')}
                     </button>
                   )}
 
@@ -700,11 +707,11 @@ function WalletPage() {
                 </div>
               </div>
 
-              <div className="wallet-panel wallet-panel-muted" aria-label="温馨提示">
-                <div className="wallet-panel-title">温馨提示</div>
+              <div className="wallet-panel wallet-panel-muted" aria-label={t('wallet.tips', '温馨提示')}>
+                <div className="wallet-panel-title">{t('wallet.tips', '温馨提示')}</div>
                 <ul className="wallet-tip-list">
-                  <li>充值成功后余额实时到账</li>
-                  <li>如遇支付问题，请前往“帮助中心”联系我们</li>
+                  <li>{t('wallet.tipRealtime', '充值成功后余额实时到账')}</li>
+                  <li>{t('wallet.tipHelp', '如遇支付问题，请前往“帮助中心”联系我们')}</li>
                 </ul>
               </div>
             </div>
@@ -724,7 +731,7 @@ function WalletPage() {
         />
       )}
 
-      <SuccessModal open={isPaySuccessOpen} title="支付成功" autoCloseMs={2200} onClose={handleClosePaySuccess} />
+      <SuccessModal open={isPaySuccessOpen} title={t('wallet.paySuccess', '支付成功')} autoCloseMs={2200} onClose={handleClosePaySuccess} />
     </div>
   );
 }

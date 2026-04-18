@@ -13,8 +13,10 @@ import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/post
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
+import { useI18n } from '../../i18n/language';
 
 const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = null, courseCount = null }) => {
+  const { t } = useI18n();
   const [showRegisterPopup, setShowRegisterPopup] = useState(false); // 控制注册弹窗显示
   const [showLoginPopup, setShowLoginPopup] = useState(false); // 控制登录弹窗显示
   const contentRef = useRef(null);
@@ -105,7 +107,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         try { navigate('/mentor/profile-editor'); } catch {}
         return;
       }
-      alert(res?.data?.error || '暂不可编辑个人名片');
+      alert(res?.data?.error || t('auth.profileEditUnavailable', '暂不可编辑个人名片'));
     } catch (e) {
       const status = e?.response?.status;
       const msg = e?.response?.data?.error;
@@ -115,10 +117,10 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         return;
       }
       if (status === 403) {
-        alert(msg || '导师审核中，暂不可编辑个人名片');
+        alert(msg || t('auth.mentorPendingCannotEdit', '导师审核中，暂不可编辑个人名片'));
         return;
       }
-      alert(msg || '操作失败，请稍后再试');
+      alert(msg || t('auth.actionFailed', '操作失败，请稍后再试'));
     }
   };
   const isPendingMentor = isLoggedIn && canEditProfile === false;
@@ -208,24 +210,24 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                 className="auth-modal-option-button"
                 disabled={isPendingMentor}
                 aria-disabled={isPendingMentor}
-                title={isPendingMentor ? '导师审核中，暂不可用' : undefined}
+                title={isPendingMentor ? t('auth.unavailableDuringMentorReview', '导师审核中，暂不可用') : undefined}
                 onClick={() => handleAuthAction('favorites')}
               >
                 <i className="far fa-heart auth-icon" aria-hidden="true"></i>
-                收藏
+                {t('app.route.favorites', '收藏')}
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
                 disabled={isPendingMentor}
                 aria-disabled={isPendingMentor}
-                title={isPendingMentor ? '导师审核中，暂不可用' : undefined}
+                title={isPendingMentor ? t('auth.unavailableDuringMentorReview', '导师审核中，暂不可用') : undefined}
                 onClick={() => handleAuthAction('courses')}
               >
                 <span className="auth-modal-option-main">
                   <FiBookOpen className="auth-icon" />
-                  课程
+                  {t('app.route.courses', '课程')}
                 </span>
-                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel="新课程提醒" />
+                <UnreadBadge count={resolvedCourseCount} variant="menu" ariaLabel={t('common.newCourseAlert', '新课程提醒')} />
               </button>
               <button
                 className="auth-modal-option-button auth-divider auth-modal-option-button--with-badge"
@@ -233,39 +235,39 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               >
                 <span className="auth-modal-option-main">
                   <i className="far fa-comment auth-icon" aria-hidden="true"></i>
-                  消息
+                  {t('app.route.messages', '消息')}
                 </span>
-                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel="未读消息" />
+                <UnreadBadge count={resolvedUnreadCount} variant="menu" ariaLabel={t('common.unreadMessages', '未读消息')} />
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('settings')}
               >
                 <FiSettings className="auth-icon" />
-                设置与数据
+                {t('app.route.settings', '设置与数据')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('help')}
               >
                 <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
-                帮助中心
+                {t('app.route.help', '帮助中心')}
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('editProfile')}
                 disabled={isLoggedIn && canEditProfile === false}
                 aria-disabled={isLoggedIn && canEditProfile === false}
-                title={isLoggedIn && canEditProfile === false ? '审核中，暂不可编辑' : undefined}
+                title={isLoggedIn && canEditProfile === false ? t('auth.mentorPendingCannotEdit', '审核中，暂不可编辑') : undefined}
               >
                 <HiOutlineIdentification className="auth-icon" />
-                编辑个人名片
+                {t('app.route.profileEditor', '编辑个人名片')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('logout')}
               >
-                退出
+                {t('common.logout', '退出')}
               </button>
             </>
           ) : (
@@ -274,25 +276,25 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('register')}
               >
-                注册
+                {t('common.register', '注册')}
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
                 onClick={() => handleAuthAction('login')}
               >
-                登录
+                {t('common.login', '登录')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('editProfile')}
               >
-                编辑个人名片
+                {t('app.route.profileEditor', '编辑个人名片')}
               </button>
               <button
                 className="auth-modal-option-button"
                 onClick={() => handleAuthAction('help')}
               >
-                帮助中心
+                {t('app.route.help', '帮助中心')}
               </button>
             </>
           )}

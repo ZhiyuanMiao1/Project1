@@ -8,6 +8,7 @@ import {
 } from './appointmentCardUtils';
 import './AppointmentCard.css';
 import { applyAvatarFallback } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 
 const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 
@@ -31,6 +32,7 @@ function AppointmentCard({
   onDeleteForMe,
   onRecall,
 }) {
+  const { t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const cardDirection = scheduleCard?.direction === 'outgoing' ? 'outgoing' : 'incoming';
   const isOutgoing = cardDirection === 'outgoing';
 
@@ -43,7 +45,11 @@ function AppointmentCard({
     windowText,
     referenceTime: scheduleCard?.time,
   }), [scheduleCard?.time, windowText]);
-  const statusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
+  const rawStatusMeta = SCHEDULE_STATUS_META[statusKey] || SCHEDULE_STATUS_META.pending;
+  const statusMeta = {
+    ...rawStatusMeta,
+    label: t(`appointment.status.${statusKey}`, rawStatusMeta.label),
+  };
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
   const showActions = !isOutgoing && statusKey !== 'expired';
@@ -60,10 +66,10 @@ function AppointmentCard({
   const canScheduleNextLesson = statusKey === 'pending' || statusKey === 'accepted';
   const scheduleCardId = String(scheduleCard?.id || '');
   const recallDisabledTitle = !isOutgoing
-    ? '仅可撤回自己发出的日程'
+    ? t('appointment.onlyRecallOwn', '仅可撤回自己发出的日程')
     : statusKey === 'expired'
-      ? '日程已过期，无法撤回'
-      : '对方已响应，无法撤回';
+      ? t('appointment.expiredCannotRecall', '日程已过期，无法撤回')
+      : t('appointment.respondedCannotRecall', '对方已响应，无法撤回');
 
   const statusClassName =
     statusMeta.tone === 'accept'
@@ -81,34 +87,34 @@ function AppointmentCard({
   const decisionPopoverActions = useMemo(() => {
     if (canRescheduleResolvedOutgoing) {
       return [
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+        { key: 'reschedule', label: t('appointment.reschedule', '修改时间'), value: 'rescheduling', tone: 'reschedule' },
       ];
     }
     if (statusKey === 'accepted') {
       return [
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+        { key: 'reject', label: t('appointment.reject', '拒绝'), value: 'rejected', tone: 'reject' },
+        { key: 'reschedule', label: t('appointment.reschedule', '修改时间'), value: 'rescheduling', tone: 'reschedule' },
       ];
     }
     if (statusKey === 'rejected') {
       return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+        { key: 'accept', label: t('appointment.accept', '接受'), value: 'accepted', tone: 'accept' },
+        { key: 'reschedule', label: t('appointment.reschedule', '修改时间'), value: 'rescheduling', tone: 'reschedule' },
       ];
     }
     if (statusKey === 'rescheduling') {
       return [
-        { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-        { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
+        { key: 'accept', label: t('appointment.accept', '接受'), value: 'accepted', tone: 'accept' },
+        { key: 'reject', label: t('appointment.reject', '拒绝'), value: 'rejected', tone: 'reject' },
       ];
     }
     return [
-      { key: 'accept', label: '接受', value: 'accepted', tone: 'accept' },
-      { key: 'reject', label: '拒绝', value: 'rejected', tone: 'reject' },
-      { key: 'reschedule', label: '修改时间', value: 'rescheduling', tone: 'reschedule' },
+      { key: 'accept', label: t('appointment.accept', '接受'), value: 'accepted', tone: 'accept' },
+      { key: 'reject', label: t('appointment.reject', '拒绝'), value: 'rejected', tone: 'reject' },
+      { key: 'reschedule', label: t('appointment.reschedule', '修改时间'), value: 'rescheduling', tone: 'reschedule' },
     ];
-  }, [canRescheduleResolvedOutgoing, statusKey]);
-  const decisionPopoverTitle = '修改日程状态为';
+  }, [canRescheduleResolvedOutgoing, statusKey, t]);
+  const decisionPopoverTitle = t('appointment.changeStatusTo', '修改日程状态为');
 
   const [decisionMenuOpen, setDecisionMenuOpen] = useState(false);
   const [messageMenuOpenInternal, setMessageMenuOpenInternal] = useState(false);
@@ -244,7 +250,7 @@ function AppointmentCard({
           <button
             type="button"
             className="schedule-card-more-trigger"
-            aria-label="更多操作"
+            aria-label={t('appointment.moreActions', '更多操作')}
             aria-haspopup="menu"
             aria-expanded={actualMessageMenuOpen}
             onClick={() => toggleActualMessageMenuOpen((prev) => !prev)}
@@ -266,7 +272,7 @@ function AppointmentCard({
                   }}
                   disabled={isMessageActionBusy || isExiting || isBusy}
                 >
-                  预约下节课
+                  {t('appointment.scheduleNextLesson', '预约下节课')}
                 </button>
               ) : null}
               <button
@@ -278,7 +284,7 @@ function AppointmentCard({
                 }}
                 disabled={isMessageActionBusy || isExiting}
               >
-                删除（仅自己）
+                {t('appointment.deleteForMe', '删除（仅自己）')}
               </button>
               {isOutgoing ? (
                 <button
@@ -292,7 +298,7 @@ function AppointmentCard({
                   disabled={isMessageActionBusy || isExiting || !canRecall}
                   title={canRecall ? '' : recallDisabledTitle}
                 >
-                  撤回
+                  {t('appointment.recall', '撤回')}
                 </button>
               ) : null}
             </div>
@@ -304,14 +310,16 @@ function AppointmentCard({
             <div className="schedule-card-icon" aria-hidden="true">
               <FiCalendar size={18} />
             </div>
-            <div className="schedule-card-title-text">日程</div>
+            <div className="schedule-card-title-text">{t('appointment.schedule', '日程')}</div>
           </div>
           <div className="schedule-card-title">
             <span className="schedule-card-title-piece">
               <span className="schedule-card-title-icon" aria-hidden="true">
                 {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
               </span>
-              <span className="schedule-card-title-main">{titleParts.courseName || scheduleTitle}</span>
+              <span className="schedule-card-title-main">
+                {getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}
+              </span>
             </span>
             {titleParts.courseType ? (
               <>
@@ -320,7 +328,7 @@ function AppointmentCard({
                   <span className="schedule-card-title-icon" aria-hidden="true">
                     {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
                   </span>
-                  <span className="schedule-card-title-sub">{titleParts.courseType}</span>
+                  <span className="schedule-card-title-sub">{getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}</span>
                 </span>
               </>
             ) : null}
@@ -336,11 +344,11 @@ function AppointmentCard({
           <FiVideo size={16} aria-hidden="true" />
           {canJoinClassroom ? (
             <a className="schedule-link" href={classroomHref} target="_blank" rel="noreferrer">
-              加入视频会议
+              {t('appointment.joinMeeting', '加入视频会议')}
             </a>
           ) : (
             <span className="schedule-link schedule-link--disabled" aria-disabled="true">
-              加入视频会议
+              {t('appointment.joinMeeting', '加入视频会议')}
             </span>
           )}
         </div>
@@ -357,7 +365,7 @@ function AppointmentCard({
                     disabled={isBusy}
                   >
                     <span className="schedule-btn-icon check" aria-hidden="true" />
-                    接受
+                    {t('appointment.accept', '接受')}
                   </button>
                   <button
                     type="button"
@@ -366,7 +374,7 @@ function AppointmentCard({
                     disabled={isBusy}
                   >
                     <span className="schedule-btn-icon minus" aria-hidden="true" />
-                    拒绝
+                    {t('appointment.reject', '拒绝')}
                   </button>
                   <button
                     type="button"
@@ -375,7 +383,7 @@ function AppointmentCard({
                     disabled={isBusy}
                   >
                     <span className="schedule-btn-icon reschedule" aria-hidden="true" />
-                    修改时间
+                    {t('appointment.reschedule', '修改时间')}
                   </button>
                 </>
               ) : canEditDecision ? (
@@ -385,7 +393,7 @@ function AppointmentCard({
                   type="button"
                   className={`schedule-btn merged ${statusClassName}`}
                   disabled
-                  aria-label={`日程状态：${statusMeta.label}`}
+                  aria-label={t('appointment.statusAria', `日程状态：${statusMeta.label}`, { status: statusMeta.label })}
                 >
                   {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
                   {statusKey === 'rejected' && <span className="schedule-btn-icon minus" aria-hidden="true" />}
@@ -405,7 +413,7 @@ function AppointmentCard({
                     ? `schedule-btn status-btn ${statusClassName}`
                     : `schedule-btn merged ${statusClassName}`}
                   disabled
-                  aria-label={`日程状态：${statusMeta.label}`}
+                  aria-label={t('appointment.statusAria', `日程状态：${statusMeta.label}`, { status: statusMeta.label })}
                 >
                   {isSendingCard && <span className="schedule-btn-spinner" aria-hidden="true" />}
                   {statusKey === 'accepted' && <span className="schedule-btn-icon check" aria-hidden="true" />}
