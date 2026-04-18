@@ -16,6 +16,7 @@ type AppointmentNotificationMailInput = {
   eventTitle: string;
   actorDisplayName: string;
   windowText?: string;
+  messageUrl?: string;
   description: string;
 };
 
@@ -34,12 +35,18 @@ const parsePort = (value: any, fallback = 465) => {
 };
 
 const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-removebg.png';
+const DEFAULT_PUBLIC_APP_URL = 'https://mentory.cc';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
+export const getPublicAppUrl = () => {
+  const explicit = String(process.env.MAIL_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || '').trim();
+  return trimTrailingSlash(explicit || DEFAULT_PUBLIC_APP_URL);
+};
+
 const getBrandLogoHtml = () => {
   const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
-  const publicBaseUrl = String(process.env.MAIL_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || '').trim();
+  const publicBaseUrl = getPublicAppUrl();
   const logoUrl = explicitLogoUrl || (publicBaseUrl ? `${trimTrailingSlash(publicBaseUrl)}/Logo-removebg.png` : DEFAULT_BRAND_LOGO_URL);
 
   if (!/^https?:\/\//i.test(logoUrl)) return '';
@@ -184,10 +191,12 @@ export const sendAppointmentNotificationMail = async ({
   eventTitle,
   actorDisplayName,
   windowText = '',
+  messageUrl = '',
   description,
 }: AppointmentNotificationMailInput) => {
   const safeActor = actorDisplayName.trim() || '对方';
   const safeWindowText = windowText.trim();
+  const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
 
   const details = [
     { label: '操作人', value: safeActor },
@@ -198,7 +207,7 @@ export const sendAppointmentNotificationMail = async ({
     `Mentory ${eventTitle}`,
     description,
     ...details.map((item) => `${item.label}：${item.value}`),
-    '请登录 Mentory 查看完整课程预约消息。',
+    safeMessageUrl ? `消息页面：${safeMessageUrl}` : '请登录 Mentory 查看完整课程预约消息。',
   ].join('\n');
 
   const detailRowsHtml = details.map((item) => `
@@ -218,6 +227,11 @@ export const sendAppointmentNotificationMail = async ({
         </table>
       </div>
       <div style="margin-top: 18px; font-size: 14px; color: #475569;">请登录 Mentory 查看完整课程预约消息。</div>
+      ${safeMessageUrl ? `
+        <div style="margin-top: 18px;">
+          <a href="${escapeHtml(safeMessageUrl)}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">打开Mentory</a>
+        </div>
+      ` : ''}
     `
   );
 

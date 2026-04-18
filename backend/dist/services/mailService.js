@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendAppointmentNotificationMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendMail = void 0;
+exports.sendAppointmentNotificationMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendMail = exports.getPublicAppUrl = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 dotenv_1.default.config();
@@ -23,10 +23,16 @@ const parsePort = (value, fallback = 465) => {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-removebg.png';
+const DEFAULT_PUBLIC_APP_URL = 'https://mentory.cc';
 const trimTrailingSlash = (value) => value.replace(/\/+$/, '');
+const getPublicAppUrl = () => {
+    const explicit = String(process.env.MAIL_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || '').trim();
+    return trimTrailingSlash(explicit || DEFAULT_PUBLIC_APP_URL);
+};
+exports.getPublicAppUrl = getPublicAppUrl;
 const getBrandLogoHtml = () => {
     const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
-    const publicBaseUrl = String(process.env.MAIL_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || '').trim();
+    const publicBaseUrl = (0, exports.getPublicAppUrl)();
     const logoUrl = explicitLogoUrl || (publicBaseUrl ? `${trimTrailingSlash(publicBaseUrl)}/Logo-removebg.png` : DEFAULT_BRAND_LOGO_URL);
     if (!/^https?:\/\//i.test(logoUrl))
         return '';
@@ -128,9 +134,10 @@ const sendPasswordResetEmailCodeMail = async ({ to, code, expiresMinutes, }) => 
     await (0, exports.sendMail)({ to, subject, text, html });
 };
 exports.sendPasswordResetEmailCodeMail = sendPasswordResetEmailCodeMail;
-const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorDisplayName, windowText = '', description, }) => {
+const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, }) => {
     const safeActor = actorDisplayName.trim() || '对方';
     const safeWindowText = windowText.trim();
+    const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
     const details = [
         { label: '操作人', value: safeActor },
         ...(safeWindowText ? [{ label: '预约时间', value: safeWindowText }] : []),
@@ -139,7 +146,7 @@ const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorD
         `Mentory ${eventTitle}`,
         description,
         ...details.map((item) => `${item.label}：${item.value}`),
-        '请登录 Mentory 查看完整课程预约消息。',
+        safeMessageUrl ? `消息页面：${safeMessageUrl}` : '请登录 Mentory 查看完整课程预约消息。',
     ].join('\n');
     const detailRowsHtml = details.map((item) => `
     <tr>
@@ -155,6 +162,11 @@ const sendAppointmentNotificationMail = async ({ to, subject, eventTitle, actorD
         </table>
       </div>
       <div style="margin-top: 18px; font-size: 14px; color: #475569;">请登录 Mentory 查看完整课程预约消息。</div>
+      ${safeMessageUrl ? `
+        <div style="margin-top: 18px;">
+          <a href="${escapeHtml(safeMessageUrl)}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">打开Mentory</a>
+        </div>
+      ` : ''}
     `);
     await (0, exports.sendMail)({ to, subject, text, html });
 };

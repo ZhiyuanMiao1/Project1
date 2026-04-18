@@ -4,7 +4,7 @@ import type { InsertResult } from '../db';
 import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { buildEmptyAvailability, getBusySelectionsForUsers } from '../services/availabilityBusy';
-import { sendAppointmentNotificationMail } from '../services/mailService';
+import { getPublicAppUrl, sendAppointmentNotificationMail } from '../services/mailService';
 import {
   ensureMentorResponseTimeColumn,
   recomputeMentorResponseTimeAverage,
@@ -808,6 +808,11 @@ const getUserRoleInThread = (
   return '';
 };
 
+const buildMessagesPageUrl = (role: 'student' | 'mentor' | '') => {
+  const path = role === 'mentor' ? '/mentor/messages' : '/student/messages';
+  return `${getPublicAppUrl()}${path}`;
+};
+
 const getAppointmentActorDisplayName = async (
   actorUserId: number,
   studentUserId: number,
@@ -893,6 +898,7 @@ const sendAppointmentNotificationSafely = async ({
       eventTitle: copy.eventTitle,
       actorDisplayName,
       windowText: safeText(payload?.windowText),
+      messageUrl: buildMessagesPageUrl(getUserRoleInThread(recipientUserId, studentUserId, mentorUserId)),
       description: copy.description,
     });
   } catch (error) {

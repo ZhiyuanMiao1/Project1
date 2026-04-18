@@ -654,6 +654,10 @@ const getUserRoleInThread = (userId, studentUserId, mentorUserId) => {
         return 'mentor';
     return '';
 };
+const buildMessagesPageUrl = (role) => {
+    const path = role === 'mentor' ? '/mentor/messages' : '/student/messages';
+    return `${(0, mailService_1.getPublicAppUrl)()}${path}`;
+};
 const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentorUserId) => {
     const role = getUserRoleInThread(actorUserId, studentUserId, mentorUserId);
     const rows = role === 'mentor'
@@ -719,6 +723,7 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
             eventTitle: copy.eventTitle,
             actorDisplayName,
             windowText: safeText(payload?.windowText),
+            messageUrl: buildMessagesPageUrl(getUserRoleInThread(recipientUserId, studentUserId, mentorUserId)),
             description: copy.description,
         });
     }
