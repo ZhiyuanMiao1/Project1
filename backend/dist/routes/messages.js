@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const availabilityBusy_1 = require("../services/availabilityBusy");
+const mailService_1 = require("../services/mailService");
 const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const router = express_1.default.Router();
 const isMissingMessagesSchemaError = (err) => {
@@ -610,6 +611,121 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
     WHERE id = ?
     `, [existingId]);
 };
+const getAppointmentNotificationCopy = (kind, actorDisplayName) => {
+    const actor = actorDisplayName || '对方';
+    if (kind === 'new_appointment') {
+        return {
+            subject: 'Mentory 新的课程预约',
+            eventTitle: '新的课程预约',
+            description: `${actor} 给您发送了一条课程预约。`,
+        };
+    }
+    if (kind === 'new_time') {
+        return {
+            subject: 'Mentory 新的课程时间',
+            eventTitle: '新的课程时间',
+            description: `${actor} 给您发送了一条新的课程时间，请及时确认。`,
+        };
+    }
+    if (kind === 'accepted') {
+        return {
+            subject: 'Mentory 课程预约已接受',
+            eventTitle: '课程预约已接受',
+            description: `${actor} 已接受您的课程预约。`,
+        };
+    }
+    if (kind === 'rejected') {
+        return {
+            subject: 'Mentory 课程预约已拒绝',
+            eventTitle: '课程预约已拒绝',
+            description: `${actor} 已拒绝您的课程预约。`,
+        };
+    }
+    return {
+        subject: 'Mentory 课程预约已撤回',
+        eventTitle: '课程预约已撤回',
+        description: `${actor} 已撤回一条课程预约。`,
+    };
+};
+const getUserRoleInThread = (userId, studentUserId, mentorUserId) => {
+    if (Number.isFinite(userId) && userId === studentUserId)
+        return 'student';
+    if (Number.isFinite(userId) && userId === mentorUserId)
+        return 'mentor';
+    return '';
+};
+const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentorUserId) => {
+    const role = getUserRoleInThread(actorUserId, studentUserId, mentorUserId);
+    const rows = role === 'mentor'
+        ? await (0, db_1.query)(`
+        SELECT u.username, ur.public_id, mp.display_name
+        FROM users u
+        LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'mentor'
+        LEFT JOIN mentor_profiles mp ON mp.user_id = u.id
+        WHERE u.id = ?
+        LIMIT 1
+        `, [actorUserId])
+        : role
+            ? await (0, db_1.query)(`
+          SELECT u.username, ur.public_id, NULL AS display_name
+          FROM users u
+          LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.role = ?
+          WHERE u.id = ?
+          LIMIT 1
+          `, [role, actorUserId])
+            : await (0, db_1.query)('SELECT username, NULL AS public_id, NULL AS display_name FROM users WHERE id = ? LIMIT 1', [actorUserId]);
+    const row = rows?.[0] || {};
+    const username = typeof row?.username === 'string' ? row.username.trim() : '';
+    const publicId = typeof row?.public_id === 'string' ? row.public_id.trim() : '';
+    const displayName = typeof row?.display_name === 'string' ? row.display_name.trim() : '';
+    if (role === 'mentor') {
+        const mentorName = displayName || username;
+        if (mentorName && publicId && mentorName !== publicId)
+            return `${mentorName}（${publicId}）`;
+        return mentorName || publicId || '导师';
+    }
+    if (username)
+        return username;
+    return publicId || '对方';
+};
+const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientUserId, studentUserId, mentorUserId, payload, }) => {
+    try {
+        if (!Number.isFinite(actorUserId) || actorUserId <= 0)
+            return;
+        if (!Number.isFinite(recipientUserId) || recipientUserId <= 0)
+            return;
+        if (actorUserId === recipientUserId)
+            return;
+        const recipientRows = await (0, db_1.query)(`
+      SELECT
+        u.email,
+        COALESCE(s.email_notifications, 1) AS email_notifications
+      FROM users u
+      LEFT JOIN account_settings s ON s.user_id = u.id
+      WHERE u.id = ?
+      LIMIT 1
+      `, [recipientUserId]);
+        const recipient = recipientRows?.[0];
+        const to = typeof recipient?.email === 'string' ? recipient.email.trim() : '';
+        if (!to)
+            return;
+        if (Number(recipient?.email_notifications) !== 1)
+            return;
+        const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId);
+        const copy = getAppointmentNotificationCopy(kind, actorDisplayName);
+        await (0, mailService_1.sendAppointmentNotificationMail)({
+            to,
+            subject: copy.subject,
+            eventTitle: copy.eventTitle,
+            actorDisplayName,
+            windowText: safeText(payload?.windowText),
+            description: copy.description,
+        });
+    }
+    catch (error) {
+        console.error('Appointment notification mail error:', error);
+    }
+};
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -684,6 +800,14 @@ router.post('/appointments', auth_1.requireAuth, async (req, res) => {
         SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP
         WHERE id = ?
         `, [Number.isFinite(messageId) && messageId > 0 ? messageId : null, threadId]);
+            void sendAppointmentNotificationSafely({
+                kind: 'new_appointment',
+                actorUserId: req.user.id,
+                recipientUserId: studentUserId,
+                studentUserId,
+                mentorUserId: req.user.id,
+                payload,
+            });
             return res.json({ threadId });
         }
         const mentorRows = await (0, db_1.query)("SELECT user_id FROM user_roles WHERE role = 'mentor' AND public_id = ? LIMIT 1", [mentorPublicId.toLowerCase()]);
@@ -724,6 +848,14 @@ router.post('/appointments', auth_1.requireAuth, async (req, res) => {
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP
       WHERE id = ?
       `, [Number.isFinite(messageId) && messageId > 0 ? messageId : null, threadId]);
+        void sendAppointmentNotificationSafely({
+            kind: 'new_appointment',
+            actorUserId: req.user.id,
+            recipientUserId: mentorUserId,
+            studentUserId: req.user.id,
+            mentorUserId,
+            payload,
+        });
         return res.json({ threadId });
     }
     catch (e) {
@@ -754,7 +886,7 @@ router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, r
         return res.status(400).json({ error: '缺少预约时间' });
     try {
         const threadRows = await (0, db_1.query)(`
-      SELECT id
+      SELECT id, student_user_id, mentor_user_id
       FROM message_threads
       WHERE id = ? AND (student_user_id = ? OR mentor_user_id = ?)
       LIMIT 1
@@ -839,6 +971,17 @@ router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, r
             created_at: new Date(),
             appointment_status: 'pending',
         }, req.user.id);
+        const studentUserId = Number(thread.student_user_id);
+        const mentorUserId = Number(thread.mentor_user_id);
+        const recipientUserId = req.user.id === studentUserId ? mentorUserId : studentUserId;
+        void sendAppointmentNotificationSafely({
+            kind: 'new_time',
+            actorUserId: req.user.id,
+            recipientUserId,
+            studentUserId,
+            mentorUserId,
+            payload,
+        });
         return res.json({ threadId: String(threadId), appointment });
     }
     catch (e) {
@@ -937,6 +1080,16 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
         }
         await conn.commit();
+        if (status === 'accepted' || status === 'rejected') {
+            void sendAppointmentNotificationSafely({
+                kind: status,
+                actorUserId: req.user.id,
+                recipientUserId: Number(row.sender_user_id),
+                studentUserId: Number(row.student_user_id),
+                mentorUserId: Number(row.mentor_user_id),
+                payload: parseAppointmentPayload(row.payload_json),
+            });
+        }
         return res.json({ ok: true, appointmentId: String(appointmentId), status });
     }
     catch (e) {
@@ -1368,7 +1521,10 @@ router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (re
         mi.id,
         mi.thread_id,
         mi.sender_user_id,
-        COALESCE(ast.status, 'pending') AS appointment_status
+        mi.payload_json,
+        COALESCE(ast.status, 'pending') AS appointment_status,
+        t.student_user_id,
+        t.mentor_user_id
       FROM message_items mi
       INNER JOIN message_threads t ON t.id = mi.thread_id
       LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
@@ -1416,6 +1572,17 @@ router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (re
         `, [threadId]);
         }
         await conn.commit();
+        const studentUserId = Number(row.student_user_id);
+        const mentorUserId = Number(row.mentor_user_id);
+        const recipientUserId = req.user.id === studentUserId ? mentorUserId : studentUserId;
+        void sendAppointmentNotificationSafely({
+            kind: 'recalled',
+            actorUserId: req.user.id,
+            recipientUserId,
+            studentUserId,
+            mentorUserId,
+            payload: parseAppointmentPayload(row.payload_json),
+        });
         return res.json({ ok: true, appointmentId: String(appointmentId) });
     }
     catch (e) {
