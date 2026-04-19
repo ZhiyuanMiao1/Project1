@@ -19,6 +19,7 @@ import {
   sendEmailVerificationCode,
   verifyEmailCode,
 } from '../services/emailVerificationService';
+import { touchUserLastLogin } from '../services/mentorRecommendation';
 
 type Role = 'mentor' | 'student';
 
@@ -217,6 +218,9 @@ router.post('/refresh', async (req: Request, res: Response) => {
     );
     const roleRow = roles.find((r) => r.role === rotated.role) || roles[0];
     const publicId = roleRow?.public_id || null;
+    void touchUserLastLogin(user.id).catch((error) => {
+      console.error('Touch refreshed login error:', error);
+    });
 
     return res.json({
       message: '刷新成功',

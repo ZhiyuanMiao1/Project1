@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `lesson_balance_hours` DECIMAL(10,2) NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `last_login_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_users_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -28,6 +29,22 @@ SET @__mx_has_lesson_balance_hours := (
 SET @__mx_sql := IF(
   @__mx_has_lesson_balance_hours = 0,
   'ALTER TABLE `users` ADD COLUMN `lesson_balance_hours` DECIMAL(10,2) NOT NULL DEFAULT 0',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_users_last_login_at := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'users'
+    AND COLUMN_NAME = 'last_login_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_users_last_login_at = 0,
+  'ALTER TABLE `users` ADD COLUMN `last_login_at` TIMESTAMP NULL DEFAULT NULL AFTER `updated_at`',
   'SELECT 1'
 );
 PREPARE __mx_stmt FROM @__mx_sql;
@@ -88,12 +105,29 @@ CREATE TABLE IF NOT EXISTS `account_settings` (
   `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
   `home_course_order_json` TEXT NULL,
   `availability_json` TEXT NULL,
+  `availability_updated_at` TIMESTAMP NULL DEFAULT NULL,
   `student_avatar_url` VARCHAR(500) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`),
   CONSTRAINT `fk_account_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_availability_updated_at := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'account_settings'
+    AND COLUMN_NAME = 'availability_updated_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_availability_updated_at = 0,
+  'ALTER TABLE `account_settings` ADD COLUMN `availability_updated_at` TIMESTAMP NULL DEFAULT NULL AFTER `availability_json`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 -- 5b) Refresh tokens (rotating sessions; stored as SHA-256 hash)
 CREATE TABLE IF NOT EXISTS `refresh_tokens` (
@@ -132,6 +166,9 @@ CREATE TABLE IF NOT EXISTS `mentor_profiles` (
   `rating` DECIMAL(3,2) NOT NULL DEFAULT 0,
   `review_count` INT NOT NULL DEFAULT 0,
   `avg_appointment_response_minutes` DECIMAL(10,2) NULL DEFAULT NULL,
+  `is_accepting_students` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_replied_at` TIMESTAMP NULL DEFAULT NULL,
+  `completed_session_count` INT NOT NULL DEFAULT 0,
   `avatar_url` VARCHAR(500) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -149,6 +186,54 @@ SET @__mx_has_mentor_avg_response := (
 SET @__mx_sql := IF(
   @__mx_has_mentor_avg_response = 0,
   'ALTER TABLE `mentor_profiles` ADD COLUMN `avg_appointment_response_minutes` DECIMAL(10,2) NULL DEFAULT NULL AFTER `review_count`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_is_accepting := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'mentor_profiles'
+    AND COLUMN_NAME = 'is_accepting_students'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_is_accepting = 0,
+  'ALTER TABLE `mentor_profiles` ADD COLUMN `is_accepting_students` TINYINT(1) NOT NULL DEFAULT 1 AFTER `avg_appointment_response_minutes`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_last_replied := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'mentor_profiles'
+    AND COLUMN_NAME = 'last_replied_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_last_replied = 0,
+  'ALTER TABLE `mentor_profiles` ADD COLUMN `last_replied_at` TIMESTAMP NULL DEFAULT NULL AFTER `is_accepting_students`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_completed_sessions := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'mentor_profiles'
+    AND COLUMN_NAME = 'completed_session_count'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_completed_sessions = 0,
+  'ALTER TABLE `mentor_profiles` ADD COLUMN `completed_session_count` INT NOT NULL DEFAULT 0 AFTER `last_replied_at`',
   'SELECT 1'
 );
 PREPARE __mx_stmt FROM @__mx_sql;

@@ -83,6 +83,7 @@ async function main() {
       \`password_hash\` VARCHAR(255) NOT NULL,
       \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      \`last_login_at\` TIMESTAMP NULL DEFAULT NULL,
       PRIMARY KEY (\`id\`),
       UNIQUE KEY \`uniq_users_email\` (\`email\`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -133,6 +134,7 @@ async function main() {
       \`email_notifications\` TINYINT(1) NOT NULL DEFAULT 1,
       \`home_course_order_json\` TEXT NULL,
       \`availability_json\` TEXT NULL,
+      \`availability_updated_at\` TIMESTAMP NULL DEFAULT NULL,
       \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (\`user_id\`),
@@ -192,6 +194,7 @@ async function main() {
         email_notifications,
         home_course_order_json,
         availability_json,
+        availability_updated_at,
         created_at,
         updated_at
       )
@@ -200,6 +203,7 @@ async function main() {
         a.email_notifications,
         ${hasHome ? 'a.home_course_order_json' : 'NULL'},
         ${hasAvail ? 'a.availability_json' : 'NULL'},
+        ${hasAvail ? 'a.updated_at' : 'NULL'},
         a.created_at,
         a.updated_at
       FROM account_settings_v1 a
@@ -220,6 +224,12 @@ async function main() {
       \`timezone\` VARCHAR(64) NULL,
       \`courses_json\` TEXT NULL,
       \`teaching_languages_json\` TEXT NULL,
+      \`rating\` DECIMAL(3,2) NOT NULL DEFAULT 0,
+      \`review_count\` INT NOT NULL DEFAULT 0,
+      \`avg_appointment_response_minutes\` DECIMAL(10,2) NULL DEFAULT NULL,
+      \`is_accepting_students\` TINYINT(1) NOT NULL DEFAULT 1,
+      \`last_replied_at\` TIMESTAMP NULL DEFAULT NULL,
+      \`completed_session_count\` INT NOT NULL DEFAULT 0,
       \`avatar_url\` VARCHAR(500) NULL,
       \`created_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       \`updated_at\` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

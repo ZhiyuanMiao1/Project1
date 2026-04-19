@@ -10,6 +10,7 @@ const db_1 = require("../db");
 const express_validator_1 = require("express-validator");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const availabilityBusy_1 = require("../services/availabilityBusy");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const toInt = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
     return Number.isFinite(n) ? n : fallback;
@@ -846,10 +847,12 @@ router.put('/availability', auth_1.requireAuth, [
     const payload = sanitizeAvailabilityPayload(req.body);
     try {
         const write = async () => {
-            await (0, db_1.query)(`INSERT INTO account_settings (user_id, availability_json)
-           VALUES (?, ?)
+            await (0, mentorRecommendation_1.ensureAccountRecommendationColumns)();
+            await (0, db_1.query)(`INSERT INTO account_settings (user_id, availability_json, availability_updated_at)
+           VALUES (?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE
              availability_json = VALUES(availability_json),
+             availability_updated_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP`, [userId, JSON.stringify(payload)]);
         };
         try {

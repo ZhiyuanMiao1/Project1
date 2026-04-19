@@ -5,6 +5,7 @@ import { query as dbQuery } from '../db';
 import { body, validationResult } from 'express-validator';
 import { clearRefreshTokenCookie, revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 import { getBusySelectionsForUser } from '../services/availabilityBusy';
+import { ensureAccountRecommendationColumns } from '../services/mentorRecommendation';
 
 type Role = 'student' | 'mentor';
 
@@ -1038,11 +1039,13 @@ router.put(
 
     try {
       const write = async () => {
+        await ensureAccountRecommendationColumns();
         await dbQuery(
-          `INSERT INTO account_settings (user_id, availability_json)
-           VALUES (?, ?)
+          `INSERT INTO account_settings (user_id, availability_json, availability_updated_at)
+           VALUES (?, ?, CURRENT_TIMESTAMP)
            ON DUPLICATE KEY UPDATE
              availability_json = VALUES(availability_json),
+             availability_updated_at = CURRENT_TIMESTAMP,
              updated_at = CURRENT_TIMESTAMP`,
           [userId, JSON.stringify(payload)]
         );

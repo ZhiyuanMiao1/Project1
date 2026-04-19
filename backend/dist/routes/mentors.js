@@ -7,6 +7,7 @@ const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
 const availabilityBusy_1 = require("../services/availabilityBusy");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 const hrNow = () => process.hrtime.bigint();
 const msSince = (start) => Number(hrNow() - start) / 1e6;
@@ -289,6 +290,8 @@ router.get('/approved', async (_req, res) => {
     const isOthersDirection = directionId === 'others';
     const useLegacyVectorRanking = false;
     const timingEnabled = getTimingFlag(_req);
+    const debugRankingRaw = typeof _req.query?.debugRanking === 'string' ? _req.query.debugRanking.trim().toLowerCase() : '';
+    const debugRanking = debugRankingRaw === '1' || debugRankingRaw === 'true';
     const reqId = timingEnabled ? Math.random().toString(16).slice(2, 8) : '';
     const t0 = timingEnabled ? hrNow() : 0n;
     const runQuery = async () => {
@@ -297,7 +300,9 @@ router.get('/approved', async (_req, res) => {
         SELECT
           ur.user_id,
           ur.public_id,
+          ur.created_at AS mentor_created_at,
           u.username,
+          u.last_login_at,
           mp.display_name,
           mp.gender,
           mp.degree,
@@ -309,10 +314,16 @@ router.get('/approved', async (_req, res) => {
           mp.rating,
           mp.review_count,
           mp.avg_appointment_response_minutes,
-          mp.updated_at
+          mp.is_accepting_students,
+          mp.last_replied_at,
+          mp.completed_session_count,
+          mp.updated_at,
+          s.availability_json,
+          s.availability_updated_at
         FROM user_roles ur
         JOIN users u ON u.id = ur.user_id
         LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+        LEFT JOIN account_settings s ON s.user_id = ur.user_id
         WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
         ORDER BY mp.updated_at DESC, ur.public_id ASC
         LIMIT 100
@@ -324,7 +335,9 @@ router.get('/approved', async (_req, res) => {
       SELECT
         ur.user_id,
         ur.public_id,
+        ur.created_at AS mentor_created_at,
         u.username,
+        u.last_login_at,
         mp.display_name,
         mp.gender,
         mp.degree,
@@ -336,13 +349,19 @@ router.get('/approved', async (_req, res) => {
         mp.rating,
         mp.review_count,
         mp.avg_appointment_response_minutes,
+        mp.is_accepting_students,
+        mp.last_replied_at,
+        mp.completed_session_count,
         mp.updated_at,
+        s.availability_json,
+        s.availability_updated_at,
         mds.score AS relevance_score
       FROM mentor_direction_scores mds
       JOIN user_roles ur
         ON ur.user_id = mds.user_id AND ur.role = 'mentor' AND ur.mentor_approved = 1
       JOIN users u ON u.id = ur.user_id
       LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+      LEFT JOIN account_settings s ON s.user_id = ur.user_id
       WHERE mds.direction_id = ?
       ${whereOthers}
       ORDER BY mds.score DESC, mp.updated_at DESC, ur.public_id ASC
@@ -354,6 +373,7 @@ router.get('/approved', async (_req, res) => {
         if (directionId) {
             await (0, mentorDirectionScores_1.ensureMentorDirectionScoresTable)();
         }
+        await (0, mentorRecommendation_1.ensureRecommendationSchema)();
         const responseTimeReady = await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
         if (responseTimeReady) {
             await (0, mentorResponseTime_1.backfillMentorResponseTimeAverages)();
@@ -391,7 +411,8 @@ router.get('/approved', async (_req, res) => {
         const tBuildCardsStart = timingEnabled ? hrNow() : 0n;
         let mentors = rows.flatMap((row) => {
             const courses = parseCourses(row.courses_json);
-            const relevanceScore = directionId ? normalizeScore(row?.relevance_score) : undefined;
+            const teachingLanguages = (0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json);
+            const relevanceScore = directionId ? normalizeScore(row.relevance_score) : undefined;
             const hasAnyProfileInfo = hasNonEmptyText(row.avatar_url) ||
                 hasNonEmptyText(row.school) ||
                 hasNonEmptyText(row.degree) ||
@@ -404,8 +425,10 @@ router.get('/approved', async (_req, res) => {
             return [
                 {
                     _userId: Number(row.user_id),
+                    userId: Number(row.user_id),
                     id: row.public_id,
                     name,
+                    displayName: row.display_name || '',
                     gender: row.gender || '',
                     degree: row.degree || '',
                     school: row.school || '',
@@ -413,9 +436,19 @@ router.get('/approved', async (_req, res) => {
                     reviewCount: normalizeCount(row.review_count),
                     courses,
                     timezone: row.timezone || '',
-                    languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
+                    teachingLanguages,
+                    languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)(teachingLanguages),
                     imageUrl: row.avatar_url || null,
+                    avatarUrl: row.avatar_url || null,
                     avgResponseMinutes: (0, mentorResponseTime_1.normalizeMentorResponseMinutes)(row.avg_appointment_response_minutes),
+                    mentorCreatedAt: row.mentor_created_at,
+                    lastLoginAt: row.last_login_at,
+                    profileUpdatedAt: row.updated_at,
+                    availabilityJson: row.availability_json,
+                    availabilityUpdatedAt: row.availability_updated_at,
+                    isAcceptingStudents: row.is_accepting_students,
+                    lastRepliedAt: row.last_replied_at,
+                    completedSessionCount: normalizeCount(row.completed_session_count),
                     relevanceScore,
                 },
             ];
@@ -609,7 +642,17 @@ router.get('/approved', async (_req, res) => {
                 mentors = applyTopRelativeCutoff(mentors, RELEVANCE_TOP_RELATIVE_DELTA, RELEVANCE_ABS_MIN);
             }
         }
-        const publicMentors = mentors.map(({ _userId, ...rest }) => rest);
+        const rankedMentors = (0, mentorRecommendation_1.rankMentorsForRecommendation)(mentors);
+        const publicMentors = rankedMentors.map((mentor) => {
+            const { _userId, userId, displayName, avatarUrl, teachingLanguages, mentorCreatedAt, lastLoginAt, profileUpdatedAt, availabilityJson, availabilityUpdatedAt, isAcceptingStudents, lastRepliedAt, completedSessionCount, recommendation, isNewMentor, primaryCourseKey, timezoneBucket, diversityTag, ...rest } = mentor;
+            if (!debugRanking)
+                return rest;
+            return {
+                ...rest,
+                recommendScore: recommendation.recommendScore,
+                recommendation,
+            };
+        });
         return res.json({ mentors: publicMentors });
     }
     catch (e) {

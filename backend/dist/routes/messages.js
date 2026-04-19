@@ -9,6 +9,7 @@ const auth_1 = require("../middleware/auth");
 const availabilityBusy_1 = require("../services/availabilityBusy");
 const mailService_1 = require("../services/mailService");
 const mentorResponseTime_1 = require("../services/mentorResponseTime");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = express_1.default.Router();
 const isMissingMessagesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
@@ -472,6 +473,7 @@ const refreshMentorResponseTimeMetricIfNeeded = async (conn, row, actingUserId) 
         return;
     if (actingUserId !== mentorUserId)
         return;
+    await (0, mentorRecommendation_1.touchMentorLastRepliedWithConnection)(conn, mentorUserId);
     if (senderUserId !== studentUserId)
         return;
     await (0, mentorResponseTime_1.recomputeMentorResponseTimeAverage)(conn, mentorUserId);
@@ -673,6 +675,16 @@ const ensureCourseSessionForAcceptedAppointment = async ({ studentUserId, mentor
         sessionStatus,
     ]);
     const insertedId = toPositiveIntOrNull(insertResult?.insertId);
+    if (sessionStatus === 'completed') {
+        await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
+        const conn = await db_1.pool.getConnection();
+        try {
+            await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, mentorUserId);
+        }
+        finally {
+            conn.release();
+        }
+    }
     return insertedId != null ? String(insertedId) : '';
 };
 const normalizeCourseSessionStatus = (value) => {
@@ -728,6 +740,9 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
                 parsed.durationHours,
                 sessionStatus,
             ]);
+            if (sessionStatus === 'completed') {
+                await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, mentorUserId);
+            }
             return;
         }
         const existingId = toPositiveIntOrNull(existingRow?.id);
@@ -751,6 +766,9 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
             sessionStatus,
             existingId,
         ]);
+        if (sessionStatus === 'completed') {
+            await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, mentorUserId);
+        }
         return;
     }
     const existingId = toPositiveIntOrNull(existingRow?.id);
@@ -950,6 +968,9 @@ router.post('/appointments', auth_1.requireAuth, async (req, res) => {
         SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP
         WHERE id = ?
         `, [Number.isFinite(messageId) && messageId > 0 ? messageId : null, threadId]);
+            void (0, mentorRecommendation_1.touchMentorLastReplied)(req.user.id).catch((error) => {
+                console.error('Touch mentor last replied error:', error);
+            });
             void sendAppointmentNotificationSafely({
                 kind: 'new_appointment',
                 actorUserId: req.user.id,
@@ -1134,6 +1155,11 @@ router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, r
         }, req.user.id);
         const studentUserId = Number(thread.student_user_id);
         const mentorUserId = Number(thread.mentor_user_id);
+        if (req.user.id === mentorUserId) {
+            void (0, mentorRecommendation_1.touchMentorLastReplied)(mentorUserId).catch((error) => {
+                console.error('Touch mentor last replied error:', error);
+            });
+        }
         const recipientUserId = req.user.id === studentUserId ? mentorUserId : studentUserId;
         void sendAppointmentNotificationSafely({
             kind: 'new_time',
@@ -1165,6 +1191,7 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         return res.status(400).json({ error: '无效状态' });
     }
     await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -1291,6 +1318,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
     if (status === 'disputed' && disputedHours == null) {
         return res.status(400).json({ error: '请填写你认为正确的课时，需为 0.25 小时颗粒度且范围 0.25-12 小时' });
     }
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -1362,6 +1390,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
         SET duration_hours = ?, status = 'completed'
         WHERE id = ?
         `, [proposedHours, Number(row.course_session_id)]);
+            await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(row.mentor_user_id));
             await conn.execute(`
         UPDATE users
         SET lesson_balance_hours = lesson_balance_hours - ?
@@ -1421,6 +1450,7 @@ router.post('/lesson-hour-confirmations/:messageId/retry', auth_1.requireAuth, a
     if (proposedHours == null) {
         return res.status(400).json({ error: '课时必须为 0.25 小时颗粒度，且范围为 0.25-12 小时' });
     }
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -1491,6 +1521,7 @@ router.post('/lesson-hour-confirmations/:messageId/retry', auth_1.requireAuth, a
             courseDirectionId: safeText(row?.course_direction) || safeText(payload?.courseDirectionId),
             courseTypeId: safeText(row?.course_type) || safeText(payload?.courseTypeId),
         });
+        await (0, mentorRecommendation_1.touchMentorLastRepliedWithConnection)(conn, Number(row.mentor_user_id));
         await conn.execute(`
       UPDATE message_threads
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -1532,6 +1563,7 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requi
     if (status !== 'dispute_confirmed' && status !== 'platform_review') {
         return res.status(400).json({ error: '无效响应状态' });
     }
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -1602,12 +1634,14 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requi
         SET duration_hours = ?, status = 'completed'
         WHERE id = ?
         `, [disputedHours, Number(row.course_session_id)]);
+            await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(row.mentor_user_id));
             await conn.execute(`
         UPDATE users
         SET lesson_balance_hours = lesson_balance_hours - ?
         WHERE id = ?
         `, [disputedHours, Number(row.student_user_id)]);
         }
+        await (0, mentorRecommendation_1.touchMentorLastRepliedWithConnection)(conn, Number(row.mentor_user_id));
         await conn.execute(`
       UPDATE message_threads
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP

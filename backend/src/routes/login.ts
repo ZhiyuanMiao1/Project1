@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { query } from '../db';
 import { ACCESS_TOKEN_EXPIRES_IN, createRefreshTokenSession, setRefreshTokenCookie } from '../auth/refreshTokens';
+import { touchUserLastLogin } from '../services/mentorRecommendation';
 
 const router = Router();
 
@@ -93,6 +94,9 @@ router.post(
         ip: String(req.ip || '').slice(0, 45) || null,
       });
       setRefreshTokenCookie(res, session.token, session.slidingExpiresAt.getTime() - Date.now());
+      void touchUserLastLogin(account.id).catch((error) => {
+        console.error('Touch last login error:', error);
+      });
 
       return res.json({
         message: '登录成功',

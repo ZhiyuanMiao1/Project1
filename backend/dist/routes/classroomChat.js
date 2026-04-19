@@ -5,6 +5,7 @@ const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const ossClient_1 = require("../services/ossClient");
 const classroomAccess_1 = require("../services/classroomAccess");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 const MAX_TEXT_LENGTH = 4000;
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -174,6 +175,11 @@ router.post('/:courseId/chat/messages', auth_1.requireAuth, async (req, res) => 
         INSERT INTO classroom_messages (classroom_id, sender_user_id, message_type, text_content, file_id)
         VALUES (?, ?, 'text', ?, NULL)
         `, [courseId, req.user.id, textContent]);
+            if (req.user.id === context.mentorUserId) {
+                void (0, mentorRecommendation_1.touchMentorLastReplied)(context.mentorUserId).catch((error) => {
+                    console.error('Touch mentor classroom reply error:', error);
+                });
+            }
             return res.json({
                 id: Number(result?.insertId || 0),
                 messageType: 'text',
@@ -250,6 +256,11 @@ router.post('/:courseId/chat/messages', auth_1.requireAuth, async (req, res) => 
       INSERT INTO classroom_messages (classroom_id, sender_user_id, message_type, text_content, file_id)
       VALUES (?, ?, 'file', NULL, ?)
       `, [courseId, req.user.id, fileId]);
+        if (req.user.id === context.mentorUserId) {
+            void (0, mentorRecommendation_1.touchMentorLastReplied)(context.mentorUserId).catch((error) => {
+                console.error('Touch mentor classroom reply error:', error);
+            });
+        }
         return res.json({
             id: Number(result?.insertId || 0),
             messageType: 'file',
@@ -339,6 +350,7 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
     if (proposedHours == null) {
         return res.status(400).json({ error: '课时必须为 0.25 小时颗粒度，且范围为 0.25-12 小时' });
     }
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -405,6 +417,8 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
       SET status = 'completed'
       WHERE id = ?
       `, [courseId]);
+        await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, context.mentorUserId);
+        await (0, mentorRecommendation_1.touchMentorLastRepliedWithConnection)(conn, context.mentorUserId);
         await conn.execute(`
       UPDATE message_threads
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP

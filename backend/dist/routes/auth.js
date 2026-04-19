@@ -10,6 +10,7 @@ const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const emailVerificationService_1 = require("../services/emailVerificationService");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 const EMAIL_CODE_PURPOSES = ['register', 'reset_password'];
 const handleEmailVerificationError = (res, error) => {
@@ -149,6 +150,9 @@ router.post('/refresh', async (req, res) => {
         const roles = await (0, db_1.query)('SELECT role, public_id, mentor_approved FROM user_roles WHERE user_id = ?', [rotated.userId]);
         const roleRow = roles.find((r) => r.role === rotated.role) || roles[0];
         const publicId = roleRow?.public_id || null;
+        void (0, mentorRecommendation_1.touchUserLastLogin)(user.id).catch((error) => {
+            console.error('Touch refreshed login error:', error);
+        });
         return res.json({
             message: '刷新成功',
             token: accessToken,

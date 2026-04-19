@@ -9,6 +9,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
 const refreshTokens_1 = require("../auth/refreshTokens");
+const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 router.post('/', [
     // email 字段兼容旧前端；这里允许传入 email / StudentID(s#) / MentorID(m#)
@@ -58,6 +59,9 @@ router.post('/', [
             ip: String(req.ip || '').slice(0, 45) || null,
         });
         (0, refreshTokens_1.setRefreshTokenCookie)(res, session.token, session.slidingExpiresAt.getTime() - Date.now());
+        void (0, mentorRecommendation_1.touchUserLastLogin)(account.id).catch((error) => {
+            console.error('Touch last login error:', error);
+        });
         return res.json({
             message: '登录成功',
             token,

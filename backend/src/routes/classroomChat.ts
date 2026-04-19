@@ -12,6 +12,12 @@ import {
   parseStoredUtcDate,
   safeText,
 } from '../services/classroomAccess';
+import {
+  ensureMentorRecommendationColumns,
+  recomputeMentorCompletedSessionCount,
+  touchMentorLastReplied,
+  touchMentorLastRepliedWithConnection,
+} from '../services/mentorRecommendation';
 
 const router = Router();
 
@@ -209,6 +215,11 @@ router.post('/:courseId/chat/messages', requireAuth, async (req: Request, res: R
         `,
         [courseId, req.user.id, textContent]
       );
+      if (req.user.id === context.mentorUserId) {
+        void touchMentorLastReplied(context.mentorUserId).catch((error) => {
+          console.error('Touch mentor classroom reply error:', error);
+        });
+      }
 
       return res.json({
         id: Number(result?.insertId || 0),
@@ -295,6 +306,11 @@ router.post('/:courseId/chat/messages', requireAuth, async (req: Request, res: R
       `,
       [courseId, req.user.id, fileId]
     );
+    if (req.user.id === context.mentorUserId) {
+      void touchMentorLastReplied(context.mentorUserId).catch((error) => {
+        console.error('Touch mentor classroom reply error:', error);
+      });
+    }
 
     return res.json({
       id: Number(result?.insertId || 0),
@@ -422,6 +438,8 @@ router.post('/:courseId/end-session', requireAuth, async (req: Request, res: Res
     return res.status(400).json({ error: '课时必须为 0.25 小时颗粒度，且范围为 0.25-12 小时' });
   }
 
+  await ensureMentorRecommendationColumns();
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -512,6 +530,8 @@ router.post('/:courseId/end-session', requireAuth, async (req: Request, res: Res
       `,
       [courseId]
     );
+    await recomputeMentorCompletedSessionCount(conn, context.mentorUserId);
+    await touchMentorLastRepliedWithConnection(conn, context.mentorUserId);
 
     await conn.execute(
       `
