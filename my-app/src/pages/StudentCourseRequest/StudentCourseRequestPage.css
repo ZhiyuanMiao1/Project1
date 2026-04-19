@@ -290,6 +290,9 @@
   border-radius: 20px;
   padding: 20px 24px; /* active 时会按差值 1.5px 做补偿 */
   background: #ffffff;
+  color: #111827;
+  appearance: none;
+  -webkit-appearance: none;
   display: flex;
   --card-index: 0;
   flex-direction: column;
@@ -324,6 +327,7 @@
 }
 
 .direction-card__title {
+  color: #111827;
   font-weight: 500;
   font-size: 16px;
 }
