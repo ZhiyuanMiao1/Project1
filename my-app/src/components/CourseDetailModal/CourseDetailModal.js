@@ -1,6 +1,6 @@
 import React from 'react';
 import { FaRegStar, FaStar } from 'react-icons/fa';
-import { FiX } from 'react-icons/fi';
+import { FiClock, FiX } from 'react-icons/fi';
 import './CourseDetailModal.css';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 import { useI18n } from '../../i18n/language';
@@ -14,6 +14,7 @@ function CourseDetailModal({
   typeLabel,
   TypeIcon,
   dateLabel,
+  timeLabel,
   durationLabel,
   onClose,
   actions,
@@ -98,7 +99,7 @@ function CourseDetailModal({
             <span>{title}</span>
           </div>
 
-          <div className="course-detail-modal__meta-grid">
+          <div className={`course-detail-modal__meta-grid ${timeLabel ? 'course-detail-modal__meta-grid--with-time' : ''}`}>
             <div className="course-detail-modal__meta-chip">
               <span className="course-detail-modal__chip-label">{t('courseDetail.courseType', '课程类型')}</span>
               <div className="course-detail-modal__chip-value">
@@ -111,6 +112,16 @@ function CourseDetailModal({
               <span className="course-detail-modal__chip-label">{t('courseDetail.date', '日期')}</span>
               <div className="course-detail-modal__chip-value">{dateLabel}</div>
             </div>
+
+            {timeLabel ? (
+              <div className="course-detail-modal__meta-chip">
+                <span className="course-detail-modal__chip-label">{t('courseDetail.time', '时间')}</span>
+                <div className="course-detail-modal__chip-value">
+                  <FiClock size={14} />
+                  <span>{timeLabel}</span>
+                </div>
+              </div>
+            ) : null}
 
             <div className="course-detail-modal__meta-chip">
               <span className="course-detail-modal__chip-label">{t('courseDetail.duration', '时长')}</span>

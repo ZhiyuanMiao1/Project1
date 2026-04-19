@@ -163,11 +163,16 @@
   align-items: center;
 }
 
+.course-detail-modal__meta-grid--with-time {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .course-detail-modal__meta-chip {
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .course-detail-modal__chip-label {
@@ -182,6 +187,12 @@
   font-weight: 700;
   font-size: 14px;
   line-height: 1.2;
+  min-width: 0;
+}
+
+.course-detail-modal__chip-value span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .course-detail-modal__chip-value svg {

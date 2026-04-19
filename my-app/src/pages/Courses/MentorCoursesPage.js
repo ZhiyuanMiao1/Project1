@@ -75,6 +75,32 @@ const getCourseDisplayDateText = (course, timeZone = getDefaultTimeZone()) => {
   return buildDateTextFromParts(parts) || safeText(course?.date) || safeText(course?.startsAt);
 };
 
+const formatTimeParts = (parts) => {
+  if (!parts || !Number.isFinite(parts.hour) || !Number.isFinite(parts.minute)) return '';
+  const hour = parts.hour === 24 ? 0 : parts.hour;
+  return `${pad2(hour)}:${pad2(parts.minute)}`;
+};
+
+const getCourseDisplayTimeText = (course, timeZone = getDefaultTimeZone()) => {
+  const startsAt = safeText(course?.startsAt);
+  if (!startsAt) return '';
+
+  const startDate = new Date(startsAt);
+  if (Number.isNaN(startDate.getTime())) return '';
+
+  const startText = formatTimeParts(getZonedParts(timeZone, startDate));
+  if (!startText) return '';
+
+  const durationHours = toDurationHours(course?.durationHours);
+  if (durationHours == null) return startText;
+
+  const endDate = new Date(startDate.getTime() + durationHours * 60 * 60 * 1000);
+  if (Number.isNaN(endDate.getTime())) return startText;
+
+  const endText = formatTimeParts(getZonedParts(timeZone, endDate));
+  return endText ? `${startText}-${endText}` : startText;
+};
+
 const toDateKey = (rawDate, rawStartsAt) => {
   const direct = safeText(rawDate);
   const directMatch = direct.match(/\d{4}-\d{2}-\d{2}/);
@@ -807,6 +833,7 @@ function MentorCoursesPage() {
             typeLabel={displayType}
             TypeIcon={TypeIcon}
             dateLabel={getCourseDisplayDateText(activeCourse, userTimeZone)}
+            timeLabel={getCourseDisplayTimeText(activeCourse, userTimeZone)}
             durationLabel={activeCourse.duration}
             onClose={handleCourseClose}
             actions={isCompleted ? (

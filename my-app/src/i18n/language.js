@@ -245,6 +245,7 @@ const en = {
   'courseDetail.close': 'Close course details',
   'courseDetail.courseType': 'Course Type',
   'courseDetail.date': 'Date',
+  'courseDetail.time': 'Time',
   'courseDetail.duration': 'Duration',
   'courseReview.aria': 'Review mentor',
   'courseReview.close': 'Close review dialog',
