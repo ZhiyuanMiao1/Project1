@@ -1,0 +1,191 @@
+.course-start-reminder-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.course-start-reminder-dialog {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid rgba(203, 213, 225, 0.92);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+  padding: 24px;
+  color: #111827;
+}
+
+.course-start-reminder-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.course-start-reminder-close:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.course-start-reminder-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.course-start-reminder-title {
+  margin: 12px 44px 0 0;
+  color: #0f172a;
+  font-size: 26px;
+  line-height: 1.24;
+  font-weight: 700;
+}
+
+.course-start-reminder-clock {
+  margin-top: 22px;
+  padding: 18px 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.course-start-reminder-clock-label {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.course-start-reminder-clock-value {
+  display: block;
+  margin-top: 6px;
+  color: #111827;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 48px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.course-start-reminder-details {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.course-start-reminder-course {
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.course-start-reminder-course span {
+  color: #334155;
+  font-weight: 650;
+}
+
+.course-start-reminder-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.course-start-reminder-remaining {
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.course-start-reminder-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.course-start-reminder-btn {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.course-start-reminder-btn--ghost {
+  border-color: #d1d5db;
+  background: #ffffff;
+  color: #334155;
+}
+
+.course-start-reminder-btn--ghost:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.course-start-reminder-btn--primary {
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+.course-start-reminder-btn--primary:hover {
+  background: #991b1b;
+}
+
+@media (max-width: 520px) {
+  .course-start-reminder-dialog {
+    padding: 22px 18px 18px;
+  }
+
+  .course-start-reminder-title {
+    font-size: 23px;
+  }
+
+  .course-start-reminder-clock-value {
+    font-size: 40px;
+  }
+
+  .course-start-reminder-actions {
+    flex-direction: column-reverse;
+  }
+
+  .course-start-reminder-btn {
+    width: 100%;
+  }
+}

@@ -4,6 +4,7 @@ import './App.css';
 import StudentPage from './components/StudentPage/StudentPage';
 import LessonHoursDialog from './components/LessonHoursDialog/LessonHoursDialog';
 import PendingLessonHoursPrompt from './components/PendingLessonHoursPrompt/PendingLessonHoursPrompt';
+import CourseStartReminderGate from './components/CourseStartReminder/CourseStartReminder';
 import api from './api/client';
 import { emitMessageUnreadChanged } from './hooks/useMessageUnreadSummary';
 import usePendingLessonHours, { emitPendingLessonHoursChanged } from './hooks/usePendingLessonHours';
@@ -393,6 +394,7 @@ function App() {
         <BackgroundRouteWarmup />
         <AuthSessionManager />
         <PendingLessonHoursGate />
+        <CourseStartReminderGate />
         <Routes>
           {/* 默认路径重定向到 /student */}
           <Route path="/" element={<Navigate to="/student" />} />
