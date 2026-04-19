@@ -26,6 +26,7 @@ import {
   getDefaultTimeZone,
   getZonedParts,
 } from '../StudentCourseRequest/steps/timezoneUtils';
+import { useI18n } from '../../i18n/language';
 import '../../styles/rescheduleTimeline.css';
 import '../MentorDetail/MentorDetailPage.css';
 
@@ -48,8 +49,16 @@ const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-const formatFullDate = (date) => {
+const formatFullDate = (date, language = 'zh-CN') => {
   if (!(date instanceof Date)) return '';
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(date);
+  }
   const label = weekdayLabels[date.getDay()] || '';
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
 };
@@ -66,7 +75,7 @@ const parseYmdKey = (key) => {
   return { year, month, day };
 };
 
-const formatRangeTitleFromKeys = (keys) => {
+const formatRangeTitleFromKeys = (keys, language = 'zh-CN') => {
   const normalized = Array.isArray(keys) ? keys.filter(Boolean) : [];
   if (!normalized.length) return '';
   const sorted = [...normalized].sort();
@@ -76,6 +85,14 @@ const formatRangeTitleFromKeys = (keys) => {
 
   const sameYear = startParts.year === endParts.year;
   const sameMonth = sameYear && startParts.month === endParts.month;
+
+  if (language === 'en') {
+    const startDate = new Date(startParts.year, startParts.month - 1, startParts.day);
+    const endDate = new Date(endParts.year, endParts.month - 1, endParts.day);
+    if (startDate.getTime() === endDate.getTime()) return formatFullDate(startDate, language);
+    const formatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return `${formatter.format(startDate)} - ${formatter.format(endDate)}`;
+  }
 
   if (sameMonth) {
     if (startParts.day === endParts.day) return `${startParts.year}年${startParts.month}月${startParts.day}日`;
@@ -406,6 +423,7 @@ const normalizeRequestToCardData = (request) => {
 };
 
 function CourseRequestDetailPage() {
+  const { language, t } = useI18n();
   const menuAnchorRef = useRef(null);
   const recordedRecentVisitRef = useRef('');
   const location = useLocation();
@@ -577,14 +595,14 @@ function CourseRequestDetailPage() {
     if (!requestId) {
       setRequest(null);
       setLoading(false);
-      setErrorMessage('缺少需求ID');
+      setErrorMessage(t('requestDetail.missingId', '缺少需求ID'));
       return () => { alive = false; };
     }
 
     if (!getAuthToken()) {
       setRequest(null);
       setLoading(false);
-      setErrorMessage('请用导师身份登录后查看');
+      setErrorMessage(t('requestDetail.mentorLoginRequired', '请用导师身份登录后查看'));
       rememberPostLoginRedirect();
       setShowMentorAuth(true);
       return () => { alive = false; };
@@ -599,7 +617,7 @@ function CourseRequestDetailPage() {
         const payload = res?.data?.request;
         if (!payload) {
           setRequest(null);
-          setErrorMessage('未找到需求');
+          setErrorMessage(t('requestDetail.notFound', '未找到需求'));
           return;
         }
         setRequest(payload);
@@ -608,7 +626,7 @@ function CourseRequestDetailPage() {
         if (!alive) return;
         const status = e?.response?.status;
         if (status === 401) {
-          setErrorMessage('请用导师身份登录后查看');
+          setErrorMessage(t('requestDetail.mentorLoginRequired', '请用导师身份登录后查看'));
           rememberPostLoginRedirect();
           setShowMentorAuth(true);
           return;
@@ -616,13 +634,13 @@ function CourseRequestDetailPage() {
         if (status === 403) {
           const msg = e?.response?.data?.error || '';
           if (msg && (msg.includes('审核') || msg.toLowerCase().includes('pending'))) {
-            setErrorMessage('导师审核中，暂不可查看');
+            setErrorMessage(t('requestDetail.mentorPending', '导师审核中，暂不可查看'));
           } else {
-            setErrorMessage('仅导师可访问');
+            setErrorMessage(t('requestDetail.mentorOnly', '仅导师可访问'));
           }
           return;
         }
-        const msg = e?.response?.data?.error || e?.message || '加载失败，请稍后再试';
+        const msg = e?.response?.data?.error || e?.message || t('requestDetail.loadFailed', '加载失败，请稍后再试');
         setErrorMessage(String(msg));
         setRequest(null);
       })
@@ -632,7 +650,7 @@ function CourseRequestDetailPage() {
       });
 
     return () => { alive = false; };
-  }, [isLoggedIn, location?.state?.request, rememberPostLoginRedirect, requestId]);
+  }, [isLoggedIn, location?.state?.request, rememberPostLoginRedirect, requestId, t]);
 
   const previewCardData = useMemo(() => {
     const data = normalizeRequestToCardData(request);
@@ -675,11 +693,11 @@ function CourseRequestDetailPage() {
         if (!fileId) return null;
         const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
         const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
-        const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
+        const fileName = fileNameRaw || fallbackName || t('requestDetail.attachmentFallback', `附件${index + 1}`, { index: index + 1 });
         return { fileId, fileName };
       })
       .filter(Boolean);
-  }, [requestAttachments]);
+  }, [requestAttachments, t]);
 
   const triggerDownloadUrl = useCallback((url) => {
     if (!url) return;
@@ -694,54 +712,66 @@ function CourseRequestDetailPage() {
 
   const fetchAttachmentSignedUrl = useCallback(async (fileId) => {
     const rid = String(requestId || '').trim();
-    if (!rid) throw new Error('缺少 requestId');
+    if (!rid) throw new Error(t('requestDetail.missingRequestId', '缺少 requestId'));
     const res = await api.get(`/api/attachments/course-requests/${encodeURIComponent(rid)}/attachments/${encodeURIComponent(fileId)}/signed-url`);
     const url = res?.data?.url;
-    if (!url || typeof url !== 'string') throw new Error('签名链接无效');
+    if (!url || typeof url !== 'string') throw new Error(t('requestDetail.invalidSignedUrl', '签名链接无效'));
     return url;
-  }, [requestId]);
+  }, [requestId, t]);
 
   const fetchAttachmentsSignedUrls = useCallback(async (fileIds) => {
     const rid = String(requestId || '').trim();
-    if (!rid) throw new Error('缺少 requestId');
+    if (!rid) throw new Error(t('requestDetail.missingRequestId', '缺少 requestId'));
     const res = await api.post(`/api/attachments/course-requests/${encodeURIComponent(rid)}/attachments/signed-urls`, { fileIds });
     const items = Array.isArray(res?.data?.items) ? res.data.items : [];
     return items
       .map((it) => ({ fileId: it?.fileId, url: it?.url }))
       .filter((it) => typeof it?.fileId === 'string' && typeof it?.url === 'string' && it.url);
-  }, [requestId]);
+  }, [requestId, t]);
 
   const handleDownloadAttachment = useCallback(async (fileId) => {
     try {
       const url = await fetchAttachmentSignedUrl(fileId);
       triggerDownloadUrl(url);
     } catch (e) {
-      const msg = e?.response?.data?.error || e?.message || '下载失败，请稍后再试';
+      const msg = e?.response?.data?.error || e?.message || t('requestDetail.downloadFailed', '下载失败，请稍后再试');
       window.alert(String(msg));
     }
-  }, [fetchAttachmentSignedUrl, triggerDownloadUrl]);
+  }, [fetchAttachmentSignedUrl, t, triggerDownloadUrl]);
 
   const handleDownloadAllAttachments = useCallback(() => {
     if (!downloadableAttachments.length) return;
     const fileIds = downloadableAttachments.map((x) => x.fileId);
     fetchAttachmentsSignedUrls(fileIds)
       .then((items) => {
-        if (!items.length) throw new Error('未获取到下载链接');
+        if (!items.length) throw new Error(t('requestDetail.noDownloadUrl', '未获取到下载链接'));
         items.forEach((it, idx) => {
           window.setTimeout(() => triggerDownloadUrl(it.url), idx * 200);
         });
       })
       .catch((e) => {
-        const msg = e?.response?.data?.error || e?.message || '下载失败，请稍后再试';
+        const msg = e?.response?.data?.error || e?.message || t('requestDetail.downloadFailed', '下载失败，请稍后再试');
         window.alert(String(msg));
       });
-  }, [downloadableAttachments, fetchAttachmentsSignedUrls, triggerDownloadUrl]);
+  }, [downloadableAttachments, fetchAttachmentsSignedUrls, t, triggerDownloadUrl]);
 
-  const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
+  const zhDays = useMemo(() => (
+    language === 'en'
+      ? [
+        t('mentorDetail.weekday.sun', 'Sun'),
+        t('mentorDetail.weekday.mon', 'Mon'),
+        t('mentorDetail.weekday.tue', 'Tue'),
+        t('mentorDetail.weekday.wed', 'Wed'),
+        t('mentorDetail.weekday.thu', 'Thu'),
+        t('mentorDetail.weekday.fri', 'Fri'),
+        t('mentorDetail.weekday.sat', 'Sat'),
+      ]
+      : ['日', '一', '二', '三', '四', '五', '六']
+  ), [language, t]);
   const monthLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    const fmt = new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { year: 'numeric', month: 'long' });
     return fmt.format(viewMonth);
-  }, [viewMonth]);
+  }, [language, viewMonth]);
   const calendarGrid = useMemo(() => buildCalendarGrid(viewMonth), [viewMonth]);
   const nowParts = useMemo(
     () => getZonedParts(selectedTimeZone, new Date(nowTick)),
@@ -845,10 +875,10 @@ function CourseRequestDetailPage() {
 
   const participantLabels = useMemo(() => {
     return {
-      left: '我',
-      right: previewCardData?.name || '学生',
+      left: t('messages.me', '我'),
+      right: previewCardData?.name || t('mentorDetail.studentFallback', '学生'),
     };
-  }, [previewCardData?.name]);
+  }, [previewCardData?.name, t]);
 
   const mySelectionsInViewTz = useMemo(() => {
     const payload = myAvailability;
@@ -1048,9 +1078,9 @@ function CourseRequestDetailPage() {
   const scheduleMinDate = toNoonDate(todayStart);
   const isPrevDayDisabled = toNoonDate(selectedDate).getTime() <= scheduleMinDate.getTime();
   const scheduleTitle = useMemo(() => {
-    if (Array.isArray(selectedRangeKeys) && selectedRangeKeys.length > 1) return formatRangeTitleFromKeys(selectedRangeKeys);
-    return formatFullDate(selectedDate);
-  }, [selectedDate, selectedRangeKeys]);
+    if (Array.isArray(selectedRangeKeys) && selectedRangeKeys.length > 1) return formatRangeTitleFromKeys(selectedRangeKeys, language);
+    return formatFullDate(selectedDate, language);
+  }, [language, selectedDate, selectedRangeKeys]);
 
   const handleTimelineClick = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1185,7 +1215,7 @@ function CourseRequestDetailPage() {
     const endLabel = minutesToTimeLabel(scheduleSelection.endMinutes);
     const windowLabel = `${startLabel} - ${endLabel}`;
     const tzShort = buildShortUTC(selectedTimeZone, selectedDate);
-    const windowText = `${formatFullDate(selectedDate)} ${windowLabel} (${tzShort})`;
+    const windowText = `${formatFullDate(selectedDate, language)} ${windowLabel} (${tzShort})`;
 
     try {
       setIsSendingAppointment(true);
@@ -1206,7 +1236,7 @@ function CourseRequestDetailPage() {
         },
       });
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to send appointment. Please try again later.';
+      const msg = err?.response?.data?.error || err?.message || t('mentorDetail.sendFailed', '发送失败，请稍后再试');
       alert(String(msg));
     } finally {
       setIsSendingAppointment(false);
@@ -1228,7 +1258,7 @@ function CourseRequestDetailPage() {
             type="button"
             className="icon-circle mentor-detail-menu unread-badge-anchor"
             ref={menuAnchorRef}
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             onClick={toggleMentorAuthModal}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1241,7 +1271,7 @@ function CourseRequestDetailPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
@@ -1249,12 +1279,12 @@ function CourseRequestDetailPage() {
 
         <main className="mentor-detail-content">
           {loading ? (
-            <div className="mentor-detail-loading" aria-live="polite">加载中…</div>
+            <div className="mentor-detail-loading" aria-live="polite">{t('common.loading', '加载中…')}</div>
           ) : errorMessage ? (
             <div className="mentor-detail-error" role="alert">{errorMessage}</div>
           ) : previewCardData ? (
-            <section className="mentor-detail-top" aria-label="课程信息与预约">
-              <div className="mentor-detail-preview" aria-label="课程预览卡片">
+            <section className="mentor-detail-top" aria-label={t('requestDetail.infoAndScheduleAria', '课程信息与预约')}>
+              <div className="mentor-detail-preview" aria-label={t('requestDetail.previewAria', '课程预览卡片')}>
                 <div className="preview-wrap">
                   <MentorListingCard
                     data={previewCardData}
@@ -1275,12 +1305,12 @@ function CourseRequestDetailPage() {
                 </div>
               </div>
 
-              <aside className="mentor-detail-schedule" aria-label="可约时间">
+              <aside className="mentor-detail-schedule" aria-label={t('requestDetail.scheduleAria', '可约时间')}>
                 <div className="mentor-detail-schedule-meta">
-                  <span>时区：{buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
+                  <span>{t('mentorDetail.timeZonePrefix', '时区：')} {buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                 </div>
-                <div className="mentor-detail-schedule-body" aria-label="选择日期">
-                  <div className="calendar-card" aria-label="可约日期日历">
+                <div className="mentor-detail-schedule-body" aria-label={t('mentorDetail.chooseDateAria', '选择日期')}>
+                  <div className="calendar-card" aria-label={t('mentorDetail.calendarAria', '可约日期日历')}>
                     <div className="calendar-header">
                       <div className="month-label">{monthLabel}</div>
                       <div className="calendar-nav">
@@ -1395,14 +1425,14 @@ function CourseRequestDetailPage() {
                     </div>
                   </div>
 
-                  <div className="mentor-detail-times-panel" aria-label="选择时间">
-                    <aside className="reschedule-drawer mentor-detail-reschedule-embed" aria-label="发送预约">
+                  <div className="mentor-detail-times-panel" aria-label={t('mentorDetail.chooseTimeAria', '选择时间')}>
+                    <aside className="reschedule-drawer mentor-detail-reschedule-embed" aria-label={t('mentorDetail.sendAppointmentAria', '发送预约')}>
                       <div className="reschedule-header">
                         <div className="reschedule-header-left">
                           <button
                             type="button"
                             className="reschedule-header-btn icon"
-                            aria-label="前一天"
+                            aria-label={t('mentorDetail.prevDay', '前一天')}
                             disabled={isPrevDayDisabled}
                             onClick={() => shiftSelectedDate(-1)}
                           >
@@ -1411,7 +1441,7 @@ function CourseRequestDetailPage() {
                           <button
                             type="button"
                             className="reschedule-header-btn icon"
-                            aria-label="后一天"
+                            aria-label={t('mentorDetail.nextDay', '后一天')}
                             onClick={() => shiftSelectedDate(1)}
                           >
                             <FiChevronRight size={18} aria-hidden="true" />
@@ -1421,7 +1451,7 @@ function CourseRequestDetailPage() {
                         <button
                           type="button"
                           className="reschedule-header-btn icon close"
-                          aria-label="清空选择"
+                          aria-label={t('mentorDetail.clearSelection', '清空选择')}
                           onClick={() => setScheduleSelection(null)}
                         >
                           <FiX size={18} aria-hidden="true" />
@@ -1464,7 +1494,7 @@ function CourseRequestDetailPage() {
 
                             <div
                               className="reschedule-column left"
-                              aria-label="我的空闲时间"
+                              aria-label={t('mentorDetail.myAvailability', '我的空闲时间')}
                               onClick={handleTimelineClick}
                             >
                               {myBusySlots.map((slot, index) => (
@@ -1496,7 +1526,7 @@ function CourseRequestDetailPage() {
 
                             <div
                               className="reschedule-column right"
-                              aria-label="学员空闲时间"
+                              aria-label={t('requestDetail.studentAvailability', '学员空闲时间')}
                               onClick={handleTimelineClick}
                             >
                               {requestBusySlots.map((slot, index) => (
@@ -1566,7 +1596,7 @@ function CourseRequestDetailPage() {
                           onClick={handleSendAppointment}
                           disabled={!scheduleSelection}
                         >
-                          发送预约
+                          {t('mentorDetail.sendAppointment', '发送预约')}
                         </button>
                       </div>
                     </aside>
@@ -1574,9 +1604,9 @@ function CourseRequestDetailPage() {
                 </div>
               </aside>
 
-              <section className="mentor-detail-attachments" aria-label="学生上传附件">
+              <section className="mentor-detail-attachments" aria-label={t('requestDetail.attachmentsAria', '学生上传附件')}>
                 <div className="mentor-detail-attachments-header">
-                  <div className="mentor-detail-attachments-title">学生附件</div>
+                  <div className="mentor-detail-attachments-title">{t('requestDetail.attachmentsTitle', '学生附件')}</div>
                   {requestAttachments.length ? (
                     <button
                       type="button"
@@ -1584,7 +1614,7 @@ function CourseRequestDetailPage() {
                       onClick={handleDownloadAllAttachments}
                       disabled={!downloadableAttachments.length}
                     >
-                      全部下载
+                      {t('requestDetail.downloadAll', '全部下载')}
                     </button>
                   ) : null}
                 </div>
@@ -1595,7 +1625,7 @@ function CourseRequestDetailPage() {
                       const fileId = typeof att.fileId === 'string' && /^[0-9a-fA-F]{32}$/.test(att.fileId) ? att.fileId.toLowerCase() : '';
                       const fileNameRaw = typeof att.fileName === 'string' && att.fileName.trim() ? att.fileName.trim() : '';
                       const fallbackName = typeof att.ossKey === 'string' && att.ossKey.trim() ? att.ossKey.trim().split('/').pop() : '';
-                      const fileName = fileNameRaw || fallbackName || `附件${index + 1}`;
+                      const fileName = fileNameRaw || fallbackName || t('requestDetail.attachmentFallback', `附件${index + 1}`, { index: index + 1 });
                       const sizeLabel = formatBytes(att.sizeBytes);
                       const typeKey = getAttachmentTypeKey({ ext: att.ext, fileName });
                       const badge = getAttachmentBadge({ ext: att.ext, fileName, typeKey });
@@ -1611,7 +1641,7 @@ function CourseRequestDetailPage() {
                             onClick={canDownload ? () => handleDownloadAttachment(fileId) : undefined}
                             disabled={!canDownload}
                             aria-disabled={canDownload ? undefined : 'true'}
-                            title={canDownload ? `下载 ${fileName}` : '不可用'}
+                            title={canDownload ? t('requestDetail.downloadFile', `下载 ${fileName}`, { fileName }) : t('requestDetail.unavailable', '不可用')}
                           >
                             <div className={`mentor-attachment-icon type-${typeKey}`} aria-hidden="true">
                               <AttachmentTypeIcon typeKey={typeKey} />
@@ -1627,7 +1657,7 @@ function CourseRequestDetailPage() {
                     })}
                   </ul>
                 ) : (
-                  <div className="mentor-detail-attachments-empty">未上传附件</div>
+                  <div className="mentor-detail-attachments-empty">{t('requestDetail.emptyAttachments', '未上传附件')}</div>
                 )}
               </section>
             </section>
@@ -1651,14 +1681,16 @@ function CourseRequestDetailPage() {
 
       <ConfirmModal
         open={showSendConfirm}
-        title="确认发送预约？"
+        title={t('requestDetail.confirmSendTitle', '确认发送预约？')}
         description={(() => {
-          if (!scheduleSelection) return '未选择预约时间';
+          if (!scheduleSelection) return t('requestDetail.noSelectedTime', '未选择预约时间');
           const windowLabel = `${minutesToTimeLabel(scheduleSelection.startMinutes)} - ${minutesToTimeLabel(scheduleSelection.endMinutes)}`;
-          return `已选择预约时间：${formatFullDate(selectedDate)} ${windowLabel}`;
+          return t('requestDetail.selectedTime', `已选择预约时间：${formatFullDate(selectedDate, language)} ${windowLabel}`, {
+            value: `${formatFullDate(selectedDate, language)} ${windowLabel}`,
+          });
         })()}
-        cancelText={'\u53d6\u6d88'}
-        confirmText={isSendingAppointment ? 'Sending...' : '\u786e\u8ba4\u53d1\u9001'}
+        cancelText={t('common.cancel', '\u53d6\u6d88')}
+        confirmText={isSendingAppointment ? t('requestDetail.sending', 'Sending...') : t('requestDetail.confirmSend', '\u786e\u8ba4\u53d1\u9001')}
         onCancel={() => {
           if (isSendingAppointment) return;
           setShowSendConfirm(false);

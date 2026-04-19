@@ -5,6 +5,7 @@ import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
 import { fetchAccountProfile } from '../../api/account';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
+import { useI18n } from '../../i18n/language';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const STUDENT_LISTINGS_CATEGORY_EVENT = 'student:listings-category';
@@ -151,6 +152,7 @@ const getMentorIdFromAuthUser = (user) => {
 };
 
 function StudentListings() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
@@ -566,7 +568,7 @@ function StudentListings() {
           : listError ? (
               <p style={{ margin: 0, color: '#64748b', gridColumn: '1 / -1' }}>{listError}</p>
             ) : mentors.length === 0 ? (
-              <div className="listing-empty" role="status" aria-live="polite">暂无导师</div>
+              <div className="listing-empty" role="status" aria-live="polite">{t('listings.emptyMentors', '暂无导师')}</div>
             ) : mentors.map((item) => (
               <StudentListingCard
                 key={item.id}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import { COURSE_TYPE_ICON_MAP, COURSE_TYPE_OPTIONS, DIRECTION_ICON_MAP, DIRECTION_OPTIONS } from '../../../constants/courseMappings';
+import { useI18n } from '../../../i18n/language';
 
 function DirectionStep({
   isDirectionSelection,
@@ -8,6 +9,8 @@ function DirectionStep({
   formData,
   setFormData,
 }) {
+  const { getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
+
   if (!isDirectionSelection) {
     return null;
   }
@@ -43,7 +46,7 @@ function DirectionStep({
                 <span className="direction-card__icon" aria-hidden="true">
                   {(() => { const TypeIcon = COURSE_TYPE_ICON_MAP[option.id] || FaEllipsisH; return <TypeIcon />; })()}
                 </span>
-                <span className="direction-card__title">{option.label}</span>
+                <span className="direction-card__title">{getCourseTypeLabel(option.id, option.label)}</span>
               </button>
             );
           })}
@@ -75,7 +78,7 @@ function DirectionStep({
               <span className="direction-card__icon" aria-hidden="true">
                 {(() => { const Icon = DIRECTION_ICON_MAP[option.id] || FaEllipsisH; return <Icon />; })()}
               </span>
-              <span className="direction-card__title">{option.label}</span>
+              <span className="direction-card__title">{getCourseDirectionDisplayLabel(option.id, option.label)}</span>
             </button>
           );
         })}

@@ -43,6 +43,7 @@ import {
   parseScheduleWindowRange,
 } from '../Messages/appointmentCardUtils';
 import { formatQuarterHourValue, normalizeQuarterHourValue } from '../../utils/lessonHours';
+import { useI18n } from '../../i18n/language';
 import {
   getRemoteUnavailableStatusText,
   isRetryableRemotePlayError,
@@ -94,7 +95,7 @@ const parseOssUploadErrorMessage = (error, fallback) => {
     || normalized === 'networkerror'
     || normalized.includes('failed to fetch')
   ) {
-    return '上传失败（请检查 OSS CORS 配置）';
+    return fallback;
   }
   return message;
 };
@@ -599,22 +600,35 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
-const formatFullDate = (date) => {
+const formatFullDate = (date, language = 'zh-CN') => {
   if (!(date instanceof Date)) return '';
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(date);
+  }
   const label = weekdayLabels[date.getDay()] || '';
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
 };
 
-const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08') => {
+const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'GMT+08', language = 'zh-CN') => {
   if (!(date instanceof Date)) return '';
-  const weekdayLabel = weekdayLabels[date.getDay()] || '';
   const startLabel = minutesToTimeLabel(startMinutes);
   const endLabel = minutesToTimeLabel(endMinutes);
   if (!startLabel || !endLabel) return '';
+  if (language === 'en') {
+    const dateLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', weekday: 'short' }).format(date);
+    return `${dateLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
+  }
+  const weekdayLabel = weekdayLabels[date.getDay()] || '';
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
 };
 
 function ClassroomPage() {
+  const { language, t } = useI18n();
   const navigate = useNavigate();
   const { courseId } = useParams();
   const localVideoRef = useRef(null);
@@ -646,7 +660,7 @@ function ClassroomPage() {
   const screenSharingRef = useRef(false);
   const remoteScreenSharingRef = useRef(false);
   const remoteScreenReadyRef = useRef(false);
-  const remoteLabelRef = useRef('对方');
+  const remoteLabelRef = useRef(t('classroom.remoteFallback', '对方'));
   const startRemotePlaybackRef = useRef(async () => {});
   const remoteScreenMonitorTimerRef = useRef(0);
   const remoteScreenFrameCallbackIdRef = useRef(null);
@@ -687,7 +701,7 @@ function ClassroomPage() {
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
-  const [statusText, setStatusText] = useState('准备进入课堂...');
+  const [statusText, setStatusText] = useState(() => t('classroom.pendingStatus', '准备进入课堂...'));
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
   const [cameraMuted, setCameraMuted] = useState(true);
@@ -739,7 +753,7 @@ function ClassroomPage() {
     enabled: isLoggedIn,
     courseViews: [isMentorInSession ? 'mentor' : 'student'],
   });
-  const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || '对方', [session?.remoteUserName]);
+  const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || t('classroom.remoteFallback', '对方'), [session?.remoteUserName, t]);
   const currentCourseCard = useMemo(() => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId) return null;
@@ -751,13 +765,13 @@ function ClassroomPage() {
   );
   const presentationVisible = useMemo(() => presentationActive, [presentationActive]);
   const presentationTitle = useMemo(() => {
-    if (presentationActive) return `${remoteLabel}正在共享屏幕`;
-    return '共享屏幕';
-  }, [presentationActive, remoteLabel]);
+    if (presentationActive) return t('classroom.screenSharingActive', `${remoteLabel}正在共享屏幕`, { name: remoteLabel });
+    return t('classroom.shareScreen', '共享屏幕');
+  }, [presentationActive, remoteLabel, t]);
   const presentationPlaceholder = useMemo(() => {
-    if (presentationActive) return `等待${remoteLabel}的共享画面...`;
-    return '暂未开始共享屏幕';
-  }, [presentationActive, remoteLabel]);
+    if (presentationActive) return t('classroom.screenSharingWaiting', `等待${remoteLabel}的共享画面...`, { name: remoteLabel });
+    return t('classroom.noScreenShare', '暂未开始共享屏幕');
+  }, [presentationActive, remoteLabel, t]);
   remotePresentRef.current = remotePresent;
   remoteReadyRef.current = remoteReady;
   screenSharingRef.current = screenSharing;
@@ -937,13 +951,13 @@ function ClassroomPage() {
       return nextThread;
     } catch (error) {
       if (!silent && mountedRef.current) {
-        setAppointmentMessage(parseErrorMessage(error, '同步预约状态失败，请稍后重试'));
+        setAppointmentMessage(parseErrorMessage(error, t('classroom.syncAppointmentFailed', '同步预约状态失败，请稍后重试')));
       }
       return null;
     } finally {
       appointmentSyncInFlightRef.current = false;
     }
-  }, [applyAppointmentThreadSnapshot, threadId]);
+  }, [applyAppointmentThreadSnapshot, t, threadId]);
 
   useEffect(() => {
     appointmentThreadInitializedRef.current = false;
@@ -1028,14 +1042,14 @@ function ClassroomPage() {
       return response?.data || null;
     } catch (error) {
       if (!silent && mountedRef.current) {
-        setChatError(parseErrorMessage(error, '加载课堂聊天失败，请稍后重试'));
+        setChatError(parseErrorMessage(error, t('classroom.chatLoadFailed', '加载课堂聊天失败，请稍后重试')));
       }
       return null;
     } finally {
       chatSyncInFlightRef.current = false;
       if (!silent && mountedRef.current) setChatLoading(false);
     }
-  }, [applyChatSnapshot, courseId]);
+  }, [applyChatSnapshot, courseId, t]);
 
   const prepareClassroomTempFilesCleanup = useCallback(async ({ silent = true } = {}) => {
     const normalizedCourseId = safeText(courseId);
@@ -1047,11 +1061,11 @@ function ClassroomPage() {
       return true;
     } catch (error) {
       if (!silent && mountedRef.current) {
-        setChatError(parseErrorMessage(error, '标记课堂临时文件清理失败，请稍后重试'));
+        setChatError(parseErrorMessage(error, t('classroom.markCleanupFailed', '标记课堂临时文件清理失败，请稍后重试')));
       }
       return false;
     }
-  }, [courseId]);
+  }, [courseId, t]);
 
   useEffect(() => {
     setChatMessages([]);
@@ -1154,9 +1168,9 @@ function ClassroomPage() {
     [timelineConfig.endHour, timelineConfig.startHour]
   );
   const participantLabels = useMemo(() => ({
-    left: '我',
+    left: t('classroom.me', '我'),
     right: remoteLabel,
-  }), [remoteLabel]);
+  }), [remoteLabel, t]);
   const incomingAppointmentWindowText = useMemo(() => {
     if (!incomingAppointmentCard) return '';
     return formatScheduleWindowForTimeZone(
@@ -1438,6 +1452,7 @@ function ClassroomPage() {
       rescheduleSelection.startMinutes,
       rescheduleSelection.endMinutes,
       timelineConfig.timezoneLabel,
+      language,
     );
     if (!nextWindow) return;
 
@@ -1452,10 +1467,10 @@ function ClassroomPage() {
         sourceAppointmentId: String(currentCourseCard.id),
       });
       setRescheduleOpen(false);
-      setAppointmentMessage('已发送下节课预约');
+      setAppointmentMessage(t('classroom.appointmentSent', '已发送下节课预约'));
       await syncAppointmentThread({ silent: true });
     } catch (error) {
-      setAppointmentMessage(parseErrorMessage(error, '发送下节课预约失败，请稍后重试'));
+      setAppointmentMessage(parseErrorMessage(error, t('classroom.appointmentSendFailed', '发送下节课预约失败，请稍后重试')));
     } finally {
       if (mountedRef.current) setRescheduleSending(false);
     }
@@ -1463,9 +1478,11 @@ function ClassroomPage() {
     appointmentThread?.courseDirectionId,
     appointmentThread?.courseTypeId,
     currentCourseCard,
+    language,
     rescheduleDate,
     rescheduleSelection,
     syncAppointmentThread,
+    t,
     threadId,
     timelineConfig.timezoneLabel,
   ]);
@@ -1490,14 +1507,14 @@ function ClassroomPage() {
     try {
       await api.post(`/api/messages/appointments/${encodeURIComponent(appointmentId)}/decision`, { status });
       closeIncomingAppointmentPopup(appointmentId);
-      setAppointmentMessage(status === 'accepted' ? '已接受下节课预约' : '已拒绝下节课预约');
+      setAppointmentMessage(status === 'accepted' ? t('classroom.appointmentAccepted', '已接受下节课预约') : t('classroom.appointmentRejected', '已拒绝下节课预约'));
       await syncAppointmentThread({ silent: true });
     } catch (error) {
-      setAppointmentMessage(parseErrorMessage(error, '更新预约状态失败，请稍后重试'));
+      setAppointmentMessage(parseErrorMessage(error, t('classroom.appointmentUpdateFailed', '更新预约状态失败，请稍后重试')));
     } finally {
       if (mountedRef.current) setAppointmentBusyId(null);
     }
-  }, [closeIncomingAppointmentPopup, incomingAppointmentCard?.id, syncAppointmentThread]);
+  }, [closeIncomingAppointmentPopup, incomingAppointmentCard?.id, syncAppointmentThread, t]);
 
   const logRemoteCleanup = useCallback((functionName, details = {}) => {
     const player = typeof details.player === 'undefined' ? playerRef.current : details.player;
@@ -1643,14 +1660,14 @@ function ClassroomPage() {
   }, [shouldSilenceScreenShareCancelError]);
 
   const buildJoinedStatusText = useCallback((options = {}) => {
-    const displayName = safeText(options.remoteLabel) || safeText(remoteLabelRef.current) || '对方';
+    const displayName = safeText(options.remoteLabel) || safeText(remoteLabelRef.current) || t('classroom.remoteFallback', '对方');
     const nextRemoteReady = typeof options.remoteReady === 'boolean' ? options.remoteReady : remoteReadyRef.current;
     const nextRemotePresent = typeof options.remotePresent === 'boolean' ? options.remotePresent : remotePresentRef.current;
 
-    if (nextRemoteReady) return '双方已进入课堂';
-    if (nextRemotePresent) return `双方已进入课堂，等待${displayName}画面...`;
-    return `已进入课堂，等待${displayName}加入...`;
-  }, []);
+    if (nextRemoteReady) return t('classroom.bothJoined', '双方已进入课堂');
+    if (nextRemotePresent) return t('classroom.waitingRemoteVideo', `双方已进入课堂，等待${displayName}画面...`, { name: displayName });
+    return t('classroom.waitingRemoteJoin', `已进入课堂，等待${displayName}加入...`, { name: displayName });
+  }, [t]);
 
   const hasEstablishedRemotePlayback = useCallback(() => (
     remoteReadyRef.current || remoteMediaHeartbeatRef.current > 0
@@ -1664,9 +1681,9 @@ function ClassroomPage() {
       remotePresent: typeof options.remotePresent === 'boolean'
         ? options.remotePresent
         : remotePresentRef.current,
-      remoteLabel: safeText(options.remoteLabel) || safeText(remoteLabelRef.current) || '对方',
+      remoteLabel: safeText(options.remoteLabel) || safeText(remoteLabelRef.current) || t('classroom.remoteFallback', '对方'),
     })
-  ), [hasEstablishedRemotePlayback]);
+  ), [hasEstablishedRemotePlayback, t]);
 
   const applyRemoteNotJoinedState = useCallback((options = {}) => {
     const hasExplicitRemotePresent = typeof options.remotePresent === 'boolean';
@@ -1709,18 +1726,18 @@ function ClassroomPage() {
     }
 
     if (!hasLiveVideoTrack(previewStream)) {
-      throw new Error('本地摄像头预览初始化失败');
+      throw new Error(t('classroom.localPreviewFailed', '本地摄像头预览初始化失败'));
     }
 
     await attachMediaStreamToVideoElement(visibleElement, previewStream);
     return previewStream;
-  }, []);
+  }, [t]);
 
   const startLocalPush = useCallback(async () => {
     const pusher = pusherRef.current;
     const pushUrl = safeText(liveAuthRef.current?.pushUrl);
     if (!pusher || !pushUrl) {
-      throw new Error('课堂推流尚未就绪');
+      throw new Error(t('classroom.pushNotReady', '课堂推流尚未就绪'));
     }
 
     if (localPushActiveRef.current || hasActiveLocalPushSession(pusher)) {
@@ -1738,7 +1755,7 @@ function ClassroomPage() {
       }
       throw error;
     }
-  }, []);
+  }, [t]);
 
   const stopLocalPush = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -2202,7 +2219,7 @@ function ClassroomPage() {
       return true;
     }
 
-    reportRuntimeIssue(runtimePayload, '课堂连接发生错误，请稍后重试');
+    reportRuntimeIssue(runtimePayload, t('classroom.runtimeError', '课堂连接发生错误，请稍后重试'));
     return true;
   }, [
     hasEstablishedRemotePlayback,
@@ -2213,6 +2230,7 @@ function ClassroomPage() {
     shouldRecoverFromRuntimePayload,
     shouldSilenceScreenShareCancelError,
     shouldSuppressOpaqueRuntimeEvent,
+    t,
   ]);
 
   const startRemotePlayback = useCallback(async (options = {}) => {
@@ -2221,7 +2239,7 @@ function ClassroomPage() {
     const liveAuth = liveAuthRef.current;
     const remotePlayUrl = safeText(liveAuth?.remotePlayUrl);
     const remoteUserId = safeText(liveAuth?.remoteUserId);
-    const displayName = safeText(remoteLabelRef.current) || '对方';
+    const displayName = safeText(remoteLabelRef.current) || t('classroom.remoteFallback', '对方');
     const hadRemoteStream = hasEstablishedRemotePlayback();
     let player = null;
     let sessionId = 0;
@@ -2343,7 +2361,7 @@ function ClassroomPage() {
         setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
-        setStatusText('双方已进入课堂');
+        setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
       });
 
       bindEmitter(playInfo, 'update', () => {
@@ -2353,7 +2371,7 @@ function ClassroomPage() {
         setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
-        if (joinedRef.current) setStatusText('双方已进入课堂');
+        if (joinedRef.current) setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
       });
 
       bindEmitter(playInfo, 'userleft', () => {
@@ -2432,7 +2450,7 @@ function ClassroomPage() {
         return;
       }
 
-      const message = parseErrorMessage(error, '拉取对方画面失败');
+      const message = parseErrorMessage(error, t('classroom.remoteVideoFetchFailed', '拉取对方画面失败'));
       setErrorMessage(message);
       setStatusText(message);
     } finally {
@@ -2445,6 +2463,7 @@ function ClassroomPage() {
     hasEstablishedRemotePlayback,
     logRemoteCleanup,
     markRemoteMediaProgress,
+    t,
     teardownRemotePlayback,
   ]);
 
@@ -2925,8 +2944,8 @@ function ClassroomPage() {
       const normalizedCourseId = safeText(courseId);
       if (!normalizedCourseId) {
         if (!cancelled && mountedRef.current) {
-          setErrorMessage('无效课程ID');
-          setStatusText('无效课程ID');
+          setErrorMessage(t('classroom.invalidCourseId', '无效课程ID'));
+          setStatusText(t('classroom.invalidCourseId', '无效课程ID'));
           setJoining(false);
         }
         return;
@@ -2948,7 +2967,7 @@ function ClassroomPage() {
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
         setErrorMessage('');
-        setStatusText('正在请求课堂鉴权...');
+        setStatusText(t('classroom.requestingAuth', '正在请求课堂鉴权...'));
       }
 
       try {
@@ -2961,12 +2980,12 @@ function ClassroomPage() {
         const liveAuth = toLiveAuthInfo(response?.data?.liveAuth);
 
         if (!liveAuth) {
-          throw new Error('课堂鉴权返回无效');
+          throw new Error(t('classroom.invalidAuth', '课堂鉴权返回无效'));
         }
 
         liveAuthRef.current = liveAuth;
         setSession(sessionInfo);
-        setStatusText('正在加载实时音视频 SDK...');
+        setStatusText(t('classroom.loadingSdk', '正在加载实时音视频 SDK...'));
 
         const sdk = await loadAliyunLiveSdk();
         if (cancelled || !mountedRef.current) return;
@@ -2978,10 +2997,10 @@ function ClassroomPage() {
         );
         if (!supportResult.supported) {
           const reason = supportResult.reason ? `：${supportResult.reason}` : '';
-          throw new Error(`当前浏览器不支持阿里云实时音视频${reason}`);
+          throw new Error(t('classroom.browserUnsupported', `当前浏览器不支持阿里云实时音视频${reason}`, { reason }));
         }
 
-        setStatusText('正在初始化本地设备...');
+        setStatusText(t('classroom.initializingDevices', '正在初始化本地设备...'));
         setScreenShareSupported(
           typeof sdk.AlivcLivePusher?.checkScreenShareSupported === 'function'
             ? Boolean(sdk.AlivcLivePusher.checkScreenShareSupported())
@@ -2992,25 +3011,25 @@ function ClassroomPage() {
         pusherRef.current = pusher;
 
         bindEmitter(pusher?.error, 'system', (error) => {
-          reportRuntimeIssue(error, '课堂连接发生错误，请稍后重试');
+          reportRuntimeIssue(error, t('classroom.runtimeError', '课堂连接发生错误，请稍后重试'));
         });
 
         bindEmitter(pusher?.error, 'sdk', (error) => {
-          reportRuntimeIssue(error, '实时音视频 SDK 内部错误，请重新进入课堂');
+          reportRuntimeIssue(error, t('classroom.sdkInternalError', '实时音视频 SDK 内部错误，请重新进入课堂'));
         });
 
         bindEmitter(pusher?.network, 'connectionlost', () => {
           if (!mountedRef.current) return;
-          setStatusText('网络波动，正在重连课堂...');
+          setStatusText(t('classroom.networkReconnecting', '网络波动，正在重连课堂...'));
         });
 
         bindEmitter(pusher?.network, 'reconnectstart', () => {
           if (!mountedRef.current) return;
-          setStatusText('课堂重连中...');
+          setStatusText(t('classroom.reconnecting', '课堂重连中...'));
         });
 
         bindEmitter(pusher?.network, 'reconnectfail', (error) => {
-          reportRuntimeIssue(error, '课堂重连失败，请检查网络后重新进入');
+          reportRuntimeIssue(error, t('classroom.reconnectFailed', '课堂重连失败，请检查网络后重新进入'));
         });
 
         bindEmitter(pusher?.network, 'reconnectend', () => {
@@ -3031,7 +3050,7 @@ function ClassroomPage() {
 
         bindEmitter(pusher?.info, 'bye', (_code, reason) => {
           if (!mountedRef.current) return;
-          const message = safeText(reason) || '课堂已断开';
+          const message = safeText(reason) || t('classroom.disconnected', '课堂已断开');
           setErrorMessage(message);
           setStatusText(message);
         });
@@ -3057,7 +3076,7 @@ function ClassroomPage() {
 
         if (cancelled || !mountedRef.current) return;
 
-        setStatusText('正在进入课堂...');
+        setStatusText(t('classroom.entering', '正在进入课堂...'));
         if (cancelled || !mountedRef.current) return;
 
         joinedRef.current = true;
@@ -3070,13 +3089,13 @@ function ClassroomPage() {
           syncLocalMicMuteState(true);
         } catch (pushError) {
           if (mountedRef.current) {
-            setErrorMessage(parseErrorMessage(pushError, '课堂媒体上线失败，可尝试重新进入课堂'));
+            setErrorMessage(parseErrorMessage(pushError, t('classroom.mediaOnlineFailed', '课堂媒体上线失败，可尝试重新进入课堂')));
           }
         }
 
         void startRemotePlayback();
       } catch (error) {
-        const message = parseErrorMessage(error, '进入课堂失败，请稍后重试');
+        const message = parseErrorMessage(error, t('classroom.enterFailed', '进入课堂失败，请稍后重试'));
         if (!cancelled && mountedRef.current) {
           setErrorMessage(message);
           setStatusText(message);
@@ -3093,7 +3112,7 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startLocalPush, startRemotePlayback, syncLocalMicMuteState]);
+  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startLocalPush, startRemotePlayback, syncLocalMicMuteState, t]);
 
   useEffect(() => {
     const handleWindowRuntimeEvent = (event) => {
@@ -3127,9 +3146,9 @@ function ClassroomPage() {
       }
     } catch (error) {
       if (!mountedRef.current) return;
-      setErrorMessage(parseErrorMessage(error, '麦克风切换失败'));
+      setErrorMessage(parseErrorMessage(error, t('classroom.micSwitchFailed', '麦克风切换失败')));
     }
-  }, [cameraMuted, micMuted, screenSharing, startLocalPush, syncLocalMicMuteState]);
+  }, [cameraMuted, micMuted, screenSharing, startLocalPush, syncLocalMicMuteState, t]);
 
   const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -3161,12 +3180,12 @@ function ClassroomPage() {
         detachVisibleCameraPreview();
       }
       if (!mountedRef.current) return;
-      setErrorMessage(parseErrorMessage(error, '摄像头切换失败'));
+      setErrorMessage(parseErrorMessage(error, t('classroom.cameraSwitchFailed', '摄像头切换失败')));
     } finally {
       cameraActionPendingRef.current = false;
       if (mountedRef.current) setCameraActionPending(false);
     }
-  }, [cameraMuted, detachVisibleCameraPreview, micMuted, startLocalPush, startVisibleCameraPreview, syncLocalMicMuteState]);
+  }, [cameraMuted, detachVisibleCameraPreview, micMuted, startLocalPush, startVisibleCameraPreview, syncLocalMicMuteState, t]);
 
   const handleToggleScreenShare = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -3174,7 +3193,7 @@ function ClassroomPage() {
 
     if (!screenShareSupported) {
       if (mountedRef.current) {
-        setErrorMessage('当前浏览器不支持共享屏幕');
+        setErrorMessage(t('classroom.unsupportedScreenShare', '当前浏览器不支持共享屏幕'));
       }
       return;
     }
@@ -3189,7 +3208,7 @@ function ClassroomPage() {
       }
 
       if (typeof pusher.startScreenShare !== 'function') {
-        throw new Error('当前阿里云音视频 SDK 不支持共享屏幕');
+        throw new Error(t('classroom.sdkUnsupportedScreenShare', '当前阿里云音视频 SDK 不支持共享屏幕'));
       }
 
       screenShareCancelSilenceUntilRef.current = Date.now() + 3000;
@@ -3229,7 +3248,7 @@ function ClassroomPage() {
       if (mountedRef.current) {
         setScreenSharing(true);
         setErrorMessage('');
-        setStatusText('正在共享屏幕');
+        setStatusText(t('classroom.sharingScreen', '正在共享屏幕'));
       }
       void syncClassroomPresence({ screenSharing: true });
     } catch (error) {
@@ -3240,14 +3259,14 @@ function ClassroomPage() {
       }
       screenShareCancelSilenceUntilRef.current = 0;
       if (mountedRef.current) {
-        setErrorMessage(parseErrorMessage(error, '共享屏幕失败'));
+        setErrorMessage(parseErrorMessage(error, t('classroom.shareFailed', '共享屏幕失败')));
       }
       void syncClassroomPresence({ screenSharing: false });
     } finally {
       screenActionPendingRef.current = false;
       if (mountedRef.current) setScreenActionPending(false);
     }
-  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, syncLocalMicMuteState]);
+  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, syncLocalMicMuteState, t]);
 
   const handleSendChatMessage = useCallback(async () => {
     const normalizedCourseId = safeText(courseId);
@@ -3265,12 +3284,12 @@ function ClassroomPage() {
       await syncClassroomChat({ silent: true });
     } catch (error) {
       if (mountedRef.current) {
-        setChatError(parseErrorMessage(error, '发送课堂消息失败，请稍后重试'));
+        setChatError(parseErrorMessage(error, t('classroom.chatSendFailed', '发送课堂消息失败，请稍后重试')));
       }
     } finally {
       if (mountedRef.current) setChatSending(false);
     }
-  }, [chatClosed, chatMessageText, chatSending, chatUploading, courseId, syncClassroomChat]);
+  }, [chatClosed, chatMessageText, chatSending, chatUploading, courseId, syncClassroomChat, t]);
 
   const handleChatInputKeyDown = useCallback((event) => {
     if (event.key !== 'Enter' || event.shiftKey) return;
@@ -3280,7 +3299,7 @@ function ClassroomPage() {
 
   const uploadClassroomChatFile = useCallback(async (file) => {
     const normalizedCourseId = safeText(courseId);
-    if (!normalizedCourseId) throw new Error('无效课堂ID');
+    if (!normalizedCourseId) throw new Error(t('classroom.invalidClassroomId', '无效课堂ID'));
 
     const signRes = await api.post('/api/oss/policy', {
       fileName: file.name,
@@ -3301,7 +3320,7 @@ function ClassroomPage() {
       ext,
     } = signRes?.data || {};
     if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl || !fileId || !ext) {
-      throw new Error('上传签名响应不完整');
+      throw new Error(t('classroom.uploadSignatureIncomplete', '上传签名响应不完整'));
     }
 
     const body = new FormData();
@@ -3313,7 +3332,7 @@ function ClassroomPage() {
     body.append('file', file);
 
     const uploadRes = await fetch(host, { method: 'POST', body });
-    if (!uploadRes.ok) throw new Error('上传失败');
+    if (!uploadRes.ok) throw new Error(t('classroom.uploadFailed', '上传失败'));
 
     return {
       fileId,
@@ -3324,7 +3343,7 @@ function ClassroomPage() {
       ossKey: key,
       fileUrl,
     };
-  }, [courseId]);
+  }, [courseId, t]);
 
   const handleChatFileChange = useCallback(async (event) => {
     const files = Array.from(event.target?.files || []);
@@ -3336,8 +3355,12 @@ function ClassroomPage() {
 
     if (rejectedFiles.length) {
       const names = rejectedFiles.slice(0, 3).map((file) => file.name).join('、');
-      const suffix = rejectedFiles.length > 3 ? ' 等文件' : '';
-      setChatError(`不支持的文件：${names}${suffix}（仅支持 ${CLASSROOM_CHAT_FILE_ACCEPT}）`);
+      const suffix = rejectedFiles.length > 3 ? t('classroom.moreFilesSuffix', ' 等文件') : '';
+      setChatError(t('classroom.unsupportedFiles', `不支持的文件：${names}${suffix}（仅支持 ${CLASSROOM_CHAT_FILE_ACCEPT}）`, {
+        names,
+        suffix,
+        accept: CLASSROOM_CHAT_FILE_ACCEPT,
+      }));
     } else {
       setChatError('');
     }
@@ -3359,12 +3382,12 @@ function ClassroomPage() {
       await syncClassroomChat({ silent: true });
     } catch (error) {
       if (mountedRef.current) {
-        setChatError(parseOssUploadErrorMessage(error, '上传课堂文件失败，请稍后重试'));
+        setChatError(parseOssUploadErrorMessage(error, t('classroom.fileUploadFailed', '上传课堂文件失败，请稍后重试')));
       }
     } finally {
       if (mountedRef.current) setChatUploading(false);
     }
-  }, [chatClosed, courseId, syncClassroomChat, uploadClassroomChatFile]);
+  }, [chatClosed, courseId, syncClassroomChat, t, uploadClassroomChatFile]);
 
   const handleDownloadChatFile = useCallback(async (fileId) => {
     const normalizedCourseId = safeText(courseId);
@@ -3378,16 +3401,16 @@ function ClassroomPage() {
         `/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/${encodeURIComponent(normalizedFileId)}/download-url`
       );
       const url = safeText(response?.data?.url);
-      if (!url) throw new Error('下载链接生成失败');
+      if (!url) throw new Error(t('classroom.downloadLinkFailed', '下载链接生成失败'));
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       if (mountedRef.current) {
-        setChatError(parseErrorMessage(error, '获取文件下载链接失败，请稍后重试'));
+        setChatError(parseErrorMessage(error, t('classroom.getDownloadLinkFailed', '获取文件下载链接失败，请稍后重试')));
       }
     } finally {
       if (mountedRef.current) setChatDownloadingFileId('');
     }
-  }, [courseId]);
+  }, [courseId, t]);
 
   const handleOpenChatFilePicker = useCallback(() => {
     if (chatClosed || chatUploading || chatSending) return;
@@ -3408,23 +3431,23 @@ function ClassroomPage() {
   }, [endSessionSubmitting]);
 
   const handleLeaveClassroom = useCallback(async () => {
-    if (mountedRef.current) setStatusText('正在离开课堂...');
+    if (mountedRef.current) setStatusText(t('classroom.leaving', '正在离开课堂...'));
     await prepareClassroomTempFilesCleanup({ silent: true });
     await leaveAndDestroy();
     navigate(backHref, { replace: true });
-  }, [backHref, leaveAndDestroy, navigate, prepareClassroomTempFilesCleanup]);
+  }, [backHref, leaveAndDestroy, navigate, prepareClassroomTempFilesCleanup, t]);
 
   const handleConfirmEndSession = useCallback(async () => {
     const normalizedCourseId = safeText(courseId);
     const proposedHours = normalizeQuarterHourValue(endSessionHours);
     if (!normalizedCourseId || proposedHours == null) {
-      setEndSessionError('请输入 0.25 小时颗粒度的有效课时');
+      setEndSessionError(t('classroom.invalidEndHours', '请输入 0.25 小时颗粒度的有效课时'));
       return;
     }
 
     setEndSessionSubmitting(true);
     setEndSessionError('');
-    if (mountedRef.current) setStatusText('正在结束课堂...');
+    if (mountedRef.current) setStatusText(t('classroom.ending', '正在结束课堂...'));
 
     try {
       await api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/end-session`, {
@@ -3436,7 +3459,7 @@ function ClassroomPage() {
       navigate(backHref, { replace: true });
     } catch (error) {
       if (mountedRef.current) {
-        setEndSessionError(parseErrorMessage(error, '结束课堂失败，请稍后再试'));
+        setEndSessionError(parseErrorMessage(error, t('classroom.endFailed', '结束课堂失败，请稍后再试')));
         setStatusText(buildJoinedStatusText());
       }
     } finally {
@@ -3450,6 +3473,7 @@ function ClassroomPage() {
     leaveAndDestroy,
     navigate,
     prepareClassroomTempFilesCleanup,
+    t,
   ]);
 
   const controlsDisabled = joining || !joined;
@@ -3475,7 +3499,7 @@ function ClassroomPage() {
           <button
             type="button"
             className="icon-circle classroom-menu unread-badge-anchor"
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             ref={menuAnchorRef}
             onClick={toggleMenu}
           >
@@ -3489,14 +3513,14 @@ function ClassroomPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
         </header>
 
         <section className="classroom-meta">
-          <h1>课堂</h1>
+          <h1>{t('classroom.title', '课堂')}</h1>
           <div className="classroom-status">{statusText}</div>
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
           {appointmentMessage ? <div className="classroom-note">{appointmentMessage}</div> : null}
@@ -3527,15 +3551,15 @@ function ClassroomPage() {
 
         <section className={`classroom-stage ${presentationVisible ? 'is-covered' : ''}`}>
           <article className="classroom-video-panel">
-            <div className="classroom-video-title">我的画面</div>
+            <div className="classroom-video-title">{t('classroom.localVideo', '我的画面')}</div>
             <div className="classroom-video-box">
-              {cameraMuted ? <div className="classroom-video-placeholder">{LOCAL_CAMERA_OFF_TEXT}</div> : null}
+              {cameraMuted ? <div className="classroom-video-placeholder">{t('classroom.localCameraOff', LOCAL_CAMERA_OFF_TEXT)}</div> : null}
               <video ref={localVideoRef} autoPlay playsInline muted />
             </div>
           </article>
 
           <article className="classroom-video-panel">
-            <div className="classroom-video-title">对方画面</div>
+            <div className="classroom-video-title">{t('classroom.remoteVideo', '对方画面')}</div>
             <div className="classroom-video-box">
               <video ref={remoteVideoRef} autoPlay playsInline />
             </div>
@@ -3550,7 +3574,7 @@ function ClassroomPage() {
             onClick={handleToggleMic}
           >
             {micMuted ? <FiMicOff size={16} /> : <FiMic size={16} />}
-            <span>{micMuted ? '开启麦克风' : '关闭麦克风'}</span>
+            <span>{micMuted ? t('classroom.openMic', '开启麦克风') : t('classroom.closeMic', '关闭麦克风')}</span>
           </button>
 
           <button
@@ -3560,7 +3584,7 @@ function ClassroomPage() {
             onClick={handleToggleCamera}
           >
             {cameraMuted ? <FiVideoOff size={16} /> : <FiVideo size={16} />}
-            <span>{cameraMuted ? '开启摄像头' : '关闭摄像头'}</span>
+            <span>{cameraMuted ? t('classroom.openCamera', '开启摄像头') : t('classroom.closeCamera', '关闭摄像头')}</span>
           </button>
 
           <button
@@ -3568,10 +3592,10 @@ function ClassroomPage() {
             className={`classroom-control-btn ${screenSharing ? 'active' : ''}`}
             disabled={screenControlDisabled}
             onClick={handleToggleScreenShare}
-            title={!screenShareSupported ? '当前浏览器不支持共享屏幕' : ''}
+            title={!screenShareSupported ? t('classroom.unsupportedScreenShare', '当前浏览器不支持共享屏幕') : ''}
           >
             <FiMonitor size={16} />
-            <span>{screenSharing ? '停止共享' : '共享屏幕'}</span>
+            <span>{screenSharing ? t('classroom.stopShare', '停止共享') : t('classroom.shareScreen', '共享屏幕')}</span>
           </button>
 
           <button
@@ -3579,10 +3603,10 @@ function ClassroomPage() {
             className="classroom-control-btn schedule"
             disabled={nextLessonControlDisabled}
             onClick={handleOpenNextLesson}
-            title={!threadId || !currentCourseCard ? '当前课堂暂不可预约下节课' : ''}
+            title={!threadId || !currentCourseCard ? t('classroom.scheduleUnavailable', '当前课堂暂不可预约下节课') : ''}
           >
             <FiCalendar size={16} />
-            <span>预约下节课</span>
+            <span>{t('classroom.scheduleNext', '预约下节课')}</span>
           </button>
 
           <button
@@ -3591,14 +3615,14 @@ function ClassroomPage() {
             onClick={isMentorInSession ? handleOpenEndSessionDialog : handleLeaveClassroom}
           >
             <FiPhoneOff size={16} />
-            <span>{isMentorInSession ? '结束课堂' : '离开课堂'}</span>
+            <span>{isMentorInSession ? t('classroom.end', '结束课堂') : t('classroom.leave', '离开课堂')}</span>
           </button>
         </section>
 
         <section className="classroom-chat-panel">
           <div className="classroom-chat-panel-head">
             <div>
-              <h2>聊天</h2>
+              <h2>{t('classroom.chat', '聊天')}</h2>
             </div>
           </div>
 
@@ -3610,13 +3634,13 @@ function ClassroomPage() {
 
           {cleanupEligible ? (
             <div className="classroom-chat-feedback classroom-chat-feedback--info">
-              当前课堂临时文件已可清理
+              {t('classroom.tempFilesReady', '当前课堂临时文件已可清理')}
             </div>
           ) : null}
 
           <div className="classroom-chat-body" ref={chatBodyRef}>
             {chatLoading && !chatMessages.length ? (
-              <div className="classroom-chat-empty">正在加载聊天记录...</div>
+              <div className="classroom-chat-empty">{t('classroom.loadingChat', '正在加载聊天记录...')}</div>
             ) : null}
 
             {chatMessages.map((message) => {
@@ -3632,7 +3656,7 @@ function ClassroomPage() {
                   className={`classroom-chat-message ${isMine ? 'is-mine' : 'is-theirs'}`}
                 >
                   <div className="classroom-chat-message-meta">
-                    <span className="classroom-chat-message-author">{isMine ? '我' : remoteLabel}</span>
+                    <span className="classroom-chat-message-author">{isMine ? t('classroom.me', '我') : remoteLabel}</span>
                     <span className="classroom-chat-message-time">{formatClassroomChatTime(message.createdAt, userTimeZone)}</span>
                   </div>
 
@@ -3640,7 +3664,7 @@ function ClassroomPage() {
                     <div className="classroom-chat-bubble">{message.textContent}</div>
                   ) : (
                     <div className="classroom-chat-file-card">
-                      <div className="classroom-chat-file-name">{file?.fileName || '未命名文件'}</div>
+                      <div className="classroom-chat-file-name">{file?.fileName || t('classroom.unnamedFile', '未命名文件')}</div>
                       <div className="classroom-chat-file-meta">
                         {formatFileSize(file?.sizeBytes)}
                         {file?.ext ? ` · ${String(file.ext).toUpperCase()}` : ''}
@@ -3653,7 +3677,7 @@ function ClassroomPage() {
                       >
                         <FiDownload size={14} />
                         <span>
-                          {fileUnavailable ? '文件已清理' : isDownloading ? '准备下载...' : '下载文件'}
+                          {fileUnavailable ? t('classroom.fileCleaned', '文件已清理') : isDownloading ? t('classroom.preparingDownload', '准备下载...') : t('classroom.downloadFile', '下载文件')}
                         </span>
                       </button>
                     </div>
@@ -3671,7 +3695,7 @@ function ClassroomPage() {
                 setChatMessageText(event.target.value.slice(0, MAX_CLASSROOM_CHAT_TEXT_LENGTH));
               }}
               onKeyDown={handleChatInputKeyDown}
-              placeholder={chatClosed ? '课堂已结束，聊天区域为只读' : '输入课堂消息，按 Enter 发送，Shift + Enter 换行'}
+              placeholder={chatClosed ? t('classroom.chatClosedPlaceholder', '课堂已结束，聊天区域为只读') : t('classroom.chatPlaceholder', '输入课堂消息，按 Enter 发送，Shift + Enter 换行')}
               disabled={chatComposerDisabled}
               rows={3}
             />
@@ -3692,7 +3716,7 @@ function ClassroomPage() {
                   onClick={handleOpenChatFilePicker}
                 >
                   <FiPaperclip size={16} />
-                  <span>{chatUploading ? '上传中...' : '上传文件'}</span>
+                  <span>{chatUploading ? t('classroom.uploading', '上传中...') : t('classroom.uploadFile', '上传文件')}</span>
                 </button>
                 <button
                   type="button"
@@ -3703,7 +3727,7 @@ function ClassroomPage() {
                   }}
                 >
                   <FiSend size={16} />
-                  <span>{chatSending ? '发送中...' : '发送消息'}</span>
+                  <span>{chatSending ? t('classroom.sending', '发送中...') : t('classroom.sendMessage', '发送消息')}</span>
                 </button>
               </div>
             </div>
@@ -3712,7 +3736,7 @@ function ClassroomPage() {
 
         <LessonHoursDialog
           open={endSessionOpen}
-          title="提交本节课实际课时"
+          title={t('classroom.submitActualHours', '提交本节课实际课时')}
           value={endSessionHours}
           onValueChange={setEndSessionHours}
           error={endSessionError}
@@ -3726,19 +3750,19 @@ function ClassroomPage() {
             className="classroom-appointment-popup"
             role="dialog"
             aria-modal="false"
-            aria-label="下节课预约提醒"
+            aria-label={t('classroom.appointmentReminder', '下节课预约提醒')}
           >
             <div className="classroom-appointment-popup-head">
               <div>
-                <div className="classroom-appointment-popup-eyebrow">课堂提醒</div>
-                <div className="classroom-appointment-popup-title">{`${remoteLabel} 发来了下节课预约`}</div>
+                <div className="classroom-appointment-popup-eyebrow">{t('classroom.reminder', '课堂提醒')}</div>
+                <div className="classroom-appointment-popup-title">{t('classroom.appointmentFrom', `${remoteLabel} 发来了下节课预约`, { name: remoteLabel })}</div>
               </div>
               <button
                 type="button"
                 className="classroom-appointment-popup-close"
                 onClick={() => closeIncomingAppointmentPopup(incomingAppointmentCard?.id)}
                 disabled={incomingDecisionBusy}
-                aria-label="关闭提醒"
+                aria-label={t('classroom.closeReminder', '关闭提醒')}
               >
                 <FiX size={16} />
               </button>
@@ -3752,14 +3776,14 @@ function ClassroomPage() {
                 onClick={() => handleIncomingAppointmentDecision('accepted')}
                 disabled={incomingDecisionBusy}
               >
-                接受
+                {t('classroom.accept', '接受')}
               </Button>
               <Button
                 className="classroom-popup-btn reject"
                 onClick={() => handleIncomingAppointmentDecision('rejected')}
                 disabled={incomingDecisionBusy}
               >
-                拒绝
+                {t('classroom.reject', '拒绝')}
               </Button>
               <Button
                 className="classroom-popup-btn ghost"
@@ -3769,7 +3793,7 @@ function ClassroomPage() {
                 }}
                 disabled={incomingDecisionBusy}
               >
-                去消息查看
+                {t('classroom.viewMessages', '去消息查看')}
               </Button>
             </div>
           </aside>
@@ -3828,7 +3852,7 @@ function ClassroomPage() {
               className="reschedule-drawer"
               role="dialog"
               aria-modal="true"
-              aria-label="预约下节课"
+              aria-label={t('classroom.scheduleNext', '预约下节课')}
               onClick={(event) => event.stopPropagation()}
             >
               <div className="reschedule-header">
@@ -3836,7 +3860,7 @@ function ClassroomPage() {
                   <button
                     type="button"
                     className="reschedule-header-btn icon"
-                    aria-label="前一天"
+                    aria-label={t('classroom.prevDay', '前一天')}
                     disabled={isReschedulePrevDisabled}
                     onClick={() => shiftRescheduleDate(-1)}
                   >
@@ -3845,17 +3869,17 @@ function ClassroomPage() {
                   <button
                     type="button"
                     className="reschedule-header-btn icon"
-                    aria-label="后一天"
+                    aria-label={t('classroom.nextDay', '后一天')}
                     onClick={() => shiftRescheduleDate(1)}
                   >
                     <FiChevronRight size={18} aria-hidden="true" />
                   </button>
-                  <div className="reschedule-date-title">{formatFullDate(rescheduleDate)}</div>
+                  <div className="reschedule-date-title">{formatFullDate(rescheduleDate, language)}</div>
                 </div>
                 <button
                   type="button"
                   className="reschedule-header-btn icon close"
-                  aria-label="关闭"
+                  aria-label={t('common.close', '关闭')}
                   onClick={() => setRescheduleOpen(false)}
                 >
                   <FiX size={18} aria-hidden="true" />
@@ -3863,7 +3887,7 @@ function ClassroomPage() {
               </div>
 
               <div className="classroom-reschedule-meta">
-                {threadAvailabilityStatus === 'loading' ? '正在同步双方空闲时间…' : '可点击时间段，或拖动已选区间调整'}
+                {threadAvailabilityStatus === 'loading' ? t('classroom.syncingAvailability', '正在同步双方空闲时间…') : t('classroom.availabilityHint', '可点击时间段，或拖动已选区间调整')}
               </div>
 
               <div className="reschedule-timeline">
@@ -3902,7 +3926,7 @@ function ClassroomPage() {
 
                     <div
                       className="reschedule-column left"
-                      aria-label="我的空闲时间"
+                      aria-label={t('classroom.myAvailability', '我的空闲时间')}
                       onClick={handleRescheduleTimelineClick}
                     >
                       {(isMentorInSession ? availability.mentorBusySlots : availability.studentBusySlots).map((slot, index) => (
@@ -3934,7 +3958,7 @@ function ClassroomPage() {
 
                     <div
                       className="reschedule-column right"
-                      aria-label="对方空闲时间"
+                      aria-label={t('classroom.otherAvailability', '对方空闲时间')}
                       onClick={handleRescheduleTimelineClick}
                     >
                       {(isMentorInSession ? availability.studentBusySlots : availability.mentorBusySlots).map((slot, index) => (
@@ -4004,7 +4028,7 @@ function ClassroomPage() {
                   onClick={handleRescheduleSend}
                   disabled={!rescheduleSelection || rescheduleSending}
                 >
-                  {rescheduleSending ? '发送中…' : '发送预约'}
+                  {rescheduleSending ? t('classroom.sending', '发送中…') : t('classroom.sendAppointment', '发送预约')}
                 </button>
               </div>
             </aside>

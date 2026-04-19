@@ -7,6 +7,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 
 // ===== Time zone helpers (shared style/logic with student step 3) =====
 const TIMEZONE_NAME_OVERRIDES = {
@@ -36,6 +37,33 @@ const TIMEZONE_NAME_OVERRIDES = {
   'America/Sao_Paulo': '\u5df4\u897f\u65f6\u95f4',
 };
 
+const TIMEZONE_NAME_OVERRIDES_EN = {
+  'Asia/Shanghai': 'China Standard Time',
+  'Asia/Tokyo': 'Japan Standard Time',
+  'Asia/Bangkok': 'Thailand Time',
+  'Asia/Dubai': 'Gulf Standard Time',
+  'Europe/London': 'Greenwich Mean Time',
+  'Europe/Berlin': 'Central European Time',
+  'Europe/Moscow': 'Moscow Time',
+  'America/Los_Angeles': 'Pacific Time',
+  'America/Anchorage': 'Alaska Time',
+  'America/Denver': 'Mountain Time',
+  'America/Chicago': 'Central Time',
+  'America/New_York': 'Eastern Time',
+  'Australia/Brisbane': 'Australian Eastern Time',
+  'Pacific/Auckland': 'New Zealand Standard Time',
+  'Pacific/Honolulu': 'Hawaii Time',
+  'Pacific/Pago_Pago': 'Samoa Time',
+  'Atlantic/Azores': 'Azores Time',
+  'Atlantic/South_Georgia': 'South Georgia Time',
+  'Africa/Johannesburg': 'South Africa Time',
+  'Asia/Karachi': 'Pakistan Standard Time',
+  'Asia/Dhaka': 'Bangladesh Standard Time',
+  'Pacific/Guadalcanal': 'Solomon Islands Time',
+  'America/Halifax': 'Atlantic Time',
+  'America/Sao_Paulo': 'Brasilia Time',
+};
+
 const TIMEZONE_CITY_ZH = {
   'Asia/Shanghai': '\u5317\u4eac',
   'Asia/Tokyo': '\u4e1c\u4eac',
@@ -63,6 +91,33 @@ const TIMEZONE_CITY_ZH = {
   'America/Sao_Paulo': '\u5723\u4fdd\u7f57',
 };
 
+const TIMEZONE_CITY_EN = {
+  'Asia/Shanghai': 'Beijing',
+  'Asia/Tokyo': 'Tokyo',
+  'Asia/Bangkok': 'Bangkok',
+  'Asia/Dubai': 'Dubai',
+  'Europe/London': 'London',
+  'Europe/Berlin': 'Berlin',
+  'Europe/Moscow': 'Moscow',
+  'America/Los_Angeles': 'Los Angeles',
+  'America/Anchorage': 'Anchorage',
+  'America/Denver': 'Denver',
+  'America/Chicago': 'Chicago',
+  'America/New_York': 'New York',
+  'Australia/Brisbane': 'Brisbane',
+  'Pacific/Auckland': 'Auckland',
+  'Pacific/Honolulu': 'Honolulu',
+  'Pacific/Pago_Pago': 'Pago Pago',
+  'Atlantic/Azores': 'Azores',
+  'Atlantic/South_Georgia': 'South Georgia',
+  'Africa/Johannesburg': 'Johannesburg',
+  'Asia/Karachi': 'Karachi',
+  'Asia/Dhaka': 'Dhaka',
+  'Pacific/Guadalcanal': 'Honiara',
+  'America/Halifax': 'Halifax',
+  'America/Sao_Paulo': 'Sao Paulo',
+};
+
 const FALLBACK_TIMEZONES = [
   'Pacific/Pago_Pago', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles',
   'America/Denver', 'America/Chicago', 'America/New_York', 'America/Halifax',
@@ -85,6 +140,11 @@ const TEACHING_LANGUAGE_OPTIONS = [
 ];
 
 const TEACHING_LANGUAGE_MAP = new Map(TEACHING_LANGUAGE_OPTIONS.map((o) => [o.code, o]));
+const getTeachingLanguageLabel = (code, t) => {
+  const option = TEACHING_LANGUAGE_MAP.get(code);
+  if (!option) return '';
+  return t(`mentorProfileEditor.lang.${code}`, option.label);
+};
 const normalizeTeachingLanguageCodes = (raw) => {
   const valid = new Set(TEACHING_LANGUAGE_OPTIONS.map((o) => o.code));
   const input = Array.isArray(raw) ? raw : [];
@@ -120,24 +180,25 @@ const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
   const m = String(abs % 60).padStart(2, '0');
   return `(UTC${sign}${h}:${m})`;
 };
-const buildTimeZoneLabel = (timeZone, referenceDate = new Date()) => {
+const buildTimeZoneLabel = (timeZone, referenceDate = new Date(), language = 'zh-CN') => {
   const offset = formatTimeZoneOffset(timeZone, referenceDate);
   const city = extractCityName(timeZone);
-  const zh = TIMEZONE_NAME_OVERRIDES[timeZone];
-  const base = zh || city || timeZone;
-  const suffix = zh && city && zh !== city ? ` - ${city}` : '';
+  const nameMap = language === 'en' ? TIMEZONE_NAME_OVERRIDES_EN : TIMEZONE_NAME_OVERRIDES;
+  const name = nameMap[timeZone];
+  const base = name || city || timeZone;
+  const suffix = name && city && name !== city ? ` - ${city}` : '';
   return `${offset} ${base}${suffix}`;
 };
-const buildTimeZoneOptions = (referenceDate = new Date()) => (
-  FALLBACK_TIMEZONES.map((tz) => ({ value: tz, label: buildTimeZoneLabel(tz, referenceDate) }))
+const buildTimeZoneOptions = (referenceDate = new Date(), language = 'zh-CN') => (
+  FALLBACK_TIMEZONES.map((tz) => ({ value: tz, label: buildTimeZoneLabel(tz, referenceDate, language) }))
 );
-const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date()) => {
+const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date(), language = 'zh-CN') => {
   if (!selectedValue) return options;
   const decorated = options.map((o) => ({ ...o, _off: getTimeZoneOffsetMinutes(o.value, referenceDate) }));
   const selOff = getTimeZoneOffsetMinutes(selectedValue, referenceDate);
   const later = decorated.filter(o=>o._off>selOff).sort((a,b)=>b._off-a._off);
   const earlier = decorated.filter(o=>o._off<selOff).sort((a,b)=>b._off-a._off);
-  const selectedInList = decorated.find(o=>o.value===selectedValue) || { value: selectedValue, label: buildTimeZoneLabel(selectedValue, referenceDate), _off: selOff };
+  const selectedInList = decorated.find(o=>o.value===selectedValue) || { value: selectedValue, label: buildTimeZoneLabel(selectedValue, referenceDate, language), _off: selOff };
   const merged = [...later, selectedInList, ...earlier].map(({_off, ...r})=>r);
   const seen = new Set();
   return merged.filter(o=> (seen.has(o.value) ? false : (seen.add(o.value), true)));
@@ -159,13 +220,15 @@ const buildShortUTC = (timeZone) => {
     return `UTC${sign}${h}${m?`:${String(m).padStart(2,'0')}`:''}`;
   } catch { return 'UTC±0'; }
 };
-const buildShortUTCWithCity = (timeZone) => {
+const buildShortUTCWithCity = (timeZone, language = 'zh-CN') => {
   const utc = buildShortUTC(timeZone);
-  const city = TIMEZONE_CITY_ZH[timeZone] || TIMEZONE_NAME_OVERRIDES[timeZone] || extractCityName(timeZone);
+  const cityMap = language === 'en' ? TIMEZONE_CITY_EN : TIMEZONE_CITY_ZH;
+  const nameMap = language === 'en' ? TIMEZONE_NAME_OVERRIDES_EN : TIMEZONE_NAME_OVERRIDES;
+  const city = cityMap[timeZone] || nameMap[timeZone] || extractCityName(timeZone);
   return city ? `${utc} (${city})` : utc;
 };
 
-function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
+function TeachingLanguageModal({ open, value, onCancel, onConfirm, t }) {
   const [draft, setDraft] = useState(() => normalizeTeachingLanguageCodes(value));
 
   useEffect(() => {
@@ -190,25 +253,26 @@ function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
 
   return (
     <div className="mx-lang-modal-overlay" onMouseDown={() => onCancel?.()}>
-      <div className="mx-lang-modal" role="dialog" aria-modal="true" aria-label="选择授课语言" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="mx-lang-modal" role="dialog" aria-modal="true" aria-label={t('mentorProfileEditor.selectTeachingLanguages', '选择授课语言')} onMouseDown={(e) => e.stopPropagation()}>
         <div className="mx-lang-modal__header">
-          <div className="mx-lang-modal__title">选择授课语言</div>
+          <div className="mx-lang-modal__title">{t('mentorProfileEditor.selectTeachingLanguages', '选择授课语言')}</div>
         </div>
         <div className="mx-lang-modal__body">
           {TEACHING_LANGUAGE_OPTIONS.map((opt) => {
             const checked = draft.includes(opt.code);
+            const label = getTeachingLanguageLabel(opt.code, t);
             return (
               <label key={opt.code} className={`mx-lang-option ${checked ? 'is-checked' : ''}`}>
                 <input type="checkbox" checked={checked} onChange={() => toggle(opt.code)} />
                 <span className="mx-lang-option__flag" aria-hidden="true">{String(opt.code || '').toUpperCase()}</span>
-                <span className="mx-lang-option__label">{opt.label}</span>
+                <span className="mx-lang-option__label">{label}</span>
               </label>
             );
           })}
         </div>
         <div className="mx-lang-modal__footer">
-          <Button className="mx-lang-modal__btn mx-lang-modal__btn--ghost" onClick={() => onCancel?.()}>取消</Button>
-          <Button className="mx-lang-modal__btn mx-lang-modal__btn--primary" onClick={() => onConfirm?.(normalizeTeachingLanguageCodes(draft))}>确定</Button>
+          <Button className="mx-lang-modal__btn mx-lang-modal__btn--ghost" onClick={() => onCancel?.()}>{t('common.cancel', '取消')}</Button>
+          <Button className="mx-lang-modal__btn mx-lang-modal__btn--primary" onClick={() => onConfirm?.(normalizeTeachingLanguageCodes(draft))}>{t('common.confirm', '确定')}</Button>
         </div>
       </div>
     </div>
@@ -216,6 +280,7 @@ function TeachingLanguageModal({ open, value, onCancel, onConfirm }) {
 }
 
 function MentorProfileEditorPage() {
+  const { language, t } = useI18n();
   const navigate = useNavigate();
   const saveHintTimerRef = useRef(null);
   const avatarUploadSeqRef = useRef(0);
@@ -254,8 +319,8 @@ function MentorProfileEditorPage() {
   }, [teachingLanguageCodes]);
 
   const teachingLanguageLabel = useMemo(
-    () => teachingLanguageCodes.map((code) => TEACHING_LANGUAGE_MAP.get(code)?.label).filter(Boolean).join(', '),
-    [teachingLanguageCodes]
+    () => teachingLanguageCodes.map((code) => getTeachingLanguageLabel(code, t)).filter(Boolean).join(', '),
+    [teachingLanguageCodes, t]
   );
 
   // 头像：默认显示项目内的 default-avatar，可点击上传预览
@@ -307,11 +372,11 @@ function MentorProfileEditorPage() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      setAvatarUploadError('头像文件需 ≤ 5MB');
+      setAvatarUploadError(t('mentorProfileEditor.avatarTooLarge', '头像文件需 ≤ 5MB'));
       return;
     }
     if (file.type && !String(file.type).toLowerCase().startsWith('image/')) {
-      setAvatarUploadError('仅支持图片文件');
+      setAvatarUploadError(t('mentorProfileEditor.imageOnly', '仅支持图片文件'));
       return;
     }
 
@@ -333,7 +398,7 @@ function MentorProfileEditorPage() {
 
       const { host, key, policy, signature, accessKeyId, fileUrl } = signRes?.data || {};
       if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl) {
-        throw new Error('签名响应不完整');
+        throw new Error(t('mentorProfileEditor.signatureIncomplete', '签名响应不完整'));
       }
 
       const formData = new FormData();
@@ -346,15 +411,15 @@ function MentorProfileEditorPage() {
 
       const uploadRes = await fetch(host, { method: 'POST', body: formData });
       if (seq !== avatarUploadSeqRef.current) return;
-      if (!uploadRes.ok) throw new Error('上传失败');
+      if (!uploadRes.ok) throw new Error(t('mentorProfileEditor.uploadFailed', '上传失败'));
 
       setAvatarUrl(fileUrl);
       setNextAvatarPreviewUrl(fileUrl);
     } catch (err) {
       if (seq !== avatarUploadSeqRef.current) return;
-      let msg = err?.response?.data?.error || err?.message || '上传失败，请稍后再试';
+      let msg = err?.response?.data?.error || err?.message || t('mentorProfileEditor.uploadFailedRetry', '上传失败，请稍后再试');
       if (msg === 'Failed to fetch' || msg === 'NetworkError') {
-        msg = '上传失败（请检查 OSS CORS 配置）';
+        msg = t('mentorProfileEditor.ossCorsUploadFailed', '上传失败（请检查 OSS CORS 配置）');
       }
       setAvatarUploadError(msg);
       setAvatarUrl(prevAvatarUrl || null);
@@ -367,7 +432,7 @@ function MentorProfileEditorPage() {
 
   const handleSave = async () => {
     if (avatarUploading) {
-      alert('头像上传中，请稍后再保存');
+      alert(t('mentorProfileEditor.uploadingAvatar', '头像上传中，请稍后再保存'));
       return false;
     }
     if (saving) return false;
@@ -390,7 +455,7 @@ function MentorProfileEditorPage() {
       showSavedHint();
       return true;
     } catch (e) {
-      const msg = e?.response?.data?.error || '保存失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('mentorProfileEditor.saveFailed', '保存失败，请稍后再试');
       alert(msg);
       return false;
     } finally {
@@ -411,7 +476,7 @@ function MentorProfileEditorPage() {
         const res = await api.get('/api/mentor/permissions');
         if (!alive) return;
         if (!res?.data?.canEditProfile) {
-          alert(res?.data?.error || '暂不可编辑个人名片');
+          alert(res?.data?.error || t('mentorProfileEditor.editUnavailable', '暂不可编辑个人名片'));
           navigate('/mentor', { replace: true });
         }
       } catch (e) {
@@ -420,21 +485,21 @@ function MentorProfileEditorPage() {
         const msg = e?.response?.data?.error;
         if (status === 401) {
           try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: '/mentor/profile-editor' } })); } catch {}
-          alert('请先登录');
+          alert(t('common.loginFirst', '请先登录'));
           navigate('/mentor', { replace: true });
           return;
         }
         if (status === 403) {
-          alert(msg || '导师审核中，暂不可编辑个人名片');
+          alert(msg || t('mentorProfileEditor.mentorPendingCannotEdit', '导师审核中，暂不可编辑个人名片'));
           navigate('/mentor', { replace: true });
           return;
         }
-        alert(msg || '加载失败，请稍后再试');
+        alert(msg || t('mentorProfileEditor.loadFailed', '加载失败，请稍后再试'));
         navigate('/mentor', { replace: true });
       }
     })();
     return () => { alive = false; };
-  }, [navigate]);
+  }, [navigate, t]);
 
   // 加载已有资料（如已保存）
   useEffect(() => {
@@ -467,17 +532,17 @@ function MentorProfileEditorPage() {
 
   // 预览卡片数据
   const previewCardData = useMemo(() => ({
-    name: name || '导师称呼',
+    name: name || t('mentorProfileEditor.previewName', '导师称呼'),
     gender: gender || '',
     degree: degree || '硕士',
     school: (school || '').trim(),
     rating: 4.9,
     reviewCount: 120,
-    timezone: buildShortUTCWithCity(timezone),
+    timezone: buildShortUTCWithCity(timezone, language),
     languages: teachingLanguageLabel,
     courses,
     imageUrl: avatarPreviewUrl || avatarUrl || null,
-  }), [name, gender, degree, school, timezone, courses, avatarPreviewUrl, avatarUrl, teachingLanguageLabel]);
+  }), [avatarPreviewUrl, avatarUrl, courses, degree, gender, language, name, school, t, teachingLanguageLabel, timezone]);
   const editorAvatarSeed = school || timezone || 'mentor-editor';
   const editorAvatarSrc = resolveAvatarSrc({
     src: avatarPreviewUrl || avatarUrl,
@@ -488,16 +553,16 @@ function MentorProfileEditorPage() {
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
-    { value: '本科', label: '本科' },
-    { value: '硕士', label: '硕士' },
+    { value: '本科', label: t('profile.degree.bachelor', '本科') },
+    { value: '硕士', label: t('profile.degree.master', '硕士') },
     { value: 'PhD', label: 'PhD' },
-  ]), []);
+  ]), [t]);
 
   // —— 性别选择 —— //
   const GENDER_OPTIONS = useMemo(() => ([
-    { value: '男', label: '男' },
-    { value: '女', label: '女' },
-  ]), []);
+    { value: '男', label: t('mentorProfileEditor.gender.male', '男') },
+    { value: '女', label: t('mentorProfileEditor.gender.female', '女') },
+  ]), [t]);
 
   const GenderSelect = ({ id, value, onChange }) => {
     const [open, setOpen] = useState(false);
@@ -541,7 +606,7 @@ function MentorProfileEditorPage() {
     return (
       <div className="mx-select" data-open={open ? 'true' : 'false'}>
         <button id={id} ref={buttonRef} type="button" className="mx-select__button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(v => !v)} onKeyDown={handleKeyDown}>
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+          <span className="mx-select__label">{selectedLabel || t('mentorProfileEditor.selectPlaceholder', '请选择')}</span>
           <span className="mx-select__caret" aria-hidden>
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
@@ -620,7 +685,7 @@ function MentorProfileEditorPage() {
           onClick={() => setOpen(v => !v)}
           onKeyDown={handleKeyDown}
         >
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+          <span className="mx-select__label">{selectedLabel || t('mentorProfileEditor.selectPlaceholder', '请选择')}</span>
           <span className="mx-select__caret" aria-hidden>
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
               <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -654,8 +719,8 @@ function MentorProfileEditorPage() {
 
   const orderedTimeZoneOptions = useMemo(() => {
     const now = new Date();
-    return orderTimeZoneOptionsAroundSelected(buildTimeZoneOptions(now), timezone, now);
-  }, [timezone]);
+    return orderTimeZoneOptionsAroundSelected(buildTimeZoneOptions(now, language), timezone, now, language);
+  }, [language, timezone]);
 
   const TimeZoneSelect = ({ id, value, onChange, options }) => {
     const [open, setOpen] = useState(false);
@@ -699,7 +764,7 @@ function MentorProfileEditorPage() {
     return (
       <div className="mx-select" data-open={open ? 'true' : 'false'}>
         <button id={id} ref={buttonRef} type="button" className="mx-select__button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(v=>!v)} onKeyDown={handleKeyDown}>
-          <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+          <span className="mx-select__label">{selectedLabel || t('mentorProfileEditor.selectPlaceholder', '请选择')}</span>
           <span className="mx-select__caret" aria-hidden>
             <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
@@ -730,11 +795,11 @@ function MentorProfileEditorPage() {
           <div className="step-header-actions">
             <div className="mx-editor-exit-wrap">
               <button type="button" className="ghost-button" onClick={handleSaveAndExit} disabled={avatarUploading || saving}>
-                {saving ? '保存中...' : '保存并退出'}
+                {saving ? t('common.saving', '保存中...') : t('mentorProfileEditor.saveAndExit', '保存并退出')}
               </button>
               {saveHint && (
                 <div key={saveHint.id} className="mx-editor-save-hint" role="status" aria-live="polite">
-                  已保存
+                  {t('mentorProfileEditor.saved', '已保存')}
                 </div>
               )}
             </div>
@@ -744,20 +809,20 @@ function MentorProfileEditorPage() {
 
       <main className="mx-editor-main">
         <div className="container">
-          <h1 className="mx-editor-title">编辑个人名片</h1>
+          <h1 className="mx-editor-title">{t('mentorProfileEditor.title', '编辑个人名片')}</h1>
           {/* 头像：默认显示 default-avatar，点击可上传 */}
           <div className="mx-editor-avatar-shell">
             <button
               type="button"
               className={`mx-editor-avatar ${avatarUrl ? 'has-avatar' : ''} ${avatarUploading ? 'is-uploading' : ''}`}
-              aria-label="修改头像"
+              aria-label={t('mentorProfileEditor.changeAvatar', '修改头像')}
               onClick={onPickAvatar}
               disabled={avatarUploading}
             >
               <img
                 className="mx-editor-avatar-img"
                 src={editorAvatarSrc}
-                alt="头像"
+                alt={t('mentorProfileEditor.avatarAlt', '头像')}
                 onError={(event) => applyAvatarFallback(event, {
                   name,
                   seed: editorAvatarSeed,
@@ -765,10 +830,10 @@ function MentorProfileEditorPage() {
                 })}
               />
               {!avatarPreviewUrl && !avatarUrl && (
-                <span className="mx-editor-avatar-placeholder">头像</span>
+                <span className="mx-editor-avatar-placeholder">{t('mentorProfileEditor.avatarPlaceholder', '头像')}</span>
               )}
               {avatarUploading && (
-                <span className="mx-editor-avatar-uploading" aria-live="polite">上传中…</span>
+                <span className="mx-editor-avatar-uploading" aria-live="polite">{t('mentorProfileEditor.uploading', '上传中…')}</span>
               )}
               <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 {/* 黑色实心圆底 */}
@@ -795,37 +860,37 @@ function MentorProfileEditorPage() {
           {/* 左侧：表单 */}
           <section className="mx-editor-form">
             <div className="form-row">
-              <label htmlFor="mx-name">名字</label>
-              <input id="mx-name" type="text" placeholder="导师称呼" value={name} onChange={(e) => setName(e.target.value)} />
+              <label htmlFor="mx-name">{t('mentorProfileEditor.name', '名字')}</label>
+              <input id="mx-name" type="text" placeholder={t('mentorProfileEditor.namePlaceholder', '导师称呼')} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="form-row">
-              <label htmlFor="mx-gender">性别</label>
+              <label htmlFor="mx-gender">{t('mentorProfileEditor.gender', '性别')}</label>
               <GenderSelect id="mx-gender" value={gender} onChange={setGender} />
             </div>
 
             <div className="form-row">
-              <label htmlFor="mx-degree">学历</label>
+              <label htmlFor="mx-degree">{t('mentorProfileEditor.degree', '学历')}</label>
               {/* 自定义选择器：本科（上）/ 硕士（中）/ PhD（下） */}
               <DegreeSelect id="mx-degree" value={degree} onChange={setDegree} />
             </div>
 
             <div className="form-row">
-              <label htmlFor="mx-school">学校名称</label>
-              <input id="mx-school" type="text" placeholder="可选填" value={school} onChange={(e) => setSchool(e.target.value)} />
+              <label htmlFor="mx-school">{t('mentorProfileEditor.school', '学校名称')}</label>
+              <input id="mx-school" type="text" placeholder={t('mentorProfileEditor.schoolPlaceholder', '可选填')} value={school} onChange={(e) => setSchool(e.target.value)} />
             </div>
 
             <div className="form-row">
-              <label htmlFor="mx-timezone">时区</label>
+              <label htmlFor="mx-timezone">{t('mentorProfileEditor.timeZone', '时区')}</label>
               <TimeZoneSelect id="mx-timezone" value={timezone} onChange={setTimezone} options={orderedTimeZoneOptions} />
             </div>
 
             <div className="form-row">
-              <label htmlFor="mx-courses">可授课课程</label>
+              <label htmlFor="mx-courses">{t('mentorProfileEditor.courses', '可授课课程')}</label>
               <div className="mx-courses-field">
                 <textarea
                   id="mx-courses"
-                  placeholder="Python编程，机器学习，深度学习"
+                  placeholder={t('mentorProfileEditor.coursesPlaceholder', 'Python编程，机器学习，深度学习')}
                   value={coursesInput}
                   onChange={(e) => setCoursesInput(e.target.value)}
                   rows={3}
@@ -836,19 +901,19 @@ function MentorProfileEditorPage() {
                       type="button"
                       className="mx-teaching-languages-link"
                       onClick={() => setTeachingLangModalOpen(true)}
-                    >添加授课语言</button>
+                    >{t('mentorProfileEditor.addTeachingLanguages', '添加授课语言')}</button>
                   ) : (
                     <button
                       type="button"
                       className="mx-teaching-languages-trigger"
                       onClick={() => setTeachingLangModalOpen(true)}
-                      aria-label="编辑授课语言"
+                      aria-label={t('mentorProfileEditor.editTeachingLanguages', '编辑授课语言')}
                     >
                       {teachingLanguageCodes.map((code) => {
                         const opt = TEACHING_LANGUAGE_MAP.get(code);
                         if (!opt) return null;
                         return (
-                          <span key={code} className="mx-lang-flag" title={opt.label} aria-hidden="true">{String(opt.code || '').toUpperCase()}</span>
+                          <span key={code} className="mx-lang-flag" title={getTeachingLanguageLabel(code, t)} aria-hidden="true">{String(opt.code || '').toUpperCase()}</span>
                         );
                       })}
                       <span className="mx-lang-plus" aria-hidden="true">+</span>
@@ -862,6 +927,7 @@ function MentorProfileEditorPage() {
           <TeachingLanguageModal
             open={teachingLangModalOpen}
             value={teachingLanguageCodes}
+            t={t}
             onCancel={() => setTeachingLangModalOpen(false)}
             onConfirm={(next) => {
               setTeachingLanguageCodes(next);
@@ -884,7 +950,7 @@ function MentorProfileEditorPage() {
           className="mx-save-button"
           onClick={(e) => { try { e.currentTarget.blur(); } catch {} handleSave(); }}
           disabled={avatarUploading || saving}
-        >{saving ? '保存中...' : '保存'}</button>
+        >{saving ? t('common.saving', '保存中...') : t('common.save', '保存')}</button>
       </div>
       
     </div>

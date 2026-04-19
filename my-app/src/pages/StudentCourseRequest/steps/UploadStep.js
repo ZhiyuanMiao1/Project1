@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaImages } from 'react-icons/fa';
 import { RiDeleteBin6Line } from 'react-icons/ri';
+import { useI18n } from '../../../i18n/language';
 
 function UploadStep({
   isDraggingFiles,
@@ -16,6 +17,8 @@ function UploadStep({
   accept,
   validationMessage,
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="step-field-stack upload-stack">
       <div
@@ -28,10 +31,10 @@ function UploadStep({
         tabIndex={0}
       >
         <div className="upload-icon" aria-hidden="true"><FaImages /></div>
-        <div className="upload-title">拖放</div>
-        <div className="upload-subtext">或上传课件</div>
+        <div className="upload-title">{t('courseRequest.upload.drop', '拖放')}</div>
+        <div className="upload-subtext">{t('courseRequest.upload.orUpload', '或上传课件')}</div>
         <button type="button" className="primary-button upload-btn" onClick={() => fileInputRef.current && fileInputRef.current.click()}>
-          上传
+          {t('courseRequest.upload.button', '上传')}
         </button>
         <input
           ref={fileInputRef}
@@ -59,8 +62,8 @@ function UploadStep({
               <button
                 type="button"
                 className="icon-button remove"
-                aria-label="移除文件"
-                title="移除文件"
+                aria-label={t('courseRequest.upload.remove', '移除文件')}
+                title={t('courseRequest.upload.remove', '移除文件')}
                 onClick={() => onRemoveAttachment(idx)}
               >
                 <RiDeleteBin6Line />
@@ -68,7 +71,7 @@ function UploadStep({
             </div>
           ))}
           <div className="file-actions">
-            <button type="button" className="ghost-button" onClick={onClearAttachments}>清空所有</button>
+            <button type="button" className="ghost-button" onClick={onClearAttachments}>{t('courseRequest.upload.clear', '清空所有')}</button>
           </div>
         </div>
       )}

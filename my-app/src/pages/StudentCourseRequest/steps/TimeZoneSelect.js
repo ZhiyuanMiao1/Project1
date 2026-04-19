@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../../../i18n/language';
 
 function TimeZoneSelect({ id, value, onChange, options }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
   const listRef = useRef(null);
@@ -81,7 +83,7 @@ function TimeZoneSelect({ id, value, onChange, options }) {
         onClick={() => setOpen((v) => !v)}
         onKeyDown={handleKeyDown}
       >
-        <span className="mx-select__label">{selectedLabel || '请选择'}</span>
+        <span className="mx-select__label">{selectedLabel || t('courseRequest.selectPlaceholder', '请选择')}</span>
         <span className="mx-select__caret" aria-hidden>
           ▾
         </span>

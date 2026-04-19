@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import ScheduleTimesPanel from './ScheduleTimesPanel';
 import TimeZoneSelect from './TimeZoneSelect';
+import { useI18n } from '../../../i18n/language';
 
 const normalizeBlocksForIntersect = (rawBlocks) => {
   if (!Array.isArray(rawBlocks) || rawBlocks.length === 0) return [];
@@ -96,23 +97,25 @@ function ScheduleStepContent({
   isSameDay,
   setViewMonth,
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="step-field-stack">
-      <label className="field-label" htmlFor="availability">选择授课时间</label>
+      <label className="field-label" htmlFor="availability">{t('courseRequest.schedule.chooseTime', '选择授课时间')}</label>
       <TimeZoneSelect
         id="availability"
         value={availability}
         onChange={onAvailabilityChange}
         options={orderedTimeZoneOptions}
       />
-      <div className="calendar-card" aria-label="可授课时间日历">
+      <div className="calendar-card" aria-label={t('courseRequest.schedule.calendarAria', '可授课时间日历')}>
         <div className="calendar-header">
           <div className="month-label">{monthLabel}</div>
           <div className="calendar-nav">
             <button                                           // 上一月按钮
               type="button"                                   // 按钮类型
               className="nav-btn"                             // 样式类
-              aria-label="Prev month"                         // 无障碍描述
+              aria-label={t('courseRequest.schedule.prevMonth', '上一月')}                         // 无障碍描述
               disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} // 控制禁用状态
               onClick={onPrevMonth}                           // 使用封装好的上一月函数
             >&lsaquo;</button>
@@ -120,7 +123,7 @@ function ScheduleStepContent({
             <button                                           // 下一月按钮
               type="button"                                   // 按钮类型
               className="nav-btn"                             // 样式类
-              aria-label="Next month"                         // 无障碍描述
+              aria-label={t('courseRequest.schedule.nextMonth', '下一月')}                         // 无障碍描述
               onClick={onNextMonth}                           // 使用封装好的下一月函数
             >&rsaquo;</button>
 
@@ -209,6 +212,7 @@ function ScheduleStepSidebar({
   zonedTodayKey,
   zonedNowMinutes,
 }) {
+  const { t } = useI18n();
   const effectiveSelectedDate = selectedDate || tzToday;
   const selectedDateKeyLocal = effectiveSelectedDate ? ymdKey(effectiveSelectedDate) : '';
   // `selectedDate` is stored as a local Date (noon) for stable calendar rendering.
@@ -282,12 +286,12 @@ function ScheduleStepSidebar({
 
   return (
     <div className="schedule-sidebar">
-      <div className="calendar-card slim" aria-label="可授课时间日历">
+      <div className="calendar-card slim" aria-label={t('courseRequest.schedule.calendarAria', '可授课时间日历')}>
         <div className="calendar-header">
           <div className="month-label">{monthLabel}</div>
           <div className="calendar-nav">
-            <button type="button" className="nav-btn" aria-label="Prev month" disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={onPrevMonth}>&lsaquo;</button>
-            <button type="button" className="nav-btn" aria-label="Next month" onClick={onNextMonth}>&rsaquo;</button>
+            <button type="button" className="nav-btn" aria-label={t('courseRequest.schedule.prevMonth', '上一月')} disabled={viewMonth.getFullYear() === todayStart.getFullYear() && viewMonth.getMonth() === todayStart.getMonth()} onClick={onPrevMonth}>&lsaquo;</button>
+            <button type="button" className="nav-btn" aria-label={t('courseRequest.schedule.nextMonth', '下一月')} onClick={onNextMonth}>&rsaquo;</button>
           </div>
         </div>
         <div

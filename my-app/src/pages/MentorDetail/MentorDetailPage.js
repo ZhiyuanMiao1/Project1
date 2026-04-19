@@ -33,6 +33,7 @@ import {
   subtractAvailabilityBlocks,
 } from '../../utils/availabilityBusy';
 import { buildShortUTC, convertSelectionsBetweenTimeZones, getDefaultTimeZone, getZonedParts } from '../StudentCourseRequest/steps/timezoneUtils';
+import { useI18n } from '../../i18n/language';
 import '../../styles/rescheduleTimeline.css';
 import './MentorDetailPage.css';
 
@@ -63,8 +64,16 @@ const ymdKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
 
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-const formatFullDate = (date) => {
+const formatFullDate = (date, language = 'zh-CN') => {
   if (!(date instanceof Date)) return '';
+  if (language === 'en') {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      weekday: 'short',
+    }).format(date);
+  }
   const label = weekdayLabels[date.getDay()] || '';
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${label}`;
 };
@@ -81,7 +90,7 @@ const parseYmdKey = (key) => {
   return { year, month, day };
 };
 
-const formatRangeTitleFromKeys = (keys) => {
+const formatRangeTitleFromKeys = (keys, language = 'zh-CN') => {
   const normalized = Array.isArray(keys) ? keys.filter(Boolean) : [];
   if (!normalized.length) return '';
   const sorted = [...normalized].sort();
@@ -91,6 +100,13 @@ const formatRangeTitleFromKeys = (keys) => {
 
   const sameYear = startParts.year === endParts.year;
   const sameMonth = sameYear && startParts.month === endParts.month;
+
+  if (language === 'en') {
+    const startDate = new Date(startParts.year, startParts.month - 1, startParts.day);
+    const endDate = new Date(endParts.year, endParts.month - 1, endParts.day);
+    if (startDate.getTime() === endDate.getTime()) return formatFullDate(startDate, language);
+    return `${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(startDate)} - ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(endDate)}`;
+  }
 
   if (sameMonth) {
     if (startParts.day === endParts.day) return `${startParts.year}年${startParts.month}月${startParts.day}日`;
@@ -112,9 +128,13 @@ const minutesToTimeLabel = (minutes) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
-const formatReviewMonthLabel = (value, now = new Date()) => {
+const formatReviewMonthLabel = (value, now = new Date(), language = 'zh-CN') => {
   if (!value) return '';
-  const format = (d) => `${d.getFullYear()}年${d.getMonth() + 1}月`;
+  const format = (d) => (
+    language === 'en'
+      ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'short' }).format(d)
+      : `${d.getFullYear()}年${d.getMonth() + 1}月`
+  );
 
   if (value instanceof Date && !Number.isNaN(value.getTime())) return format(value);
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -328,6 +348,7 @@ const normalizeMentorReviewSummary = (raw) => {
 };
 
 function MentorDetailPage() {
+  const { language, t } = useI18n();
   const menuAnchorRef = useRef(null);
   const recordedRecentVisitRef = useRef('');
   const location = useLocation();
@@ -456,20 +477,25 @@ function MentorDetailPage() {
           <button
             type="button"
             className="review-content-more"
-            onClick={() => {
+          onClick={() => {
               setActiveReview(review);
             }}
           >
-            显示更多
+            {t('mentorDetail.showMore', '显示更多')}
           </button>
         ) : null}
       </div>
     );
   };
 
+  const getReviewAuthorLabel = useCallback((author) => {
+    const normalized = normalizeStudentIdLabel(author);
+    return normalized === '学生' ? t('mentorDetail.studentFallback', '学生') : normalized;
+  }, [t]);
+
   const ReviewModal = ({ review, onClose }) => {
     const closeButtonRef = useRef(null);
-    const authorLabel = normalizeStudentIdLabel(review?.author);
+    const authorLabel = getReviewAuthorLabel(review?.author);
 
     useLayoutEffect(() => {
       const prevOverflow = document.body.style.overflow;
@@ -516,7 +542,7 @@ function MentorDetailPage() {
             type="button"
             className="review-modal-close"
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t('mentorDetail.close', '关闭')}
             ref={closeButtonRef}
           >
             <FiX aria-hidden="true" />
@@ -547,7 +573,7 @@ function MentorDetailPage() {
                   <span className="review-rating">{Number(review?.rating ?? 0).toFixed(1)}</span>
                 </span>
                 <span className="review-dot">·</span>
-                <span className="review-time">{formatReviewMonthLabel(review?.time)}</span>
+                <span className="review-time">{formatReviewMonthLabel(review?.time, new Date(), language)}</span>
               </div>
             </div>
 
@@ -655,7 +681,7 @@ function MentorDetailPage() {
       setReviewSummary(buildEmptyReviewSummary());
       setReviewSummaryLoaded(false);
       setLoading(false);
-      setErrorMessage('缺少 MentorID');
+      setErrorMessage(t('mentorDetail.missingMentorId', '缺少 MentorID'));
       return () => {
         alive = false;
       };
@@ -673,7 +699,7 @@ function MentorDetailPage() {
         if (!nextMentor) {
           if (!hasStateMentor) {
             setMentor(null);
-            setErrorMessage('未找到该导师');
+            setErrorMessage(t('mentorDetail.notFound', '未找到该导师'));
           }
           return;
         }
@@ -684,7 +710,7 @@ function MentorDetailPage() {
       })
       .catch((e) => {
         if (!alive) return;
-        const msg = e?.response?.data?.error || e?.message || '加载失败，请稍后再试';
+        const msg = e?.response?.data?.error || e?.message || t('mentorDetail.loadFailed', '加载失败，请稍后再试');
         setReviewSummary(buildEmptyReviewSummary());
         setReviewSummaryLoaded(false);
         if (!hasStateMentor) {
@@ -700,7 +726,7 @@ function MentorDetailPage() {
     return () => {
       alive = false;
     };
-  }, [location?.state?.mentor, mentorId]);
+  }, [location?.state?.mentor, mentorId, t]);
 
   useEffect(() => {
     let alive = true;
@@ -767,7 +793,7 @@ function MentorDetailPage() {
 
     return {
       id: mentor?.id || mentorId,
-      name: mentor?.name || '导师',
+      name: mentor?.name || t('mentorDetail.mentorFallback', '导师'),
       gender: mentor?.gender || '',
       degree: mentor?.degree || '',
       school: (mentor?.school || '').trim(),
@@ -778,7 +804,7 @@ function MentorDetailPage() {
       courses,
       imageUrl: mentor?.imageUrl || mentor?.avatarUrl || null,
     };
-  }, [mentor, mentorId, ratingValue, reviewCount]);
+  }, [mentor, mentorId, ratingValue, reviewCount, t]);
 
   const favoriteTargetId = mentor?.id ?? mentorId;
   const isFavorite = !!favoriteTargetId && favoriteIds.has(String(favoriteTargetId));
@@ -802,11 +828,23 @@ function MentorDetailPage() {
     }).catch(() => {});
   }, [mentorId, previewCardData, reviewSummaryLoaded]);
 
-  const zhDays = useMemo(() => ['日', '一', '二', '三', '四', '五', '六'], []);
+  const zhDays = useMemo(() => (
+    language === 'en'
+      ? [
+        t('mentorDetail.weekday.sun', 'Sun'),
+        t('mentorDetail.weekday.mon', 'Mon'),
+        t('mentorDetail.weekday.tue', 'Tue'),
+        t('mentorDetail.weekday.wed', 'Wed'),
+        t('mentorDetail.weekday.thu', 'Thu'),
+        t('mentorDetail.weekday.fri', 'Fri'),
+        t('mentorDetail.weekday.sat', 'Sat'),
+      ]
+      : ['日', '一', '二', '三', '四', '五', '六']
+  ), [language, t]);
   const monthLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    const fmt = new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', { year: 'numeric', month: 'long' });
     return fmt.format(viewMonth);
-  }, [viewMonth]);
+  }, [language, viewMonth]);
   const calendarGrid = useMemo(() => buildCalendarGrid(viewMonth), [viewMonth]);
   const nowParts = useMemo(
     () => getZonedParts(selectedTimeZone, new Date(nowTick)),
@@ -910,10 +948,10 @@ function MentorDetailPage() {
 
   const participantLabels = useMemo(() => {
     return {
-      left: '我',
-      right: previewCardData.name || '导师',
+      left: t('messages.me', '我'),
+      right: previewCardData.name || t('mentorDetail.mentorFallback', '导师'),
     };
-  }, [previewCardData.name]);
+  }, [previewCardData.name, t]);
 
   const mySelectionsInViewTz = useMemo(() => {
     const payload = myAvailability;
@@ -1094,9 +1132,9 @@ function MentorDetailPage() {
   const scheduleMinDate = toNoonDate(todayStart);
   const isPrevDayDisabled = toNoonDate(selectedDate).getTime() <= scheduleMinDate.getTime();
   const scheduleTitle = useMemo(() => {
-    if (Array.isArray(selectedRangeKeys) && selectedRangeKeys.length > 1) return formatRangeTitleFromKeys(selectedRangeKeys);
-    return formatFullDate(selectedDate);
-  }, [selectedDate, selectedRangeKeys]);
+    if (Array.isArray(selectedRangeKeys) && selectedRangeKeys.length > 1) return formatRangeTitleFromKeys(selectedRangeKeys, language);
+    return formatFullDate(selectedDate, language);
+  }, [language, selectedDate, selectedRangeKeys]);
 
   const handleTimelineClick = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1230,7 +1268,7 @@ function MentorDetailPage() {
       return;
     }
     if (!selectedCourse) {
-      alert('请选择一个课程');
+      alert(t('mentorDetail.selectCourseRequired', '请选择一个课程'));
       return;
     }
 
@@ -1238,7 +1276,7 @@ function MentorDetailPage() {
     const endLabel = minutesToTimeLabel(scheduleSelection.endMinutes);
     const windowLabel = `${startLabel} - ${endLabel}`;
     const tzShort = buildShortUTC(selectedTimeZone, selectedDate);
-    const windowText = `${formatFullDate(selectedDate)} ${windowLabel} (${tzShort})`;
+    const windowText = `${formatFullDate(selectedDate, language)} ${windowLabel} (${tzShort})`;
 
     try {
       setShowCourseOnboarding(false);
@@ -1258,7 +1296,7 @@ function MentorDetailPage() {
         },
       });
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '发送失败，请稍后再试';
+      const msg = err?.response?.data?.error || err?.message || t('mentorDetail.sendFailed', '发送失败，请稍后再试');
       alert(String(msg));
     }
   };
@@ -1272,7 +1310,7 @@ function MentorDetailPage() {
             type="button"
             className="icon-circle mentor-detail-menu unread-badge-anchor"
             ref={menuAnchorRef}
-            aria-label="更多菜单"
+            aria-label={t('common.menuMore', '更多菜单')}
             onClick={toggleStudentAuthModal}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1285,7 +1323,7 @@ function MentorDetailPage() {
                 count={totalBadgeCount}
                 variant="nav"
                 className="unread-badge-top-right"
-                ariaLabel="待处理提醒"
+                ariaLabel={t('common.pendingReminders', '待处理提醒')}
               />
             ) : null}
           </button>
@@ -1293,13 +1331,13 @@ function MentorDetailPage() {
 
         <main className="mentor-detail-content">
           {loading ? (
-            <div className="mentor-detail-loading" aria-live="polite">加载中…</div>
+            <div className="mentor-detail-loading" aria-live="polite">{t('common.loading', '加载中…')}</div>
           ) : errorMessage ? (
             <div className="mentor-detail-error" role="alert">{errorMessage}</div>
           ) : mentor ? (
             <>
-              <section className="mentor-detail-top" aria-label="导师信息与预约">
-                <div className="mentor-detail-preview" aria-label="导师预览卡片">
+              <section className="mentor-detail-top" aria-label={t('mentorDetail.infoAndScheduleAria', '导师信息与预约')}>
+                <div className="mentor-detail-preview" aria-label={t('mentorDetail.previewAria', '导师预览卡片')}>
                   <div className="preview-wrap">
                     <StudentListingCard
                       data={previewCardData}
@@ -1318,12 +1356,12 @@ function MentorDetailPage() {
                     />
                   </div>
                 </div>
-                <aside className="mentor-detail-schedule" aria-label="导师可约时间">
+                <aside className="mentor-detail-schedule" aria-label={t('mentorDetail.scheduleAria', '导师可约时间')}>
                   <div className="mentor-detail-schedule-meta">
-                    <span>时区：{buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
+                    <span>{t('mentorDetail.timeZonePrefix', '时区：')} {buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                   </div>
-                  <div className="mentor-detail-schedule-body" aria-label="选择日期">
-                    <div className="calendar-card" aria-label="可约日期日历">
+                  <div className="mentor-detail-schedule-body" aria-label={t('mentorDetail.chooseDateAria', '选择日期')}>
+                    <div className="calendar-card" aria-label={t('mentorDetail.calendarAria', '可约日期日历')}>
                       <div className="calendar-header">
                         <div className="month-label">{monthLabel}</div>
                         <div className="calendar-nav">
@@ -1437,14 +1475,14 @@ function MentorDetailPage() {
                         })}
                       </div>
                     </div>
-                    <div className="mentor-detail-times-panel" aria-label="选择时间">
-                      <aside className="reschedule-drawer mentor-detail-reschedule-embed" aria-label="发送预约">
+                    <div className="mentor-detail-times-panel" aria-label={t('mentorDetail.chooseTimeAria', '选择时间')}>
+                      <aside className="reschedule-drawer mentor-detail-reschedule-embed" aria-label={t('mentorDetail.sendAppointmentAria', '发送预约')}>
                         <div className="reschedule-header">
                           <div className="reschedule-header-left">
                             <button
                               type="button"
                               className="reschedule-header-btn icon"
-                              aria-label="前一天"
+                              aria-label={t('mentorDetail.prevDay', '前一天')}
                               disabled={isPrevDayDisabled}
                               onClick={() => shiftSelectedDate(-1)}
                             >
@@ -1453,7 +1491,7 @@ function MentorDetailPage() {
                             <button
                               type="button"
                               className="reschedule-header-btn icon"
-                              aria-label="后一天"
+                              aria-label={t('mentorDetail.nextDay', '后一天')}
                               onClick={() => shiftSelectedDate(1)}
                             >
                               <FiChevronRight size={18} aria-hidden="true" />
@@ -1463,7 +1501,7 @@ function MentorDetailPage() {
                           <button
                             type="button"
                             className="reschedule-header-btn icon close"
-                            aria-label="清空选择"
+                            aria-label={t('mentorDetail.clearSelection', '清空选择')}
                             onClick={() => setScheduleSelection(null)}
                           >
                             <FiX size={18} aria-hidden="true" />
@@ -1506,7 +1544,7 @@ function MentorDetailPage() {
 
                               <div
                                 className="reschedule-column left"
-                                aria-label="我的空闲时间"
+                                aria-label={t('mentorDetail.myAvailability', '我的空闲时间')}
                                 onClick={handleTimelineClick}
                               >
                                 {myBusySlots.map((slot, index) => (
@@ -1538,7 +1576,7 @@ function MentorDetailPage() {
 
                               <div
                                 className="reschedule-column right"
-                                aria-label="导师空闲时间"
+                                aria-label={t('mentorDetail.mentorAvailability', '导师空闲时间')}
                                 onClick={handleTimelineClick}
                               >
                                 {mentorBusySlots.map((slot, index) => (
@@ -1609,7 +1647,7 @@ function MentorDetailPage() {
                             onClick={handleSendAppointment}
                             disabled={!scheduleSelection}
                           >
-                            发送预约
+                            {t('mentorDetail.sendAppointment', '发送预约')}
                           </button>
                         </div>
                       </aside>
@@ -1618,15 +1656,15 @@ function MentorDetailPage() {
                 </aside>
               </section>
 
-              <section className="mentor-rating-card" aria-label="评分与评价">
+              <section className="mentor-rating-card" aria-label={t('mentorDetail.ratingAria', '评分与评价')}>
                 <div className="mentor-rating-top">
                   <div className="mentor-rating-number">{ratingValue > 0 ? ratingValue.toFixed(2) : '—'}</div>
-                  <div className="mentor-rating-subtitle">{reviewCount > 0 ? `基于 ${reviewCount} 条评价` : '暂无评价数据'}</div>
+                  <div className="mentor-rating-subtitle">{reviewCount > 0 ? t('mentorDetail.ratingSubtitle', `基于 ${reviewCount} 条评价`, { count: reviewCount }) : t('mentorDetail.noRatingData', '暂无评价数据')}</div>
                 </div>
 
                 <div className="mentor-rating-grid">
-                  <div className="mentor-rating-distribution" aria-label="评分分布">
-                    <div className="dist-title">总体评分</div>
+                  <div className="mentor-rating-distribution" aria-label={t('mentorDetail.ratingDistributionAria', '评分分布')}>
+                    <div className="dist-title">{t('mentorDetail.overallRating', '总体评分')}</div>
                     {summary.distribution.map((row) => {
                       const pct = reviewCount > 0 ? row.count / reviewCount : 0;
                       return (
@@ -1640,12 +1678,12 @@ function MentorDetailPage() {
                     })}
                   </div>
 
-                  <div className="mentor-rating-categories" aria-label="评分维度">
+                  <div className="mentor-rating-categories" aria-label={t('mentorDetail.ratingCategoriesAria', '评分维度')}>
                     {summary.categories.map((item) => {
                       const Icon = item.Icon;
                       return (
                         <div className="cat-item" key={`cat-${item.key || item.label}`}>
-                          <div className="cat-label">{item.label}</div>
+                          <div className="cat-label">{t(`mentorDetail.rating.${item.key}`, item.label)}</div>
                           <div className="cat-score">{item.score.toFixed(1)}</div>
                           {Icon ? (
                             <div className="cat-icon" aria-hidden="true">
@@ -1659,7 +1697,7 @@ function MentorDetailPage() {
                 </div>
               </section>
 
-              <section id="mentor-reviews" className="mentor-reviews" aria-label="学员评价列表">
+              <section id="mentor-reviews" className="mentor-reviews" aria-label={t('mentorDetail.reviewsAria', '学员评价列表')}>
                 {summary.reviews.length ? (
                   <div className="mentor-reviews-grid">
                     {summary.reviews.slice(0, visibleReviewCount).map((review, index) => (
@@ -1675,26 +1713,26 @@ function MentorDetailPage() {
                             <img
                               className="review-avatar-img"
                               src={resolveAvatarSrc({
-                                name: normalizeStudentIdLabel(review.author),
+                                name: getReviewAuthorLabel(review.author),
                                 seed: review.id || review.author || 'review-card',
                                 size: 192,
                               })}
                               alt=""
                               onError={(event) => applyAvatarFallback(event, {
-                                name: normalizeStudentIdLabel(review.author),
+                                name: getReviewAuthorLabel(review.author),
                                 seed: review.id || review.author || 'review-card',
                                 size: 192,
                               })}
                             />
                           </div>
-                          <div className="review-author">{normalizeStudentIdLabel(review.author)}</div>
+                          <div className="review-author">{getReviewAuthorLabel(review.author)}</div>
                           <div className="review-sub">
                             <span className="review-score">
                               <span className="review-star" aria-hidden="true">★</span>
                               <span className="review-rating">{review.rating.toFixed(1)}</span>
                             </span>
                             <span className="review-dot">·</span>
-                            <span className="review-time">{formatReviewMonthLabel(review.time)}</span>
+                <span className="review-time">{formatReviewMonthLabel(review.time, new Date(), language)}</span>
                           </div>
                         </div>
                         <ReviewContent review={review} />
@@ -1702,7 +1740,7 @@ function MentorDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="mentor-reviews-empty">暂无文字评价</div>
+                  <div className="mentor-reviews-empty">{t('mentorDetail.emptyReviews', '暂无文字评价')}</div>
                 )}
 
                 {summary.reviews.length > visibleReviewCount ? (
@@ -1714,7 +1752,7 @@ function MentorDetailPage() {
                       setVisibleReviewCount((count) => Math.min(count + 6, summary.reviews.length));
                     }}
                   >
-                    显示更多
+                    {t('mentorDetail.showMore', '显示更多')}
                   </button>
                 ) : null}
               </section>

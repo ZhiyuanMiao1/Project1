@@ -1,8 +1,10 @@
 import React from 'react';
 import MentorListingCard from '../ListingCard/MentorListingCard';
 import './Listings.css';
+import { useI18n } from '../../i18n/language';
 
 function MentorListings({ data, favoriteIds, onFavoriteChange }) {
+  const { t } = useI18n();
   const showSkeleton = data === null;
   const list = Array.isArray(data) ? data : [];
 
@@ -24,7 +26,7 @@ function MentorListings({ data, favoriteIds, onFavoriteChange }) {
               </div>
             ))
           : list.length === 0 ? (
-              <div className="listing-empty" role="status" aria-live="polite">暂无学生需求</div>
+              <div className="listing-empty" role="status" aria-live="polite">{t('listings.emptyRequests', '暂无学生需求')}</div>
             ) : (
               list.map((item) => (
                 <MentorListingCard

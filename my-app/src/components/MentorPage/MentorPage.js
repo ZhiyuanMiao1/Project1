@@ -8,6 +8,7 @@ import { fetchFavoriteItems } from '../../api/favorites';
 import { COURSE_TYPE_EN_TO_CN, COURSE_TYPE_ID_TO_LABEL, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import { clearAuth } from '../../utils/auth';
 import { getAuthToken } from '../../utils/authStorage';
+import { useI18n } from '../../i18n/language';
 import './MentorPage.css';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
@@ -173,6 +174,7 @@ const normalizeCourseTypeId = (value) => {
 };
 
 function MentorPage() {
+  const { t } = useI18n();
   const [status, setStatus] = useState('loading'); // loading | ok | unauthenticated | forbidden | pending | error
   const [cards, setCards] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set());
@@ -374,7 +376,7 @@ function MentorPage() {
 
       {status === 'forbidden' && (
         <div className="container" style={{ padding: '40px 0', textAlign: 'center', color: '#374151' }}>
-          仅导师可访问，请用导师身份登录/注册
+          {t('mentorPage.forbidden', '仅导师可访问，请用导师身份登录/注册')}
         </div>
       )}
 
@@ -385,8 +387,8 @@ function MentorPage() {
               <path d="M6 2h12v2l-4 4 4 4v2H6v-2l4-4-4-4V2z" />
               <path d="M8 20h8" />
             </svg>
-            <div className="mentor-pending-title">你已准备就绪！</div>
-            <div className="mentor-pending-subtitle">感谢加入我们。我们会尽快为你解锁导师账户，并在一切完成后通知你</div>
+            <div className="mentor-pending-title">{t('mentorPage.pendingTitle', '你已准备就绪！')}</div>
+            <div className="mentor-pending-subtitle">{t('mentorPage.pendingSubtitle', '感谢加入我们。我们会尽快为你解锁导师账户，并在一切完成后通知你')}</div>
           </div>
         </div>
       )}

@@ -27,6 +27,7 @@ import {
   orderTimeZoneOptionsAroundSelected,
   shiftDayKeyForTimezone,
 } from './steps/timezoneUtils';
+import { useI18n } from '../../i18n/language';
 
 // 懒加载 dotlottie React 播放器
 
@@ -114,6 +115,7 @@ const buildAvailabilityFingerprint = ({ timeZone, sessionDurationHours, daySelec
 
 
 function StudentCourseRequestPage() {
+  const { getCourseDirectionDisplayLabel, getCourseTypeLabel, isEnglish, language, t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
   const resumeRequestId = useMemo(() => {
@@ -157,6 +159,20 @@ function StudentCourseRequestPage() {
   const [requestBusy, setRequestBusy] = useState(false);
   const selectedTimeZone = formData.availability || DEFAULT_TIME_ZONE;
   const previousTimeZoneRef = useRef(selectedTimeZone);
+
+  const translateCourseRequestError = useCallback((message) => {
+    const raw = String(message || '').trim();
+    const map = {
+      '加载草稿失败，请稍后再试': t('courseRequest.loadDraftFailed', '加载草稿失败，请稍后再试'),
+      '请先登录': t('common.loginFirst', '请先登录'),
+      '保存失败，请稍后再试': t('courseRequest.saveDraftFailed', '保存失败，请稍后再试'),
+      '提交失败，请稍后再试': t('courseRequest.submitFailed', '提交失败，请稍后再试'),
+      '未获取到需求编号': t('courseRequest.requestIdFailed', '未获取到需求编号'),
+      '上传签名响应不完整': t('courseRequest.uploadSignatureIncomplete', '上传签名响应不完整'),
+      '上传失败': t('courseRequest.uploadFailed', '上传失败'),
+    };
+    return map[raw] || raw;
+  }, [t]);
 
   // Sync schedule availability with Account Settings (/api/account/availability)
   const [pendingAccountAvailability, setPendingAccountAvailability] = useState(null);
@@ -522,14 +538,14 @@ function StudentCourseRequestPage() {
         loadedDraftIdRef.current = resumeRequestId;
       } catch (err) {
         if (draftLoadSeqRef.current !== seq) return;
-        const msg = err?.response?.data?.error || err?.message || '加载草稿失败，请稍后再试';
-        alert(msg);
+        const msg = err?.response?.data?.error || err?.message || t('courseRequest.loadDraftFailed', '加载草稿失败，请稍后再试');
+        alert(translateCourseRequestError(msg));
       } finally {
         if (draftLoadSeqRef.current !== seq) return;
         setRequestBusy(false);
       }
     })();
-  }, [buildKey, filterFutureDaySelections, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon]);
+  }, [buildKey, filterFutureDaySelections, isLoggedIn, keyToDateStrict, resumeRequestId, setSelectedDateNoon, t, translateCourseRequestError]);
 
 
 
@@ -753,13 +769,22 @@ function StudentCourseRequestPage() {
   }, [transitionStage]);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStepCopy = useMemo(() => {
+    const stepId = currentStep?.id || '';
+    return {
+      ...currentStep,
+      label: t(`courseRequest.step.${stepId}.label`, currentStep?.label || ''),
+      title: t(`courseRequest.step.${stepId}.title`, currentStep?.title || ''),
+      description: t(`courseRequest.step.${stepId}.description`, currentStep?.description || ''),
+    };
+  }, [currentStep, t]);
   // Ordered options based on current selection
   const orderedTimeZoneOptions = useMemo(() => {
     const referenceDate = new Date();
     // Build fresh labels for consistency with any future date logic
-    const base = buildTimeZoneOptions(referenceDate);
-    return orderTimeZoneOptionsAroundSelected(base, formData.availability, referenceDate);
-  }, [formData.availability]);
+    const base = buildTimeZoneOptions(referenceDate, language);
+    return orderTimeZoneOptionsAroundSelected(base, formData.availability, referenceDate, language);
+  }, [formData.availability, language]);
 
   const isDirectionStep = currentStep.id === 'direction';  const isDetailsStep = currentStep.id === 'details';
   const isScheduleStep = currentStep.id === 'schedule';
@@ -822,8 +847,12 @@ function StudentCourseRequestPage() {
         .filter(Boolean)
         .slice(0, 3)
         .join('、');
-      const suffix = rejected.length > 3 ? ' 等' : '';
-      setUploadValidationMessage(`不支持的文件：${names}${suffix}（仅支持 ${ATTACHMENT_ACCEPT}）`);
+      const suffix = rejected.length > 3 ? t('courseRequest.moreFilesSuffix', ' 等') : '';
+      setUploadValidationMessage(t('courseRequest.unsupportedFiles', '不支持的文件：{names}{suffix}（仅支持 {accept}）', {
+        names,
+        suffix,
+        accept: ATTACHMENT_ACCEPT,
+      }));
     } else {
       setUploadValidationMessage('');
     }
@@ -923,7 +952,7 @@ function StudentCourseRequestPage() {
     if (requestId) return requestId;
     const res = await api.post('/api/requests/save', {});
     const id = res?.data?.requestId;
-    if (!id) throw new Error('未获取到需求编号');
+    if (!id) throw new Error(t('courseRequest.requestIdFailed', '未获取到需求编号'));
     setRequestId(id);
     return id;
   };
@@ -965,7 +994,7 @@ function StudentCourseRequestPage() {
 
       const { host, key, policy, signature, accessKeyId, fileUrl, fileId, ext } = signRes?.data || {};
       if (!host || !key || !policy || !signature || !accessKeyId || !fileUrl || !fileId || !ext) {
-        throw new Error('上传签名响应不完整');
+        throw new Error(t('courseRequest.uploadSignatureIncomplete', '上传签名响应不完整'));
       }
 
       const formDataBody = new FormData();
@@ -977,7 +1006,7 @@ function StudentCourseRequestPage() {
       formDataBody.append('file', file);
 
       const uploadRes = await fetch(host, { method: 'POST', body: formDataBody });
-      if (!uploadRes.ok) throw new Error('上传失败');
+      if (!uploadRes.ok) throw new Error(t('courseRequest.uploadFailed', '上传失败'));
 
       const meta = {
         fileId,
@@ -997,7 +1026,7 @@ function StudentCourseRequestPage() {
 
   const saveRequestDraft = async ({ includeAttachments, draftStep } = {}) => {
     if (!isLoggedIn) {
-      alert('请先登录');
+      alert(t('common.loginFirst', '请先登录'));
       return null;
     }
     if (requestBusy) return null;
@@ -1023,8 +1052,8 @@ function StudentCourseRequestPage() {
       if (savedId) setRequestId(savedId);
       return savedId || null;
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '保存失败，请稍后再试';
-      alert(msg);
+      const msg = err?.response?.data?.error || err?.message || t('courseRequest.saveDraftFailed', '保存失败，请稍后再试');
+      alert(translateCourseRequestError(msg));
       return null;
     } finally {
       setRequestBusy(false);
@@ -1033,7 +1062,7 @@ function StudentCourseRequestPage() {
 
   const submitRequest = async () => {
     if (!isLoggedIn) {
-      alert('请先登录');
+      alert(t('common.loginFirst', '请先登录'));
       return;
     }
     if (requestBusy) return;
@@ -1069,8 +1098,8 @@ function StudentCourseRequestPage() {
 
       setIsCompleted(true);
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || '提交失败，请稍后再试';
-      alert(msg);
+      const msg = err?.response?.data?.error || err?.message || t('courseRequest.submitFailed', '提交失败，请稍后再试');
+      alert(translateCourseRequestError(msg));
     } finally {
       setRequestBusy(false);
     }
@@ -1190,15 +1219,34 @@ function StudentCourseRequestPage() {
   // ---- Data for contact-step preview card ----
   const profileIsLoading = isLoggedIn && accountProfileStatus === 'loading';
   const profileLoadFailed = isLoggedIn && accountProfileStatus === 'error';
+  const translateDegreeValue = useCallback((value) => {
+    const raw = String(value || '').trim();
+    if (raw === '本科') return t('profile.degree.bachelor', '本科');
+    if (raw === '硕士') return t('profile.degree.master', '硕士');
+    if (raw === '博士' || raw.toLowerCase() === 'phd') return t('profile.degree.phd', '博士');
+    return raw;
+  }, [t]);
+  const translateMockSchoolValue = useCallback((value) => {
+    const raw = String(value || '').trim();
+    const map = {
+      '斯坦福大学': t('courseRequest.mockSchool.stanford', '斯坦福大学'),
+      '清华大学': t('courseRequest.mockSchool.tsinghua', '清华大学'),
+      '麻省理工学院': t('courseRequest.mockSchool.mit', '麻省理工学院'),
+      '北京大学': t('courseRequest.mockSchool.peking', '北京大学'),
+      '多伦多大学': t('courseRequest.mockSchool.toronto', '多伦多大学'),
+      '新加坡国立大学': t('courseRequest.mockSchool.nus', '新加坡国立大学'),
+    };
+    return map[raw] || raw;
+  }, [t]);
   const previewStudentId = isLoggedIn
-    ? (accountProfile.studentId || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未设置StudentID')))
+    ? (accountProfile.studentId || (profileIsLoading ? t('courseRequest.loading', '加载中...') : (profileLoadFailed ? t('courseRequest.loadFailed', '加载失败') : t('courseRequest.unsetStudentId', '未设置StudentID'))))
     : mockStudent.name;
   const previewDegree = isLoggedIn
-    ? (accountProfile.degree || (profileIsLoading ? '加载中...' : (profileLoadFailed ? '加载失败' : '未填写学历')))
-    : mockStudent.level;
+    ? (accountProfile.degree ? translateDegreeValue(accountProfile.degree) : (profileIsLoading ? t('courseRequest.loading', '加载中...') : (profileLoadFailed ? t('courseRequest.loadFailed', '加载失败') : t('courseRequest.missingDegree', '未填写学历'))))
+    : translateDegreeValue(mockStudent.level);
   const previewSchoolRaw = isLoggedIn
     ? (typeof accountProfile.school === 'string' ? accountProfile.school : '')
-    : mockStudent.school;
+    : translateMockSchoolValue(mockStudent.school);
   const previewSchool = (previewSchoolRaw || '').trim();
   const previewAvatarName = (() => {
     const user = getAuthUser() || {};
@@ -1215,18 +1263,21 @@ function StudentCourseRequestPage() {
   });
   const previewDirectionLabel = useMemo(() => {
     const directionId = String(formData.courseDirection || '').trim();
-    return DIRECTION_ID_TO_LABEL[directionId] || formData.learningGoal || '未选择方向';
-  }, [formData.courseDirection, formData.learningGoal]);
+    return getCourseDirectionDisplayLabel(directionId, DIRECTION_ID_TO_LABEL[directionId] || formData.learningGoal || t('courseRequest.noDirection', '未选择方向'));
+  }, [formData.courseDirection, formData.learningGoal, getCourseDirectionDisplayLabel, t]);
   // Selected course type(s) label for preview
   const previewCourseTypeLabel = useMemo(() => {
     const ids = Array.isArray(formData.courseTypes)
       ? formData.courseTypes
       : (formData.courseType ? [formData.courseType] : []);
     const labels = ids
-      .map((id) => COURSE_TYPE_OPTIONS.find((o) => o.id === id)?.label)
+      .map((id) => {
+        const fallback = COURSE_TYPE_OPTIONS.find((o) => o.id === id)?.label;
+        return fallback ? getCourseTypeLabel(id, fallback) : '';
+      })
       .filter(Boolean);
-    return labels.join('、');
-  }, [formData.courseTypes, formData.courseType]);
+    return labels.join(isEnglish ? ', ' : '、');
+  }, [formData.courseTypes, formData.courseType, getCourseTypeLabel, isEnglish]);
   const futureDaySelections = useMemo(() => {
     return filterFutureDaySelections(daySelections, selectedTimeZone, new Date(nowTick));
   }, [daySelections, filterFutureDaySelections, nowTick, selectedTimeZone]);
@@ -1242,12 +1293,20 @@ function StudentCourseRequestPage() {
   const previewTotalCourseHours = hasTotalCourseHours ? Number(formData.totalCourseHours) : null;
 
   // ----- Schedule helpers -----
-  const zhDays = ['日', '一', '二', '三', '四', '五', '六'];
+  const zhDays = useMemo(() => [
+    t('courseRequest.schedule.weekday.sun', '日'),
+    t('courseRequest.schedule.weekday.mon', '一'),
+    t('courseRequest.schedule.weekday.tue', '二'),
+    t('courseRequest.schedule.weekday.wed', '三'),
+    t('courseRequest.schedule.weekday.thu', '四'),
+    t('courseRequest.schedule.weekday.fri', '五'),
+    t('courseRequest.schedule.weekday.sat', '六'),
+  ], [t]);
 
   const monthLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' });
+    const fmt = new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'zh-CN', { year: 'numeric', month: 'long' });
     return fmt.format(viewMonth);
-  }, [viewMonth]);
+  }, [isEnglish, viewMonth]);
 
   const buildCalendarGrid = useMemo(() => {
     const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
@@ -1408,11 +1467,11 @@ function StudentCourseRequestPage() {
     return (
       <div className="course-request-page">        <main className={completionClassName}>
           <div className="completion-card">
-            <h2>提交成功！</h2>
-            <p>我们已经收到你的课程需求，若需要可在帮助中心联系学习顾问</p>
+            <h2>{t('courseRequest.successTitle', '提交成功！')}</h2>
+            <p>{t('courseRequest.successDesc', '我们已经收到你的课程需求，若需要可在帮助中心联系学习顾问')}</p>
             <div className="completion-actions">
               <button type="button" onClick={() => navigate('/student')}>
-                返回学生首页
+                {t('courseRequest.backHome', '返回学生首页')}
               </button>
                 <button
                   type="button"
@@ -1432,7 +1491,7 @@ function StudentCourseRequestPage() {
                   }}
                   disabled={transitionStage !== 'idle'}
                 >
-                  重新填写
+                  {t('courseRequest.fillAgain', '重新填写')}
                 </button>
             </div>
           </div>
@@ -1476,7 +1535,7 @@ function StudentCourseRequestPage() {
                   if (savedId) navigate('/student');
                 }}
               >
-                保存并退出
+                {t('courseRequest.saveExit', '保存并退出')}
               </button>
             </div>
           </header>
@@ -1486,7 +1545,7 @@ function StudentCourseRequestPage() {
               <div
                 ref={previewRef}
                 className="contact-preview-floating"
-                aria-label="导师页卡片预览"
+                aria-label={t('courseRequest.previewAria', '导师页卡片预览')}
                 style={frozenTop != null ? { position: 'absolute', top: `${frozenTop}px`, transform: 'none' } : undefined}
                >
                 <div className="student-preview-card">
@@ -1513,22 +1572,22 @@ function StudentCourseRequestPage() {
                     </div>
                   </div>
                   <div className="card-list" role="list">
-                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}                  （{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}                  ({tzCity || t('courseRequest.timeZoneFallback', '时区')})</span></div>
                     <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>{previewCourseTypeLabel}</span></div>
                     )}
                     {hasTotalCourseHours && (
-                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>{t('courseRequest.estimatedHours', '预计时长：{hours}小时', { hours: previewTotalCourseHours })}</span></div>
                     )}
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
-                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>{t('courseRequest.courseFocus', '具体内容：{value}', { value: formData.courseFocus.trim() })}</span></div>
                     )}
                     {!!(formData.milestone && formData.milestone.trim()) && (
-                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>学习目标：{formData.milestone.trim()}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>{t('courseRequest.goal', '学习目标：{value}', { value: formData.milestone.trim() })}</span></div>
                     )}
                     {earliestSelectedDay && (
-                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>期望首课：{earliestSelectedDay}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>{t('courseRequest.earliestLesson', '期望首课：{value}', { value: earliestSelectedDay })}</span></div>
                     )}
                   </div>
                 </div>
@@ -1538,14 +1597,14 @@ function StudentCourseRequestPage() {
               <div className="step-intro">
                 {!isDirectionSelectionStage && (
                   <React.Fragment>
-                    <span className="step-label">{currentStep.label}</span>
-                    <h1>{currentStep.title}</h1>
+                    <span className="step-label">{currentStepCopy.label}</span>
+                    <h1>{currentStepCopy.title}</h1>
                   </React.Fragment>
                 )}
                 <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
                   {isDirectionSelectionStage
-                    ? (isCourseTypeSelection ? '请选择你的课程类型' : '以下哪一项最准确描述了你希望提升的课程？')
-                    : currentStep.description}
+                    ? (isCourseTypeSelection ? t('courseRequest.courseTypeQuestion', '请选择你的课程类型') : t('courseRequest.directionQuestion', '以下哪一项最准确描述了你希望提升的课程？'))
+                    : currentStepCopy.description}
                 </p>
               </div>
 
@@ -1614,7 +1673,7 @@ function StudentCourseRequestPage() {
                   />
                 </div>
               ) : (
-                <div className="step-illustration" aria-label="插图预留区域">
+                <div className="step-illustration" aria-label={t('courseRequest.illustrationAria', '插图预留区域')}>
                   <div className="illustration-frame">
                     <Suspense fallback={<div />}> 
                       <DotLottiePlayer
@@ -1632,7 +1691,7 @@ function StudentCourseRequestPage() {
 
           <>
             {isUploadStep && !isDirectionSelectionStage && (
-              <div className="contact-preview-floating" aria-label="导师页卡片预览">
+              <div className="contact-preview-floating" aria-label={t('courseRequest.previewAria', '导师页卡片预览')}>
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
                   <div className="card-header">
@@ -1657,22 +1716,22 @@ function StudentCourseRequestPage() {
                     </div>
                   </div>
                   <div className="card-list" role="list">
-                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}（{tzCity || '时区'}）</span></div>
+                    <div className="item" role="listitem"><span className="icon"><FaGlobe /></span><span>{tzShort}({tzCity || t('courseRequest.timeZoneFallback', '时区')})</span></div>
                     <div className="item" role="listitem"><span className="icon">{(() => { const PrevIcon = DIRECTION_ICON_MAP[formData.courseDirection] || FaFileAlt; return <PrevIcon />; })()}</span><span>{previewDirectionLabel}</span></div>
                     {!!previewCourseTypeLabel && (
                       <div className="item" role="listitem"><span className="icon"><FaGraduationCap /></span><span>{previewCourseTypeLabel}</span></div>
                     )}
                     {hasTotalCourseHours && (
-                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>预计时长：{previewTotalCourseHours}小时</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaClock /></span><span>{t('courseRequest.estimatedHours', '预计时长：{hours}小时', { hours: previewTotalCourseHours })}</span></div>
                     )}
                     {!!(formData.courseFocus && formData.courseFocus.trim()) && (
-                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>具体内容：{formData.courseFocus.trim()}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaLightbulb /></span><span>{t('courseRequest.courseFocus', '具体内容：{value}', { value: formData.courseFocus.trim() })}</span></div>
                     )}
                     {!!(formData.milestone && formData.milestone.trim()) && (
-                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>学习目标：{formData.milestone.trim()}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaTasks /></span><span>{t('courseRequest.goal', '学习目标：{value}', { value: formData.milestone.trim() })}</span></div>
                     )}
                     {earliestSelectedDay && (
-                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>期望首课：{earliestSelectedDay}</span></div>
+                      <div className="item" role="listitem"><span className="icon"><FaCalendarAlt /></span><span>{t('courseRequest.earliestLesson', '期望首课：{value}', { value: earliestSelectedDay })}</span></div>
                     )}
                   </div>                
                 </div>
@@ -1689,7 +1748,7 @@ function StudentCourseRequestPage() {
   
                 <div className="step-actions">
                   <button type="button" className="ghost-button" onClick={handleBack} disabled={transitionStage !== 'idle' || requestBusy}>
-                    返回
+                    {t('courseRequest.back', '返回')}
                   </button>
                   <button
                     type="button"
@@ -1697,7 +1756,7 @@ function StudentCourseRequestPage() {
                     onClick={handleNext}
                     disabled={transitionStage !== 'idle' || requestBusy}
                   >
-                    {currentStepIndex === STEPS.length - 1 ? '提交需求' : '下一步'}
+                    {currentStepIndex === STEPS.length - 1 ? t('courseRequest.submit', '提交需求') : t('courseRequest.next', '下一步')}
                   </button>
                 </div>
               </div>

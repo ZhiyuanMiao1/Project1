@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../../../i18n/language';
 
 const EMPTY_BLOCKS = [];
 
@@ -18,6 +19,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   disableBeforeIndex = -1, // 可选，<= 该索引的格子禁用（用于“今天”已过时段）
   busyBlocks = EMPTY_BLOCKS, // 可选，当前日期被课程/预约占用的格子
 }) {
+  const { t } = useI18n();
   const valueRef = useRef(value);
   useEffect(() => { valueRef.current = value; }, [value]);
   // ——— 工具 & 边界 ———//
@@ -261,7 +263,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
   return (
     <div className="schedule-times-panel">
       <div className="times-panel-header">
-        <div className="day-title">可约时长</div>
+        <div className="day-title">{t('courseRequest.schedule.duration', '可约时长')}</div>
         <div className="duration-input">
           <button
             type="button"
@@ -289,7 +291,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
             <span aria-hidden>+</span>
           </button>
 
-          <span className="unit">小时</span>
+          <span className="unit">{t('courseRequest.details.hourUnit', '小时')}</span>
           <input
             id="sessionDuration"
             type="number"
@@ -299,7 +301,7 @@ const ScheduleTimesPanel = React.memo(function ScheduleTimesPanel({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onBlur={(e) => setValue(e.target.value)}
-            aria-label="可约时长（小时）"
+            aria-label={t('courseRequest.schedule.durationAria', '可约时长（小时）')}
             style={{ display: 'none' }}
           />
         </div>

@@ -25,6 +25,33 @@ const TIMEZONE_NAME_OVERRIDES = {
   'Pacific/Guadalcanal': '\u6240\u7f57\u95e8\u7fa4\u5c9b\u65f6\u95f4',
 };
 
+const TIMEZONE_NAME_OVERRIDES_EN = {
+  'Asia/Shanghai': 'China Standard Time',
+  'Asia/Tokyo': 'Japan Standard Time',
+  'Asia/Bangkok': 'Thailand Time',
+  'Asia/Dubai': 'Gulf Standard Time',
+  'Europe/London': 'Greenwich Mean Time',
+  'Europe/Berlin': 'Central European Time',
+  'Europe/Moscow': 'Moscow Time',
+  'America/Los_Angeles': 'Pacific Time',
+  'America/Denver': 'Mountain Time',
+  'America/Chicago': 'Central Time',
+  'America/New_York': 'Eastern Time',
+  'America/Sao_Paulo': 'Brasilia Time',
+  'Pacific/Auckland': 'New Zealand Standard Time',
+  'Australia/Brisbane': 'Australian Eastern Time',
+  'America/Halifax': 'Atlantic Time',
+  'America/Anchorage': 'Alaska Time',
+  'Pacific/Honolulu': 'Hawaii Time',
+  'Pacific/Pago_Pago': 'Samoa Time',
+  'Atlantic/Azores': 'Azores Time',
+  'Atlantic/South_Georgia': 'South Georgia Time',
+  'Africa/Johannesburg': 'South Africa Time',
+  'Asia/Karachi': 'Pakistan Standard Time',
+  'Asia/Dhaka': 'Bangladesh Standard Time',
+  'Pacific/Guadalcanal': 'Solomon Islands Time',
+};
+
 // 24 curated time zones: one representative per UTC hour offset (-11 to +12)
 const FALLBACK_TIMEZONES = [
   'Pacific/Pago_Pago',       // UTC-11
@@ -104,10 +131,10 @@ const formatTimeZoneOffset = (timeZone, referenceDate = new Date()) => {
   }
 };
 
-const buildTimeZoneLabel = (timeZone, referenceDate) => {
+const buildTimeZoneLabel = (timeZone, referenceDate, language = 'zh-CN') => {
   const offset = formatTimeZoneOffset(timeZone, referenceDate);
   const cityName = extractCityName(timeZone);
-  const overrideName = TIMEZONE_NAME_OVERRIDES[timeZone];
+  const overrideName = language === 'en' ? TIMEZONE_NAME_OVERRIDES_EN[timeZone] : TIMEZONE_NAME_OVERRIDES[timeZone];
   const baseName = overrideName || cityName || timeZone;
   // Append English city name when available to keep clarity
   const suffix = overrideName && cityName && overrideName !== cityName ? ` - ${cityName}` : '';
@@ -122,14 +149,14 @@ const getDefaultTimeZone = () => {
   }
 };
 
-const buildTimeZoneOptions = (referenceDate = new Date()) => {
+const buildTimeZoneOptions = (referenceDate = new Date(), language = 'zh-CN') => {
   return FALLBACK_TIMEZONES.map((timeZone) => ({
     value: timeZone,
-    label: buildTimeZoneLabel(timeZone, referenceDate),
+    label: buildTimeZoneLabel(timeZone, referenceDate, language),
   }));
 };
 
-const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date()) => {
+const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDate = new Date(), language = 'zh-CN') => {
   if (!selectedValue) return options;
   const decorated = options.map((o) => ({
     ...o,
@@ -144,7 +171,7 @@ const orderTimeZoneOptionsAroundSelected = (options, selectedValue, referenceDat
   const selectedOption =
     selectedInList || {
       value: selectedValue,
-      label: buildTimeZoneLabel(selectedValue, referenceDate),
+      label: buildTimeZoneLabel(selectedValue, referenceDate, language),
       _offset: selectedOffset,
     };
 

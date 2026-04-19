@@ -4,30 +4,31 @@ import useRevealOnScroll from '../../hooks/useRevealOnScroll';
 import { toggleFavoriteItem } from '../../api/favorites';
 import { getAuthToken } from '../../utils/authStorage';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { useI18n } from '../../i18n/language';
 
 // 统一时区城市显示（与时区下拉一致）
-const TZ_CITY_MAP = {
-  '+13': '奥克兰',
-  '+11': '所罗门群岛',
-  '+10': '布里斯班',
-  '+9': '东京',
-  '+08': '上海',
-  '+8': '上海',
-  '+7': '曼谷',
-  '+6': '达卡',
-  '+5': '卡拉奇',
-  '+4': '迪拜',
-  '+3': '莫斯科',
-  '+2': '约翰内斯堡',
-  '+1': '柏林',
-  '+0': '伦敦',
-  '-8': '洛杉矶',
-  '-7': '加州',
-  '-6': '芝加哥',
-  '-5': '纽约',
-  '-4': '哈利法克斯',
-  '-3': '圣保罗',
-};
+const getTimeZoneCityMap = (t) => ({
+  '+13': t('listings.city.auckland', '奥克兰'),
+  '+11': t('listings.city.solomon', '所罗门群岛'),
+  '+10': t('listings.city.brisbane', '布里斯班'),
+  '+9': t('listings.city.tokyo', '东京'),
+  '+08': t('listings.city.shanghai', '上海'),
+  '+8': t('listings.city.shanghai', '上海'),
+  '+7': t('listings.city.bangkok', '曼谷'),
+  '+6': t('listings.city.dhaka', '达卡'),
+  '+5': t('listings.city.karachi', '卡拉奇'),
+  '+4': t('listings.city.dubai', '迪拜'),
+  '+3': t('listings.city.moscow', '莫斯科'),
+  '+2': t('listings.city.johannesburg', '约翰内斯堡'),
+  '+1': t('listings.city.berlin', '柏林'),
+  '+0': t('listings.city.london', '伦敦'),
+  '-8': t('listings.city.losAngeles', '洛杉矶'),
+  '-7': t('listings.city.california', '加州'),
+  '-6': t('listings.city.chicago', '芝加哥'),
+  '-5': t('listings.city.newYork', '纽约'),
+  '-4': t('listings.city.halifax', '哈利法克斯'),
+  '-3': t('listings.city.saoPaulo', '圣保罗'),
+});
 
 const getTimeZoneOffsetMinutes = (timeZone, referenceDate = new Date()) => {
   try {
@@ -59,8 +60,9 @@ const buildUtcOffsetLabel = (offsetMinutes) => {
   return `UTC${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
-const formatTimezoneWithCity = (tz) => {
+const formatTimezoneWithCity = (tz, t) => {
   if (!tz) return '';
+  const cityMap = getTimeZoneCityMap(t);
   const raw = String(tz).trim();
   const stripped = raw.replace(/\s*\(.*\)\s*$/, '').trim();
   const base = raw.includes('/') && !/UTC\s*[+-]/i.test(stripped)
@@ -72,7 +74,7 @@ const formatTimezoneWithCity = (tz) => {
   const sign = match[1] === '-' ? '-' : '+';
   const hoursRaw = match[2];
   const hoursKey = hoursRaw.length === 1 ? `${sign}${hoursRaw}` : `${sign}${hoursRaw.padStart(2, '0')}`;
-  const city = TZ_CITY_MAP[hoursKey] || TZ_CITY_MAP[`${sign}${hoursRaw}`];
+  const city = cityMap[hoursKey] || cityMap[`${sign}${hoursRaw}`];
   return city ? `${base} (${city})` : base;
 };
 
@@ -84,6 +86,7 @@ function StudentListingCard({
   initialFavorited = false,
   onFavoriteChange,
 }) {
+  const { getCourseDirectionDisplayLabel, t } = useI18n();
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
   const { ref: revealRef, visible } = useRevealOnScroll();
 
@@ -140,7 +143,7 @@ function StudentListingCard({
         try { window.dispatchEvent(new CustomEvent('auth:login-required', { detail: { from: getReturnPath() } })); } catch {}
         return;
       }
-      const msg = e?.response?.data?.error || '操作失败，请稍后再试';
+      const msg = e?.response?.data?.error || t('listings.actionFailed', '操作失败，请稍后再试');
       alert(msg);
     }
   };
@@ -155,9 +158,15 @@ function StudentListingCard({
 
   const school = typeof data?.school === 'string' ? data.school.trim() : '';
   const displayName = typeof data?.name === 'string' ? data.name.trim() : '';
-  const timezoneLabel = formatTimezoneWithCity(data.timezone);
+  const timezoneLabel = formatTimezoneWithCity(data.timezone, t);
   const courses = Array.isArray(data?.courses) ? data.courses : [];
-  const coursesLabel = courses.map((c) => String(c ?? '').trim()).filter(Boolean).join(' | ');
+  const coursesLabel = courses
+    .map((c) => {
+      const label = String(c ?? '').trim();
+      return label ? getCourseDirectionDisplayLabel(label, label) : '';
+    })
+    .filter(Boolean)
+    .join(' | ');
   const languagesRaw = typeof data?.languages === 'string' ? data.languages : '';
   const ratingRaw = Number.parseFloat(String(data?.rating ?? 0));
   const ratingValue = Number.isFinite(ratingRaw) && ratingRaw > 0 ? Math.round(ratingRaw * 10) / 10 : 0;
@@ -166,6 +175,25 @@ function StudentListingCard({
   const languageTokens = languagesRaw
     ? languagesRaw.split(',').map((lang) => lang.trim()).filter(Boolean)
     : [];
+  const translateLanguageToken = (lang) => {
+    const raw = String(lang || '').trim();
+    const normalized = raw.toLowerCase();
+    if (raw === '中文' || normalized === 'zh' || normalized === 'chinese') return t('listings.language.zh', '中文');
+    if (raw === '英语' || normalized === 'en' || normalized === 'english') return t('listings.language.en', '英语');
+    if (raw === '日语' || normalized === 'ja' || normalized === 'japanese') return t('listings.language.ja', '日语');
+    if (raw === '德语' || normalized === 'de' || normalized === 'german') return t('listings.language.de', '德语');
+    if (raw === '法语' || normalized === 'fr' || normalized === 'french') return t('listings.language.fr', '法语');
+    if (raw === '西班牙语' || normalized === 'es' || normalized === 'spanish') return t('listings.language.es', '西班牙语');
+    return raw;
+  };
+  const degreeLabel = (() => {
+    const raw = String(data?.degree || '').trim();
+    const lower = raw.toLowerCase();
+    if (lower.includes('phd') || raw.includes('博士')) return t('profile.degree.phd', raw || '博士');
+    if (raw.includes('本科') || lower.includes('bachelor')) return t('profile.degree.bachelor', raw || '本科');
+    if (raw.includes('硕士') || lower.includes('master')) return t('profile.degree.master', raw || '硕士');
+    return raw;
+  })();
 
   const id = typeof data?.id !== 'undefined' && data?.id !== null ? String(data.id).trim() : '';
   const profileHref = id ? `/student/mentors/${encodeURIComponent(id)}` : '';
@@ -184,7 +212,7 @@ function StudentListingCard({
       href={profileHref || undefined}
       target={profileHref ? '_blank' : undefined}
       rel={profileHref ? 'noopener noreferrer' : undefined}
-      aria-label={`在新页面打开导师主页：${data?.name || data?.id || ''}`}
+      aria-label={t('listings.openMentorProfile', '在新页面打开导师主页：{name}', { name: data?.name || data?.id || '' })}
     >
       {/* 右上角的爱心图标 */}
       <div className={`favorite-icon ${isFavorited ? 'favorited' : ''}`} onClick={toggleFavorite}>
@@ -221,7 +249,7 @@ function StudentListingCard({
         {data.name}{' '}
         <span className="listing-tags">
           <span className={`listing-tag ${degreeClass}`}>
-            {data.degree}
+            {degreeLabel}
           </span>
           {school ? <span className="listing-tag">{school}</span> : null}
         </span>
@@ -236,7 +264,7 @@ function StudentListingCard({
         >
           <path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
         </svg>
-        <span className="rating-text">{ratingValue} | {reviewCountValue} 条评价</span>
+        <span className="rating-text">{ratingValue} | {t('listings.reviews', '{count} 条评价', { count: reviewCountValue })}</span>
       </p>
       {/* 时区和语言合并 */}
       <div className="listing-timezone-languages">
@@ -244,7 +272,7 @@ function StudentListingCard({
         <div className="listing-languages">
           {languageTokens.map((lang, index) => (
             <span key={index} className={`language-tag ${lang.trim()}-tag`}>
-              {lang.trim()}
+              {translateLanguageToken(lang)}
             </span>
           ))}
         </div>
