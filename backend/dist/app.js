@@ -23,6 +23,7 @@ const rtc_1 = __importDefault(require("./routes/rtc"));
 const classroomChat_1 = __importDefault(require("./routes/classroomChat"));
 const paypalApi_1 = __importDefault(require("./routes/paypalApi"));
 const paypal_1 = __importDefault(require("./routes/paypal"));
+const admin_1 = __importDefault(require("./routes/admin"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.get('/health', (req, res) => res.status(200).send('ok')); // 健康检查路由，返回200和ok
@@ -74,6 +75,7 @@ app.use('/api/rtc', rtc_1.default);
 app.use('/api/classrooms', classroomChat_1.default);
 app.use('/api/paypal-api', paypalApi_1.default);
 app.use('/api/paypal', paypal_1.default);
+app.use('/api/admin', admin_1.default);
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 exports.default = app;

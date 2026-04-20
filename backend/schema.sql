@@ -753,3 +753,168 @@ CREATE TABLE IF NOT EXISTS `email_verification_codes` (
   KEY `idx_email_verification_lookup` (`email`, `purpose`, `id`),
   KEY `idx_email_verification_token` (`email`, `purpose`, `verification_token_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 18) Local admin console
+CREATE TABLE IF NOT EXISTS `admin_users` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(100) NOT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `display_name` VARCHAR(120) NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_admin_users_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `admin_id` BIGINT NULL,
+  `action` VARCHAR(80) NOT NULL,
+  `target_type` VARCHAR(60) NOT NULL,
+  `target_id` VARCHAR(80) NOT NULL,
+  `reason` TEXT NULL,
+  `before_json` LONGTEXT NULL,
+  `after_json` LONGTEXT NULL,
+  `ip` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_admin_audit_logs_admin_created` (`admin_id`, `created_at`),
+  KEY `idx_admin_audit_logs_target` (`target_type`, `target_id`),
+  KEY `idx_admin_audit_logs_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `risk_reports` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `status` ENUM('open','reviewing','resolved','dismissed') NOT NULL DEFAULT 'open',
+  `severity` ENUM('low','medium','high','critical') NOT NULL DEFAULT 'medium',
+  `source` VARCHAR(40) NOT NULL DEFAULT 'admin',
+  `reporter_user_id` INT NULL,
+  `target_type` VARCHAR(60) NOT NULL,
+  `target_id` VARCHAR(80) NOT NULL,
+  `target_user_id` INT NULL,
+  `title` VARCHAR(200) NOT NULL,
+  `description` TEXT NULL,
+  `resolution_note` TEXT NULL,
+  `assigned_admin_id` BIGINT NULL,
+  `created_by_admin_id` BIGINT NULL,
+  `updated_by_admin_id` BIGINT NULL,
+  `resolved_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_risk_reports_status_severity` (`status`, `severity`),
+  KEY `idx_risk_reports_target` (`target_type`, `target_id`),
+  KEY `idx_risk_reports_target_user` (`target_user_id`),
+  KEY `idx_risk_reports_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_users_account_status := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'account_status'
+);
+SET @__mx_sql := IF(
+  @__mx_has_users_account_status = 0,
+  'ALTER TABLE `users` ADD COLUMN `account_status` ENUM(''active'',''suspended'') NOT NULL DEFAULT ''active'' AFTER `last_login_at`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_users_suspended_at := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'suspended_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_users_suspended_at = 0,
+  'ALTER TABLE `users` ADD COLUMN `suspended_at` TIMESTAMP NULL DEFAULT NULL AFTER `account_status`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_users_suspended_reason := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'suspended_reason'
+);
+SET @__mx_sql := IF(
+  @__mx_has_users_suspended_reason = 0,
+  'ALTER TABLE `users` ADD COLUMN `suspended_reason` TEXT NULL AFTER `suspended_at`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_review_status := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_review_status'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_review_status = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_review_status` ENUM(''pending'',''approved'',''rejected'') NOT NULL DEFAULT ''pending'' AFTER `mentor_approved`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_review_note := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_review_note'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_review_note = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_review_note` TEXT NULL AFTER `mentor_review_status`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_reviewed_at := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_reviewed_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_reviewed_at = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_reviewed_at` TIMESTAMP NULL DEFAULT NULL AFTER `mentor_review_note`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_reviewed_by := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_reviewed_by_admin_id'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_reviewed_by = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_reviewed_by_admin_id` BIGINT NULL AFTER `mentor_reviewed_at`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_account_mentor_resume_url := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account_settings' AND COLUMN_NAME = 'mentor_resume_url'
+);
+SET @__mx_sql := IF(
+  @__mx_has_account_mentor_resume_url = 0,
+  'ALTER TABLE `account_settings` ADD COLUMN `mentor_resume_url` TEXT NULL',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+UPDATE `user_roles`
+SET `mentor_review_status` = 'approved'
+WHERE `role` = 'mentor' AND `mentor_approved` = 1 AND `mentor_review_status` <> 'approved';

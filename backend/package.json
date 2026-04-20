@@ -16,6 +16,7 @@
     "backfill:mentor-recommendation-stats": "npm run build && node dist/scripts/backfill-mentor-recommendation-stats.js",
     "backfill:course-sessions": "npm run build && node dist/scripts/backfill-course-sessions.js",
     "seed:mentor-cards": "npm run build && node dist/scripts/seed-mentor-cards.js",
+    "seed:admin": "npm run build && node dist/scripts/seed-admin.js",
     "check:mentor-recommendation": "npm run build && node dist/scripts/check-mentor-recommendation.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

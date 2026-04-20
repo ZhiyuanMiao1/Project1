@@ -10,6 +10,7 @@ const express_validator_1 = require("express-validator");
 const db_1 = require("../db");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
+const userStatus_1 = require("../services/userStatus");
 const router = (0, express_1.Router)();
 router.post('/', [
     // email 字段兼容旧前端；这里允许传入 email / StudentID(s#) / MentorID(m#)
@@ -40,6 +41,9 @@ router.post('/', [
         const isMatch = await bcryptjs_1.default.compare(password, account.password_hash);
         if (!isMatch)
             return res.status(401).json({ error: '邮箱/StudentID/MentorID或密码错误' });
+        if (await (0, userStatus_1.isUserSuspended)(account.id)) {
+            return res.status(403).json({ error: '账号已被平台暂停使用，请联系 Mentory 支持' });
+        }
         // 读取该账号已开通的角色；若没有任何角色，默认补一个 student 角色
         let roles = await (0, db_1.query)('SELECT role, public_id, mentor_approved FROM user_roles WHERE user_id = ?', [account.id]);
         if (!roles.length) {

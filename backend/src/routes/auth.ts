@@ -20,6 +20,7 @@ import {
   verifyEmailCode,
 } from '../services/emailVerificationService';
 import { touchUserLastLogin } from '../services/mentorRecommendation';
+import { isUserSuspended } from '../services/userStatus';
 
 type Role = 'mentor' | 'student';
 
@@ -210,6 +211,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
     if (!user) {
       clearRefreshTokenCookie(res);
       return res.status(401).json({ error: '未授权' });
+    }
+    if (await isUserSuspended(user.id)) {
+      clearRefreshTokenCookie(res);
+      return res.status(403).json({ error: '账号已被平台暂停使用，请联系 Mentory 支持' });
     }
 
     const roles = await query<RoleRow[]>(

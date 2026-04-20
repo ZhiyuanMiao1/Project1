@@ -5,6 +5,7 @@ import { body, validationResult } from 'express-validator';
 import { query } from '../db';
 import { ACCESS_TOKEN_EXPIRES_IN, createRefreshTokenSession, setRefreshTokenCookie } from '../auth/refreshTokens';
 import { touchUserLastLogin } from '../services/mentorRecommendation';
+import { isUserSuspended } from '../services/userStatus';
 
 const router = Router();
 
@@ -62,6 +63,9 @@ router.post(
 
       const isMatch = await bcrypt.compare(password, account.password_hash);
       if (!isMatch) return res.status(401).json({ error: '邮箱/StudentID/MentorID或密码错误' });
+      if (await isUserSuspended(account.id)) {
+        return res.status(403).json({ error: '账号已被平台暂停使用，请联系 Mentory 支持' });
+      }
 
       // 读取该账号已开通的角色；若没有任何角色，默认补一个 student 角色
       let roles = await query<RoleRow[]>(

@@ -11,6 +11,7 @@ const db_1 = require("../db");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const emailVerificationService_1 = require("../services/emailVerificationService");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
+const userStatus_1 = require("../services/userStatus");
 const router = (0, express_1.Router)();
 const EMAIL_CODE_PURPOSES = ['register', 'reset_password'];
 const handleEmailVerificationError = (res, error) => {
@@ -146,6 +147,10 @@ router.post('/refresh', async (req, res) => {
         if (!user) {
             (0, refreshTokens_1.clearRefreshTokenCookie)(res);
             return res.status(401).json({ error: '未授权' });
+        }
+        if (await (0, userStatus_1.isUserSuspended)(user.id)) {
+            (0, refreshTokens_1.clearRefreshTokenCookie)(res);
+            return res.status(403).json({ error: '账号已被平台暂停使用，请联系 Mentory 支持' });
         }
         const roles = await (0, db_1.query)('SELECT role, public_id, mentor_approved FROM user_roles WHERE user_id = ?', [rotated.userId]);
         const roleRow = roles.find((r) => r.role === rotated.role) || roles[0];
