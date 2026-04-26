@@ -61,6 +61,14 @@ a {
   color: #176b87;
 }
 
+button.link-button {
+  min-height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #176b87;
+}
+
 .login-shell {
   min-height: 100vh;
   display: grid;

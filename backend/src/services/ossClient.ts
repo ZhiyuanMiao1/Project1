@@ -29,7 +29,7 @@ export const getOssClient = () => {
   return cached;
 };
 
-export const buildContentDisposition = (fileName: string) => {
+export const buildContentDisposition = (fileName: string, mode: 'attachment' | 'inline' = 'attachment') => {
   const raw = typeof fileName === 'string' ? fileName.trim() : '';
   const safe = raw
     .replace(/[\r\n]+/g, ' ')
@@ -40,5 +40,5 @@ export const buildContentDisposition = (fileName: string) => {
     `%${c.charCodeAt(0).toString(16).toUpperCase()}`
   );
 
-  return `attachment; filename="${safe}"; filename*=UTF-8''${encoded}`;
+  return `${mode}; filename="${safe}"; filename*=UTF-8''${encoded}`;
 };

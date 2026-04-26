@@ -101,6 +101,9 @@ function MentorActivationPopup({
     formData.append('OSSAccessKeyId', accessKeyId);
     formData.append('Signature', signature);
     formData.append('success_action_status', '200');
+    if (file.type) {
+      formData.append('Content-Type', file.type);
+    }
     formData.append('file', file);
 
     const uploadRes = await fetch(host, {
