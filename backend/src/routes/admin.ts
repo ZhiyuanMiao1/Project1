@@ -631,7 +631,7 @@ router.get('/mentors/:userId/resume-preview', async (req: Request, res: Response
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Admin-User', admin.username);
 
-    result.stream.on('error', (error) => {
+    result.stream.on('error', (error: Error) => {
       console.error('Admin mentor resume preview stream error:', error);
       if (!res.headersSent) {
         res.status(500).end('预览失败');

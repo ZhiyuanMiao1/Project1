@@ -31,13 +31,13 @@ const getOssClient = () => {
     return cached;
 };
 exports.getOssClient = getOssClient;
-const buildContentDisposition = (fileName) => {
+const buildContentDisposition = (fileName, mode = 'attachment') => {
     const raw = typeof fileName === 'string' ? fileName.trim() : '';
     const safe = raw
         .replace(/[\r\n]+/g, ' ')
         .replace(/[\\"]/g, '_')
         .slice(0, 180) || 'download';
     const encoded = encodeURIComponent(raw || safe).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-    return `attachment; filename="${safe}"; filename*=UTF-8''${encoded}`;
+    return `${mode}; filename="${safe}"; filename*=UTF-8''${encoded}`;
 };
 exports.buildContentDisposition = buildContentDisposition;

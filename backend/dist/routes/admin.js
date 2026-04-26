@@ -10,6 +10,7 @@ const db_1 = require("../db");
 const adminAuth_1 = require("../middleware/adminAuth");
 const adminSchema_1 = require("../services/adminSchema");
 const refreshTokens_1 = require("../auth/refreshTokens");
+const ossClient_1 = require("../services/ossClient");
 const router = (0, express_1.Router)();
 const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
 const APPOINTMENT_STATUSES = new Set(['pending', 'accepted', 'rejected', 'rescheduling']);
@@ -50,6 +51,77 @@ const readReason = (req, minLength = 2) => {
     if (reason.length < minLength)
         return null;
     return reason;
+};
+const parseUrlList = (raw) => {
+    if (Array.isArray(raw)) {
+        return raw
+            .map((item) => safeString(item, 1000))
+            .filter(Boolean);
+    }
+    const text = safeString(raw, 4000);
+    if (!text)
+        return [];
+    const parsed = maybeParseJson(text, null);
+    if (Array.isArray(parsed)) {
+        return parsed
+            .map((item) => safeString(item, 1000))
+            .filter(Boolean);
+    }
+    return [text];
+};
+const resolveOssKeyFromUrl = (rawUrl) => {
+    const value = safeString(rawUrl, 4000);
+    if (!value)
+        return '';
+    try {
+        const parsed = new URL(value);
+        return decodeURIComponent(parsed.pathname.replace(/^\/+/, ''));
+    }
+    catch {
+        return '';
+    }
+};
+const getFileNameFromUrl = (rawUrl) => {
+    const value = safeString(rawUrl, 4000);
+    if (!value)
+        return 'resume';
+    const ossKey = resolveOssKeyFromUrl(value);
+    const last = ossKey.split('/').filter(Boolean).pop();
+    return safeString(last || 'resume', 255) || 'resume';
+};
+const getContentTypeFromFileName = (fileName) => {
+    const raw = safeString(fileName, 255).toLowerCase();
+    const ext = raw.includes('.') ? raw.split('.').pop() || '' : '';
+    if (ext === 'pdf')
+        return 'application/pdf';
+    if (ext === 'jpg' || ext === 'jpeg')
+        return 'image/jpeg';
+    if (ext === 'png')
+        return 'image/png';
+    if (ext === 'webp')
+        return 'image/webp';
+    if (ext === 'gif')
+        return 'image/gif';
+    return '';
+};
+const authenticateAdminToken = async (token) => {
+    const rawToken = safeString(token, 4000);
+    if (!rawToken)
+        return null;
+    try {
+        const payload = jsonwebtoken_1.default.verify(rawToken, (0, adminAuth_1.getAdminJwtSecret)());
+        const adminId = Number(payload?.adminId || 0);
+        if (!adminId || payload?.scope !== 'admin')
+            return null;
+        const rows = await (0, db_1.query)('SELECT id, username, is_active FROM admin_users WHERE id = ? LIMIT 1', [adminId]);
+        const admin = rows?.[0];
+        if (!admin || !(admin.is_active === 1 || admin.is_active === true))
+            return null;
+        return { adminId: Number(admin.id), username: String(admin.username || '') };
+    }
+    catch {
+        return null;
+    }
 };
 const jsonOrNull = (value) => {
     if (typeof value === 'undefined')
@@ -387,6 +459,8 @@ router.get('/mentors/:userId/review', adminAuth_1.requireAdminAuth, async (req, 
         mentor.courses = maybeParseJson(mentor.courses_json, []);
         mentor.teachingLanguages = maybeParseJson(mentor.teaching_languages_json, []);
         mentor.availability = maybeParseJson(mentor.availability_json, null);
+        mentor.resumeUrls = parseUrlList(mentor.mentor_resume_url);
+        mentor.mentor_resume_url = mentor.resumeUrls[0] || null;
         return res.json({ mentor });
     }
     catch (error) {
@@ -394,13 +468,102 @@ router.get('/mentors/:userId/review', adminAuth_1.requireAdminAuth, async (req, 
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
-router.post('/mentors/:userId/approve', adminAuth_1.requireAdminAuth, async (req, res) => {
+router.get('/mentors/:userId/resume-url', adminAuth_1.requireAdminAuth, async (req, res) => {
     const userId = toPositiveInt(req.params.userId, 0);
-    const reason = readReason(req);
     if (!userId)
         return res.status(400).json({ error: '无效导师ID' });
-    if (!reason)
-        return res.status(400).json({ error: '请填写审核原因' });
+    try {
+        const rows = await (0, db_1.query)(`SELECT s.mentor_resume_url
+       FROM user_roles ur
+       LEFT JOIN account_settings s ON s.user_id = ur.user_id
+       WHERE ur.user_id = ? AND ur.role = 'mentor'
+       LIMIT 1`, [userId]);
+        const mentor = rows?.[0];
+        if (!mentor)
+            return res.status(404).json({ error: '未找到导师申请' });
+        const resumeUrl = parseUrlList(mentor.mentor_resume_url)[0] || '';
+        if (!resumeUrl)
+            return res.status(404).json({ error: '未找到简历' });
+        const ossKey = resolveOssKeyFromUrl(resumeUrl);
+        if (!ossKey)
+            return res.json({ url: resumeUrl, signed: false });
+        const client = (0, ossClient_1.getOssClient)();
+        if (!client)
+            return res.status(500).json({ error: 'OSS 未配置' });
+        const fileName = getFileNameFromUrl(resumeUrl);
+        const expires = 120;
+        const url = client.signatureUrl(ossKey, {
+            expires,
+            response: {
+                'content-disposition': (0, ossClient_1.buildContentDisposition)(fileName, 'inline'),
+            },
+        });
+        return res.json({
+            url,
+            signed: true,
+            expiresAt: Math.floor(Date.now() / 1000) + expires,
+        });
+    }
+    catch (error) {
+        console.error('Admin mentor resume url error:', error);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/mentors/:userId/resume-preview', async (req, res) => {
+    const userId = toPositiveInt(req.params.userId, 0);
+    if (!userId)
+        return res.status(400).json({ error: '无效导师ID' });
+    try {
+        const auth = req.headers.authorization || '';
+        const bearerToken = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+        const admin = await authenticateAdminToken(bearerToken || req.query.token);
+        if (!admin)
+            return res.status(401).json({ error: '后台登录已失效' });
+        const rows = await (0, db_1.query)(`SELECT s.mentor_resume_url
+       FROM user_roles ur
+       LEFT JOIN account_settings s ON s.user_id = ur.user_id
+       WHERE ur.user_id = ? AND ur.role = 'mentor'
+       LIMIT 1`, [userId]);
+        const mentor = rows?.[0];
+        if (!mentor)
+            return res.status(404).json({ error: '未找到导师申请' });
+        const resumeUrl = parseUrlList(mentor.mentor_resume_url)[0] || '';
+        if (!resumeUrl)
+            return res.status(404).json({ error: '未找到简历' });
+        const ossKey = resolveOssKeyFromUrl(resumeUrl);
+        if (!ossKey)
+            return res.redirect(resumeUrl);
+        const client = (0, ossClient_1.getOssClient)();
+        if (!client)
+            return res.status(500).json({ error: 'OSS 未配置' });
+        const fileName = getFileNameFromUrl(resumeUrl);
+        const contentType = getContentTypeFromFileName(fileName) || 'application/octet-stream';
+        const result = await client.getStream(ossKey);
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', (0, ossClient_1.buildContentDisposition)(fileName, 'inline'));
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.setHeader('X-Admin-User', admin.username);
+        result.stream.on('error', (error) => {
+            console.error('Admin mentor resume preview stream error:', error);
+            if (!res.headersSent) {
+                res.status(500).end('预览失败');
+            }
+            else {
+                res.end();
+            }
+        });
+        return result.stream.pipe(res);
+    }
+    catch (error) {
+        console.error('Admin mentor resume preview error:', error);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/mentors/:userId/approve', adminAuth_1.requireAdminAuth, async (req, res) => {
+    const userId = toPositiveInt(req.params.userId, 0);
+    const reason = readReason(req, 0);
+    if (!userId)
+        return res.status(400).json({ error: '无效导师ID' });
     try {
         const beforeRows = await (0, db_1.query)("SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [userId]);
         const before = beforeRows?.[0];
@@ -412,10 +575,10 @@ router.post('/mentors/:userId/approve', adminAuth_1.requireAdminAuth, async (req
            mentor_review_note = ?,
            mentor_reviewed_at = CURRENT_TIMESTAMP,
            mentor_reviewed_by_admin_id = ?
-       WHERE user_id = ? AND role = 'mentor'`, [reason, req.admin.adminId, userId]);
+       WHERE user_id = ? AND role = 'mentor'`, [reason || null, req.admin.adminId, userId]);
         const afterRows = await (0, db_1.query)("SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [userId]);
         const after = afterRows?.[0];
-        await audit({ req, action: 'mentor.approve', targetType: 'mentor', targetId: userId, reason, before, after });
+        await audit({ req, action: 'mentor.approve', targetType: 'mentor', targetId: userId, reason: reason || null, before, after });
         return res.json({ mentor: after });
     }
     catch (error) {
