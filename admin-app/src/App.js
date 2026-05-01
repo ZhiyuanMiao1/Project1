@@ -9,6 +9,7 @@ import {
   faGaugeHigh,
   faMagnifyingGlass,
   faRightFromBracket,
+  faRotateRight,
   faShieldHalved,
   faTriangleExclamation,
   faUsers,
@@ -98,6 +99,15 @@ function Badge({ value }) {
 
 function Toolbar({ children }) {
   return <div className="toolbar">{children}</div>;
+}
+
+function RefreshButton({ onClick, loading }) {
+  return (
+    <button type="button" className="ghost refresh-button" onClick={onClick} disabled={loading}>
+      <FontAwesomeIcon icon={faRotateRight} className={loading ? 'spin' : ''} />
+      {loading ? '刷新中...' : '刷新'}
+    </button>
+  );
 }
 
 function SearchBox({ value, onChange, placeholder = '搜索邮箱、ID、关键字' }) {
@@ -206,6 +216,10 @@ function Shell({ admin, onLogout }) {
             <strong>{admin?.displayName || admin?.username || 'Admin'}</strong>
             <span>本地环境</span>
           </div>
+          <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
+            <FontAwesomeIcon icon={faRotateRight} />
+            刷新
+          </button>
           <button className="ghost icon-text" onClick={onLogout}>
             <FontAwesomeIcon icon={faRightFromBracket} />
             退出
@@ -227,7 +241,8 @@ function Shell({ admin, onLogout }) {
 }
 
 function Dashboard() {
-  const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), []);
+  const [reload, setReload] = useState(0);
+  const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), [reload]);
   const cards = useMemo(() => {
     const d = data || {};
     return [
@@ -243,6 +258,9 @@ function Dashboard() {
   return (
     <section>
       <PageTitle title="Dashboard" subtitle="平台运营数据概览" />
+      <Toolbar>
+        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
+      </Toolbar>
       <State loading={loading} error={error}>
         <div className="metric-grid">
           {cards.map(([label, value, hint]) => (
