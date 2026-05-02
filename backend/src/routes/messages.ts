@@ -737,7 +737,13 @@ const restoreRescheduleSourceAfterRecall = async (
 
 const applyExplicitRescheduleSourceStatuses = async (rowsForThread: any[]) => {
   const rescheduleSourceUpdates = new Map<number, number>();
-  let previousAppointmentId: number | null = null;
+  const statusByAppointmentId = new Map<number, string>();
+
+  for (const row of rowsForThread || []) {
+    const appointmentId = toPositiveIntOrNull(row?.id);
+    if (appointmentId == null) continue;
+    statusByAppointmentId.set(appointmentId, normalizeDecisionStatus(row?.appointment_status) || 'pending');
+  }
 
   for (const row of rowsForThread || []) {
     const payload = parseAppointmentPayload(row?.payload_json);
@@ -747,20 +753,17 @@ const applyExplicitRescheduleSourceStatuses = async (rowsForThread: any[]) => {
     const updatedByUserId = toPositiveIntOrNull(row?.sender_user_id);
 
     if (sourceAppointmentId != null && sourceAppointmentId !== appointmentId) {
-      if (safeText(payload.intent).toLowerCase() === 'reschedule' && updatedByUserId != null) {
+      const sourceStatus = statusByAppointmentId.get(sourceAppointmentId) || 'pending';
+      if (
+        safeText(payload.intent).toLowerCase() === 'reschedule'
+        && updatedByUserId != null
+        && sourceStatus !== 'accepted'
+        && sourceStatus !== 'rejected'
+      ) {
         rescheduleSourceUpdates.set(sourceAppointmentId, updatedByUserId);
       }
-      if (appointmentId != null) previousAppointmentId = appointmentId;
       continue;
     }
-
-    const intent = safeText(payload.intent).toLowerCase();
-    if (!intent && previousAppointmentId != null && updatedByUserId != null) {
-      const legacySourceAppointmentId = previousAppointmentId;
-      rescheduleSourceUpdates.set(legacySourceAppointmentId, updatedByUserId);
-    }
-
-    if (appointmentId != null) previousAppointmentId = appointmentId;
   }
 
   for (const [sourceAppointmentId, updatedByUserId] of rescheduleSourceUpdates.entries()) {

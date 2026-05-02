@@ -434,6 +434,7 @@ function MessagesPage() {
   const pendingReadItemsRef = useRef(new Map());
   const scheduledReadIdsRef = useRef(new Set());
   const readFlushTimerRef = useRef(null);
+  const appliedNavigationThreadRef = useRef('');
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -701,12 +702,27 @@ function MessagesPage() {
   const [openMoreId, setOpenMoreId] = useState(null);
 
   useEffect(() => {
-    const target = location?.state?.threadId;
-    const preferred = target && threads.some((t) => String(t?.id) === String(target)) ? String(target) : null;
-    const keepActive = activeId && threads.some((t) => String(t?.id) === String(activeId)) ? activeId : null;
-    setActiveId(preferred || keepActive || threads[0]?.id || null);
+    const targetThreadId = String(location?.state?.threadId || '').trim();
+    const navigationKey = targetThreadId
+      ? `${location?.key || 'initial'}:${targetThreadId}:${location?.state?.animateKey || ''}`
+      : '';
+
     setOpenMoreId(null);
-  }, [activeId, location?.state?.threadId, threads]);
+    setActiveId((currentActiveId) => {
+      const currentThread = threads.find((t) => String(t?.id) === String(currentActiveId || ''));
+      const fallbackId = currentThread?.id || threads[0]?.id || null;
+
+      if (!targetThreadId || appliedNavigationThreadRef.current === navigationKey) {
+        return fallbackId;
+      }
+
+      const targetThread = threads.find((t) => String(t?.id) === targetThreadId);
+      if (!targetThread) return fallbackId;
+
+      appliedNavigationThreadRef.current = navigationKey;
+      return targetThread.id;
+    });
+  }, [location?.key, location?.state?.animateKey, location?.state?.threadId, threads]);
 
   useEffect(() => {
     if (!openMoreId) return undefined;
