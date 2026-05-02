@@ -323,6 +323,32 @@ tr:last-child td {
   flex-wrap: wrap;
 }
 
+.icon-action {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 16px;
+}
+
+.approve-action {
+  background: #1f8f58;
+}
+
+.approve-action:hover {
+  background: #187347;
+}
+
+.reject-action {
+  background: #c43224;
+}
+
+.reject-action:hover {
+  background: #a8271b;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

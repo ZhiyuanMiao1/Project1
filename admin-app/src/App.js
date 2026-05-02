@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendarCheck,
   faChartLine,
+  faCheck,
   faClipboardCheck,
   faFileInvoiceDollar,
   faGaugeHigh,
@@ -13,6 +14,7 @@ import {
   faShieldHalved,
   faTriangleExclamation,
   faUsers,
+  faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { api, clearSession, getStoredAdmin, getToken, setSession } from './api';
 
@@ -479,8 +481,24 @@ function MentorReviewsPage() {
             formatDate(mentor.mentor_created_at),
             <div className="row-actions">
               <button className="ghost" onClick={() => setDetail(mentor.user_id)}>详情</button>
-              <button onClick={() => setDialog({ title: '通过导师审核', mentor, action: 'approve' })}>通过</button>
-              <button className="danger" onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}>驳回</button>
+              <button
+                type="button"
+                className="icon-action approve-action"
+                title="通过"
+                aria-label="通过"
+                onClick={() => setDialog({ title: '通过导师审核', mentor, action: 'approve' })}
+              >
+                <FontAwesomeIcon icon={faCheck} />
+              </button>
+              <button
+                type="button"
+                className="icon-action reject-action"
+                title="驳回"
+                aria-label="驳回"
+                onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
             </div>,
           ])}
         />
