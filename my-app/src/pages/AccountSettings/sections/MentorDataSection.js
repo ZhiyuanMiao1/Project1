@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
+import LoadingText from '../../../components/common/LoadingText/LoadingText';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
 import { useI18n } from '../../../i18n/language';
+
+const LOADING_TEXT_RE = /(?:loading|加载中|正在加载)(?:\s*(?:[.．。]{2,}|…+))?$/iu;
+
+const renderMaybeLoadingText = (value) => (
+  typeof value === 'string' && LOADING_TEXT_RE.test(value.trim())
+    ? <LoadingText text={value} />
+    : value
+);
 
 function MentorDataSection({
   mentorAvatarUrl,
@@ -71,7 +80,7 @@ function MentorDataSection({
               />
             </button>
             {mentorAvatarUploading && (
-              <span className="settings-mentor-avatar-uploading" aria-live="polite">{t('common.uploading', '上传中…')}</span>
+              <span className="settings-mentor-avatar-uploading" aria-live="polite"><LoadingText text={t('common.uploading', '上传中…')} /></span>
             )}
             <svg className="settings-mentor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <circle cx="12" cy="12" r="12" fill="currentColor" />
@@ -91,8 +100,8 @@ function MentorDataSection({
             <div className="settings-mentor-avatar-error" role="alert">{mentorAvatarUploadError}</div>
           ) : null}
           <div className="settings-mentor-main">
-            <div className="settings-mentor-name">{mentorIdValue}</div>
-            <div className="settings-mentor-subtitle">{hasSchoolValue ? schoolValue : t('mentorData.subtitleFallback', 'Mentory 导师')}</div>
+            <div className="settings-mentor-name">{renderMaybeLoadingText(mentorIdValue)}</div>
+            <div className="settings-mentor-subtitle">{hasSchoolValue ? renderMaybeLoadingText(schoolValue) : t('mentorData.subtitleFallback', 'Mentory 导师')}</div>
           </div>
         </div>
 
@@ -100,7 +109,7 @@ function MentorDataSection({
           <div className="settings-mentor-metric">
             <div className="settings-mentor-metric-label">{t('mentorData.classes', '上课')}</div>
             <div className="settings-mentor-metric-value">
-              {classCountDisplay}
+              {classCountLoading ? <LoadingText text="..." /> : classCountDisplay}
               {normalizedClassCount != null && !classCountLoading ? (
                 <span className="settings-mentor-metric-unit">{t('studentData.unit.times', '次')}</span>
               ) : null}
@@ -109,7 +118,7 @@ function MentorDataSection({
           <div className="settings-mentor-metric">
             <div className="settings-mentor-metric-label">{t('mentorData.receivedReviews', '被评价')}</div>
             <div className="settings-mentor-metric-value">
-              {reviewCountDisplay}
+              {reviewsLoading ? <LoadingText text="..." /> : reviewCountDisplay}
               {normalizedReviewCount != null && !reviewsLoading ? (
                 <span className="settings-mentor-metric-unit">{t('studentData.unit.items', '条')}</span>
               ) : null}
@@ -118,7 +127,7 @@ function MentorDataSection({
           <div className="settings-mentor-metric">
             <div className="settings-mentor-metric-label">{t('mentorData.joined', '加入Mentory')}</div>
             <div className="settings-mentor-metric-value">
-              {mentorJoinedMentoryDaysDisplay}<span className="settings-mentor-metric-unit">{t('studentData.unit.days', '天')}</span>
+              {mentorJoinedMentoryDaysDisplay === '...' ? <LoadingText text="..." /> : mentorJoinedMentoryDaysDisplay}<span className="settings-mentor-metric-unit">{t('studentData.unit.days', '天')}</span>
             </div>
           </div>
         </div>
@@ -150,7 +159,7 @@ function MentorDataSection({
             hidden={!aboutMeReviewsExpanded}
           >
             {reviewsLoading ? (
-              <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
+              <div className="settings-orders-empty"><LoadingText text={t('common.loading', '加载中...')} /></div>
             ) : aboutMeReviews.length ? (
               <WrittenReviewsTable reviews={aboutMeReviews} ariaLabel={t('mentorData.aboutMeReviewsList', '关于我的评价列表')} nameFallback="StudentID" />
             ) : (

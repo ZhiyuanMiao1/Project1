@@ -1,6 +1,7 @@
 import React from 'react';
 import { FiX } from 'react-icons/fi';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { formatQuarterHourValue, roundToNearestQuarterHourValue } from '../../utils/lessonHours';
 import { useI18n } from '../../i18n/language';
 import './LessonHoursDialog.css';
@@ -104,7 +105,7 @@ function LessonHoursDialog({
             onClick={onSubmit}
             disabled={submitting}
           >
-            {submitting ? t('lessonHours.submitting', '提交中...') : t('lessonHours.submit', '提交')}
+            {submitting ? <LoadingText text={t('lessonHours.submitting', '提交中...')} /> : t('lessonHours.submit', '提交')}
           </Button>
         </div>
       </div>

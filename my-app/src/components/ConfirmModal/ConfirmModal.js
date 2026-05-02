@@ -1,6 +1,15 @@
 import React, { useEffect, useId, useRef } from 'react';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import './ConfirmModal.css';
+
+const ACTIVE_TEXT_RE = /(?:中|ing)(?:\s*(?:[.．。]{2,}|…+))$/iu;
+
+const renderActionText = (value) => (
+  typeof value === 'string' && ACTIVE_TEXT_RE.test(value.trim())
+    ? <LoadingText text={value} />
+    : value
+);
 
 function ConfirmModal({
   open,
@@ -64,7 +73,7 @@ function ConfirmModal({
             ref={confirmButtonRef}
             onClick={() => onConfirm?.()}
           >
-            {confirmText}
+            {renderActionText(confirmText)}
           </Button>
         </div>
       </div>

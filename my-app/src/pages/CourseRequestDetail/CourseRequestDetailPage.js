@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import ConfirmModal from '../../components/ConfirmModal/ConfirmModal';
@@ -1279,7 +1280,7 @@ function CourseRequestDetailPage() {
 
         <main className="mentor-detail-content">
           {loading ? (
-            <div className="mentor-detail-loading" aria-live="polite">{t('common.loading', '加载中…')}</div>
+            <div className="mentor-detail-loading" aria-live="polite"><LoadingText text={t('common.loading', '加载中…')} /></div>
           ) : errorMessage ? (
             <div className="mentor-detail-error" role="alert">{errorMessage}</div>
           ) : previewCardData ? (

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } from '../StudentCourseRequest/steps/timezoneUtils';
 import { buildAvailabilityDaySet, mergeAvailabilityBlocks, normalizeBlockMap } from '../../utils/availabilityBusy';
 import { useI18n } from '../../i18n/language';
@@ -363,7 +364,7 @@ function AvailabilityEditor({
   }, [multiDayCommonBlocks, normalizeAvailability, onChange, selectedKey, selectedKeys]);
 
   if (loading) {
-    return <div className="settings-availability-hint">{t('common.loading', '加载中...')}</div>;
+    return <div className="settings-availability-hint"><LoadingText text={t('common.loading', '加载中...')} /></div>;
   }
 
   if (disabled) {
@@ -500,7 +501,7 @@ function AvailabilityEditor({
           disabled={saving}
           onClick={() => onSave(safeValue)}
         >
-          {saving ? t('common.saving', '保存中...') : t('common.save', '保存')}
+          {saving ? <LoadingText text={t('common.saving', '保存中...')} /> : t('common.save', '保存')}
         </button>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import AvailabilityEditor from '../AvailabilityEditor';
+import LoadingText from '../../../components/common/LoadingText/LoadingText';
 import {
   buildShortUTC,
   buildTimeZoneOptions,
@@ -15,6 +16,14 @@ const DEGREE_OPTIONS = [
   { value: '硕士', label: '硕士' },
   { value: 'PhD', label: 'PhD' },
 ];
+
+const LOADING_TEXT_RE = /(?:loading|加载中|正在加载)(?:\s*(?:[.．。]{2,}|…+))?$/iu;
+
+const renderMaybeLoadingText = (value) => (
+  typeof value === 'string' && LOADING_TEXT_RE.test(value.trim())
+    ? <LoadingText text={value} />
+    : value
+);
 
 function DegreeSelect({ id, value, onChange }) {
   const { t } = useI18n();
@@ -263,7 +272,7 @@ function ProfileSection({
       <div className="settings-row">
         <div className="settings-row-main">
           <div className="settings-row-title">StudentID</div>
-          <div className="settings-row-value">{studentIdValue}</div>
+          <div className="settings-row-value">{renderMaybeLoadingText(studentIdValue)}</div>
         </div>
       </div>
       <div className="settings-row">
@@ -279,7 +288,7 @@ function ProfileSection({
                 {t('common.openMentor', '点击开通')}
               </button>
             ) : (
-              mentorIdValue
+              renderMaybeLoadingText(mentorIdValue)
             )}
           </div>
         </div>
@@ -287,7 +296,7 @@ function ProfileSection({
       <div className="settings-row">
         <div className="settings-row-main">
           <div className="settings-row-title">{t('profile.email', '邮箱')}</div>
-          <div className="settings-row-value">{emailValue}</div>
+          <div className="settings-row-value">{renderMaybeLoadingText(emailValue)}</div>
         </div>
       </div>
 
@@ -302,7 +311,7 @@ function ProfileSection({
                 onChange={(v) => setDegreeDraft(v)}
               />
             ) : (
-              degreeValue
+              renderMaybeLoadingText(degreeValue)
             )}
           </div>
         </div>
@@ -339,7 +348,7 @@ function ProfileSection({
                 onChange={(e) => setSchoolDraft(e.target.value)}
               />
             ) : (
-              schoolValue
+              renderMaybeLoadingText(schoolValue)
             )}
           </div>
         </div>
@@ -375,7 +384,7 @@ function ProfileSection({
                 options={orderedTimeZoneOptions}
               />
             ) : (
-              timeZoneDisplayValue
+              renderMaybeLoadingText(timeZoneDisplayValue)
             )}
           </div>
         </div>
@@ -423,7 +432,7 @@ function ProfileSection({
         >
           <div className="settings-row-main">
             <div className="settings-row-title">{t('profile.availability', '空余时间')}</div>
-            <div className="settings-row-value">{availabilitySummary}</div>
+            <div className="settings-row-value">{renderMaybeLoadingText(availabilitySummary)}</div>
           </div>
           <span className="settings-accordion-icon" aria-hidden="true">
             <FiChevronDown size={18} />

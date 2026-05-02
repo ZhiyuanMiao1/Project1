@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiAward, FiBookOpen, FiClipboard, FiClock, FiMessageCircle, FiX } from 'react-icons/fi';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
 import './CourseReviewModal.css';
 
@@ -202,7 +203,7 @@ function CourseReviewModal({
             onClick={handleSubmit}
           >
             {isSubmitting
-              ? t('courseReview.submitting', '提交中...')
+              ? <LoadingText text={t('courseReview.submitting', '提交中...')} />
               : hasExistingReview
                 ? t('courseReview.update', '更新评价')
                 : t('courseReview.submit', '提交评价')}

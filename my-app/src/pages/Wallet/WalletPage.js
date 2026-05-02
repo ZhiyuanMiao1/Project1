@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
@@ -702,7 +703,9 @@ function WalletPage() {
                   )}
 
                   {topUpNotice && (
-                    <div className={`wallet-notice${isPayPalPlainNotice ? ' is-plain' : ''}`}>{topUpNotice}</div>
+                    <div className={`wallet-notice${isPayPalPlainNotice ? ' is-plain' : ''}`}>
+                      {isPayPalPlainNotice ? <LoadingText text={topUpNotice} /> : topUpNotice}
+                    </div>
                   )}
                 </div>
               </div>

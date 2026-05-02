@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
 import { FiChevronDown, FiMessageSquare } from 'react-icons/fi';
 import WrittenReviewsTable from '../components/WrittenReviewsTable';
+import LoadingText from '../../../components/common/LoadingText/LoadingText';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../../utils/avatarPlaceholder';
 import { useI18n } from '../../../i18n/language';
+
+const LOADING_TEXT_RE = /(?:loading|加载中|正在加载)(?:\s*(?:[.．。]{2,}|…+))?$/iu;
+
+const renderMaybeLoadingText = (value) => (
+  typeof value === 'string' && LOADING_TEXT_RE.test(value.trim())
+    ? <LoadingText text={value} />
+    : value
+);
 
 function StudentDataSection({
   studentAvatarUrl,
@@ -69,7 +78,7 @@ function StudentDataSection({
               />
             </button>
             {studentAvatarUploading && (
-              <span className="settings-student-avatar-uploading" aria-live="polite">{t('common.uploading', '上传中…')}</span>
+              <span className="settings-student-avatar-uploading" aria-live="polite"><LoadingText text={t('common.uploading', '上传中…')} /></span>
             )}
             <svg className="settings-student-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <circle cx="12" cy="12" r="12" fill="currentColor" />
@@ -89,8 +98,8 @@ function StudentDataSection({
             <div className="settings-student-avatar-error" role="alert">{studentAvatarUploadError}</div>
           ) : null}
           <div className="settings-student-main">
-            <div className="settings-student-name">{studentIdValue}</div>
-            <div className="settings-student-subtitle">{hasSchoolValue ? schoolValue : t('studentData.subtitleFallback', 'Mentory 学生')}</div>
+            <div className="settings-student-name">{renderMaybeLoadingText(studentIdValue)}</div>
+            <div className="settings-student-subtitle">{hasSchoolValue ? renderMaybeLoadingText(schoolValue) : t('studentData.subtitleFallback', 'Mentory 学生')}</div>
           </div>
         </div>
 
@@ -98,7 +107,7 @@ function StudentDataSection({
           <div className="settings-student-metric">
             <div className="settings-student-metric-label">{t('studentData.classes', '上课')}</div>
             <div className="settings-student-metric-value">
-              {classCountDisplay}
+              {classCountLoading ? <LoadingText text="..." /> : classCountDisplay}
               {normalizedClassCount != null && !classCountLoading ? (
                 <span className="settings-student-metric-unit">{t('studentData.unit.times', '次')}</span>
               ) : null}
@@ -107,7 +116,7 @@ function StudentDataSection({
           <div className="settings-student-metric">
             <div className="settings-student-metric-label">{t('studentData.reviews', '评价')}</div>
             <div className="settings-student-metric-value">
-              {reviewCountDisplay}
+              {reviewsLoading ? <LoadingText text="..." /> : reviewCountDisplay}
               {normalizedReviewCount != null && !reviewsLoading ? (
                 <span className="settings-student-metric-unit">{t('studentData.unit.items', '条')}</span>
               ) : null}
@@ -116,7 +125,7 @@ function StudentDataSection({
           <div className="settings-student-metric">
             <div className="settings-student-metric-label">{t('studentData.joined', '加入Mentory')}</div>
             <div className="settings-student-metric-value">
-              {joinedMentoryDaysDisplay}<span className="settings-student-metric-unit">{t('studentData.unit.days', '天')}</span>
+              {joinedMentoryDaysDisplay === '...' ? <LoadingText text="..." /> : joinedMentoryDaysDisplay}<span className="settings-student-metric-unit">{t('studentData.unit.days', '天')}</span>
             </div>
           </div>
         </div>
@@ -148,7 +157,7 @@ function StudentDataSection({
             hidden={!writtenReviewsExpanded}
           >
             {reviewsLoading ? (
-              <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
+              <div className="settings-orders-empty"><LoadingText text={t('common.loading', '加载中...')} /></div>
             ) : writtenReviews.length ? (
               <WrittenReviewsTable reviews={writtenReviews} ariaLabel={t('studentData.writtenReviewsList', '我撰写的评价列表')} nameFallback={t('studentData.mentorFallback', '导师')} />
             ) : (

@@ -3,6 +3,7 @@ import { FaHeart } from 'react-icons/fa';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -658,7 +659,7 @@ function FavoritesPage() {
                 onClick={handleDeleteConfirm}
                 disabled={deletingId === pendingDelete?.id}
               >
-                {deletingId === pendingDelete?.id ? t('common.deleting', '删除中...') : t('common.delete', '删除')}
+                {deletingId === pendingDelete?.id ? <LoadingText text={t('common.deleting', '删除中...')} /> : t('common.delete', '删除')}
               </Button>
             </div>
           </div>
@@ -705,7 +706,7 @@ function FavoritesPage() {
                 onClick={handleCreateConfirm}
                 disabled={creating}
               >
-                {creating ? t('common.creating', '创建中...') : t('common.create', '创建')}
+                {creating ? <LoadingText text={t('common.creating', '创建中...')} /> : t('common.create', '创建')}
               </Button>
             </div>
           </div>

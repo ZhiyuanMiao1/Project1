@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
 import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
 import { useI18n } from '../../i18n/language';
@@ -795,7 +796,7 @@ function MentorProfileEditorPage() {
           <div className="step-header-actions">
             <div className="mx-editor-exit-wrap">
               <button type="button" className="ghost-button" onClick={handleSaveAndExit} disabled={avatarUploading || saving}>
-                {saving ? t('common.saving', '保存中...') : t('mentorProfileEditor.saveAndExit', '保存并退出')}
+                {saving ? <LoadingText text={t('common.saving', '保存中...')} /> : t('mentorProfileEditor.saveAndExit', '保存并退出')}
               </button>
               {saveHint && (
                 <div key={saveHint.id} className="mx-editor-save-hint" role="status" aria-live="polite">
@@ -833,7 +834,7 @@ function MentorProfileEditorPage() {
                 <span className="mx-editor-avatar-placeholder">{t('mentorProfileEditor.avatarPlaceholder', '头像')}</span>
               )}
               {avatarUploading && (
-                <span className="mx-editor-avatar-uploading" aria-live="polite">{t('mentorProfileEditor.uploading', '上传中…')}</span>
+                <span className="mx-editor-avatar-uploading" aria-live="polite"><LoadingText text={t('mentorProfileEditor.uploading', '上传中…')} /></span>
               )}
               <svg className="mx-editor-avatar-camera" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 {/* 黑色实心圆底 */}
@@ -950,7 +951,7 @@ function MentorProfileEditorPage() {
           className="mx-save-button"
           onClick={(e) => { try { e.currentTarget.blur(); } catch {} handleSave(); }}
           disabled={avatarUploading || saving}
-        >{saving ? t('common.saving', '保存中...') : t('common.save', '保存')}</button>
+        >{saving ? <LoadingText text={t('common.saving', '保存中...')} /> : t('common.save', '保存')}</button>
       </div>
       
     </div>

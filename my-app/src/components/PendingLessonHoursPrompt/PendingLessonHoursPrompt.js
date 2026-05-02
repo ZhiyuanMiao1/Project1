@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { FiAlertCircle, FiClock } from 'react-icons/fi';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import {
   COURSE_TYPE_ID_TO_LABEL,
   normalizeCourseLabel,
@@ -176,14 +177,14 @@ function PendingLessonHoursPrompt({
             onClick={() => onDispute?.(confirmation)}
             disabled={busy}
           >
-            {busy ? t('lessonHours.processing', '处理中...') : secondaryLabel}
+            {busy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : secondaryLabel}
           </Button>
           <Button
             className="pending-lesson-hours-btn pending-lesson-hours-btn--primary"
             onClick={() => onConfirm?.(confirmation)}
             disabled={busy}
           >
-            {busy ? t('lessonHours.processing', '处理中...') : primaryLabel}
+            {busy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : primaryLabel}
           </Button>
         </div>
       </div>

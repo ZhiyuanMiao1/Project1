@@ -12,6 +12,7 @@ import {
   FiX,
 } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseOnboardingModal from '../../components/CourseOnboardingModal/CourseOnboardingModal';
@@ -1331,7 +1332,7 @@ function MentorDetailPage() {
 
         <main className="mentor-detail-content">
           {loading ? (
-            <div className="mentor-detail-loading" aria-live="polite">{t('common.loading', '加载中…')}</div>
+            <div className="mentor-detail-loading" aria-live="polite"><LoadingText text={t('common.loading', '加载中…')} /></div>
           ) : errorMessage ? (
             <div className="mentor-detail-error" role="alert">{errorMessage}</div>
           ) : mentor ? (

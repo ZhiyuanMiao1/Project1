@@ -11,6 +11,7 @@ import {
 } from '../../constants/courseMappings';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
 import './CourseOnboardingModal.css';
 
@@ -275,7 +276,7 @@ function CourseOnboardingModal({
             <div className="course-onboarding-card-stack" role="radiogroup" aria-label={t('courseOnboarding.chooseCourse', '选择课程')}>
               {draftLoading ? (
                 <div className="course-onboarding-empty" role="status" aria-live="polite">
-                  {t('courseOnboarding.loading', '加载中…')}
+                  <LoadingText text={t('courseOnboarding.loading', '加载中…')} />
                 </div>
               ) : courseCards.length === 0 ? (
                 <div className="course-onboarding-empty" role="note">

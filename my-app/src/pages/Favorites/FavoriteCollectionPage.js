@@ -3,6 +3,7 @@ import { FiChevronLeft } from 'react-icons/fi';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -455,7 +456,7 @@ function FavoriteCollectionPage() {
         )}
         {loading && (
           <p style={{ margin: '0 0 12px', color: '#64748b' }}>
-            {t('common.loading', '加载中...')}
+            <LoadingText text={t('common.loading', '加载中...')} />
           </p>
         )}
 
@@ -538,7 +539,7 @@ function FavoriteCollectionPage() {
                 onClick={bulkUnfavorite}
                 disabled={selectedCount === 0 || bulkWorking}
               >
-                {bulkWorking ? t('common.processing', '处理中...') : t('favorites.unfavorite', '取消收藏')}
+                {bulkWorking ? <LoadingText text={t('common.processing', '处理中...')} /> : t('favorites.unfavorite', '取消收藏')}
               </Button>
               <Button
                 className="favorite-bulk-btn primary"
@@ -592,7 +593,7 @@ function FavoriteCollectionPage() {
             <div className="favorite-modal-body">
               <h3 id="move-title">{t('favorites.moveTitle', '移动到收藏夹')}</h3>
               {(collectionsLoading || !collectionsLoaded) ? (
-                <p className="favorite-modal-hint">{t('common.loading', '加载中...')}</p>
+                <p className="favorite-modal-hint"><LoadingText text={t('common.loading', '加载中...')} /></p>
               ) : (
                 <>
                   {!hasMoveTargets ? (
@@ -684,7 +685,7 @@ function FavoriteCollectionPage() {
                 onClick={confirmMove}
                 disabled={bulkWorking || collectionsLoading || !collectionsLoaded || !hasMoveTargets}
               >
-                {bulkWorking ? t('favorites.moving', '移动中...') : t('favorites.move', '移动')}
+                {bulkWorking ? <LoadingText text={t('favorites.moving', '移动中...')} /> : t('favorites.move', '移动')}
               </Button>
             </div>
           </div>

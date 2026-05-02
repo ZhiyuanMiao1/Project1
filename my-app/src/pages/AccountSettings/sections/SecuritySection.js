@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../../../api/client';
+import LoadingText from '../../../components/common/LoadingText/LoadingText';
 import { useI18n } from '../../../i18n/language';
 
 function SecuritySection({ isLoggedIn, onShowToast }) {
@@ -96,7 +97,7 @@ function SecuritySection({ isLoggedIn, onShowToast }) {
         {editingPassword ? (
           <div className="settings-row-actions">
             <button type="button" className="settings-action" disabled={savingPassword} onClick={saveNewPassword}>
-              {savingPassword ? t('common.saving', '保存中...') : t('common.save', '保存')}
+              {savingPassword ? <LoadingText text={t('common.saving', '保存中...')} /> : t('common.save', '保存')}
             </button>
             <button type="button" className="settings-action" disabled={savingPassword} onClick={cancelPasswordEdit}>
               {t('common.cancel', '取消')}

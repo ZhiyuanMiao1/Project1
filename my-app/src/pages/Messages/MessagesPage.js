@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
@@ -1910,7 +1911,7 @@ function MessagesPage() {
             ) : (
               <div className="messages-empty messages-empty-center">{t('messages.selectConversation', '选择左侧的一条会话查看详情')}</div>
             )) : (
-              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? t('common.loadingEllipsis', '加载中…') : t('messages.noConversations', '暂无会话')}</div>
+              <div className="messages-empty messages-empty-center">{threadsStatus === 'loading' ? <LoadingText text={t('common.loadingEllipsis', '加载中…')} /> : t('messages.noConversations', '暂无会话')}</div>
             )}
           </div>
         </section>

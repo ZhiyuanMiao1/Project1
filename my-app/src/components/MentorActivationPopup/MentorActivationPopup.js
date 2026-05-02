@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
 import './MentorActivationPopup.css';
 
@@ -248,7 +249,7 @@ function MentorActivationPopup({
             </svg>
           </span>
           <span className="mentor-activation-upload-text">
-            {uploading ? t('mentorActivation.uploading', '上传中...') : t('mentorActivation.uploadResume', '上传简历')}
+            {uploading ? <LoadingText text={t('mentorActivation.uploading', '上传中...')} /> : t('mentorActivation.uploadResume', '上传简历')}
           </span>
         </button>
 
@@ -290,7 +291,7 @@ function MentorActivationPopup({
           onClick={handleSubmit}
           fullWidth
         >
-          {submitting ? t('mentorActivation.submitting', '提交中...') : displaySubmitLabel}
+          {submitting ? <LoadingText text={t('mentorActivation.submitting', '提交中...')} /> : displaySubmitLabel}
         </Button>
       </div>
     </div>

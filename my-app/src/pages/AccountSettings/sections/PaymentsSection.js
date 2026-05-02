@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FiChevronDown } from 'react-icons/fi';
 import { fetchAccountPaymentsSummary } from '../../../api/account';
+import LoadingText from '../../../components/common/LoadingText/LoadingText';
 import {
   COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
@@ -245,10 +246,10 @@ function PaymentsSection({ isLoggedIn = false }) {
   }, [isLoggedIn]);
 
   const paymentSummary = status === 'loading'
-    ? t('payments.loading', '加载中...')
+    ? <LoadingText text={t('payments.loading', '加载中...')} />
     : (paymentRecords.length ? t('payments.rechargeRecords', `充值记录（${paymentRecords.length}）`, { count: paymentRecords.length }) : t('payments.noRecords', '暂无记录'));
   const incomeSummary = status === 'loading'
-    ? t('payments.loading', '加载中...')
+    ? <LoadingText text={t('payments.loading', '加载中...')} />
     : (incomeRecords.length ? t('payments.incomeRecords', `收入记录（${incomeRecords.length}）`, { count: incomeRecords.length }) : t('payments.noRecords', '暂无记录'));
 
   return (
@@ -275,7 +276,7 @@ function PaymentsSection({ isLoggedIn = false }) {
           hidden={!paymentsExpanded}
         >
           {status === 'loading' ? (
-            <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
+            <div className="settings-orders-empty"><LoadingText text={t('common.loading', '加载中...')} /></div>
           ) : status === 'error' ? (
             <div className="settings-orders-empty">{t('payments.loadPaymentsFailed', '付款记录加载失败，请稍后再试')}</div>
           ) : paymentRecords.length ? (
@@ -308,7 +309,7 @@ function PaymentsSection({ isLoggedIn = false }) {
           hidden={!incomeExpanded}
         >
           {status === 'loading' ? (
-            <div className="settings-orders-empty">{t('common.loading', '加载中...')}</div>
+            <div className="settings-orders-empty"><LoadingText text={t('common.loading', '加载中...')} /></div>
           ) : status === 'error' ? (
             <div className="settings-orders-empty">{t('payments.loadIncomeFailed', '收入记录加载失败，请稍后再试')}</div>
           ) : incomeRecords.length ? (

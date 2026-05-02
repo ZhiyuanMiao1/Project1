@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, lazy, Suspense, useCallbac
 import { useLocation, useNavigate } from 'react-router-dom';
 import './StudentCourseRequestPage.css';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import { FaFileAlt, FaGlobe, FaClock, FaCalendarAlt, FaHeart, FaLightbulb, FaGraduationCap, FaTasks } from 'react-icons/fa';
 import { DIRECTION_OPTIONS, DIRECTION_ID_TO_LABEL, DIRECTION_ICON_MAP, COURSE_TYPE_OPTIONS } from '../../constants/courseMappings';
 import { fetchAccountProfile } from '../../api/account';
@@ -1248,6 +1249,12 @@ function StudentCourseRequestPage() {
     ? (typeof accountProfile.school === 'string' ? accountProfile.school : '')
     : translateMockSchoolValue(mockStudent.school);
   const previewSchool = (previewSchoolRaw || '').trim();
+  const previewStudentIdNode = profileIsLoading && previewStudentId === t('courseRequest.loading', '加载中...')
+    ? <LoadingText text={previewStudentId} />
+    : previewStudentId;
+  const previewDegreeNode = profileIsLoading && previewDegree === t('courseRequest.loading', '加载中...')
+    ? <LoadingText text={previewDegree} />
+    : previewDegree;
   const previewAvatarName = (() => {
     const user = getAuthUser() || {};
     if (typeof user?.name === 'string' && user.name.trim()) return user.name.trim();
@@ -1564,9 +1571,9 @@ function StudentCourseRequestPage() {
                       />
                     </div>
                     <div className="header-texts">
-                      <div className="name">{previewStudentId}</div>
+                      <div className="name">{previewStudentIdNode}</div>
                       <div className="chips">
-                        <span className="chip green">{previewDegree}</span>
+                        <span className="chip green">{previewDegreeNode}</span>
                         {!!previewSchool && <span className="chip gray">{previewSchool}</span>}
                       </div>
                     </div>
@@ -1708,9 +1715,9 @@ function StudentCourseRequestPage() {
                       />
                     </div>
                     <div className="header-texts">
-                      <div className="name">{previewStudentId}</div>
+                      <div className="name">{previewStudentIdNode}</div>
                       <div className="chips">
-                        <span className="chip green">{previewDegree}</span>
+                        <span className="chip green">{previewDegreeNode}</span>
                         {!!previewSchool && <span className="chip gray">{previewSchool}</span>}
                       </div>
                     </div>

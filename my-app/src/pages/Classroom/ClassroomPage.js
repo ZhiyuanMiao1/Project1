@@ -17,6 +17,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -3521,7 +3522,7 @@ function ClassroomPage() {
 
         <section className="classroom-meta">
           <h1>{t('classroom.title', '课堂')}</h1>
-          <div className="classroom-status">{statusText}</div>
+          <div className="classroom-status"><LoadingText text={statusText} active={/[.．。]{2,}|…/u.test(statusText)} /></div>
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
           {appointmentMessage ? <div className="classroom-note">{appointmentMessage}</div> : null}
         </section>
@@ -3640,7 +3641,7 @@ function ClassroomPage() {
 
           <div className="classroom-chat-body" ref={chatBodyRef}>
             {chatLoading && !chatMessages.length ? (
-              <div className="classroom-chat-empty">{t('classroom.loadingChat', '正在加载聊天记录...')}</div>
+              <div className="classroom-chat-empty"><LoadingText text={t('classroom.loadingChat', '正在加载聊天记录...')} /></div>
             ) : null}
 
             {chatMessages.map((message) => {
@@ -3677,7 +3678,7 @@ function ClassroomPage() {
                       >
                         <FiDownload size={14} />
                         <span>
-                          {fileUnavailable ? t('classroom.fileCleaned', '文件已清理') : isDownloading ? t('classroom.preparingDownload', '准备下载...') : t('classroom.downloadFile', '下载文件')}
+                          {fileUnavailable ? t('classroom.fileCleaned', '文件已清理') : isDownloading ? <LoadingText text={t('classroom.preparingDownload', '准备下载...')} /> : t('classroom.downloadFile', '下载文件')}
                         </span>
                       </button>
                     </div>
@@ -3716,7 +3717,7 @@ function ClassroomPage() {
                   onClick={handleOpenChatFilePicker}
                 >
                   <FiPaperclip size={16} />
-                  <span>{chatUploading ? t('classroom.uploading', '上传中...') : t('classroom.uploadFile', '上传文件')}</span>
+                  <span>{chatUploading ? <LoadingText text={t('classroom.uploading', '上传中...')} /> : t('classroom.uploadFile', '上传文件')}</span>
                 </button>
                 <button
                   type="button"
@@ -3727,7 +3728,7 @@ function ClassroomPage() {
                   }}
                 >
                   <FiSend size={16} />
-                  <span>{chatSending ? t('classroom.sending', '发送中...') : t('classroom.sendMessage', '发送消息')}</span>
+                  <span>{chatSending ? <LoadingText text={t('classroom.sending', '发送中...')} /> : t('classroom.sendMessage', '发送消息')}</span>
                 </button>
               </div>
             </div>
@@ -3887,7 +3888,7 @@ function ClassroomPage() {
               </div>
 
               <div className="classroom-reschedule-meta">
-                {threadAvailabilityStatus === 'loading' ? t('classroom.syncingAvailability', '正在同步双方空闲时间…') : t('classroom.availabilityHint', '可点击时间段，或拖动已选区间调整')}
+                {threadAvailabilityStatus === 'loading' ? <LoadingText text={t('classroom.syncingAvailability', '正在同步双方空闲时间…')} /> : t('classroom.availabilityHint', '可点击时间段，或拖动已选区间调整')}
               </div>
 
               <div className="reschedule-timeline">
@@ -4028,7 +4029,7 @@ function ClassroomPage() {
                   onClick={handleRescheduleSend}
                   disabled={!rescheduleSelection || rescheduleSending}
                 >
-                  {rescheduleSending ? t('classroom.sending', '发送中…') : t('classroom.sendAppointment', '发送预约')}
+                  {rescheduleSending ? <LoadingText text={t('classroom.sending', '发送中…')} /> : t('classroom.sendAppointment', '发送预约')}
                 </button>
               </div>
             </aside>

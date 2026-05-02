@@ -3,6 +3,7 @@ import { FaEllipsisH } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
@@ -770,7 +771,7 @@ function CoursesPage() {
     if (loading || timeZoneLoading) {
       return (
         <div className="courses-guard">
-          <p className="courses-guard-hint">{t('courses.loading', '加载中...')}</p>
+          <p className="courses-guard-hint"><LoadingText text={t('courses.loading', '加载中...')} /></p>
         </div>
       );
     }
@@ -938,7 +939,7 @@ function CoursesPage() {
         const classroomButtonLabel = (() => {
           if (!isUpcomingScheduledCourse) return t('courses.enterClassroom', '进入课堂');
           if (!requiresLessonHourCheck) return t('courses.enterClassroom', '进入课堂');
-          if (walletSummaryStatus === 'loading' || walletSummaryStatus === 'idle') return t('courses.checkingHours', '检查课时中...');
+          if (walletSummaryStatus === 'loading' || walletSummaryStatus === 'idle') return <LoadingText text={t('courses.checkingHours', '检查课时中...')} />;
           if (walletSummaryStatus === 'error') return t('courses.hoursLoadFailed', '课时信息加载失败');
           if (shouldRedirectToWallet) return t('courses.goTopUp', '前往充值');
           return t('courses.enterClassroom', '进入课堂');

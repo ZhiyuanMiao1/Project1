@@ -4,6 +4,7 @@ import './StudentNavbar.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
 // 移除首课日期弹窗，改为直接输入
 import BrandMark from '../common/BrandMark/BrandMark';
+import LoadingText from '../common/LoadingText/LoadingText';
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
@@ -66,7 +67,7 @@ function AnchoredLoadingFallback({
         role="status"
         style={{ position: 'fixed', top: position.top, left: position.left, width }}
       >
-        {message}
+        <LoadingText text={message} />
       </div>
     </div>
   );
@@ -75,7 +76,7 @@ function AnchoredLoadingFallback({
 function CenteredLoadingFallback({ message = '加载中…' }) {
   return (
     <div className="navbar-lazy-centered-fallback" role="status" aria-live="polite">
-      <div className="navbar-lazy-centered-card">{message}</div>
+      <div className="navbar-lazy-centered-card"><LoadingText text={message} /></div>
     </div>
   );
 }

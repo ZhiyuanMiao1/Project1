@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
@@ -600,7 +601,7 @@ function MentorCoursesPage() {
     if (coursesLoading || timeZoneLoading) {
       return (
         <div className="courses-guard">
-          <p className="courses-guard-hint">{t('courses.loading', '加载中...')}</p>
+          <p className="courses-guard-hint"><LoadingText text={t('courses.loading', '加载中...')} /></p>
         </div>
       );
     }
@@ -706,7 +707,7 @@ function MentorCoursesPage() {
     if (status === 'loading') {
       return (
         <div className="courses-guard">
-          <p className="courses-guard-hint">{t('courses.loading', '加载中...')}</p>
+          <p className="courses-guard-hint"><LoadingText text={t('courses.loading', '加载中...')} /></p>
         </div>
       );
     }

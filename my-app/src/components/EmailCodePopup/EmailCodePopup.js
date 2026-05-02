@@ -5,6 +5,7 @@ import {
   sendRegisterEmailCode,
   verifyRegisterEmailCode,
 } from '../../services/emailCodeService';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
 import './EmailCodePopup.css';
 
@@ -177,7 +178,7 @@ function EmailCodePopup({
             onClick={handleResend}
             disabled={countdown > 0 || verifying || resending}
           >
-            {resending ? t('emailCode.resending', '发送中...') : t('emailCode.resend', '重新发送')}
+            {resending ? <LoadingText text={t('emailCode.resending', '发送中...')} /> : t('emailCode.resend', '重新发送')}
           </button>
         </div>
 
@@ -237,7 +238,7 @@ function EmailCodePopup({
             className="email-code-error"
             role={errorMessage ? 'alert' : undefined}
           >
-            {errorMessage || (verifying ? t('emailCode.verifying', '验证中...') : '\u00A0')}
+            {errorMessage || (verifying ? <LoadingText text={t('emailCode.verifying', '验证中...')} /> : '\u00A0')}
           </span>
           <span className="email-code-countdown">
             {countdown > 0 ? t('emailCode.resendAfter', '{seconds}s 后可重发', { seconds: countdown }) : '\u00A0'}

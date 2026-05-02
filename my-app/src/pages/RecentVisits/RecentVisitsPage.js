@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FiChevronLeft } from 'react-icons/fi';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
+import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -467,7 +468,7 @@ function RecentVisitsPage() {
 
         {(loading || loadingMore) && !errorMessage ? (
           <div className="recent-loading-more" aria-live="polite">
-            {t('common.loading', TEXT.loading)}
+            <LoadingText text={t('common.loading', TEXT.loading)} />
           </div>
         ) : null}
 

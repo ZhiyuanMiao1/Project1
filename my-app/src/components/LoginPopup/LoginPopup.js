@@ -3,6 +3,7 @@ import { FiX } from 'react-icons/fi';
 import './LoginPopup.css';
 import api from '../../api/client';
 import Button from '../common/Button/Button';
+import LoadingText from '../common/LoadingText/LoadingText';
 import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authStorage';
 import EmailCodePopup from '../EmailCodePopup/EmailCodePopup';
 import {
@@ -401,7 +402,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             disabled={submitting}
             fullWidth
           >
-            {submitting ? t('common.processing', '处理中...') : (mode === 'login' ? t('auth.continue', '继续') : (mode === 'resetEmail' ? t('auth.sendCode', '发送验证码') : t('auth.resetPassword', '重置密码')))}
+            {submitting ? <LoadingText text={t('common.processing', '处理中...')} /> : (mode === 'login' ? t('auth.continue', '继续') : (mode === 'resetEmail' ? t('auth.sendCode', '发送验证码') : t('auth.resetPassword', '重置密码')))}
           </Button>
         </div>
         {mode === 'login' && (
