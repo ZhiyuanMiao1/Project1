@@ -13,7 +13,6 @@ const refreshTokens_1 = require("../auth/refreshTokens");
 const ossClient_1 = require("../services/ossClient");
 const router = (0, express_1.Router)();
 const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
-const APPOINTMENT_STATUSES = new Set(['pending', 'accepted', 'rejected', 'rescheduling']);
 const REPORT_STATUSES = new Set(['open', 'reviewing', 'resolved', 'dismissed']);
 const REPORT_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
 const USER_STATUSES = new Set(['active', 'suspended']);
@@ -194,7 +193,7 @@ router.get('/auth/me', adminAuth_1.requireAdminAuth, async (req, res) => {
 });
 router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res) => {
     try {
-        const [userRows, roleRows, mentorRows, orderRows, appointmentRows, courseRows, lessonRows, reportRows,] = await Promise.all([
+        const [userRows, roleRows, mentorRows, orderRows, courseRows, lessonRows, reportRows,] = await Promise.all([
             (0, db_1.query)(`SELECT
            COUNT(*) AS totalUsers,
            SUM(CASE WHEN account_status = 'suspended' THEN 1 ELSE 0 END) AS suspendedUsers,
@@ -215,12 +214,6 @@ router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res)
            SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN 1 ELSE 0 END) AS paidOrders,
            COALESCE(SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN amount_cny ELSE 0 END), 0) AS paidAmountCny
          FROM billing_orders`),
-            (0, db_1.query)(`SELECT
-           COUNT(*) AS totalAppointments,
-           SUM(CASE WHEN COALESCE(ast.status, 'pending') = 'pending' THEN 1 ELSE 0 END) AS pendingAppointments
-         FROM message_items mi
-         LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
-         WHERE mi.message_type = 'appointment_card'`),
             (0, db_1.query)('SELECT COUNT(*) AS scheduledCourses FROM course_sessions WHERE status = "scheduled"'),
             (0, db_1.query)("SELECT COUNT(*) AS pendingLessonHours FROM lesson_hour_confirmations WHERE status IN ('pending','disputed','platform_review')"),
             (0, db_1.query)("SELECT COUNT(*) AS openReports FROM risk_reports WHERE status IN ('open','reviewing')"),
@@ -230,7 +223,6 @@ router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res)
             roles: roleRows?.[0] || {},
             mentors: mentorRows?.[0] || {},
             orders: orderRows?.[0] || {},
-            appointments: appointmentRows?.[0] || {},
             courses: courseRows?.[0] || {},
             lessonHours: lessonRows?.[0] || {},
             reports: reportRows?.[0] || {},
@@ -701,119 +693,6 @@ router.patch('/orders/:orderId/status', adminAuth_1.requireAdminAuth, async (req
     catch (error) {
         console.error('Admin update order status error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-});
-router.get('/appointments', adminAuth_1.requireAdminAuth, async (req, res) => {
-    const { page, limit, offset } = getPaging(req);
-    const q = safeString(req.query.q, 100);
-    const status = safeString(req.query.status, 30);
-    const where = ["mi.message_type = 'appointment_card'"];
-    const params = [];
-    if (status && APPOINTMENT_STATUSES.has(status)) {
-        where.push("COALESCE(ast.status, 'pending') = ?");
-        params.push(status);
-    }
-    if (q) {
-        const like = `%${escapeLike(q)}%`;
-        const id = Number.parseInt(q, 10);
-        where.push(`(
-      su.email LIKE ? ESCAPE '\\\\'
-      OR mu.email LIKE ? ESCAPE '\\\\'
-      OR sr.public_id LIKE ? ESCAPE '\\\\'
-      OR mr.public_id LIKE ? ESCAPE '\\\\'
-      ${Number.isFinite(id) && id > 0 ? 'OR mi.id = ? OR mt.id = ?' : ''}
-    )`);
-        params.push(like, like, like, like);
-        if (Number.isFinite(id) && id > 0)
-            params.push(id, id);
-    }
-    try {
-        const countRows = await (0, db_1.query)(`SELECT COUNT(*) AS total
-       FROM message_items mi
-       JOIN message_threads mt ON mt.id = mi.thread_id
-       JOIN users su ON su.id = mt.student_user_id
-       JOIN users mu ON mu.id = mt.mentor_user_id
-       LEFT JOIN user_roles sr ON sr.user_id = su.id AND sr.role = 'student'
-       LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
-       LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
-       WHERE ${where.join(' AND ')}`, params);
-        const rows = await (0, db_1.query)(`SELECT
-         mi.id, mi.thread_id, mi.sender_user_id, mi.payload_json, mi.created_at,
-         COALESCE(ast.status, 'pending') AS status, ast.updated_at AS status_updated_at,
-         mt.student_user_id, mt.mentor_user_id,
-         su.email AS student_email, sr.public_id AS student_public_id,
-         mu.email AS mentor_email, mr.public_id AS mentor_public_id
-       FROM message_items mi
-       JOIN message_threads mt ON mt.id = mi.thread_id
-       JOIN users su ON su.id = mt.student_user_id
-       JOIN users mu ON mu.id = mt.mentor_user_id
-       LEFT JOIN user_roles sr ON sr.user_id = su.id AND sr.role = 'student'
-       LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
-       LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
-       WHERE ${where.join(' AND ')}
-       ORDER BY mi.created_at DESC, mi.id DESC
-       ${pagingSql(limit, offset)}`, params);
-        const appointments = (rows || []).map((row) => ({ ...row, payload: maybeParseJson(row.payload_json, null) }));
-        return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), appointments });
-    }
-    catch (error) {
-        console.error('Admin appointments list error:', error);
-        return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-});
-router.patch('/appointments/:appointmentId/status', adminAuth_1.requireAdminAuth, async (req, res) => {
-    const appointmentId = toPositiveInt(req.params.appointmentId, 0);
-    const status = safeString(req.body?.status, 30);
-    const reason = readReason(req);
-    if (!appointmentId)
-        return res.status(400).json({ error: '无效预约ID' });
-    if (!APPOINTMENT_STATUSES.has(status))
-        return res.status(400).json({ error: '无效预约状态' });
-    if (!reason)
-        return res.status(400).json({ error: '请填写操作原因' });
-    const conn = await db_1.pool.getConnection();
-    try {
-        await conn.beginTransaction();
-        const [beforeRows] = await conn.execute(`SELECT
-         mi.id,
-         mi.message_type,
-         mi.sender_user_id,
-         ast.updated_by_user_id,
-         COALESCE(ast.status, 'pending') AS status
-       FROM message_items mi
-       LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
-       WHERE mi.id = ? AND mi.message_type = 'appointment_card'
-       LIMIT 1
-       FOR UPDATE`, [appointmentId]);
-        const before = beforeRows?.[0];
-        if (!before) {
-            await conn.rollback();
-            return res.status(404).json({ error: '未找到预约' });
-        }
-        const updatedByUserId = Number(before.updated_by_user_id || before.sender_user_id);
-        if (!updatedByUserId) {
-            await conn.rollback();
-            return res.status(409).json({ error: '预约缺少可用的业务用户，无法调整状态' });
-        }
-        await conn.execute(`INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE status = VALUES(status), updated_by_user_id = VALUES(updated_by_user_id), updated_at = CURRENT_TIMESTAMP`, [appointmentId, status, updatedByUserId]);
-        await conn.commit();
-        const afterRows = await (0, db_1.query)("SELECT appointment_message_id AS id, status, updated_at FROM appointment_statuses WHERE appointment_message_id = ? LIMIT 1", [appointmentId]);
-        const after = afterRows?.[0];
-        await audit({ req, action: 'appointment.status.update', targetType: 'appointment', targetId: appointmentId, reason, before, after });
-        return res.json({ appointment: after });
-    }
-    catch (error) {
-        try {
-            await conn.rollback();
-        }
-        catch { }
-        console.error('Admin update appointment status error:', error);
-        return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-    finally {
-        conn.release();
     }
 });
 router.get('/reports', adminAuth_1.requireAdminAuth, async (req, res) => {

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCalendarCheck,
   faChartLine,
   faCheck,
   faClipboardCheck,
@@ -23,7 +22,6 @@ const navItems = [
   { to: '/users', label: '用户管理', icon: faUsers },
   { to: '/mentors/reviews', label: '导师审核', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
-  { to: '/appointments', label: '预约管理', icon: faCalendarCheck },
   { to: '/reports', label: '举报风控', icon: faShieldHalved },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
 ];
@@ -232,7 +230,6 @@ function Shell({ admin, onLogout }) {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/mentors/reviews" element={<MentorReviewsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/appointments" element={<AppointmentsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -251,7 +248,7 @@ function Dashboard() {
       ['用户总数', asNumber(d.users?.totalUsers), `今日新增 ${asNumber(d.users?.newUsersToday)}，7日新增 ${asNumber(d.users?.newUsers7d)}`],
       ['学生 / 导师', `${asNumber(d.roles?.students)} / ${asNumber(d.roles?.mentors)}`, `待审核导师 ${asNumber(d.mentors?.pendingMentors)}`],
       ['已支付订单', asNumber(d.orders?.paidOrders), `累计 CNY ${asNumber(d.orders?.paidAmountCny).toFixed(2)}`],
-      ['待处理预约', asNumber(d.appointments?.pendingAppointments), `课程排期 ${asNumber(d.courses?.scheduledCourses)}`],
+      ['课程排期', asNumber(d.courses?.scheduledCourses), 'scheduled'],
       ['课时确认', asNumber(d.lessonHours?.pendingLessonHours), 'pending / disputed / platform_review'],
       ['风控工单', asNumber(d.reports?.openReports), 'open / reviewing'],
     ];
@@ -480,7 +477,13 @@ function MentorReviewsPage() {
             <Badge value={mentor.mentor_review_status} />,
             formatDate(mentor.mentor_created_at),
             <div className="row-actions">
-              <button className="ghost" onClick={() => setDetail(mentor.user_id)}>详情</button>
+              <button
+                type="button"
+                className="text-action detail-action"
+                onClick={() => setDetail(mentor.user_id)}
+              >
+                详情
+              </button>
               <button
                 type="button"
                 className="icon-action approve-action"
@@ -617,70 +620,6 @@ function OrdersPage() {
       </State>
       <ReasonDialog
         config={dialog ? { title: dialog.title, description: `订单 ${dialog.order.id} 将调整为 ${dialog.status}` } : null}
-        onClose={() => setDialog(null)}
-        onSubmit={submitStatus}
-      />
-    </section>
-  );
-}
-
-function AppointmentsPage() {
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
-  const [reload, setReload] = useState(0);
-  const [dialog, setDialog] = useState(null);
-  const { loading, error, data } = useAsync(
-    () => api('/api/admin/appointments', { params: { q, status, limit: 50 } }),
-    [q, status, reload]
-  );
-
-  const submitStatus = async (reason) => {
-    await api(`/api/admin/appointments/${dialog.appointment.id}/status`, {
-      method: 'PATCH',
-      body: { status: dialog.status, reason },
-    });
-    setDialog(null);
-    setReload((n) => n + 1);
-  };
-
-  return (
-    <section>
-      <PageTitle title="预约管理" subtitle="查看预约卡片并调整合法预约状态" />
-      <Toolbar>
-        <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、预约ID、PublicID" />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部状态</option>
-          <option value="pending">pending</option>
-          <option value="accepted">accepted</option>
-          <option value="rejected">rejected</option>
-          <option value="rescheduling">rescheduling</option>
-        </select>
-      </Toolbar>
-      <State loading={loading} error={error}>
-        <DataTable
-          columns={['预约ID', '学生', '导师', '状态', '课程', '创建时间', '操作']}
-          rows={(data?.appointments || []).map((appointment) => [
-            appointment.id,
-            `${appointment.student_email} ${appointment.student_public_id || ''}`,
-            `${appointment.mentor_email} ${appointment.mentor_public_id || ''}`,
-            <Badge value={appointment.status} />,
-            appointment.payload?.courseDirection || appointment.payload?.courseType || '-',
-            formatDate(appointment.created_at),
-            <select
-              value=""
-              onChange={(event) => event.target.value && setDialog({ title: '调整预约状态', appointment, status: event.target.value })}
-            >
-              <option value="">调整</option>
-              <option value="pending">pending</option>
-              <option value="accepted">accepted</option>
-              <option value="rejected">rejected</option>
-              <option value="rescheduling">rescheduling</option>
-            </select>,
-          ])}
-        />
-      </State>
-      <ReasonDialog
-        config={dialog ? { title: dialog.title, description: `预约 ${dialog.appointment.id} 将调整为 ${dialog.status}` } : null}
         onClose={() => setDialog(null)}
         onSubmit={submitStatus}
       />

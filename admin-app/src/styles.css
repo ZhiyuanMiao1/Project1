@@ -319,34 +319,51 @@ tr:last-child td {
 }
 
 .row-actions {
-  gap: 8px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
+.text-action {
+  min-height: auto;
+  padding: 0;
+  background: transparent;
+  color: #51627d;
+}
+
+.text-action:hover {
+  color: #172033;
+}
+
+.detail-action {
+  font-weight: 500;
+}
+
 .icon-action {
-  width: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 24px;
+  min-width: 24px;
+  min-height: auto;
   padding: 0;
   display: inline-grid;
   place-items: center;
-  font-size: 16px;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .approve-action {
-  background: #1f8f58;
+  color: #1f8f58;
 }
 
 .approve-action:hover {
-  background: #187347;
+  color: #187347;
 }
 
 .reject-action {
-  background: #c43224;
+  color: #c43224;
 }
 
 .reject-action:hover {
-  background: #a8271b;
+  color: #a8271b;
 }
 
 .badge {
