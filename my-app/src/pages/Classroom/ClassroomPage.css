@@ -49,6 +49,44 @@
   color: #334155;
 }
 
+.classroom-recording-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 5px 10px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.classroom-recording-status--starting {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.classroom-recording-status--failed {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.classroom-recording-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.classroom-recording-error {
+  color: inherit;
+}
+
 .classroom-error {
   margin-top: 12px;
   border-radius: 12px;

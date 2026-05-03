@@ -652,6 +652,28 @@ CREATE TABLE IF NOT EXISTS `classroom_messages` (
   CONSTRAINT `fk_classroom_messages_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `classroom_recordings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `course_session_id` BIGINT NOT NULL,
+  `task_id` VARCHAR(128) NULL,
+  `app_id` VARCHAR(128) NOT NULL,
+  `channel_id` VARCHAR(128) NOT NULL,
+  `status` ENUM('starting','running','stopping','stopped','failed') NOT NULL DEFAULT 'starting',
+  `storage_prefix` VARCHAR(512) NOT NULL,
+  `started_by_user_id` INT NOT NULL,
+  `error_message` TEXT NULL,
+  `started_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `stop_requested_at` TIMESTAMP NULL DEFAULT NULL,
+  `stopped_at` TIMESTAMP NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_classroom_recordings_course_status` (`course_session_id`, `status`),
+  KEY `idx_classroom_recordings_task` (`task_id`),
+  CONSTRAINT `fk_classroom_recordings_course` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_classroom_recordings_started_by` FOREIGN KEY (`started_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 15) Post-class lesson hour confirmation cards
 CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

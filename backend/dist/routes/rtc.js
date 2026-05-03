@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const aliyunRtc_1 = require("../services/aliyunRtc");
+const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
 const classroomAccess_1 = require("../services/classroomAccess");
 const router = (0, express_1.Router)();
 const CLASSROOM_PRESENCE_TTL_MS = 4500;
@@ -36,11 +37,25 @@ const touchClassroomPresence = (courseId, entry) => {
 const removeClassroomPresence = (courseId, publicId) => {
     const entries = classroomPresenceStore.get(courseId);
     if (!entries)
-        return;
+        return 0;
     entries.delete(publicId);
     if (entries.size === 0) {
         classroomPresenceStore.delete(courseId);
     }
+    return entries.size;
+};
+const getClassroomPresenceEntries = (context) => {
+    const courseKey = String(context.courseId);
+    pruneClassroomPresence(courseKey);
+    const entries = classroomPresenceStore.get(courseKey);
+    if (!entries)
+        return [];
+    return Array.from(entries.values()).map((entry) => ({
+        publicId: entry.publicId,
+        role: entry.role,
+        lastSeenAt: entry.lastSeenAt,
+        screenSharing: entry.screenSharing,
+    }));
 };
 const getClassroomPresencePayload = (context) => {
     const courseKey = String(context.courseId);
@@ -132,6 +147,9 @@ router.post('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, re
     try {
         const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id, { requireScheduled: true });
         const screenSharing = Boolean(req.body?.screenSharing);
+        const currentEntries = classroomPresenceStore.get(String(courseId));
+        const previous = currentEntries?.get(context.selfUserPublicId) || null;
+        const screenSharingChanged = Boolean(previous?.screenSharing) !== screenSharing;
         touchClassroomPresence(String(courseId), {
             publicId: context.selfUserPublicId,
             userName: context.selfUserName,
@@ -139,6 +157,9 @@ router.post('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, re
             lastSeenAt: Date.now(),
             screenSharing,
         });
+        if (screenSharingChanged) {
+            void (0, aliyunRtcRecording_1.updateClassroomRecordingLayout)(context, getClassroomPresenceEntries(context));
+        }
         return res.json(getClassroomPresencePayload(context));
     }
     catch (e) {
@@ -161,7 +182,8 @@ router.delete('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, 
     }
     try {
         const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id, { requireScheduled: true });
-        removeClassroomPresence(String(courseId), context.selfUserPublicId);
+        const remainingCount = removeClassroomPresence(String(courseId), context.selfUserPublicId);
+        void (0, aliyunRtcRecording_1.stopClassroomRecordingIfIdle)(context, remainingCount);
         return res.status(204).end();
     }
     catch (e) {
@@ -172,6 +194,52 @@ router.delete('/classrooms/:courseId/presence', auth_1.requireAuth, async (req, 
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
         console.error('Live classroom presence leave error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.post('/classrooms/:courseId/recording/start', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未登录' });
+    const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+    if (!Number.isFinite(courseId) || courseId <= 0) {
+        return res.status(400).json({ error: '无效课程ID' });
+    }
+    try {
+        const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id, { requireScheduled: true });
+        const recording = await (0, aliyunRtcRecording_1.startClassroomRecording)(context, req.user.id, getClassroomPresenceEntries(context));
+        return res.json({ recording });
+    }
+    catch (e) {
+        if (e instanceof classroomAccess_1.ClassroomHttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
+        if ((0, classroomAccess_1.isMissingClassroomSchemaError)(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('ARTC cloud recording start error:', e);
+        return res.status(500).json({ error: (0, classroomAccess_1.safeText)(e?.message) || '云端录制启动失败' });
+    }
+});
+router.get('/classrooms/:courseId/recording/status', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未登录' });
+    const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+    if (!Number.isFinite(courseId) || courseId <= 0) {
+        return res.status(400).json({ error: '无效课程ID' });
+    }
+    try {
+        await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id, { requireScheduled: true });
+        const recording = await (0, aliyunRtcRecording_1.getClassroomRecordingStatus)(courseId);
+        return res.json({ recording });
+    }
+    catch (e) {
+        if (e instanceof classroomAccess_1.ClassroomHttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
+        if ((0, classroomAccess_1.isMissingClassroomSchemaError)(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('ARTC cloud recording status error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

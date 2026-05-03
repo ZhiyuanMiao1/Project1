@@ -44,6 +44,15 @@ OSS_ACCESS_KEY_SECRET=your_access_key_secret
 # 优先读取新的直播实时音视频变量名，也兼容旧的 ALIYUN_RTC_APP_ID / ALIYUN_RTC_APP_KEY
 ALIYUN_LIVE_ARTC_APP_ID=your_live_artc_app_id
 ALIYUN_LIVE_ARTC_APP_KEY=your_live_artc_app_key
+
+# 阿里云 ARTC 云端录制（课堂录制到 OSS）
+ALIYUN_LIVE_API_ACCESS_KEY_ID=your_live_openapi_access_key_id
+ALIYUN_LIVE_API_ACCESS_KEY_SECRET=your_live_openapi_access_key_secret
+ALIYUN_ARTC_RECORD_REGION=ap-southeast-1
+ALIYUN_ARTC_RECORD_ENDPOINT=live.ap-southeast-1.aliyuncs.com
+ALIYUN_ARTC_RECORD_OSS_ENDPOINT=oss-ap-southeast-1.aliyuncs.com
+ALIYUN_ARTC_RECORD_OSS_BUCKET=mentory-live-recordings-sg
+ALIYUN_ARTC_RECORD_MAX_IDLE_SECONDS=300
 ```
 
 注意：请在阿里云 RDS 控制台配置「白名单/安全组」，放行你的后端服务器出口 IP（或本机 IP）访问 `DB_PORT`。

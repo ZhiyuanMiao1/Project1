@@ -17,6 +17,30 @@ jest.mock('../../api/client', () => ({
   },
 }));
 
+jest.mock('../../i18n/language', () => {
+  const t = (_key, fallback, replacements) => {
+    const template = typeof fallback === 'string' ? fallback : _key;
+    if (!replacements || typeof replacements !== 'object') return template;
+    return String(template).replace(/\{(\w+)\}/g, (match, key) => (
+      Object.prototype.hasOwnProperty.call(replacements, key)
+        ? String(replacements[key])
+        : match
+    ));
+  };
+
+  return {
+    useI18n: () => ({
+      language: 'zh-CN',
+      isEnglish: false,
+      setLanguage: jest.fn(),
+      t,
+      getCourseDirectionLabel: (_id, fallback) => fallback,
+      getCourseDirectionDisplayLabel: (_id, fallback) => fallback,
+      getCourseTypeLabel: (_id, fallback) => fallback,
+    }),
+  };
+});
+
 jest.mock('../../components/common/BrandMark/BrandMark', () => (
   function MockBrandMark() {
     return <div>Mentory</div>;
@@ -37,7 +61,7 @@ const createEmitter = () => {
   };
 };
 
-const flushPromises = async (iterations = 8) => {
+const flushPromises = async (iterations = 20) => {
   for (let index = 0; index < iterations; index += 1) {
     await act(async () => {
       await Promise.resolve();
@@ -92,6 +116,18 @@ const buildPresenceResponse = (remotePresent) => ({
   },
 });
 
+const buildRecordingResponse = (status = 'running') => ({
+  data: {
+    recording: {
+      enabled: true,
+      status,
+      taskId: 'recording-task-1',
+      storagePrefix: 'classrooms/course_42',
+      errorMessage: '',
+    },
+  },
+});
+
 const buildChatResponse = (messages = [], options = {}) => ({
   data: {
     messages,
@@ -103,6 +139,7 @@ const buildChatResponse = (messages = [], options = {}) => ({
 
 describe('ClassroomPage remote recovery', () => {
   let startPlayMock;
+  let startPushMock;
   let container;
   let root;
   let originalConsoleDebug;
@@ -169,8 +206,18 @@ describe('ClassroomPage remote recovery', () => {
       return Promise.resolve({ data: {} });
     });
     api.delete.mockResolvedValue({});
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) {
+        return Promise.resolve(buildRecordingResponse());
+      }
+      if (String(url).includes('/presence')) {
+        return Promise.resolve(buildPresenceResponse(false));
+      }
+      return Promise.resolve({ data: {} });
+    });
 
     startPlayMock = jest.fn();
+    startPushMock = jest.fn(() => Promise.resolve());
 
     class MockPusher {
       constructor() {
@@ -181,7 +228,7 @@ describe('ClassroomPage remote recovery', () => {
 
       init = jest.fn(() => Promise.resolve());
 
-      startPush = jest.fn(() => Promise.resolve());
+      startPush = startPushMock;
 
       stopPush = jest.fn(() => Promise.resolve());
 
@@ -243,16 +290,66 @@ describe('ClassroomPage remote recovery', () => {
   });
 
   test('suppresses recoverable 50026 errors and keeps waiting for the remote user', async () => {
-    api.post.mockResolvedValue(buildPresenceResponse(false));
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(buildPresenceResponse(false));
+    });
     startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
 
     await renderClassroomPage();
     await flushPromises();
 
     expect(startPlayMock).toHaveBeenCalledTimes(1);
-    expect(getPageText()).toContain('已进入课堂，等待学生A加入...');
+    expect(getPageText()).toContain('已进入课堂，等待学生A加入');
     expect(getAlert()).toBeNull();
     expect(getPageText()).not.toContain('50026');
+  });
+
+  test('starts cloud recording after local push succeeds', async () => {
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(buildPresenceResponse(false));
+    });
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(startPushMock).toHaveBeenCalledWith('artc://push');
+    expect(api.post.mock.calls).toEqual(expect.arrayContaining([
+      ['/api/rtc/classrooms/42/recording/start'],
+    ]));
+    expect(getPageText()).toContain('录制中');
+  });
+
+  test('does not start cloud recording when local push fails', async () => {
+    startPushMock.mockRejectedValueOnce(new Error('push failed'));
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(api.post.mock.calls.some(([url]) => String(url).includes('/recording/start'))).toBe(false);
+    expect(api.post.mock.calls.some(([url]) => String(url).includes('/presence'))).toBe(true);
+  });
+
+  test('keeps classroom usable when cloud recording start fails', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) {
+        return Promise.reject({ response: { data: { error: 'recording unavailable' } } });
+      }
+      return Promise.resolve(buildPresenceResponse(false));
+    });
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(getPageText()).toContain('已进入课堂，等待学生A加入');
+    expect(getPageText()).toContain('录制启动失败');
+    expect(getPageText()).toContain('recording unavailable');
+    consoleErrorSpy.mockRestore();
   });
 
   test('tears down the remote view on disconnect and restores it after the remote user rejoins', async () => {
@@ -265,9 +362,10 @@ describe('ClassroomPage remote recovery', () => {
       buildPresenceResponse(true),
     ];
 
-    api.post.mockImplementation(() => Promise.resolve(
-      presenceQueue.length > 1 ? presenceQueue.shift() : presenceQueue[0]
-    ));
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(presenceQueue.length > 1 ? presenceQueue.shift() : presenceQueue[0]);
+    });
     startPlayMock
       .mockResolvedValueOnce(playInfo1)
       .mockResolvedValueOnce(playInfo2);
@@ -286,7 +384,7 @@ describe('ClassroomPage remote recovery', () => {
 
     await advanceTime(2000);
 
-    expect(getPageText()).toContain('对方暂时离线，等待重新加入...');
+    expect(getPageText()).toContain('对方暂时离线，等待重新加入');
     expect(getAlert()).toBeNull();
 
     await advanceTime(2000);
@@ -303,7 +401,10 @@ describe('ClassroomPage remote recovery', () => {
   });
 
   test('still shows unrecoverable remote playback failures', async () => {
-    api.post.mockResolvedValue(buildPresenceResponse(true));
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(buildPresenceResponse(true));
+    });
     startPlayMock.mockRejectedValueOnce(new Error('fatal remote playback failed'));
 
     await renderClassroomPage();
@@ -361,7 +462,10 @@ describe('ClassroomPage remote recovery', () => {
       }
       return Promise.resolve({ data: {} });
     });
-    api.post.mockResolvedValue(buildPresenceResponse(true));
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(buildPresenceResponse(true));
+    });
     startPlayMock.mockResolvedValue(createEmitter());
 
     await renderClassroomPage();
@@ -409,6 +513,9 @@ describe('ClassroomPage remote recovery', () => {
       return Promise.resolve({ data: {} });
     });
     api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) {
+        return Promise.resolve(buildRecordingResponse());
+      }
       if (String(url).includes('/api/classrooms/42/chat/messages')) {
         return Promise.resolve({ data: { id: 1001, messageType: 'text' } });
       }
@@ -483,7 +590,10 @@ describe('ClassroomPage remote recovery', () => {
       }
       return Promise.resolve({ data: {} });
     });
-    api.post.mockResolvedValue(buildPresenceResponse(true));
+    api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) return Promise.resolve(buildRecordingResponse());
+      return Promise.resolve(buildPresenceResponse(true));
+    });
     startPlayMock.mockResolvedValue(createEmitter());
 
     await renderClassroomPage();
@@ -495,6 +605,9 @@ describe('ClassroomPage remote recovery', () => {
 
   test('shows a clearer message when classroom file upload hits a fetch-level network failure', async () => {
     api.post.mockImplementation((url) => {
+      if (String(url).includes('/recording/start')) {
+        return Promise.resolve(buildRecordingResponse());
+      }
       if (String(url) === '/api/oss/policy') {
         return Promise.resolve({
           data: {
@@ -531,6 +644,6 @@ describe('ClassroomPage remote recovery', () => {
     });
     await flushPromises();
 
-    expect(getAlert()?.textContent || '').toContain('上传失败（请检查 OSS CORS 配置）');
+    expect(getAlert()?.textContent || '').toContain('上传课堂文件失败，请稍后重试');
   });
 });

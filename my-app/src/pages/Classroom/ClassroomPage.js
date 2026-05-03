@@ -694,6 +694,9 @@ function ClassroomPage() {
   const rescheduleScrollRef = useRef(null);
   const rescheduleResizeRef = useRef(null);
   const menuAnchorRef = useRef(null);
+  const recordingStartInFlightRef = useRef(false);
+  const recordingStartedRef = useRef(false);
+  const ensureCloudRecordingStartedRef = useRef(async () => {});
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -703,6 +706,8 @@ function ClassroomPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const [statusText, setStatusText] = useState(() => t('classroom.pendingStatus', '准备进入课堂...'));
+  const [recordingStatus, setRecordingStatus] = useState('idle');
+  const [recordingError, setRecordingError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
   const [cameraMuted, setCameraMuted] = useState(true);
@@ -1734,6 +1739,42 @@ function ClassroomPage() {
     return previewStream;
   }, [t]);
 
+  const ensureCloudRecordingStarted = useCallback(async () => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId || recordingStartedRef.current || recordingStartInFlightRef.current) return;
+
+    recordingStartInFlightRef.current = true;
+    if (mountedRef.current) {
+      setRecordingStatus('starting');
+      setRecordingError('');
+    }
+
+    try {
+      const response = await api.post(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/recording/start`);
+      const status = safeText(response?.data?.recording?.status);
+      if (status === 'running' || status === 'starting' || status === 'stopping') {
+        recordingStartedRef.current = true;
+        if (mountedRef.current) {
+          setRecordingStatus('running');
+          setRecordingError('');
+        }
+        return;
+      }
+      throw new Error(t('classroom.recordingStartFailed', '录制启动失败'));
+    } catch (error) {
+      const message = parseErrorMessage(error, t('classroom.recordingStartFailed', '录制启动失败'));
+      console.error('ARTC cloud recording start failed:', error);
+      if (mountedRef.current) {
+        setRecordingStatus('failed');
+        setRecordingError(message);
+      }
+    } finally {
+      recordingStartInFlightRef.current = false;
+    }
+  }, [courseId, t]);
+
+  ensureCloudRecordingStartedRef.current = ensureCloudRecordingStarted;
+
   const startLocalPush = useCallback(async () => {
     const pusher = pusherRef.current;
     const pushUrl = safeText(liveAuthRef.current?.pushUrl);
@@ -1743,15 +1784,18 @@ function ClassroomPage() {
 
     if (localPushActiveRef.current || hasActiveLocalPushSession(pusher)) {
       localPushActiveRef.current = true;
+      await ensureCloudRecordingStartedRef.current();
       return;
     }
 
     try {
       await pusher.startPush(pushUrl);
       localPushActiveRef.current = true;
+      await ensureCloudRecordingStartedRef.current();
     } catch (error) {
       if (isAlreadyLoggedInPushError(error) || hasActiveLocalPushSession(pusher)) {
         localPushActiveRef.current = true;
+        await ensureCloudRecordingStartedRef.current();
         return;
       }
       throw error;
@@ -2642,6 +2686,8 @@ function ClassroomPage() {
       }
       pusherRef.current = null;
       localPushActiveRef.current = false;
+      recordingStartedRef.current = false;
+      recordingStartInFlightRef.current = false;
 
       clearVideoElement(localVideoRef.current);
       clearVideoElement(localCameraPreviewRef.current);
@@ -2663,6 +2709,8 @@ function ClassroomPage() {
         setCameraActionPending(false);
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
+        setRecordingStatus('idle');
+        setRecordingError('');
       }
     } finally {
       localPushActiveRef.current = false;
@@ -2967,6 +3015,10 @@ function ClassroomPage() {
         setCameraActionPending(false);
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
+        recordingStartedRef.current = false;
+        recordingStartInFlightRef.current = false;
+        setRecordingStatus('idle');
+        setRecordingError('');
         setErrorMessage('');
         setStatusText(t('classroom.requestingAuth', '正在请求课堂鉴权...'));
       }
@@ -3491,6 +3543,13 @@ function ClassroomPage() {
   const incomingDecisionBusy = Boolean(
     incomingAppointmentCard && String(appointmentBusyId) === String(incomingAppointmentCard.id)
   );
+  const recordingStatusText = recordingStatus === 'running'
+    ? t('classroom.recordingActive', '录制中')
+    : recordingStatus === 'starting'
+      ? t('classroom.recordingStarting', '录制启动中')
+      : recordingStatus === 'failed'
+        ? t('classroom.recordingFailed', '录制启动失败')
+        : '';
 
   return (
     <div className="classroom-page">
@@ -3523,6 +3582,13 @@ function ClassroomPage() {
         <section className="classroom-meta">
           <h1>{t('classroom.title', '课堂')}</h1>
           <div className="classroom-status"><LoadingText text={statusText} active={/[.．。]{2,}|…/u.test(statusText)} /></div>
+          {recordingStatusText ? (
+            <div className={`classroom-recording-status classroom-recording-status--${recordingStatus}`}>
+              <span className="classroom-recording-dot" aria-hidden="true" />
+              <span>{recordingStatusText}</span>
+              {recordingError ? <span className="classroom-recording-error">{recordingError}</span> : null}
+            </div>
+          ) : null}
           {errorMessage ? <div className="classroom-error" role="alert">{errorMessage}</div> : null}
           {appointmentMessage ? <div className="classroom-note">{appointmentMessage}</div> : null}
         </section>
