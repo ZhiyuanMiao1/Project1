@@ -402,7 +402,7 @@ const LoginPopup = ({ onClose, onContinue, onSuccess, role, errorMessage = '', e
             disabled={submitting}
             fullWidth
           >
-            {submitting ? <LoadingText text={t('common.processing', '处理中...')} /> : (mode === 'login' ? t('auth.continue', '继续') : (mode === 'resetEmail' ? t('auth.sendCode', '发送验证码') : t('auth.resetPassword', '重置密码')))}
+            {submitting ? <LoadingText text={mode === 'login' ? t('auth.loggingIn', '登录中...') : t('common.processing', '处理中...')} /> : (mode === 'login' ? t('auth.continue', '继续') : (mode === 'resetEmail' ? t('auth.sendCode', '发送验证码') : t('auth.resetPassword', '重置密码')))}
           </Button>
         </div>
         {mode === 'login' && (
