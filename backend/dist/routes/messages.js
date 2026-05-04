@@ -696,6 +696,21 @@ const isCancelledCourseSessionStatus = (value) => {
     const status = normalizeCourseSessionStatus(value);
     return status === 'cancelled' || status === 'canceled';
 };
+const markCourseRequestPairedForAcceptedAppointment = async (conn, payload, studentUserId) => {
+    const courseRequestId = toPositiveIntOrNull(payload?.courseRequestId);
+    if (courseRequestId == null)
+        return;
+    if (!Number.isFinite(studentUserId) || studentUserId <= 0)
+        return;
+    await conn.execute(`
+    UPDATE course_requests
+    SET status = 'paired',
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+      AND user_id = ?
+      AND status = 'submitted'
+    `, [courseRequestId, studentUserId]);
+};
 const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
     const payload = parseAppointmentPayload(row?.payload_json);
     if (!payload) {
@@ -744,6 +759,7 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
             if (sessionStatus === 'completed') {
                 await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, mentorUserId);
             }
+            await markCourseRequestPairedForAcceptedAppointment(conn, payload, studentUserId);
             return;
         }
         const existingId = toPositiveIntOrNull(existingRow?.id);
@@ -770,6 +786,7 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
         if (sessionStatus === 'completed') {
             await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, mentorUserId);
         }
+        await markCourseRequestPairedForAcceptedAppointment(conn, payload, studentUserId);
         return;
     }
     const existingId = toPositiveIntOrNull(existingRow?.id);

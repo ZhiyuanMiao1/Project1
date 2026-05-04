@@ -85,7 +85,26 @@ router.get('/cards', requireAuth, async (req: Request, res: Response) => {
          ON mp.user_id = r.user_id
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
-       WHERE r.status = 'submitted' AND r.user_id <> ?
+       WHERE r.status = 'submitted'
+         AND r.user_id <> ?
+         AND NOT EXISTS (
+           SELECT 1
+           FROM message_items mi
+           INNER JOIN message_threads mt
+             ON mt.id = mi.thread_id
+            AND mt.student_user_id = r.user_id
+           INNER JOIN appointment_statuses ast
+             ON ast.appointment_message_id = mi.id
+            AND ast.status = 'accepted'
+           WHERE mi.message_type = 'appointment_card'
+             AND JSON_UNQUOTE(
+               CASE
+                 WHEN JSON_VALID(mi.payload_json) THEN JSON_EXTRACT(mi.payload_json, '$.courseRequestId')
+                 ELSE NULL
+               END
+             ) = CAST(r.id AS CHAR)
+           LIMIT 1
+         )
        ORDER BY r.submitted_at DESC, r.created_at DESC, r.id DESC
        LIMIT 100`,
       [req.user!.id]
@@ -203,7 +222,26 @@ router.get('/requests/:id', requireAuth, async (req: Request, res: Response) => 
          ON mp.user_id = r.user_id
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
-       WHERE r.id = ? AND r.status = 'submitted'
+       WHERE r.id = ?
+         AND r.status = 'submitted'
+         AND NOT EXISTS (
+           SELECT 1
+           FROM message_items mi
+           INNER JOIN message_threads mt
+             ON mt.id = mi.thread_id
+            AND mt.student_user_id = r.user_id
+           INNER JOIN appointment_statuses ast
+             ON ast.appointment_message_id = mi.id
+            AND ast.status = 'accepted'
+           WHERE mi.message_type = 'appointment_card'
+             AND JSON_UNQUOTE(
+               CASE
+                 WHEN JSON_VALID(mi.payload_json) THEN JSON_EXTRACT(mi.payload_json, '$.courseRequestId')
+                 ELSE NULL
+               END
+             ) = CAST(r.id AS CHAR)
+           LIMIT 1
+         )
        LIMIT 1`,
       [requestId]
     );
