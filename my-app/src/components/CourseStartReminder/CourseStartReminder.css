@@ -22,14 +22,14 @@
 
 .course-start-reminder-close {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 36px;
-  height: 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 50%;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
   background: #ffffff;
-  color: #475569;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -37,49 +37,40 @@
 }
 
 .course-start-reminder-close:hover {
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.course-start-reminder-close svg {
+  width: 18px;
+  height: 18px;
 }
 
 .course-start-reminder-kicker {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 24px;
-  color: #b91c1c;
-  font-size: 13px;
-  font-weight: 700;
+  gap: 10px;
+  min-height: 32px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 650;
 }
 
 .course-start-reminder-title {
-  margin: 12px 44px 0 0;
+  margin: 30px 44px 0 0;
   color: #0f172a;
   font-size: 26px;
   line-height: 1.24;
   font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.course-start-reminder-clock {
-  margin-top: 22px;
-  padding: 18px 20px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #f8fafc;
-}
-
-.course-start-reminder-clock-label {
-  display: block;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.course-start-reminder-clock-value {
-  display: block;
-  margin-top: 6px;
+.course-start-reminder-title-clock {
   color: #111827;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 48px;
+  font-size: 38px;
   line-height: 1;
   font-weight: 800;
   letter-spacing: 0;
@@ -87,7 +78,7 @@
 }
 
 .course-start-reminder-details {
-  margin-top: 18px;
+  margin-top: 30px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -99,9 +90,26 @@
   line-height: 1.45;
   font-weight: 700;
   overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.course-start-reminder-course span {
+.course-start-reminder-course-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.course-start-reminder-course-part svg {
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.course-start-reminder-course-part span,
+.course-start-reminder-course-separator {
   color: #334155;
   font-weight: 650;
 }
@@ -109,22 +117,10 @@
 .course-start-reminder-meta {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
   color: #475569;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.5;
-}
-
-.course-start-reminder-remaining {
-  width: fit-content;
-  max-width: 100%;
-  border-radius: 8px;
-  background: #fef2f2;
-  color: #991b1b;
-  padding: 8px 10px;
-  font-size: 13px;
-  line-height: 1.4;
-  font-weight: 700;
 }
 
 .course-start-reminder-actions {
@@ -177,8 +173,8 @@
     font-size: 23px;
   }
 
-  .course-start-reminder-clock-value {
-    font-size: 40px;
+  .course-start-reminder-title-clock {
+    font-size: 26px;
   }
 
   .course-start-reminder-actions {

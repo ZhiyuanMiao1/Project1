@@ -1,6 +1,6 @@
 const REMINDER_LEAD_MS = 5 * 60 * 1000;
 const DEFAULT_DURATION_MS = 60 * 60 * 1000;
-const STORAGE_PREFIX = 'mentory.courseStartReminder.handled.v1';
+const STORAGE_PREFIX = 'mentory.courseStartReminder.handled.v2';
 
 export const safeText = (value) => (typeof value === 'string' ? value.trim() : '');
 

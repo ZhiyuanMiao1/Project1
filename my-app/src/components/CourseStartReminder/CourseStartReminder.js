@@ -3,7 +3,11 @@ import { FiArrowRight, FiClock, FiX } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import {
+  COURSE_TYPE_ICON_MAP,
   COURSE_TYPE_ID_TO_LABEL,
+  COURSE_TYPE_LABEL_ICON_MAP,
+  DIRECTION_ICON_MAP,
+  DIRECTION_LABEL_ICON_MAP,
   normalizeCourseLabel,
 } from '../../constants/courseMappings';
 import { useI18n } from '../../i18n/language';
@@ -11,8 +15,6 @@ import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import {
   formatCourseReminderClock,
   getActiveCourseReminder,
-  getClassroomCourseIdFromPath,
-  getCourseReminderEndMs,
   getCourseReminderStartMs,
   markCourseReminderHandled,
   normalizeCourseReminderCourse,
@@ -75,14 +77,10 @@ const formatSessionTime = (value, language = 'zh-CN') => {
 function CourseStartReminderDialog({ course, now, onClose, onEnter }) {
   const { language, t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const startMs = getCourseReminderStartMs(course);
-  const endMs = getCourseReminderEndMs(course);
   const hasStarted = Number.isFinite(startMs) && now >= startMs;
   const clockValue = hasStarted
     ? formatCourseReminderClock(now - startMs)
     : formatCourseReminderClock(startMs - now);
-  const remainingText = Number.isFinite(endMs)
-    ? formatCourseReminderClock(endMs - now)
-    : '';
 
   const courseTitle = useMemo(() => {
     const normalized = normalizeCourseLabel(course?.courseDirectionId);
@@ -97,6 +95,13 @@ function CourseStartReminderDialog({ course, now, onClose, onEnter }) {
     return getCourseTypeLabel(courseTypeId, COURSE_TYPE_ID_TO_LABEL[courseTypeId] || '');
   }, [course?.courseTypeId, getCourseTypeLabel]);
 
+  const DirectionIcon = DIRECTION_ICON_MAP[safeText(course?.courseDirectionId)]
+    || DIRECTION_LABEL_ICON_MAP[courseTitle]
+    || DIRECTION_ICON_MAP.others;
+  const TypeIcon = COURSE_TYPE_ICON_MAP[safeText(course?.courseTypeId)]
+    || COURSE_TYPE_LABEL_ICON_MAP[courseType]
+    || COURSE_TYPE_ICON_MAP.others;
+
   if (!course) return null;
 
   const participantFallback = course?.roleInCourse === 'mentor'
@@ -106,9 +111,6 @@ function CourseStartReminderDialog({ course, now, onClose, onEnter }) {
   const title = hasStarted
     ? t('courseReminder.startedTitle', '课程已开始')
     : t('courseReminder.upcomingTitle', '课程即将开始');
-  const clockLabel = hasStarted
-    ? t('courseReminder.elapsedLabel', '已开始')
-    : t('courseReminder.countdownLabel', '距离开始');
 
   return (
     <div className="course-start-reminder-overlay" role="presentation">
@@ -129,33 +131,37 @@ function CourseStartReminderDialog({ course, now, onClose, onEnter }) {
         </button>
 
         <div className="course-start-reminder-kicker">
-          <FiClock size={16} aria-hidden="true" />
+          <FiClock size={22} aria-hidden="true" />
           <span>{t('courseReminder.kicker', '课程提醒')}</span>
         </div>
 
         <h2 id="course-start-reminder-title" className="course-start-reminder-title">
-          {title}
+          <span>{title}</span>
+          <span className="course-start-reminder-title-clock" aria-label={clockValue}>
+            {clockValue}
+          </span>
         </h2>
-
-        <div className="course-start-reminder-clock" aria-label={`${clockLabel} ${clockValue}`}>
-          <span className="course-start-reminder-clock-label">{clockLabel}</span>
-          <span className="course-start-reminder-clock-value">{clockValue}</span>
-        </div>
 
         <div className="course-start-reminder-details">
           <div className="course-start-reminder-course">
-            {courseTitle}
-            {courseType ? <span> · {courseType}</span> : null}
+            <span className="course-start-reminder-course-part">
+              {DirectionIcon ? <DirectionIcon size={17} aria-hidden="true" /> : null}
+              <span>{courseTitle}</span>
+            </span>
+            {courseType ? (
+              <>
+                <span className="course-start-reminder-course-separator">·</span>
+                <span className="course-start-reminder-course-part">
+                  {TypeIcon ? <TypeIcon size={17} aria-hidden="true" /> : null}
+                  <span>{courseType}</span>
+                </span>
+              </>
+            ) : null}
           </div>
           <div className="course-start-reminder-meta">
             <span>{formatSessionTime(course?.startsAt, language)}</span>
             <span>{participantFallback}: {participantName}</span>
           </div>
-          {hasStarted && remainingText ? (
-            <div className="course-start-reminder-remaining">
-              {t('courseReminder.remaining', `预计剩余 ${remainingText}`, { time: remainingText })}
-            </div>
-          ) : null}
         </div>
 
         <div className="course-start-reminder-actions">
@@ -258,14 +264,6 @@ function CourseStartReminderGate() {
     return () => window.clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    if (!isLoggedIn) return;
-    const openedCourseId = getClassroomCourseIdFromPath(location.pathname);
-    if (!openedCourseId) return;
-    const next = markCourseReminderHandled(userId, openedCourseId);
-    setHandledCourseIds(next);
-  }, [isLoggedIn, location.pathname, userId]);
-
   const activeCourse = useMemo(() => getActiveCourseReminder({
     courses,
     now,
@@ -283,10 +281,8 @@ function CourseStartReminderGate() {
   const handleEnter = useCallback(() => {
     const courseId = normalizeCourseReminderId(activeCourse?.id);
     if (!courseId) return;
-    const next = markCourseReminderHandled(userId, courseId);
-    setHandledCourseIds(next);
     navigate(`/classroom/${encodeURIComponent(courseId)}`);
-  }, [activeCourse?.id, navigate, userId]);
+  }, [activeCourse?.id, navigate]);
 
   if (!isLoggedIn || !activeCourse) return null;
 
