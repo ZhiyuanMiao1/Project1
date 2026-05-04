@@ -31,8 +31,9 @@ const normalizeView = (raw) => {
 const getLastSeenCourseColumn = (view) => (view === 'student' ? 'student_last_seen_course_id' : 'mentor_last_seen_course_id');
 const pad2 = (n) => String(n).padStart(2, '0');
 const parseStoredUtcDate = (raw) => {
-    if (raw instanceof Date && !Number.isNaN(raw.getTime()))
-        return new Date(raw.getTime());
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+        return new Date(Date.UTC(raw.getFullYear(), raw.getMonth(), raw.getDate(), raw.getHours(), raw.getMinutes(), raw.getSeconds(), raw.getMilliseconds()));
+    }
     if (typeof raw !== 'string')
         return null;
     const text = raw.trim();

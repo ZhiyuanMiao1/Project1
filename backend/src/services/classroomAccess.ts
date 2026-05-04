@@ -56,7 +56,17 @@ export const toNumber = (value: unknown, fallback = 0) => {
 };
 
 export const parseStoredUtcDate = (raw: unknown) => {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return new Date(raw.getTime());
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return new Date(Date.UTC(
+      raw.getFullYear(),
+      raw.getMonth(),
+      raw.getDate(),
+      raw.getHours(),
+      raw.getMinutes(),
+      raw.getSeconds(),
+      raw.getMilliseconds(),
+    ));
+  }
   const text = safeText(raw);
   if (!text) return null;
 

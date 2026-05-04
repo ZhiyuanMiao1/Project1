@@ -17,8 +17,9 @@ const toNumber = (value, fallback = 0) => {
 };
 exports.toNumber = toNumber;
 const parseStoredUtcDate = (raw) => {
-    if (raw instanceof Date && !Number.isNaN(raw.getTime()))
-        return new Date(raw.getTime());
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+        return new Date(Date.UTC(raw.getFullYear(), raw.getMonth(), raw.getDate(), raw.getHours(), raw.getMinutes(), raw.getSeconds(), raw.getMilliseconds()));
+    }
     const text = (0, exports.safeText)(raw);
     if (!text)
         return null;

@@ -48,7 +48,17 @@ const getLastSeenCourseColumn = (view: CourseView) => (
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 const parseStoredUtcDate = (raw: unknown) => {
-  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return new Date(raw.getTime());
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return new Date(Date.UTC(
+      raw.getFullYear(),
+      raw.getMonth(),
+      raw.getDate(),
+      raw.getHours(),
+      raw.getMinutes(),
+      raw.getSeconds(),
+      raw.getMilliseconds(),
+    ));
+  }
   if (typeof raw !== 'string') return null;
   const text = raw.trim();
   if (!text) return null;
