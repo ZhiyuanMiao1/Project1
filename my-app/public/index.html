@@ -5,6 +5,69 @@
     <link rel="icon" type="image/png" href="%PUBLIC_URL%/Logo_standard-removebg.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
+    <script>
+      (function setupLocalClassroomRuntimeGuard() {
+        var localHosts = {
+          'localhost': true,
+          '127.0.0.1': true,
+          '::1': true
+        };
+        if (!localHosts[window.location.hostname]) return;
+
+        var OPAQUE_RUNTIME_PLACEHOLDER = '[object Object]';
+        var safeText = function safeText(value) {
+          return typeof value === 'string' ? value.trim() : '';
+        };
+        var isObjectLike = function isObjectLike(value) {
+          return Boolean(value) && typeof value === 'object';
+        };
+        var hasOpaqueRuntimePlaceholder = function hasOpaqueRuntimePlaceholder(value) {
+          return safeText(value).indexOf(OPAQUE_RUNTIME_PLACEHOLDER) !== -1;
+        };
+        var getPayload = function getPayload(event) {
+          return typeof event.error !== 'undefined' ? event.error : event.reason;
+        };
+        var isClassroomPath = function isClassroomPath() {
+          return /^\/classroom(?:\/|$)/.test(window.location.pathname);
+        };
+        var shouldSuppress = function shouldSuppress(event) {
+          var guard = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__;
+          var guardActive = Boolean(guard && guard.active && guard.suppressOpaqueRuntimeErrors);
+          if (!guardActive && !isClassroomPath()) return false;
+
+          var payload = getPayload(event);
+          if (payload instanceof Error) {
+            return hasOpaqueRuntimePlaceholder(payload.message)
+              || hasOpaqueRuntimePlaceholder(payload.stack)
+              || safeText(payload.stack).indexOf('alivc-live-push.js') !== -1;
+          }
+          if (isObjectLike(payload)) return true;
+          return hasOpaqueRuntimePlaceholder(payload) || hasOpaqueRuntimePlaceholder(event.message);
+        };
+        var forwardToApp = function forwardToApp(event) {
+          var guard = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__;
+          if (guard && typeof guard.handleOpaqueRuntimeError === 'function') {
+            try {
+              guard.handleOpaqueRuntimeError(event);
+            } catch (error) {}
+          }
+        };
+        var handleRuntimeEvent = function handleRuntimeEvent(event) {
+          if (!shouldSuppress(event)) return;
+          if (typeof event.preventDefault === 'function') event.preventDefault();
+          if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+          forwardToApp(event);
+        };
+
+        window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ = window.__MENTORY_CLASSROOM_RUNTIME_GUARD__ || {
+          active: isClassroomPath(),
+          suppressOpaqueRuntimeErrors: isClassroomPath(),
+          handleOpaqueRuntimeError: null
+        };
+        window.addEventListener('error', handleRuntimeEvent, true);
+        window.addEventListener('unhandledrejection', handleRuntimeEvent, true);
+      }());
+    </script>
     <meta
       name="description"
       content="Web site created using create-react-app"
