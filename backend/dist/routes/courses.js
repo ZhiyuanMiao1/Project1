@@ -1,8 +1,15 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto_1 = __importDefault(require("crypto"));
 const express_1 = require("express");
 const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
+const ossClient_1 = require("../services/ossClient");
+const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
+const classroomAccess_1 = require("../services/classroomAccess");
 const router = (0, express_1.Router)();
 const REVIEW_SCORE_KEYS = [
     'clarity',
@@ -12,6 +19,8 @@ const REVIEW_SCORE_KEYS = [
     'punctuality',
 ];
 const REVIEW_COMMENT_MAX_LENGTH = 1000;
+const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 120;
+const REPLAY_LIST_MAX_OBJECTS = 500;
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
 let courseAlertColumnsEnsured = false;
@@ -83,6 +92,74 @@ const toInt = (raw) => {
     if (!Number.isFinite(n))
         return null;
     return n;
+};
+const toObjectLastModifiedIso = (raw) => {
+    if (raw instanceof Date && !Number.isNaN(raw.getTime()))
+        return raw.toISOString();
+    if (typeof raw !== 'string')
+        return '';
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+};
+const toReplayFileName = (ossKey) => {
+    const parts = ossKey.split('/').filter(Boolean);
+    return parts[parts.length - 1] || 'recording.mp4';
+};
+const toReplayFileId = (ossKey) => crypto_1.default.createHash('sha1').update(ossKey).digest('hex').slice(0, 16);
+const listReplayMp4Files = async (storagePrefixes) => {
+    const client = (0, ossClient_1.getRecordingOssClient)();
+    if (!client)
+        return null;
+    const seenKeys = new Set();
+    const files = [];
+    const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
+    for (const storagePrefix of storagePrefixes) {
+        const normalizedPrefix = storagePrefix.replace(/^\/+|\/+$/g, '');
+        if (!normalizedPrefix)
+            continue;
+        const mp4Prefix = `${normalizedPrefix}/mp4/`;
+        let marker = '';
+        do {
+            const result = await client.list({
+                prefix: mp4Prefix,
+                marker,
+                'max-keys': 1000,
+            }, {});
+            const objects = Array.isArray(result?.objects) ? result.objects : [];
+            for (const object of objects) {
+                const ossKey = typeof object?.name === 'string' ? object.name.trim() : '';
+                if (!ossKey || seenKeys.has(ossKey) || !ossKey.toLowerCase().endsWith('.mp4'))
+                    continue;
+                seenKeys.add(ossKey);
+                const fileName = toReplayFileName(ossKey);
+                files.push({
+                    fileId: toReplayFileId(ossKey),
+                    fileName,
+                    sizeBytes: Math.max(0, toNumber(object?.size) ?? 0),
+                    lastModified: toObjectLastModifiedIso(object?.lastModified),
+                    url: client.signatureUrl(ossKey, {
+                        expires: REPLAY_SIGNED_URL_EXPIRE_SECONDS,
+                        response: {
+                            'content-disposition': (0, ossClient_1.buildContentDisposition)(fileName, 'inline'),
+                        },
+                    }),
+                    expiresAt,
+                });
+                if (files.length >= REPLAY_LIST_MAX_OBJECTS)
+                    break;
+            }
+            marker = typeof result?.nextMarker === 'string' ? result.nextMarker : '';
+        } while (marker && files.length < REPLAY_LIST_MAX_OBJECTS);
+        if (files.length >= REPLAY_LIST_MAX_OBJECTS)
+            break;
+    }
+    files.sort((a, b) => {
+        const bTime = Date.parse(b.lastModified);
+        const aTime = Date.parse(a.lastModified);
+        const timeDiff = (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+        return timeDiff || a.fileName.localeCompare(b.fileName);
+    });
+    return { files, expiresAt };
 };
 const isMissingMentorRatingColumnsError = (e) => {
     const code = String(e?.code || '');
@@ -493,6 +570,48 @@ router.post('/alerts/seen', auth_1.requireAuth, async (req, res) => {
     }
     catch (e) {
         console.error('Mark courses seen error:', e);
+        return res.status(500).json({ error: 'server_error' });
+    }
+});
+router.get('/:courseId/replay-files', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: 'unauthorized' });
+    const courseId = toInt(req.params?.courseId);
+    if (!courseId || courseId <= 0) {
+        return res.status(400).json({ error: 'invalid_course_id' });
+    }
+    try {
+        await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
+        await (0, aliyunRtcRecording_1.ensureClassroomRecordingsTable)();
+        const recordingRows = await (0, db_1.query)(`
+      SELECT storage_prefix
+      FROM classroom_recordings
+      WHERE course_session_id = ?
+        AND status IN ('running', 'stopping', 'stopped')
+      ORDER BY id DESC
+      LIMIT 20
+      `, [courseId]);
+        const storagePrefixes = Array.from(new Set((recordingRows || [])
+            .map((row) => (typeof row?.storage_prefix === 'string' ? row.storage_prefix.trim() : ''))
+            .filter(Boolean)));
+        const replayFiles = await listReplayMp4Files(storagePrefixes);
+        if (!replayFiles) {
+            return res.status(500).json({ error: 'recording_storage_unconfigured' });
+        }
+        return res.json({
+            courseId: String(courseId),
+            files: replayFiles.files,
+            expiresAt: replayFiles.expiresAt,
+        });
+    }
+    catch (e) {
+        if (e instanceof classroomAccess_1.ClassroomHttpError) {
+            return res.status(e.statusCode).json({ error: e.message });
+        }
+        if ((0, classroomAccess_1.isMissingClassroomSchemaError)(e) || isMissingCoursesSchemaError(e)) {
+            return res.status(500).json({ error: 'courses_schema_missing' });
+        }
+        console.error('Fetch replay files error:', e);
         return res.status(500).json({ error: 'server_error' });
     }
 });

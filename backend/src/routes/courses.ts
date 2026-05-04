@@ -1,6 +1,14 @@
+import crypto from 'crypto';
 import { Request, Response, Router } from 'express';
 import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
+import { buildContentDisposition, getRecordingOssClient } from '../services/ossClient';
+import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
+import {
+  ClassroomHttpError,
+  isMissingClassroomSchemaError,
+  loadAuthorizedClassroomContext,
+} from '../services/classroomAccess';
 
 const router = Router();
 
@@ -23,6 +31,8 @@ const REVIEW_SCORE_KEYS: ReviewScoreKey[] = [
   'punctuality',
 ];
 const REVIEW_COMMENT_MAX_LENGTH = 1000;
+const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 120;
+const REPLAY_LIST_MAX_OBJECTS = 500;
 
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
@@ -110,6 +120,89 @@ const toInt = (raw: unknown) => {
   const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
   if (!Number.isFinite(n)) return null;
   return n;
+};
+
+const toObjectLastModifiedIso = (raw: unknown) => {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString();
+  if (typeof raw !== 'string') return '';
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+};
+
+const toReplayFileName = (ossKey: string) => {
+  const parts = ossKey.split('/').filter(Boolean);
+  return parts[parts.length - 1] || 'recording.mp4';
+};
+
+const toReplayFileId = (ossKey: string) => crypto.createHash('sha1').update(ossKey).digest('hex').slice(0, 16);
+
+const listReplayMp4Files = async (storagePrefixes: string[]) => {
+  const client = getRecordingOssClient();
+  if (!client) return null;
+
+  const seenKeys = new Set<string>();
+  const files: Array<{
+    fileId: string;
+    fileName: string;
+    sizeBytes: number;
+    lastModified: string;
+    url: string;
+    expiresAt: number;
+  }> = [];
+  const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
+
+  for (const storagePrefix of storagePrefixes) {
+    const normalizedPrefix = storagePrefix.replace(/^\/+|\/+$/g, '');
+    if (!normalizedPrefix) continue;
+
+    const mp4Prefix = `${normalizedPrefix}/mp4/`;
+    let marker = '';
+
+    do {
+      const result = await client.list({
+        prefix: mp4Prefix,
+        marker,
+        'max-keys': 1000,
+      } as any, {});
+      const objects = Array.isArray((result as any)?.objects) ? (result as any).objects : [];
+
+      for (const object of objects) {
+        const ossKey = typeof object?.name === 'string' ? object.name.trim() : '';
+        if (!ossKey || seenKeys.has(ossKey) || !ossKey.toLowerCase().endsWith('.mp4')) continue;
+        seenKeys.add(ossKey);
+
+        const fileName = toReplayFileName(ossKey);
+        files.push({
+          fileId: toReplayFileId(ossKey),
+          fileName,
+          sizeBytes: Math.max(0, toNumber(object?.size) ?? 0),
+          lastModified: toObjectLastModifiedIso(object?.lastModified),
+          url: client.signatureUrl(ossKey, {
+            expires: REPLAY_SIGNED_URL_EXPIRE_SECONDS,
+            response: {
+              'content-disposition': buildContentDisposition(fileName, 'inline'),
+            },
+          }),
+          expiresAt,
+        });
+
+        if (files.length >= REPLAY_LIST_MAX_OBJECTS) break;
+      }
+
+      marker = typeof (result as any)?.nextMarker === 'string' ? (result as any).nextMarker : '';
+    } while (marker && files.length < REPLAY_LIST_MAX_OBJECTS);
+
+    if (files.length >= REPLAY_LIST_MAX_OBJECTS) break;
+  }
+
+  files.sort((a, b) => {
+    const bTime = Date.parse(b.lastModified);
+    const aTime = Date.parse(a.lastModified);
+    const timeDiff = (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime);
+    return timeDiff || a.fileName.localeCompare(b.fileName);
+  });
+
+  return { files, expiresAt };
 };
 
 const isMissingMentorRatingColumnsError = (e: any) => {
@@ -555,6 +648,55 @@ router.post('/alerts/seen', requireAuth, async (req: Request, res: Response) => 
     });
   } catch (e) {
     console.error('Mark courses seen error:', e);
+    return res.status(500).json({ error: 'server_error' });
+  }
+});
+
+router.get('/:courseId/replay-files', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'unauthorized' });
+
+  const courseId = toInt(req.params?.courseId);
+  if (!courseId || courseId <= 0) {
+    return res.status(400).json({ error: 'invalid_course_id' });
+  }
+
+  try {
+    await loadAuthorizedClassroomContext(courseId, req.user.id);
+    await ensureClassroomRecordingsTable();
+
+    const recordingRows = await query<Array<{ storage_prefix: string | null }>>(
+      `
+      SELECT storage_prefix
+      FROM classroom_recordings
+      WHERE course_session_id = ?
+        AND status IN ('running', 'stopping', 'stopped')
+      ORDER BY id DESC
+      LIMIT 20
+      `,
+      [courseId]
+    );
+    const storagePrefixes = Array.from(new Set((recordingRows || [])
+      .map((row) => (typeof row?.storage_prefix === 'string' ? row.storage_prefix.trim() : ''))
+      .filter(Boolean)));
+
+    const replayFiles = await listReplayMp4Files(storagePrefixes);
+    if (!replayFiles) {
+      return res.status(500).json({ error: 'recording_storage_unconfigured' });
+    }
+
+    return res.json({
+      courseId: String(courseId),
+      files: replayFiles.files,
+      expiresAt: replayFiles.expiresAt,
+    });
+  } catch (e) {
+    if (e instanceof ClassroomHttpError) {
+      return res.status(e.statusCode).json({ error: e.message });
+    }
+    if (isMissingClassroomSchemaError(e) || isMissingCoursesSchemaError(e)) {
+      return res.status(500).json({ error: 'courses_schema_missing' });
+    }
+    console.error('Fetch replay files error:', e);
     return res.status(500).json({ error: 'server_error' });
   }
 });

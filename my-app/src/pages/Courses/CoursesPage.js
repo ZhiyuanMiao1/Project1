@@ -7,6 +7,7 @@ import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
+import CourseReplayModal from '../../components/CourseReplayModal/CourseReplayModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
 import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
@@ -363,6 +364,10 @@ function CoursesPage() {
   const [lessonHoursValue, setLessonHoursValue] = useState('1');
   const [lessonHoursSubmitting, setLessonHoursSubmitting] = useState(false);
   const [lessonHoursError, setLessonHoursError] = useState('');
+  const [replayCourse, setReplayCourse] = useState(null);
+  const [replayFiles, setReplayFiles] = useState([]);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState('');
   const [walletSummary, setWalletSummary] = useState(() => ({
     remainingHours: 0,
     monthTopUpCny: 0,
@@ -474,6 +479,10 @@ function CoursesPage() {
       setLessonHoursValue('1');
       setLessonHoursSubmitting(false);
       setLessonHoursError('');
+      setReplayCourse(null);
+      setReplayFiles([]);
+      setReplayLoading(false);
+      setReplayError('');
       setErrorMessage(t('courses.loginRequired', '请登录后查看课程'));
       return () => {
         alive = false;
@@ -665,13 +674,50 @@ function CoursesPage() {
     });
   };
 
-  const handleOpenReplay = (course) => {
-    const replayUrl = safeText(course?.replayUrl);
-    if (!replayUrl) {
-      window.alert(t('courses.replaySoon', '回放功能即将上线'));
-      return;
+  const getReplayLoadErrorMessage = (error) => {
+    const code = safeText(error?.response?.data?.error);
+    const messageMap = {
+      invalid_course_id: t('courses.invalidCourseId', '课程信息无效，请刷新后重试'),
+      recording_storage_unconfigured: t('courses.replayStorageUnconfigured', '回放存储暂未配置，请稍后再试'),
+      server_error: t('courses.replayLoadFailed', '回放加载失败'),
+    };
+    return messageMap[code] || code || error?.message || t('courses.replayLoadFailed', '回放加载失败');
+  };
+
+  const loadReplayFiles = async (course) => {
+    const courseId = safeText(course?.id);
+    if (!courseId) return;
+
+    setReplayCourse(course);
+    setReplayFiles([]);
+    setReplayLoading(true);
+    setReplayError('');
+
+    try {
+      const response = await api.get(`/api/courses/${encodeURIComponent(courseId)}/replay-files`);
+      const files = Array.isArray(response?.data?.files) ? response.data.files : [];
+      setReplayFiles(files);
+    } catch (error) {
+      setReplayError(getReplayLoadErrorMessage(error));
+    } finally {
+      setReplayLoading(false);
     }
-    window.open(replayUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleOpenReplay = (course) => {
+    void loadReplayFiles(course);
+  };
+
+  const handleReplayRetry = () => {
+    if (!replayCourse) return;
+    void loadReplayFiles(replayCourse);
+  };
+
+  const handleReplayClose = () => {
+    if (replayLoading) return;
+    setReplayCourse(null);
+    setReplayFiles([]);
+    setReplayError('');
   };
 
   const toggleStudentAuthModal = () => {
@@ -1006,6 +1052,16 @@ function CoursesPage() {
           />
         );
       })() : null}
+
+      <CourseReplayModal
+        open={Boolean(replayCourse)}
+        title={safeText(replayCourse?.title)}
+        files={replayFiles}
+        loading={replayLoading}
+        error={replayError}
+        onClose={handleReplayClose}
+        onRetry={handleReplayRetry}
+      />
 
       {reviewCourse ? (
         <CourseReviewModal
