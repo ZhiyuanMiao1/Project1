@@ -55,7 +55,7 @@
   color: #0f172a;
   font-size: 24px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .course-replay-modal__subtitle {
@@ -127,10 +127,8 @@
 }
 
 .course-replay-modal__file-icon {
-  width: 40px;
+  width: 32px;
   height: 40px;
-  border-radius: 12px;
-  background: #eef2ff;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
@@ -166,10 +164,10 @@
   height: 38px;
   min-width: 76px;
   padding: 0 14px;
-  border: none;
+  border: 1.5px solid #0f172a;
   border-radius: 12px;
-  background: #0f172a;
-  color: #ffffff;
+  background: #ffffff;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;

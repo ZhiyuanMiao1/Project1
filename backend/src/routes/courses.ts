@@ -31,7 +31,7 @@ const REVIEW_SCORE_KEYS: ReviewScoreKey[] = [
   'punctuality',
 ];
 const REVIEW_COMMENT_MAX_LENGTH = 1000;
-const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 120;
+const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
 
 let mentorRatingColumnsEnsured = false;

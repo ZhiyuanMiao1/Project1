@@ -77,10 +77,12 @@ function CourseReplayModal({
     }
 
     if (error) {
+      const title = t('courses.replayLoadFailed', '回放加载失败');
+      const detail = safeText(error);
       return (
         <div className="course-replay-modal__state">
-          <p className="course-replay-modal__state-title">{t('courses.replayLoadFailed', '回放加载失败')}</p>
-          <p className="course-replay-modal__state-text">{error}</p>
+          <p className="course-replay-modal__state-title">{title}</p>
+          {detail && detail !== title ? <p className="course-replay-modal__state-text">{detail}</p> : null}
           <Button className="course-replay-modal__retry" onClick={onRetry}>
             <FiRefreshCw size={15} />
             <span>{t('courses.retry', '重试')}</span>

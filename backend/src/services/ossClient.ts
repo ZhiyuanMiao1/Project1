@@ -35,13 +35,15 @@ export const getRecordingOssClient = () => {
   const bucket = (process.env.ALIYUN_ARTC_RECORD_OSS_BUCKET || 'mentory-live-recordings-sg').trim();
   const region = normalizeRegion(process.env.ALIYUN_ARTC_RECORD_REGION || 'ap-southeast-1');
   const accessKeyId = (
-    process.env.ALIYUN_LIVE_API_ACCESS_KEY_ID
+    process.env.ALIYUN_ARTC_RECORD_OSS_ACCESS_KEY_ID
     || process.env.OSS_ACCESS_KEY_ID
+    || process.env.ALIYUN_LIVE_API_ACCESS_KEY_ID
     || ''
   ).trim();
   const accessKeySecret = (
-    process.env.ALIYUN_LIVE_API_ACCESS_KEY_SECRET
+    process.env.ALIYUN_ARTC_RECORD_OSS_ACCESS_KEY_SECRET
     || process.env.OSS_ACCESS_KEY_SECRET
+    || process.env.ALIYUN_LIVE_API_ACCESS_KEY_SECRET
     || ''
   ).trim();
 
