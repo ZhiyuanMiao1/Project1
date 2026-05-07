@@ -29,27 +29,11 @@ import {
   shiftDayKeyForTimezone,
 } from './steps/timezoneUtils';
 import { useI18n } from '../../i18n/language';
+import { loadDotLottiePlayer } from '../../utils/dotLottiePlayerLoader';
 
-// 懒加载 dotlottie React 播放器
-
-const DotLottiePlayer = lazy(async () => {                                     // 懒加载定义
-  const mod = await import('@dotlottie/react-player');                         // 动态引入包
-  const Cmp =
-    // ① 常见：命名导出 Player
-    mod?.Player
-    // ② 有些版本：默认导出就是组件
-    || mod?.default
-    // ③ 少数版本：默认导出是对象，其中的 Player 才是组件
-    || mod?.default?.Player
-    // ④ 极少版本：导出名叫 DotLottiePlayer
-    || mod?.DotLottiePlayer;
-
-  if (!Cmp) {                                                                  // 若仍未命中
-    // 给出更明确的提示，方便你 ctrl+点击 node_modules 查看 package.json 的 "exports"
-    throw new Error('[dotlottie] no found（Tries Player/default/default.Player/DotLottiePlayer）');
-  }
-  return { default: Cmp };                                                     // 映射为 lazy 需要的 default
-});
+const DotLottiePlayer = lazy(() => (
+  loadDotLottiePlayer().then((PlayerComponent) => ({ default: PlayerComponent }))
+));
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;

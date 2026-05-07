@@ -10,6 +10,7 @@ import api from '../../api/client';
 import { ensureFreshAuth } from '../../utils/auth';
 import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/postLoginRedirect';
+import { preloadDotLottiePlayer } from '../../utils/dotLottiePlayerLoader';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
@@ -265,6 +266,8 @@ function StudentNavbar() {
   };
 
   const handlePublishCourseRequest = async () => {
+    preloadDotLottiePlayer();
+
     if (!isLoggedIn) {
       setPostLoginRedirect('/student/course-request', 'student');
       setForceLogin(true);
@@ -532,6 +535,7 @@ function StudentNavbar() {
             showConfirmButton={false}
             includeSubmitted
             onCreateCourse={() => {
+              preloadDotLottiePlayer();
               setShowCourseRequestDraftModal(false);
               navigate('/student/course-request');
             }}
