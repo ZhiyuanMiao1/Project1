@@ -505,6 +505,7 @@ function FavoriteCollectionPage() {
                       if (!entryId) return;
                       setItems((prev) => prev.filter((it) => it.id !== entryId));
                     }}
+                    summaryOnly
                   />
                 ) : (
                   <StudentListingCard

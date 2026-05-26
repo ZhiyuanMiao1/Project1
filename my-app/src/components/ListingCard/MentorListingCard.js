@@ -95,6 +95,7 @@ function MentorListingCard({
   initialFavorited = false,
   onFavoriteChange,
   disableNavigation = false,
+  summaryOnly = false,
 }) {
   const { getCourseDirectionDisplayLabel, getCourseTypeLabel, t } = useI18n();
   const [isFavorited, setIsFavorited] = useState(!!initialFavorited);
@@ -330,19 +331,19 @@ function MentorListingCard({
             <span>{expectedDurationLabel}</span>
           </div>
         )}
-        {!!courseFocusLabel && (
+        {!summaryOnly && !!courseFocusLabel && (
           <div className="item" role="listitem">
             <span className="icon"><FaLightbulb /></span>
             <span>{t('listings.details', '具体内容：{value}', { value: courseFocusLabel })}</span>
           </div>
         )}
-        {!!milestoneLabel && (
+        {!summaryOnly && !!milestoneLabel && (
           <div className="item" role="listitem">
             <span className="icon"><FaTasks /></span>
             <span>{t('listings.goal', '学习目标：{value}', { value: milestoneLabel })}</span>
           </div>
         )}
-        {!!requirementsLabel && (
+        {!summaryOnly && !!requirementsLabel && (
           <div className="item" role="listitem">
             <span className="icon"><FaCalendarAlt /></span>
             <span>{requirementsLabel}</span>

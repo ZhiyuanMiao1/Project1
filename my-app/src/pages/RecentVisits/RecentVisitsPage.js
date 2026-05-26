@@ -440,6 +440,7 @@ function RecentVisitsPage() {
                               return next;
                             });
                           }}
+                          summaryOnly
                         />
                       ) : (
                         <StudentListingCard

@@ -37,6 +37,7 @@ function MentorListings({ data, favoriteIds, onFavoriteChange }) {
                   favoriteItemId={item.id}
                   initialFavorited={!!favoriteIds?.has?.(String(item.id))}
                   onFavoriteChange={onFavoriteChange}
+                  summaryOnly
                 />
               ))
             )}
