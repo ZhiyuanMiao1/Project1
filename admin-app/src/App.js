@@ -884,9 +884,11 @@ export default function App() {
       .then((data) => {
         if (data?.admin) setAdmin(data.admin);
       })
-      .catch(() => {
-        clearSession();
-        setAdmin(null);
+      .catch((error) => {
+        if (error?.status === 401) {
+          clearSession();
+          setAdmin(null);
+        }
       });
   }, []);
 
