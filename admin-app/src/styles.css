@@ -303,6 +303,36 @@ th {
   background: #fbfcfe;
 }
 
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: inherit;
+  font: inherit;
+}
+
+.sort-arrows {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sort-arrows button {
+  min-width: 14px;
+  min-height: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #a5afbd;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.sort-arrows button:hover,
+.sort-arrows button.active {
+  color: #172033;
+}
+
 tr:last-child td {
   border-bottom: 0;
 }

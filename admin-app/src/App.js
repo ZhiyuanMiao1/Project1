@@ -280,7 +280,7 @@ function PageTitle({ title, subtitle }) {
     <div className="page-title">
       <div>
         <h1>{title}</h1>
-        <p>{subtitle}</p>
+        {subtitle ? <p>{subtitle}</p> : null}
       </div>
     </div>
   );
@@ -299,10 +299,34 @@ function UsersPage() {
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/users', { params: { q, role, status, limit: 50 } }),
     [q, role, status, reload]
   );
+
+  const users = useMemo(() => {
+    const sorted = [...(data?.users || [])];
+    sorted.sort((a, b) => {
+      let left;
+      let right;
+
+      if (sort.field === 'created_at') {
+        left = new Date(a.created_at).getTime() || 0;
+        right = new Date(b.created_at).getTime() || 0;
+      } else {
+        left = asNumber(a[sort.field]);
+        right = asNumber(b[sort.field]);
+      }
+
+      return sort.direction === 'asc' ? left - right : right - left;
+    });
+    return sorted;
+  }, [data?.users, sort]);
+
+  const updateSort = (field, direction) => {
+    setSort({ field, direction });
+  };
 
   const updateStatus = async (reason) => {
     await api(`/api/admin/users/${dialog.user.id}/status`, {
@@ -316,7 +340,7 @@ function UsersPage() {
 
   return (
     <section>
-      <PageTitle title="用户管理" subtitle="检索用户、查看资料、封禁或解封账号" />
+      <PageTitle title="用户管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} />
         <select value={role} onChange={(event) => setRole(event.target.value)}>
@@ -332,8 +356,16 @@ function UsersPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
-          columns={['ID', '邮箱', '角色', '课时', '状态', '注册时间', '操作']}
-          rows={(data?.users || []).map((user) => [
+          columns={[
+            <SortHeader label="ID" field="id" sort={sort} onSort={updateSort} />,
+            '邮箱',
+            '角色',
+            <SortHeader label="课时" field="lesson_balance_hours" sort={sort} onSort={updateSort} />,
+            '状态',
+            <SortHeader label="注册时间" field="created_at" sort={sort} onSort={updateSort} />,
+            '操作',
+          ]}
+          rows={users.map((user) => [
             user.id,
             user.email,
             user.roles?.map((r) => `${r.role}:${r.publicId}`).join(' / ') || '-',
@@ -356,6 +388,33 @@ function UsersPage() {
         onSubmit={updateStatus}
       />
     </section>
+  );
+}
+
+function SortHeader({ label, field, sort, onSort }) {
+  const activeDirection = sort.field === field ? sort.direction : '';
+  return (
+    <span className="sort-header">
+      <span>{label}</span>
+      <span className="sort-arrows">
+        <button
+          type="button"
+          className={activeDirection === 'asc' ? 'active' : ''}
+          onClick={() => onSort(field, 'asc')}
+          aria-label={`${label}升序`}
+        >
+          ▲
+        </button>
+        <button
+          type="button"
+          className={activeDirection === 'desc' ? 'active' : ''}
+          onClick={() => onSort(field, 'desc')}
+          aria-label={`${label}降序`}
+        >
+          ▼
+        </button>
+      </span>
+    </span>
   );
 }
 
@@ -419,7 +478,7 @@ function DataTable({ columns, rows, compact = false }) {
     <div className={`table-wrap ${compact ? 'compact' : ''}`}>
       <table>
         <thead>
-          <tr>{columns.map((col) => <th key={col}>{col}</th>)}</tr>
+          <tr>{columns.map((col, index) => <th key={index}>{col}</th>)}</tr>
         </thead>
         <tbody>
           {rows.length ? rows.map((row, idx) => (
