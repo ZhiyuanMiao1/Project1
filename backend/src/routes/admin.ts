@@ -452,7 +452,7 @@ router.patch('/users/:userId/status', requireAdminAuth, async (req: Request, res
 router.get('/mentors/reviews', requireAdminAuth, async (req: Request, res: Response) => {
   const { page, limit, offset } = getPaging(req);
   const q = safeString(req.query.q, 100);
-  const status = safeString(req.query.status || 'pending', 20);
+  const status = safeString(req.query.status, 20);
   const where = ["ur.role = 'mentor'"];
   const params: any[] = [];
 
@@ -489,11 +489,18 @@ router.get('/mentors/reviews', requireAdminAuth, async (req: Request, res: Respo
          ur.mentor_review_note, ur.mentor_reviewed_at, ur.created_at AS mentor_created_at,
          u.username, u.email, u.account_status, u.last_login_at,
          mp.display_name, mp.degree, mp.school, mp.timezone, mp.avatar_url, mp.updated_at AS profile_updated_at,
-         s.mentor_resume_url
+         s.mentor_resume_url,
+         COALESCE(teaching.total_teaching_hours, 0) AS total_teaching_hours
        FROM user_roles ur
        JOIN users u ON u.id = ur.user_id
        LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
        LEFT JOIN account_settings s ON s.user_id = ur.user_id
+       LEFT JOIN (
+         SELECT mentor_user_id, SUM(duration_hours) AS total_teaching_hours
+         FROM course_sessions
+         WHERE status = 'completed'
+         GROUP BY mentor_user_id
+       ) teaching ON teaching.mentor_user_id = ur.user_id
        WHERE ${where.join(' AND ')}
        ORDER BY ur.created_at DESC, ur.user_id DESC
        ${pagingSql(limit, offset)}`,

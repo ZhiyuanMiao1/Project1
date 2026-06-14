@@ -20,7 +20,7 @@ import { api, clearSession, getStoredAdmin, getToken, setSession } from './api';
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faGaugeHigh },
   { to: '/users', label: '学生管理', icon: faUsers },
-  { to: '/mentors/reviews', label: '导师审核', icon: faClipboardCheck },
+  { to: '/mentors/reviews', label: '导师管理', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
   { to: '/reports', label: '举报风控', icon: faShieldHalved },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
@@ -474,14 +474,55 @@ function DataTable({ columns, rows, compact = false }) {
 
 function MentorReviewsPage() {
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [sort, setSort] = useState({ field: 'mentor_created_at', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/mentors/reviews', { params: { q, status, limit: 50 } }),
     [q, status, reload]
   );
+
+  const mentors = useMemo(() => {
+    const sorted = [...(data?.mentors || [])];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+
+      if (sort.field === 'mentor_created_at') {
+        comparison = (new Date(a.mentor_created_at).getTime() || 0) - (new Date(b.mentor_created_at).getTime() || 0);
+      } else if (sort.field === 'total_teaching_hours') {
+        comparison = asNumber(a.total_teaching_hours) - asNumber(b.total_teaching_hours);
+      } else if (sort.field === 'school_degree') {
+        const left = [a.school, a.degree].filter(Boolean).join(' / ');
+        const right = [b.school, b.degree].filter(Boolean).join(' / ');
+        comparison = left.localeCompare(right, 'zh-CN', { numeric: true, sensitivity: 'base' });
+      } else {
+        comparison = String(a[sort.field] || '').localeCompare(
+          String(b[sort.field] || ''),
+          'zh-CN',
+          { numeric: true, sensitivity: 'base' }
+        );
+      }
+
+      return sort.direction === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [data?.mentors, sort]);
+
+  const updateSort = (field, direction) => {
+    setSort({ field, direction });
+  };
+
+  const openResume = (mentor) => {
+    if (!parseUrlList(mentor.mentor_resume_url).length) return;
+    const token = getToken();
+    if (!token) {
+      window.alert('后台登录已失效');
+      return;
+    }
+    window.open(buildAdminPreviewUrl(`/api/admin/mentors/${mentor.user_id}/resume-preview`, token), '_blank');
+  };
 
   const submitReview = async (reason) => {
     await api(`/api/admin/mentors/${dialog.mentor.user_id}/${dialog.action}`, {
@@ -495,24 +536,38 @@ function MentorReviewsPage() {
 
   return (
     <section>
-      <PageTitle title="导师审核" subtitle="审核导师申请和简历资料" />
+      <PageTitle title="导师管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、MentorID、姓名" />
         <select value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">全部状态</option>
           <option value="pending">待审核</option>
           <option value="approved">已通过</option>
           <option value="rejected">已驳回</option>
-          <option value="">全部</option>
         </select>
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
-          columns={['User ID', 'MentorID', '邮箱', '学校/学历', '状态', '申请时间', '操作']}
-          rows={(data?.mentors || []).map((mentor) => [
-            mentor.user_id,
+          columns={[
+            <SortHeader label="MentorID" field="public_id" sort={sort} onSort={updateSort} />,
+            <SortHeader label="邮箱" field="email" sort={sort} onSort={updateSort} />,
+            <SortHeader label="学校/学历" field="school_degree" sort={sort} onSort={updateSort} />,
+            '简历',
+            <SortHeader label="已授课时" field="total_teaching_hours" sort={sort} onSort={updateSort} />,
+            <SortHeader label="状态" field="mentor_review_status" sort={sort} onSort={updateSort} />,
+            <SortHeader label="申请时间" field="mentor_created_at" sort={sort} onSort={updateSort} />,
+            '操作',
+          ]}
+          rows={mentors.map((mentor) => [
             mentor.public_id,
             mentor.email,
-            `${mentor.school || '-'} / ${mentor.degree || '-'}`,
+            [mentor.school, mentor.degree].filter(Boolean).join(' / '),
+            parseUrlList(mentor.mentor_resume_url).length ? (
+              <button type="button" className="link-button" onClick={() => openResume(mentor)}>
+                打开简历
+              </button>
+            ) : null,
+            `${asNumber(mentor.total_teaching_hours).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} 小时`,
             <Badge value={mentor.mentor_review_status} />,
             formatDate(mentor.mentor_created_at),
             <div className="row-actions">
@@ -523,24 +578,28 @@ function MentorReviewsPage() {
               >
                 详情
               </button>
-              <button
-                type="button"
-                className="icon-action approve-action"
-                title="通过"
-                aria-label="通过"
-                onClick={() => setDialog({ title: '通过导师审核', mentor, action: 'approve' })}
-              >
-                <FontAwesomeIcon icon={faCheck} />
-              </button>
-              <button
-                type="button"
-                className="icon-action reject-action"
-                title="驳回"
-                aria-label="驳回"
-                onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
-              >
-                <FontAwesomeIcon icon={faXmark} />
-              </button>
+              {mentor.mentor_review_status === 'pending' ? (
+                <>
+                  <button
+                    type="button"
+                    className="icon-action approve-action"
+                    title="通过"
+                    aria-label="通过"
+                    onClick={() => setDialog({ title: '通过导师审核', mentor, action: 'approve' })}
+                  >
+                    <FontAwesomeIcon icon={faCheck} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-action reject-action"
+                    title="驳回"
+                    aria-label="驳回"
+                    onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
+                  >
+                    <FontAwesomeIcon icon={faXmark} />
+                  </button>
+                </>
+              ) : null}
             </div>,
           ])}
         />
