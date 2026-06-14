@@ -19,7 +19,7 @@ import { api, clearSession, getStoredAdmin, getToken, setSession } from './api';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faGaugeHigh },
-  { to: '/users', label: '用户管理', icon: faUsers },
+  { to: '/users', label: '学生管理', icon: faUsers },
   { to: '/mentors/reviews', label: '导师审核', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
   { to: '/reports', label: '举报风控', icon: faShieldHalved },
@@ -294,15 +294,14 @@ function State({ loading, error, children }) {
 
 function UsersPage() {
   const [q, setQ] = useState('');
-  const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
-    () => api('/api/admin/users', { params: { q, role, status, limit: 50 } }),
-    [q, role, status, reload]
+    () => api('/api/admin/users', { params: { q, status, limit: 50 } }),
+    [q, status, reload]
   );
 
   const users = useMemo(() => {
@@ -340,14 +339,9 @@ function UsersPage() {
 
   return (
     <section>
-      <PageTitle title="用户管理" />
+      <PageTitle title="学生管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} />
-        <select value={role} onChange={(event) => setRole(event.target.value)}>
-          <option value="">全部角色</option>
-          <option value="student">学生</option>
-          <option value="mentor">导师</option>
-        </select>
         <select value={status} onChange={(event) => setStatus(event.target.value)}>
           <option value="">全部状态</option>
           <option value="active">正常</option>
@@ -357,19 +351,19 @@ function UsersPage() {
       <State loading={loading} error={error}>
         <DataTable
           columns={[
-            <SortHeader label="ID" field="id" sort={sort} onSort={updateSort} />,
+            <SortHeader label="StudentID" field="id" sort={sort} onSort={updateSort} />,
             '邮箱',
-            '角色',
-            <SortHeader label="课时" field="lesson_balance_hours" sort={sort} onSort={updateSort} />,
+            <SortHeader label="课时余额" field="lesson_balance_hours" sort={sort} onSort={updateSort} />,
+            <SortHeader label="累计充值（CNY）" field="total_paid_cny" sort={sort} onSort={updateSort} />,
             '状态',
             <SortHeader label="注册时间" field="created_at" sort={sort} onSort={updateSort} />,
             '操作',
           ]}
           rows={users.map((user) => [
-            user.id,
+            user.student_id || '-',
             user.email,
-            user.roles?.map((r) => `${r.role}:${r.publicId}`).join(' / ') || '-',
             user.lesson_balance_hours,
+            asNumber(user.total_paid_cny).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
             <Badge value={user.account_status} />,
             formatDate(user.created_at),
             <div className="row-actions">
@@ -427,7 +421,7 @@ function UserDrawer({ userId, onClose }) {
         <h2>{data?.user?.email}</h2>
         <DetailGrid
           items={[
-            ['User ID', data?.user?.id],
+            ['StudentID', data?.roles?.find((role) => role.role === 'student')?.public_id],
             ['状态', <Badge value={data?.user?.account_status} />],
             ['课时余额', data?.user?.lesson_balance_hours],
             ['最近登录', formatDate(data?.user?.last_login_at)],
@@ -441,20 +435,6 @@ function UserDrawer({ userId, onClose }) {
           columns={['角色', 'Public ID', '导师审核']}
           rows={(data?.roles || []).map((role) => [role.role, role.public_id, <Badge value={role.mentor_review_status || '-'} />])}
         />
-        {data?.mentorProfile ? (
-          <>
-            <h3>导师资料</h3>
-            <DetailGrid
-              items={[
-                ['展示名', data.mentorProfile.display_name],
-                ['学校', data.mentorProfile.school],
-                ['学历', data.mentorProfile.degree],
-                ['评分', data.mentorProfile.rating],
-                ['课程数', data.mentorProfile.courses?.length || 0],
-              ]}
-            />
-          </>
-        ) : null}
       </State>
     </aside>
   );

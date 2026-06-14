@@ -272,9 +272,8 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
 router.get('/users', requireAdminAuth, async (req: Request, res: Response) => {
   const { page, limit, offset } = getPaging(req);
   const q = safeString(req.query.q, 100);
-  const role = safeString(req.query.role, 20);
   const status = safeString(req.query.status, 20);
-  const where: string[] = ['1=1'];
+  const where: string[] = ["sr.role = 'student'"];
   const params: any[] = [];
 
   if (q) {
@@ -283,15 +282,11 @@ router.get('/users', requireAdminAuth, async (req: Request, res: Response) => {
     where.push(`(
       u.email LIKE ? ESCAPE '\\\\'
       OR u.username LIKE ? ESCAPE '\\\\'
-      OR EXISTS (SELECT 1 FROM user_roles rx WHERE rx.user_id = u.id AND rx.public_id LIKE ? ESCAPE '\\\\')
+      OR sr.public_id LIKE ? ESCAPE '\\\\'
       ${Number.isFinite(id) && id > 0 ? 'OR u.id = ?' : ''}
     )`);
     params.push(like, like, like);
     if (Number.isFinite(id) && id > 0) params.push(id);
-  }
-  if (role === 'student' || role === 'mentor') {
-    where.push('EXISTS (SELECT 1 FROM user_roles rr WHERE rr.user_id = u.id AND rr.role = ?)');
-    params.push(role);
   }
   if (USER_STATUSES.has(status)) {
     where.push('u.account_status = ?');
@@ -300,18 +295,30 @@ router.get('/users', requireAdminAuth, async (req: Request, res: Response) => {
 
   try {
     const countRows = await query<Array<{ total: number }>>(
-      `SELECT COUNT(DISTINCT u.id) AS total FROM users u WHERE ${where.join(' AND ')}`,
+      `SELECT COUNT(DISTINCT u.id) AS total
+       FROM users u
+       INNER JOIN user_roles sr ON sr.user_id = u.id
+       WHERE ${where.join(' AND ')}`,
       params
     );
     const rows = await query<any[]>(
       `SELECT
-         u.id, u.username, u.email, u.lesson_balance_hours, u.account_status,
+         u.id, sr.public_id AS student_id, u.username, u.email, u.lesson_balance_hours,
+         COALESCE(payments.total_paid_cny, 0) AS total_paid_cny, u.account_status,
          u.suspended_at, u.suspended_reason, u.created_at, u.updated_at, u.last_login_at,
          GROUP_CONCAT(CONCAT(ur.role, '|', ur.public_id, '|', ur.mentor_approved, '|', ur.mentor_review_status) ORDER BY ur.role SEPARATOR ',') AS roles_compact
        FROM users u
+       INNER JOIN user_roles sr ON sr.user_id = u.id
        LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN (
+         SELECT user_id,
+                SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN amount_cny ELSE 0 END) AS total_paid_cny
+         FROM billing_orders
+         GROUP BY user_id
+       ) payments ON payments.user_id = u.id
        WHERE ${where.join(' AND ')}
-       GROUP BY u.id, u.username, u.email, u.lesson_balance_hours, u.account_status, u.suspended_at, u.suspended_reason, u.created_at, u.updated_at, u.last_login_at
+       GROUP BY u.id, sr.public_id, u.username, u.email, u.lesson_balance_hours, payments.total_paid_cny,
+                u.account_status, u.suspended_at, u.suspended_reason, u.created_at, u.updated_at, u.last_login_at
        ORDER BY u.created_at DESC, u.id DESC
        ${pagingSql(limit, offset)}`,
       params
