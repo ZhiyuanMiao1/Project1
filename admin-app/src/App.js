@@ -576,7 +576,7 @@ function MentorReviewsPage() {
                 打开简历
               </button>
             ) : null,
-            `${asNumber(mentor.total_teaching_hours).toLocaleString('zh-CN', { maximumFractionDigits: 2 })} 小时`,
+            asNumber(mentor.total_teaching_hours).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
             <Badge value={mentor.mentor_review_status} />,
             formatDate(mentor.mentor_created_at),
             <div className="row-actions">

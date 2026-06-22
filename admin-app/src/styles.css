@@ -481,9 +481,17 @@ tr:last-child td {
   top: 16px;
   width: 34px;
   padding: 0;
-  background: #eef2f7;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   color: #172033;
   font-size: 22px;
+}
+
+.drawer-close:hover,
+.drawer-close:focus-visible {
+  background: transparent;
+  color: #26364d;
 }
 
 .detail-grid {
