@@ -102,10 +102,17 @@ function Toolbar({ children }) {
 }
 
 function RefreshButton({ onClick, loading }) {
+  const label = loading ? '刷新中...' : '刷新';
   return (
-    <button type="button" className="ghost refresh-button" onClick={onClick} disabled={loading}>
+    <button
+      type="button"
+      className="ghost refresh-button icon-only"
+      onClick={onClick}
+      disabled={loading}
+      aria-label={label}
+      title={label}
+    >
       <FontAwesomeIcon icon={faRotateRight} className={loading ? 'spin' : ''} />
-      {loading ? '刷新中...' : '刷新'}
     </button>
   );
 }
@@ -347,6 +354,7 @@ function UsersPage() {
           <option value="active">正常</option>
           <option value="suspended">已封禁</option>
         </select>
+        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -545,6 +553,7 @@ function MentorReviewsPage() {
           <option value="approved">已通过</option>
           <option value="rejected">已驳回</option>
         </select>
+        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable

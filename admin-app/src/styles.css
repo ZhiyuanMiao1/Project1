@@ -32,8 +32,16 @@ button:disabled {
 }
 
 button.ghost {
-  background: #eef2f7;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   color: #26364d;
+}
+
+button.ghost:hover,
+button.ghost:focus-visible {
+  background: transparent;
+  color: #172033;
 }
 
 button.danger {
@@ -200,6 +208,14 @@ button.link-button {
 
 .icon-text {
   gap: 8px;
+}
+
+.icon-only {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
 }
 
 .refresh-button {
