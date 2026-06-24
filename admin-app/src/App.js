@@ -47,6 +47,12 @@ const formatDate = (value) => {
   return date.toLocaleString('zh-CN', { hour12: false });
 };
 
+const formatIntegerAmount = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return Math.round(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+};
+
 const asNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -670,25 +676,14 @@ function MentorDrawer({ userId, onClose }) {
 function OrdersPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
-  const [reload, setReload] = useState(0);
-  const [dialog, setDialog] = useState(null);
   const { loading, error, data } = useAsync(
     () => api('/api/admin/orders', { params: { q, status, limit: 50 } }),
-    [q, status, reload]
+    [q, status]
   );
-
-  const submitStatus = async (reason) => {
-    await api(`/api/admin/orders/${dialog.order.id}/status`, {
-      method: 'PATCH',
-      body: { status: dialog.status, reason },
-    });
-    setDialog(null);
-    setReload((n) => n + 1);
-  };
 
   return (
     <section>
-      <PageTitle title="订单管理" subtitle="查看充值订单并进行人工状态处理" />
+      <PageTitle title="订单管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、订单号、StudentID" />
         <select value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -701,35 +696,19 @@ function OrdersPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
-          columns={['订单ID', '用户', 'Provider', '状态', '课时', 'CNY/USD', '创建时间', '操作']}
+          columns={['订单ID', 'StudentID', '邮箱', 'Provider', '状态', '课时', '金额', '创建时间']}
           rows={(data?.orders || []).map((order) => [
             order.id,
-            `${order.email} ${order.student_public_id || ''}`,
+            order.student_public_id || '-',
+            order.email || '-',
             order.provider,
             <Badge value={order.status} />,
             order.topup_hours,
-            `CNY ${order.amount_cny} / ${order.currency_code} ${order.amount_usd}`,
+            formatIntegerAmount(order.amount_cny),
             formatDate(order.created_at),
-            <select
-              value=""
-              onChange={(event) => event.target.value && setDialog({ title: '调整订单状态', order, status: event.target.value })}
-            >
-              <option value="">调整</option>
-              <option value="CREATED">CREATED</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="COMPLETED">COMPLETED</option>
-              <option value="CAPTURED">CAPTURED</option>
-              <option value="FAILED">FAILED</option>
-              <option value="VOIDED">VOIDED</option>
-            </select>,
           ])}
         />
       </State>
-      <ReasonDialog
-        config={dialog ? { title: dialog.title, description: `订单 ${dialog.order.id} 将调整为 ${dialog.status}` } : null}
-        onClose={() => setDialog(null)}
-        onSubmit={submitStatus}
-      />
     </section>
   );
 }
