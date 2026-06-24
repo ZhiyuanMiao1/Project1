@@ -843,7 +843,7 @@ function ClassroomsPage() {
 
   return (
     <section>
-      <PageTitle title="课堂管理" subtitle="课堂、课时确认、回放与评价" />
+      <PageTitle title="课堂管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索课堂ID、邮箱、StudentID、MentorID、导师姓名" />
         <select value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -881,7 +881,7 @@ function ClassroomsPage() {
             formatDate(item.startsAt || item.starts_at),
             formatHours(item.duration_hours),
             <Badge value={item.effectiveStatus || item.status} />,
-            <div className="stacked-cell"><strong>{item.student_public_id || '-'}</strong><span>{item.student_email || '-'}</span></div>,
+            <strong>{item.student_public_id || '-'}</strong>,
             <div className="stacked-cell"><strong>{item.mentor_public_id || '-'}</strong><span>{item.mentor_display_name || item.mentor_email || '-'}</span></div>,
             <Badge value={item.lesson_hours_status || 'none'} />,
             getLessonHoursSummary(item),

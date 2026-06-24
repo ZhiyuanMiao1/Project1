@@ -178,11 +178,24 @@ button.link-button {
 .sidebar a {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
   color: #cbd5e1;
+  text-align: left;
   text-decoration: none;
   border-radius: 6px;
   padding: 11px 12px;
+}
+
+.sidebar a svg {
+  width: 22px;
+  min-width: 22px;
+  flex: 0 0 22px;
+}
+
+.sidebar a span {
+  flex: 1;
+  text-align: left;
 }
 
 .sidebar a.active,
