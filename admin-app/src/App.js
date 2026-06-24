@@ -1,17 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+  faChalkboardUser,
   faChartLine,
   faCheck,
   faClipboardCheck,
+  faEye,
   faFileInvoiceDollar,
   faGaugeHigh,
   faMagnifyingGlass,
+  faPlay,
   faRightFromBracket,
   faRotateRight,
   faTriangleExclamation,
   faUsers,
+  faVideo,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { api, clearSession, getStoredAdmin, getToken, setSession } from './api';
@@ -21,6 +25,7 @@ const navItems = [
   { to: '/users', label: '学生管理', icon: faUsers },
   { to: '/mentors/reviews', label: '导师管理', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
+  { to: '/classrooms', label: '课堂管理', icon: faChalkboardUser },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
 ];
 
@@ -36,7 +41,21 @@ const statusText = {
   dismissed: '已忽略',
   accepted: '已接受',
   rescheduling: '改期中',
+  scheduled: '未开始',
+  completed: '已结束',
+  cancelled: '已取消',
+  none: '无记录',
+  confirmed: '已确认',
+  disputed: '有争议',
+  dispute_confirmed: '争议已确认',
+  platform_review: '平台处理中',
+  running: '录制中',
+  ready: '已生成',
+  reviewed: '已评价',
 };
+
+const LIVE_SDK_URL = 'https://g.alicdn.com/apsara-media-box/imp-web-live-push/6.4.9/alivc-live-push.js';
+let liveSdkPromise = null;
 
 const formatDate = (value) => {
   if (!value) return '-';
@@ -49,6 +68,26 @@ const formatIntegerAmount = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return '-';
   return Math.round(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+};
+
+const formatHours = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return '-';
+  const rounded = Math.round(n * 100) / 100;
+  return `${Number.isInteger(rounded) ? rounded : String(rounded).replace(/0+$/, '').replace(/\.$/, '')}h`;
+};
+
+const formatFileSize = (value) => {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return '-';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size.toFixed(size >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 };
 
 const asNumber = (value) => {
@@ -77,6 +116,30 @@ const buildAdminPreviewUrl = (path, token) => {
   const url = new URL(path, origin);
   if (token) url.searchParams.set('token', token);
   return url.toString();
+};
+
+const resolveAliyunLiveSdk = () => {
+  const sdk = typeof window !== 'undefined' ? window.AlivcLivePush : null;
+  return sdk && typeof sdk.AlivcLivePlayer === 'function' ? sdk : null;
+};
+
+const loadAliyunLiveSdk = () => {
+  const existing = resolveAliyunLiveSdk();
+  if (existing) return Promise.resolve(existing);
+  if (liveSdkPromise) return liveSdkPromise;
+  liveSdkPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = LIVE_SDK_URL;
+    script.async = true;
+    script.onload = () => {
+      const sdk = resolveAliyunLiveSdk();
+      if (sdk) resolve(sdk);
+      else reject(new Error('阿里云实时音视频 SDK 加载失败'));
+    };
+    script.onerror = () => reject(new Error('阿里云实时音视频 SDK 下载失败'));
+    document.head.appendChild(script);
+  });
+  return liveSdkPromise;
 };
 
 function useAsync(load, deps) {
@@ -241,6 +304,8 @@ function Shell({ admin, onLogout }) {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/mentors/reviews" element={<MentorReviewsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/classrooms" element={<ClassroomsPage />} />
+          <Route path="/classrooms/:courseId/watch" element={<ClassroomWatchPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
@@ -704,6 +769,346 @@ function OrdersPage() {
             formatDate(order.created_at),
           ])}
         />
+      </State>
+    </section>
+  );
+}
+
+const getLessonHoursSummary = (row) => {
+  const parts = [
+    `预约 ${formatHours(row.duration_hours)}`,
+    row.proposed_hours ? `提交 ${formatHours(row.proposed_hours)}` : '',
+    row.disputed_hours ? `争议 ${formatHours(row.disputed_hours)}` : '',
+    row.final_hours ? `最终 ${formatHours(row.final_hours)}` : '',
+  ].filter(Boolean);
+  return parts.join(' / ');
+};
+
+function ReplayDialog({ course, onClose }) {
+  const courseId = course?.id;
+  const { loading, error, data } = useAsync(
+    () => api(`/api/admin/classrooms/${courseId}/replay-files`),
+    [courseId]
+  );
+  const files = data?.files || [];
+  if (!courseId) return null;
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal wide-modal" role="dialog" aria-modal="true" aria-labelledby="replay-title">
+        <h2 id="replay-title">课堂回放 #{courseId}</h2>
+        <State loading={loading} error={error}>
+          <div className="replay-list">
+            {files.length ? files.map((file) => (
+              <div className="replay-item" key={file.fileId || file.fileName}>
+                <FontAwesomeIcon icon={faVideo} />
+                <div>
+                  <strong>{file.fileName || '课堂回放'}</strong>
+                  <span>{formatDate(file.lastModified)} · {formatFileSize(file.sizeBytes)}</span>
+                </div>
+                <button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')} disabled={!file.url}>
+                  <FontAwesomeIcon icon={faPlay} /> 播放
+                </button>
+              </div>
+            )) : <div className="empty">暂无 MP4 回放</div>}
+          </div>
+        </State>
+        <div className="modal-actions">
+          <button className="ghost" onClick={onClose}>关闭</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClassroomsPage() {
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [lessonHoursStatus, setLessonHoursStatus] = useState('');
+  const [replayStatus, setReplayStatus] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reload, setReload] = useState(0);
+  const [detail, setDetail] = useState(null);
+  const [replayCourse, setReplayCourse] = useState(null);
+  const { loading, error, data } = useAsync(
+    () => api('/api/admin/classrooms', {
+      params: { q, status, lessonHoursStatus, replayStatus, startDate, endDate, limit: 80 },
+    }),
+    [q, status, lessonHoursStatus, replayStatus, startDate, endDate, reload]
+  );
+
+  const openWatch = (courseId) => {
+    window.open(`/classrooms/${encodeURIComponent(courseId)}/watch`, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <section>
+      <PageTitle title="课堂管理" subtitle="课堂、课时确认、回放与评价" />
+      <Toolbar>
+        <SearchBox value={q} onChange={setQ} placeholder="搜索课堂ID、邮箱、StudentID、MentorID、导师姓名" />
+        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+          <option value="">全部课堂状态</option>
+          <option value="scheduled">未开始</option>
+          <option value="completed">已结束</option>
+          <option value="cancelled">已取消</option>
+        </select>
+        <select value={lessonHoursStatus} onChange={(event) => setLessonHoursStatus(event.target.value)}>
+          <option value="">全部课时确认</option>
+          <option value="none">无记录</option>
+          <option value="pending">待确认</option>
+          <option value="confirmed">已确认</option>
+          <option value="disputed">有争议</option>
+          <option value="dispute_confirmed">争议已确认</option>
+          <option value="platform_review">平台处理中</option>
+        </select>
+        <select value={replayStatus} onChange={(event) => setReplayStatus(event.target.value)}>
+          <option value="">全部回放状态</option>
+          <option value="none">无录制</option>
+          <option value="running">录制中</option>
+          <option value="ready">已生成</option>
+          <option value="failed">录制失败</option>
+        </select>
+        <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} aria-label="开始日期" />
+        <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} aria-label="结束日期" />
+        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
+      </Toolbar>
+      <State loading={loading} error={error}>
+        <DataTable
+          columns={['课堂ID', '课程方向 / 类型', '上课时间', '时长', '课堂状态', '学生', '导师', '课时确认', '课时数', '回放', '评价', '操作']}
+          rows={(data?.classrooms || []).map((item) => [
+            item.id,
+            [item.course_direction || '-', item.course_type || '-'].join(' / '),
+            formatDate(item.startsAt || item.starts_at),
+            formatHours(item.duration_hours),
+            <Badge value={item.effectiveStatus || item.status} />,
+            <div className="stacked-cell"><strong>{item.student_public_id || '-'}</strong><span>{item.student_email || '-'}</span></div>,
+            <div className="stacked-cell"><strong>{item.mentor_public_id || '-'}</strong><span>{item.mentor_display_name || item.mentor_email || '-'}</span></div>,
+            <Badge value={item.lesson_hours_status || 'none'} />,
+            getLessonHoursSummary(item),
+            <Badge value={item.replayStatus} />,
+            item.reviewStatus === 'reviewed' ? `已评价 ${asNumber(item.review_overall_score).toFixed(1)}` : '未评价',
+            <div className="row-actions">
+              <button className="ghost" type="button" title="进入课堂" onClick={() => openWatch(item.id)}>
+                <FontAwesomeIcon icon={faEye} />
+              </button>
+              <button className="ghost" type="button" title="查看回放" onClick={() => setReplayCourse(item)}>
+                <FontAwesomeIcon icon={faVideo} />
+              </button>
+              <button type="button" onClick={() => setDetail(item.id)}>详情</button>
+            </div>,
+          ])}
+        />
+      </State>
+      {detail ? <ClassroomDrawer courseId={detail} onClose={() => setDetail(null)} /> : null}
+      {replayCourse ? <ReplayDialog course={replayCourse} onClose={() => setReplayCourse(null)} /> : null}
+    </section>
+  );
+}
+
+function ClassroomDrawer({ courseId, onClose }) {
+  const { loading, error, data } = useAsync(() => api(`/api/admin/classrooms/${courseId}`), [courseId]);
+  const replayState = useAsync(() => api(`/api/admin/classrooms/${courseId}/replay-files`), [courseId]);
+  const classroom = data?.classroom || {};
+  const lesson = classroom.latestLessonHours || {};
+  const recordings = classroom.recordings || [];
+  const replayFiles = replayState.data?.files || [];
+  return (
+    <aside className="drawer wide-drawer">
+      <button className="drawer-close" onClick={onClose}>×</button>
+      <State loading={loading} error={error}>
+        <h2>课堂 #{classroom.id}</h2>
+        <DetailGrid
+          items={[
+            ['课程方向', classroom.course_direction],
+            ['课程类型', classroom.course_type],
+            ['上课时间', formatDate(classroom.startsAt || classroom.starts_at)],
+            ['预约时长', formatHours(classroom.duration_hours)],
+            ['原始状态', <Badge value={classroom.status} />],
+            ['有效状态', <Badge value={classroom.effectiveStatus} />],
+            ['创建时间', formatDate(classroom.createdAt || classroom.created_at)],
+            ['更新时间', formatDate(classroom.updatedAt || classroom.updated_at)],
+          ]}
+        />
+        <h3>学生 / 导师</h3>
+        <DetailGrid
+          items={[
+            ['学生用户ID', classroom.student_user_id],
+            ['StudentID', classroom.student_public_id],
+            ['学生邮箱', classroom.student_email],
+            ['导师用户ID', classroom.mentor_user_id],
+            ['MentorID', classroom.mentor_public_id],
+            ['导师', classroom.mentor_display_name || classroom.mentor_username],
+            ['导师邮箱', classroom.mentor_email],
+          ]}
+        />
+        <h3>最新课时确认</h3>
+        <DetailGrid
+          items={[
+            ['状态', <Badge value={lesson.status || 'none'} />],
+            ['提交课时', formatHours(lesson.proposed_hours)],
+            ['争议课时', formatHours(lesson.disputed_hours)],
+            ['最终课时', formatHours(lesson.final_hours)],
+            ['响应人', lesson.responded_by_email || lesson.responded_by_user_id],
+            ['响应时间', formatDate(lesson.responded_at)],
+            ['结算时间', formatDate(lesson.settled_at)],
+          ]}
+        />
+        <h3>录制记录</h3>
+        <DataTable
+          compact
+          columns={['ID', '状态', '开始', '停止', '错误']}
+          rows={recordings.map((recording) => [
+            recording.id,
+            <Badge value={recording.status} />,
+            formatDate(recording.startedAt || recording.started_at),
+            formatDate(recording.stoppedAt || recording.stopped_at),
+            recording.error_message || '-',
+          ])}
+        />
+        <h3>回放文件</h3>
+        <State loading={replayState.loading} error={replayState.error}>
+          <div className="replay-list embedded">
+            {replayFiles.length ? replayFiles.map((file) => (
+              <div className="replay-item" key={file.fileId || file.fileName}>
+                <FontAwesomeIcon icon={faVideo} />
+                <div><strong>{file.fileName}</strong><span>{formatDate(file.lastModified)} · {formatFileSize(file.sizeBytes)}</span></div>
+                <button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}>播放</button>
+              </div>
+            )) : <div className="empty">暂无 MP4 回放</div>}
+          </div>
+        </State>
+        <h3>评价</h3>
+        {classroom.review ? (
+          <DetailGrid
+            items={[
+              ['综合评分', classroom.review.overallScore],
+              ['清晰讲解', classroom.review.scores?.clarity],
+              ['沟通顺畅', classroom.review.scores?.communication],
+              ['准备充分', classroom.review.scores?.preparation],
+              ['专业能力', classroom.review.scores?.expertise],
+              ['准时程度', classroom.review.scores?.punctuality],
+              ['文字评价', classroom.review.comment],
+              ['提交时间', formatDate(classroom.review.createdAt)],
+              ['更新时间', formatDate(classroom.review.updatedAt)],
+            ]}
+          />
+        ) : <div className="state">未评价</div>}
+      </State>
+    </aside>
+  );
+}
+
+function ClassroomWatchPage() {
+  const { courseId } = useParams();
+  const videoRefs = React.useRef({});
+  const playersRef = React.useRef([]);
+  const [auth, setAuth] = useState(null);
+  const [chat, setChat] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [streamStatus, setStreamStatus] = useState({});
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError('');
+    Promise.all([
+      api(`/api/admin/classrooms/${courseId}/observer-auth`),
+      api(`/api/admin/classrooms/${courseId}/chat`),
+    ])
+      .then(([authData, chatData]) => {
+        if (!alive) return;
+        setAuth(authData);
+        setChat(chatData?.messages || []);
+      })
+      .catch((err) => {
+        if (alive) setError(err.message || '加载课堂失败');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [courseId]);
+
+  useEffect(() => {
+    let disposed = false;
+    playersRef.current.forEach((player) => {
+      try { player.stopPlay?.(); } catch {}
+      try { player.destroy?.(); } catch {}
+    });
+    playersRef.current = [];
+    setStreamStatus({});
+
+    if (!auth?.streams?.length) return undefined;
+
+    loadAliyunLiveSdk()
+      .then(async (sdk) => {
+        for (const stream of auth.streams) {
+          if (disposed) return;
+          const video = videoRefs.current[stream.role];
+          if (!video || !stream.playUrl) continue;
+          const player = new sdk.AlivcLivePlayer();
+          playersRef.current.push(player);
+          setStreamStatus((prev) => ({ ...prev, [stream.role]: '连接中' }));
+          try {
+            await player.startPlay(stream.playUrl, video);
+            if (!disposed) setStreamStatus((prev) => ({ ...prev, [stream.role]: '播放中' }));
+          } catch (err) {
+            if (!disposed) setStreamStatus((prev) => ({ ...prev, [stream.role]: err?.message || '暂无画面' }));
+          }
+        }
+      })
+      .catch((err) => {
+        if (!disposed) setError(err.message || '直播 SDK 加载失败');
+      });
+
+    return () => {
+      disposed = true;
+      playersRef.current.forEach((player) => {
+        try { player.stopPlay?.(); } catch {}
+        try { player.destroy?.(); } catch {}
+      });
+      playersRef.current = [];
+    };
+  }, [auth]);
+
+  return (
+    <section>
+      <PageTitle title={`课堂旁观 #${courseId}`} subtitle="只读模式，不会触发学生或导师操作" />
+      <State loading={loading} error={error}>
+        <div className="watch-layout">
+          <div className="watch-grid">
+            {(auth?.streams || []).map((stream) => (
+              <article className="watch-panel" key={stream.role}>
+                <div className="watch-panel-head">
+                  <strong>{stream.role === 'student' ? '学生' : '导师'} · {stream.label}</strong>
+                  <span>{streamStatus[stream.role] || '等待连接'}</span>
+                </div>
+                <video
+                  ref={(element) => { videoRefs.current[stream.role] = element; }}
+                  autoPlay
+                  playsInline
+                  muted
+                />
+              </article>
+            ))}
+          </div>
+          <aside className="watch-chat">
+            <h2>课堂聊天</h2>
+            <div className="watch-chat-list">
+              {chat.length ? chat.map((message) => (
+                <div className="watch-chat-message" key={message.id}>
+                  <div><strong>{message.senderLabel}</strong><span>{formatDate(message.createdAt)}</span></div>
+                  {message.messageType === 'file' ? (
+                    <p>{message.file?.fileName || '文件'} · {formatFileSize(message.file?.sizeBytes)}</p>
+                  ) : <p>{message.textContent}</p>}
+                </div>
+              )) : <div className="empty">暂无聊天记录</div>}
+            </div>
+          </aside>
+        </div>
       </State>
     </section>
   );

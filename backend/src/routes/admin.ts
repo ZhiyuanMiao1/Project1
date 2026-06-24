@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
@@ -5,12 +6,19 @@ import { query } from '../db';
 import { requireAdminAuth, getAdminJwtSecret } from '../middleware/adminAuth';
 import { ensureAdminSchema } from '../services/adminSchema';
 import { revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
-import { buildContentDisposition, getOssClient } from '../services/ossClient';
+import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
+import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
+import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
 
 const router = Router();
 
 const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
 const USER_STATUSES = new Set(['active', 'suspended']);
+const CLASSROOM_STATUSES = new Set(['scheduled', 'completed', 'cancelled']);
+const LESSON_HOURS_STATUSES = new Set(['none', 'pending', 'confirmed', 'disputed', 'dispute_confirmed', 'platform_review']);
+const REPLAY_STATUSES = new Set(['none', 'running', 'ready', 'failed']);
+const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
+const REPLAY_LIST_MAX_OBJECTS = 500;
 
 type AuditPayload = {
   req: Request;
@@ -74,6 +82,144 @@ const parseUrlList = (raw: unknown): string[] => {
       .filter(Boolean);
   }
   return [text];
+};
+
+const parseStoredUtcDate = (raw: unknown) => {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return new Date(Date.UTC(
+      raw.getFullYear(),
+      raw.getMonth(),
+      raw.getDate(),
+      raw.getHours(),
+      raw.getMinutes(),
+      raw.getSeconds(),
+      raw.getMilliseconds(),
+    ));
+  }
+  const text = safeString(raw, 80);
+  if (!text) return null;
+  const canonical = text.replace('T', ' ').replace(/Z$/i, '').replace(/\.\d+$/, '').trim();
+  const match = canonical.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (match) {
+    const [, y, m, d, hh, mm, ss = '00'] = match;
+    const parsed = new Date(Date.UTC(
+      Number.parseInt(y, 10),
+      Number.parseInt(m, 10) - 1,
+      Number.parseInt(d, 10),
+      Number.parseInt(hh, 10),
+      Number.parseInt(mm, 10),
+      Number.parseInt(ss, 10),
+    ));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toIsoString = (raw: unknown) => {
+  const parsed = parseStoredUtcDate(raw);
+  return parsed ? parsed.toISOString() : '';
+};
+
+const toNumber = (value: unknown, fallback = 0) => {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const getEffectiveClassroomStatus = (row: any) => {
+  const status = safeString(row?.status, 30).toLowerCase();
+  if (status !== 'scheduled') return status;
+  const startsAt = parseStoredUtcDate(row?.starts_at);
+  if (!startsAt) return status;
+  const endAt = startsAt.getTime() + Math.max(toNumber(row?.duration_hours, 0), 0) * 60 * 60 * 1000;
+  return endAt <= Date.now() ? 'completed' : status;
+};
+
+const getReplayStatus = (row: any) => {
+  const recordingCount = toNumber(row?.recording_count, 0);
+  if (!recordingCount) return 'none';
+  if (toNumber(row?.active_recording_count, 0) > 0) return 'running';
+  if (toNumber(row?.stopped_recording_count, 0) > 0) return 'ready';
+  return safeString(row?.latest_recording_status, 30).toLowerCase() === 'failed' ? 'failed' : 'none';
+};
+
+const getReviewStatus = (row: any) => (
+  row?.review_id == null ? 'none' : 'reviewed'
+);
+
+const toObjectLastModifiedIso = (raw: unknown) => {
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) return raw.toISOString();
+  const parsed = new Date(safeString(raw, 100));
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+};
+
+const toReplayFileName = (ossKey: string) => {
+  const parts = ossKey.split('/').filter(Boolean);
+  return parts[parts.length - 1] || 'recording.mp4';
+};
+
+const toReplayFileId = (ossKey: string) => crypto.createHash('sha1').update(ossKey).digest('hex').slice(0, 16);
+
+const listReplayMp4Files = async (storagePrefixes: string[]) => {
+  const client = getRecordingOssClient();
+  if (!client) return null;
+
+  const seenKeys = new Set<string>();
+  const files: Array<{
+    fileId: string;
+    fileName: string;
+    sizeBytes: number;
+    lastModified: string;
+    url: string;
+    expiresAt: number;
+  }> = [];
+  const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
+
+  for (const storagePrefix of storagePrefixes) {
+    const normalizedPrefix = safeString(storagePrefix, 512).replace(/^\/+|\/+$/g, '');
+    if (!normalizedPrefix) continue;
+    const mp4Prefix = `${normalizedPrefix}/mp4/`;
+    let marker = '';
+
+    do {
+      const result = await client.list({ prefix: mp4Prefix, marker, 'max-keys': 1000 } as any, {});
+      const objects = Array.isArray((result as any)?.objects) ? (result as any).objects : [];
+
+      for (const object of objects) {
+        const ossKey = safeString(object?.name, 512);
+        if (!ossKey || seenKeys.has(ossKey) || !ossKey.toLowerCase().endsWith('.mp4')) continue;
+        seenKeys.add(ossKey);
+
+        const fileName = toReplayFileName(ossKey);
+        files.push({
+          fileId: toReplayFileId(ossKey),
+          fileName,
+          sizeBytes: Math.max(0, toNumber(object?.size, 0)),
+          lastModified: toObjectLastModifiedIso(object?.lastModified),
+          url: client.signatureUrl(ossKey, {
+            expires: REPLAY_SIGNED_URL_EXPIRE_SECONDS,
+            response: {
+              'content-disposition': buildContentDisposition(fileName, 'inline'),
+            },
+          }),
+          expiresAt,
+        });
+        if (files.length >= REPLAY_LIST_MAX_OBJECTS) break;
+      }
+
+      marker = typeof (result as any)?.nextMarker === 'string' ? (result as any).nextMarker : '';
+    } while (marker && files.length < REPLAY_LIST_MAX_OBJECTS);
+
+    if (files.length >= REPLAY_LIST_MAX_OBJECTS) break;
+  }
+
+  files.sort((a, b) => {
+    const bTime = Date.parse(b.lastModified);
+    const aTime = Date.parse(a.lastModified);
+    return (Number.isNaN(bTime) ? 0 : bTime) - (Number.isNaN(aTime) ? 0 : aTime) || a.fileName.localeCompare(b.fileName);
+  });
+
+  return { files, expiresAt };
 };
 
 const resolveOssKeyFromUrl = (rawUrl: unknown) => {
@@ -802,6 +948,393 @@ router.patch('/orders/:orderId/status', requireAdminAuth, async (req: Request, r
     return res.json({ order: after });
   } catch (error) {
     console.error('Admin update order status error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/classrooms', requireAdminAuth, async (req: Request, res: Response) => {
+  const { page, limit, offset } = getPaging(req);
+  const q = safeString(req.query.q, 100);
+  const status = safeString(req.query.status, 30).toLowerCase();
+  const lessonHoursStatus = safeString(req.query.lessonHoursStatus, 40).toLowerCase();
+  const replayStatus = safeString(req.query.replayStatus, 30).toLowerCase();
+  const startDate = safeString(req.query.startDate, 20);
+  const endDate = safeString(req.query.endDate, 20);
+  const where = ['1=1'];
+  const params: any[] = [];
+
+  if (q) {
+    const like = `%${escapeLike(q)}%`;
+    const id = Number.parseInt(q, 10);
+    where.push(`(
+      su.email LIKE ? ESCAPE '\\\\'
+      OR su.username LIKE ? ESCAPE '\\\\'
+      OR mu.email LIKE ? ESCAPE '\\\\'
+      OR mu.username LIKE ? ESCAPE '\\\\'
+      OR sr.public_id LIKE ? ESCAPE '\\\\'
+      OR mr.public_id LIKE ? ESCAPE '\\\\'
+      OR mp.display_name LIKE ? ESCAPE '\\\\'
+      ${Number.isFinite(id) && id > 0 ? 'OR cs.id = ?' : ''}
+    )`);
+    params.push(like, like, like, like, like, like, like);
+    if (Number.isFinite(id) && id > 0) params.push(id);
+  }
+  if (CLASSROOM_STATUSES.has(status)) {
+    if (status === 'scheduled') {
+      where.push("cs.status = 'scheduled' AND TIMESTAMPADD(MINUTE, ROUND(cs.duration_hours * 60), cs.starts_at) > UTC_TIMESTAMP()");
+    } else if (status === 'completed') {
+      where.push("(cs.status = 'completed' OR (cs.status = 'scheduled' AND TIMESTAMPADD(MINUTE, ROUND(cs.duration_hours * 60), cs.starts_at) <= UTC_TIMESTAMP()))");
+    } else {
+      where.push('cs.status = ?');
+      params.push(status);
+    }
+  }
+  if (LESSON_HOURS_STATUSES.has(lessonHoursStatus)) {
+    if (lessonHoursStatus === 'none') {
+      where.push('latest_lhc.id IS NULL');
+    } else {
+      where.push('latest_lhc.status = ?');
+      params.push(lessonHoursStatus);
+    }
+  }
+  if (REPLAY_STATUSES.has(replayStatus)) {
+    if (replayStatus === 'none') {
+      where.push('COALESCE(rec.recording_count, 0) = 0');
+    } else if (replayStatus === 'running') {
+      where.push('COALESCE(rec.active_recording_count, 0) > 0');
+    } else if (replayStatus === 'ready') {
+      where.push('COALESCE(rec.stopped_recording_count, 0) > 0');
+    } else if (replayStatus === 'failed') {
+      where.push("COALESCE(rec.recording_count, 0) > 0 AND COALESCE(rec.active_recording_count, 0) = 0 AND COALESCE(rec.stopped_recording_count, 0) = 0 AND rec.latest_recording_status = 'failed'");
+    }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+    where.push('cs.starts_at >= ?');
+    params.push(`${startDate} 00:00:00`);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    where.push('cs.starts_at <= ?');
+    params.push(`${endDate} 23:59:59`);
+  }
+
+  const joins = `
+    FROM course_sessions cs
+    JOIN users su ON su.id = cs.student_user_id
+    JOIN users mu ON mu.id = cs.mentor_user_id
+    LEFT JOIN user_roles sr ON sr.user_id = cs.student_user_id AND sr.role = 'student'
+    LEFT JOIN user_roles mr ON mr.user_id = cs.mentor_user_id AND mr.role = 'mentor'
+    LEFT JOIN mentor_profiles mp ON mp.user_id = cs.mentor_user_id
+    LEFT JOIN (
+      SELECT lhc.*
+      FROM lesson_hour_confirmations lhc
+      INNER JOIN (
+        SELECT course_session_id, MAX(id) AS latest_id
+        FROM lesson_hour_confirmations
+        GROUP BY course_session_id
+      ) picked ON picked.latest_id = lhc.id
+    ) latest_lhc ON latest_lhc.course_session_id = cs.id
+    LEFT JOIN (
+      SELECT
+        course_session_id,
+        COUNT(*) AS recording_count,
+        SUM(CASE WHEN status IN ('starting','running','stopping') THEN 1 ELSE 0 END) AS active_recording_count,
+        SUM(CASE WHEN status = 'stopped' THEN 1 ELSE 0 END) AS stopped_recording_count,
+        SUBSTRING_INDEX(GROUP_CONCAT(status ORDER BY id DESC SEPARATOR ','), ',', 1) AS latest_recording_status
+      FROM classroom_recordings
+      GROUP BY course_session_id
+    ) rec ON rec.course_session_id = cs.id
+    LEFT JOIN course_session_reviews csr ON csr.course_session_id = cs.id
+  `;
+
+  try {
+    const countRows = await query<Array<{ total: number }>>(
+      `SELECT COUNT(*) AS total ${joins} WHERE ${where.join(' AND ')}`,
+      params
+    );
+    const rows = await query<any[]>(
+      `SELECT
+         cs.id, cs.student_user_id, cs.mentor_user_id, cs.course_direction, cs.course_type,
+         cs.starts_at, cs.duration_hours, cs.status, cs.created_at, cs.updated_at,
+         sr.public_id AS student_public_id, su.email AS student_email, su.username AS student_username,
+         mr.public_id AS mentor_public_id, mu.email AS mentor_email, mu.username AS mentor_username,
+         mp.display_name AS mentor_display_name,
+         latest_lhc.status AS lesson_hours_status,
+         latest_lhc.proposed_hours, latest_lhc.disputed_hours, latest_lhc.final_hours,
+         latest_lhc.responded_at, latest_lhc.settled_at,
+         COALESCE(rec.recording_count, 0) AS recording_count,
+         COALESCE(rec.active_recording_count, 0) AS active_recording_count,
+         COALESCE(rec.stopped_recording_count, 0) AS stopped_recording_count,
+         rec.latest_recording_status,
+         csr.id AS review_id, csr.overall_score AS review_overall_score, csr.created_at AS review_created_at
+       ${joins}
+       WHERE ${where.join(' AND ')}
+       ORDER BY cs.starts_at DESC, cs.id DESC
+       ${pagingSql(limit, offset)}`,
+      params
+    );
+
+    const classrooms = (rows || []).map((row) => ({
+      ...row,
+      startsAt: toIsoString(row.starts_at),
+      createdAt: toIsoString(row.created_at),
+      updatedAt: toIsoString(row.updated_at),
+      effectiveStatus: getEffectiveClassroomStatus(row),
+      replayStatus: getReplayStatus(row),
+      reviewStatus: getReviewStatus(row),
+    }));
+
+    return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), classrooms });
+  } catch (error) {
+    console.error('Admin classrooms list error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/classrooms/:courseId', requireAdminAuth, async (req: Request, res: Response) => {
+  const courseId = toPositiveInt(req.params.courseId, 0);
+  if (!courseId) return res.status(400).json({ error: '无效课堂ID' });
+
+  try {
+    const rows = await query<any[]>(
+      `SELECT
+         cs.*,
+         sr.public_id AS student_public_id, su.email AS student_email, su.username AS student_username,
+         mr.public_id AS mentor_public_id, mu.email AS mentor_email, mu.username AS mentor_username,
+         mp.display_name AS mentor_display_name,
+         csr.id AS review_id, csr.clarity_score, csr.communication_score, csr.preparation_score,
+         csr.expertise_score, csr.punctuality_score, csr.comment_text, csr.overall_score,
+         csr.created_at AS review_created_at, csr.updated_at AS review_updated_at
+       FROM course_sessions cs
+       JOIN users su ON su.id = cs.student_user_id
+       JOIN users mu ON mu.id = cs.mentor_user_id
+       LEFT JOIN user_roles sr ON sr.user_id = cs.student_user_id AND sr.role = 'student'
+       LEFT JOIN user_roles mr ON mr.user_id = cs.mentor_user_id AND mr.role = 'mentor'
+       LEFT JOIN mentor_profiles mp ON mp.user_id = cs.mentor_user_id
+       LEFT JOIN course_session_reviews csr ON csr.course_session_id = cs.id
+       WHERE cs.id = ?
+       LIMIT 1`,
+      [courseId]
+    );
+    const classroom = rows?.[0];
+    if (!classroom) return res.status(404).json({ error: '未找到课堂' });
+
+    const [lessonRows, recordingRows] = await Promise.all([
+      query<any[]>(
+        `SELECT lhc.*, responded.email AS responded_by_email
+         FROM lesson_hour_confirmations lhc
+         LEFT JOIN users responded ON responded.id = lhc.responded_by_user_id
+         WHERE lhc.course_session_id = ?
+         ORDER BY lhc.id DESC
+         LIMIT 1`,
+        [courseId]
+      ),
+      query<any[]>(
+        `SELECT cr.*, starter.email AS started_by_email
+         FROM classroom_recordings cr
+         LEFT JOIN users starter ON starter.id = cr.started_by_user_id
+         WHERE cr.course_session_id = ?
+         ORDER BY cr.id DESC`,
+        [courseId]
+      ),
+    ]);
+
+    const recordings = (recordingRows || []).map((row) => ({
+      ...row,
+      startedAt: toIsoString(row.started_at),
+      stopRequestedAt: toIsoString(row.stop_requested_at),
+      stoppedAt: toIsoString(row.stopped_at),
+      createdAt: toIsoString(row.created_at),
+      updatedAt: toIsoString(row.updated_at),
+    }));
+    const replayStatus = getReplayStatus({
+      recording_count: recordings.length,
+      active_recording_count: recordings.filter((r: any) => ['starting', 'running', 'stopping'].includes(safeString(r.status, 30))).length,
+      stopped_recording_count: recordings.filter((r: any) => safeString(r.status, 30) === 'stopped').length,
+      latest_recording_status: recordings[0]?.status,
+    });
+
+    const detail = {
+      ...classroom,
+      startsAt: toIsoString(classroom.starts_at),
+      createdAt: toIsoString(classroom.created_at),
+      updatedAt: toIsoString(classroom.updated_at),
+      effectiveStatus: getEffectiveClassroomStatus(classroom),
+      replayStatus,
+      reviewStatus: getReviewStatus(classroom),
+      review: classroom.review_id == null ? null : {
+        id: String(classroom.review_id),
+        overallScore: toNumber(classroom.overall_score, 0),
+        scores: {
+          clarity: toNumber(classroom.clarity_score, 0),
+          communication: toNumber(classroom.communication_score, 0),
+          preparation: toNumber(classroom.preparation_score, 0),
+          expertise: toNumber(classroom.expertise_score, 0),
+          punctuality: toNumber(classroom.punctuality_score, 0),
+        },
+        comment: safeString(classroom.comment_text, 4000),
+        createdAt: toIsoString(classroom.review_created_at),
+        updatedAt: toIsoString(classroom.review_updated_at),
+      },
+      latestLessonHours: lessonRows?.[0] || null,
+      recordings,
+    };
+
+    return res.json({ classroom: detail });
+  } catch (error) {
+    console.error('Admin classroom detail error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/classrooms/:courseId/chat', requireAdminAuth, async (req: Request, res: Response) => {
+  const courseId = toPositiveInt(req.params.courseId, 0);
+  if (!courseId) return res.status(400).json({ error: '无效课堂ID' });
+
+  try {
+    const rows = await query<any[]>(
+      `SELECT
+         cm.id, cm.sender_user_id, cm.message_type, cm.text_content, cm.created_at,
+         u.email, u.username,
+         sr.public_id AS student_public_id,
+         mr.public_id AS mentor_public_id,
+         ctf.file_id, ctf.original_file_name, ctf.content_type, ctf.size_bytes, ctf.ext, ctf.cleanup_status
+       FROM classroom_messages cm
+       LEFT JOIN users u ON u.id = cm.sender_user_id
+       LEFT JOIN user_roles sr ON sr.user_id = cm.sender_user_id AND sr.role = 'student'
+       LEFT JOIN user_roles mr ON mr.user_id = cm.sender_user_id AND mr.role = 'mentor'
+       LEFT JOIN classroom_temp_files ctf ON ctf.classroom_id = cm.classroom_id AND ctf.file_id = cm.file_id
+       WHERE cm.classroom_id = ?
+       ORDER BY cm.id ASC
+       LIMIT 500`,
+      [courseId]
+    );
+
+    const messages = (rows || []).map((row) => ({
+      id: String(row.id),
+      senderUserId: Number(row.sender_user_id),
+      senderLabel: row.student_public_id || row.mentor_public_id || row.username || row.email || `User ${row.sender_user_id}`,
+      messageType: safeString(row.message_type, 20),
+      textContent: safeString(row.text_content, 4000),
+      createdAt: toIsoString(row.created_at),
+      file: row.file_id ? {
+        fileId: safeString(row.file_id, 32),
+        fileName: safeString(row.original_file_name, 255),
+        contentType: safeString(row.content_type, 128),
+        sizeBytes: toNumber(row.size_bytes, 0),
+        ext: safeString(row.ext, 16),
+        cleanupStatus: safeString(row.cleanup_status, 20),
+      } : null,
+    }));
+
+    return res.json({ courseId: String(courseId), messages });
+  } catch (error) {
+    console.error('Admin classroom chat error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/classrooms/:courseId/replay-files', requireAdminAuth, async (req: Request, res: Response) => {
+  const courseId = toPositiveInt(req.params.courseId, 0);
+  if (!courseId) return res.status(400).json({ error: '无效课堂ID' });
+
+  try {
+    await ensureClassroomRecordingsTable();
+    const recordingRows = await query<Array<{ storage_prefix: string | null }>>(
+      `SELECT storage_prefix
+       FROM classroom_recordings
+       WHERE course_session_id = ?
+         AND status IN ('running', 'stopping', 'stopped')
+       ORDER BY id DESC
+       LIMIT 20`,
+      [courseId]
+    );
+    const storagePrefixes = Array.from(new Set((recordingRows || [])
+      .map((row) => safeString(row.storage_prefix, 512))
+      .filter(Boolean)));
+    const replayFiles = await listReplayMp4Files(storagePrefixes);
+    if (!replayFiles) return res.status(500).json({ error: 'recording_storage_unconfigured' });
+    return res.json({ courseId: String(courseId), files: replayFiles.files, expiresAt: replayFiles.expiresAt });
+  } catch (error) {
+    console.error('Admin classroom replay files error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: Request, res: Response) => {
+  const courseId = toPositiveInt(req.params.courseId, 0);
+  if (!courseId) return res.status(400).json({ error: '无效课堂ID' });
+
+  const runtime = getAliyunLiveRuntimeConfig();
+  if (!runtime) return res.status(500).json({ error: '实时音视频配置缺失' });
+
+  try {
+    const rows = await query<any[]>(
+      `SELECT
+         cs.id, cs.status, cs.starts_at, cs.duration_hours,
+         cs.student_user_id, cs.mentor_user_id,
+         sr.public_id AS student_public_id,
+         mr.public_id AS mentor_public_id,
+         su.username AS student_username,
+         mu.username AS mentor_username,
+         mp.display_name AS mentor_display_name
+       FROM course_sessions cs
+       LEFT JOIN users su ON su.id = cs.student_user_id
+       LEFT JOIN users mu ON mu.id = cs.mentor_user_id
+       LEFT JOIN user_roles sr ON sr.user_id = cs.student_user_id AND sr.role = 'student'
+       LEFT JOIN user_roles mr ON mr.user_id = cs.mentor_user_id AND mr.role = 'mentor'
+       LEFT JOIN mentor_profiles mp ON mp.user_id = cs.mentor_user_id
+       WHERE cs.id = ?
+       LIMIT 1`,
+      [courseId]
+    );
+    const classroom = rows?.[0];
+    if (!classroom) return res.status(404).json({ error: '未找到课堂' });
+
+    const roomId = `course_${courseId}`;
+    const expires = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+    const studentPublicId = safeString(classroom.student_public_id, 64) || `s${classroom.student_user_id}`;
+    const mentorPublicId = safeString(classroom.mentor_public_id, 64) || `m${classroom.mentor_user_id}`;
+    const studentAuth = createAliyunLiveStreamAuthInfo({
+      appId: runtime.appId,
+      appKey: runtime.appKey,
+      roomId,
+      userId: studentPublicId,
+      timestamp: expires,
+    });
+    const mentorAuth = createAliyunLiveStreamAuthInfo({
+      appId: runtime.appId,
+      appKey: runtime.appKey,
+      roomId,
+      userId: mentorPublicId,
+      timestamp: expires,
+    });
+
+    return res.json({
+      courseId: String(courseId),
+      mode: 'readonly-observer',
+      roomId,
+      expiresAt: new Date(expires * 1000).toISOString(),
+      status: classroom.status,
+      effectiveStatus: getEffectiveClassroomStatus(classroom),
+      startsAt: toIsoString(classroom.starts_at),
+      durationHours: toNumber(classroom.duration_hours, 0),
+      streams: [
+        {
+          role: 'student',
+          userId: studentPublicId,
+          label: safeString(classroom.student_username, 100) || studentPublicId,
+          playUrl: studentAuth.playUrl,
+        },
+        {
+          role: 'mentor',
+          userId: mentorPublicId,
+          label: safeString(classroom.mentor_display_name, 100) || safeString(classroom.mentor_username, 100) || mentorPublicId,
+          playUrl: mentorAuth.playUrl,
+        },
+      ],
+    });
+  } catch (error) {
+    console.error('Admin classroom observer auth error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });
