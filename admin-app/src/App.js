@@ -10,7 +10,6 @@ import {
   faMagnifyingGlass,
   faRightFromBracket,
   faRotateRight,
-  faShieldHalved,
   faTriangleExclamation,
   faUsers,
   faXmark,
@@ -22,7 +21,6 @@ const navItems = [
   { to: '/users', label: '学生管理', icon: faUsers },
   { to: '/mentors/reviews', label: '导师管理', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
-  { to: '/reports', label: '举报风控', icon: faShieldHalved },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
 ];
 
@@ -243,7 +241,6 @@ function Shell({ admin, onLogout }) {
           <Route path="/users" element={<UsersPage />} />
           <Route path="/mentors/reviews" element={<MentorReviewsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
@@ -263,7 +260,6 @@ function Dashboard() {
       ['已支付订单', asNumber(d.orders?.paidOrders), `累计 CNY ${asNumber(d.orders?.paidAmountCny).toFixed(2)}`],
       ['课程排期', asNumber(d.courses?.scheduledCourses), 'scheduled'],
       ['课时确认', asNumber(d.lessonHours?.pendingLessonHours), 'pending / disputed / platform_review'],
-      ['风控工单', asNumber(d.reports?.openReports), 'open / reviewing'],
     ];
   }, [data]);
 
@@ -709,113 +705,6 @@ function OrdersPage() {
           ])}
         />
       </State>
-    </section>
-  );
-}
-
-function ReportsPage() {
-  const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
-  const [severity, setSeverity] = useState('');
-  const [reload, setReload] = useState(0);
-  const [dialog, setDialog] = useState(null);
-  const [form, setForm] = useState({ title: '', severity: 'medium', targetType: 'user', targetId: '', targetUserId: '', description: '', reason: '' });
-  const { loading, error, data } = useAsync(
-    () => api('/api/admin/reports', { params: { q, status, severity, limit: 50 } }),
-    [q, status, severity, reload]
-  );
-
-  const createReport = async (event) => {
-    event.preventDefault();
-    await api('/api/admin/reports', {
-      method: 'POST',
-      body: {
-        title: form.title,
-        severity: form.severity,
-        targetType: form.targetType,
-        targetId: form.targetId,
-        targetUserId: form.targetUserId,
-        description: form.description,
-        reason: form.reason,
-      },
-    });
-    setForm({ title: '', severity: 'medium', targetType: 'user', targetId: '', targetUserId: '', description: '', reason: '' });
-    setReload((n) => n + 1);
-  };
-
-  const updateReport = async (reason) => {
-    await api(`/api/admin/reports/${dialog.report.id}`, {
-      method: 'PATCH',
-      body: { status: dialog.status, reason },
-    });
-    setDialog(null);
-    setReload((n) => n + 1);
-  };
-
-  return (
-    <section>
-      <PageTitle title="举报 / 风控中心" subtitle="人工创建和处理风控工单" />
-      <form className="inline-form" onSubmit={createReport}>
-        <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="工单标题" />
-        <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
-          <option value="low">low</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-          <option value="critical">critical</option>
-        </select>
-        <input value={form.targetType} onChange={(e) => setForm({ ...form, targetType: e.target.value })} placeholder="目标类型 user/order/appointment" />
-        <input value={form.targetId} onChange={(e) => setForm({ ...form, targetId: e.target.value })} placeholder="目标ID" />
-        <input value={form.targetUserId} onChange={(e) => setForm({ ...form, targetUserId: e.target.value })} placeholder="目标用户ID" />
-        <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="创建原因" />
-        <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="描述" />
-        <button type="submit" disabled={!form.title || !form.targetType || !form.targetId || form.reason.trim().length < 2}>创建工单</button>
-      </form>
-      <Toolbar>
-        <SearchBox value={q} onChange={setQ} placeholder="搜索工单、目标、用户邮箱" />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部状态</option>
-          <option value="open">open</option>
-          <option value="reviewing">reviewing</option>
-          <option value="resolved">resolved</option>
-          <option value="dismissed">dismissed</option>
-        </select>
-        <select value={severity} onChange={(event) => setSeverity(event.target.value)}>
-          <option value="">全部等级</option>
-          <option value="low">low</option>
-          <option value="medium">medium</option>
-          <option value="high">high</option>
-          <option value="critical">critical</option>
-        </select>
-      </Toolbar>
-      <State loading={loading} error={error}>
-        <DataTable
-          columns={['工单ID', '标题', '等级', '状态', '目标', '用户', '创建时间', '操作']}
-          rows={(data?.reports || []).map((report) => [
-            report.id,
-            report.title,
-            <Badge value={report.severity} />,
-            <Badge value={report.status} />,
-            `${report.target_type}:${report.target_id}`,
-            report.target_user_email || report.target_user_id || '-',
-            formatDate(report.created_at),
-            <select
-              value=""
-              onChange={(event) => event.target.value && setDialog({ title: '更新风控工单', report, status: event.target.value })}
-            >
-              <option value="">处理</option>
-              <option value="open">open</option>
-              <option value="reviewing">reviewing</option>
-              <option value="resolved">resolved</option>
-              <option value="dismissed">dismissed</option>
-            </select>,
-          ])}
-        />
-      </State>
-      <ReasonDialog
-        config={dialog ? { title: dialog.title, description: `工单 ${dialog.report.id} 将调整为 ${dialog.status}` } : null}
-        onClose={() => setDialog(null)}
-        onSubmit={updateReport}
-      />
     </section>
   );
 }

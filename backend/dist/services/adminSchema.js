@@ -67,32 +67,6 @@ const ensureAdminSchema = async () => {
       KEY idx_admin_audit_logs_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
-    await (0, db_1.query)(`
-    CREATE TABLE IF NOT EXISTS risk_reports (
-      id BIGINT NOT NULL AUTO_INCREMENT,
-      status ENUM('open','reviewing','resolved','dismissed') NOT NULL DEFAULT 'open',
-      severity ENUM('low','medium','high','critical') NOT NULL DEFAULT 'medium',
-      source VARCHAR(40) NOT NULL DEFAULT 'admin',
-      reporter_user_id INT NULL,
-      target_type VARCHAR(60) NOT NULL,
-      target_id VARCHAR(80) NOT NULL,
-      target_user_id INT NULL,
-      title VARCHAR(200) NOT NULL,
-      description TEXT NULL,
-      resolution_note TEXT NULL,
-      assigned_admin_id BIGINT NULL,
-      created_by_admin_id BIGINT NULL,
-      updated_by_admin_id BIGINT NULL,
-      resolved_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      KEY idx_risk_reports_status_severity (status, severity),
-      KEY idx_risk_reports_target (target_type, target_id),
-      KEY idx_risk_reports_target_user (target_user_id),
-      KEY idx_risk_reports_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
     await addColumnIfMissing("ALTER TABLE users ADD COLUMN account_status ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER last_login_at");
     await addColumnIfMissing('ALTER TABLE users ADD COLUMN suspended_at TIMESTAMP NULL DEFAULT NULL AFTER account_status');
     await addColumnIfMissing('ALTER TABLE users ADD COLUMN suspended_reason TEXT NULL AFTER suspended_at');

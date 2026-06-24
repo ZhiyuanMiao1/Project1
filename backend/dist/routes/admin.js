@@ -13,8 +13,6 @@ const refreshTokens_1 = require("../auth/refreshTokens");
 const ossClient_1 = require("../services/ossClient");
 const router = (0, express_1.Router)();
 const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
-const REPORT_STATUSES = new Set(['open', 'reviewing', 'resolved', 'dismissed']);
-const REPORT_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
 const USER_STATUSES = new Set(['active', 'suspended']);
 const safeString = (value, max = 255) => {
     const text = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
@@ -193,7 +191,7 @@ router.get('/auth/me', adminAuth_1.requireAdminAuth, async (req, res) => {
 });
 router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res) => {
     try {
-        const [userRows, roleRows, mentorRows, orderRows, courseRows, lessonRows, reportRows,] = await Promise.all([
+        const [userRows, roleRows, mentorRows, orderRows, courseRows, lessonRows,] = await Promise.all([
             (0, db_1.query)(`SELECT
            COUNT(*) AS totalUsers,
            SUM(CASE WHEN account_status = 'suspended' THEN 1 ELSE 0 END) AS suspendedUsers,
@@ -216,7 +214,6 @@ router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res)
          FROM billing_orders`),
             (0, db_1.query)('SELECT COUNT(*) AS scheduledCourses FROM course_sessions WHERE status = "scheduled"'),
             (0, db_1.query)("SELECT COUNT(*) AS pendingLessonHours FROM lesson_hour_confirmations WHERE status IN ('pending','disputed','platform_review')"),
-            (0, db_1.query)("SELECT COUNT(*) AS openReports FROM risk_reports WHERE status IN ('open','reviewing')"),
         ]);
         return res.json({
             users: userRows?.[0] || {},
@@ -225,7 +222,6 @@ router.get('/dashboard/summary', adminAuth_1.requireAdminAuth, async (_req, res)
             orders: orderRows?.[0] || {},
             courses: courseRows?.[0] || {},
             lessonHours: lessonRows?.[0] || {},
-            reports: reportRows?.[0] || {},
         });
     }
     catch (error) {
@@ -706,134 +702,6 @@ router.patch('/orders/:orderId/status', adminAuth_1.requireAdminAuth, async (req
     }
     catch (error) {
         console.error('Admin update order status error:', error);
-        return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-});
-router.get('/reports', adminAuth_1.requireAdminAuth, async (req, res) => {
-    const { page, limit, offset } = getPaging(req);
-    const q = safeString(req.query.q, 100);
-    const status = safeString(req.query.status, 30);
-    const severity = safeString(req.query.severity, 30);
-    const where = ['1=1'];
-    const params = [];
-    if (status && REPORT_STATUSES.has(status)) {
-        where.push('rr.status = ?');
-        params.push(status);
-    }
-    if (severity && REPORT_SEVERITIES.has(severity)) {
-        where.push('rr.severity = ?');
-        params.push(severity);
-    }
-    if (q) {
-        const like = `%${escapeLike(q)}%`;
-        const id = Number.parseInt(q, 10);
-        where.push(`(
-      rr.title LIKE ? ESCAPE '\\\\'
-      OR rr.target_type LIKE ? ESCAPE '\\\\'
-      OR rr.target_id LIKE ? ESCAPE '\\\\'
-      OR tu.email LIKE ? ESCAPE '\\\\'
-      ${Number.isFinite(id) && id > 0 ? 'OR rr.id = ?' : ''}
-    )`);
-        params.push(like, like, like, like);
-        if (Number.isFinite(id) && id > 0)
-            params.push(id);
-    }
-    try {
-        const countRows = await (0, db_1.query)(`SELECT COUNT(*) AS total
-       FROM risk_reports rr
-       LEFT JOIN users tu ON tu.id = rr.target_user_id
-       WHERE ${where.join(' AND ')}`, params);
-        const rows = await (0, db_1.query)(`SELECT rr.*, tu.email AS target_user_email, au.username AS assigned_admin_username
-       FROM risk_reports rr
-       LEFT JOIN users tu ON tu.id = rr.target_user_id
-       LEFT JOIN admin_users au ON au.id = rr.assigned_admin_id
-       WHERE ${where.join(' AND ')}
-       ORDER BY FIELD(rr.status, 'open','reviewing','resolved','dismissed'), FIELD(rr.severity, 'critical','high','medium','low'), rr.created_at DESC
-       ${pagingSql(limit, offset)}`, params);
-        return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), reports: rows || [] });
-    }
-    catch (error) {
-        console.error('Admin reports list error:', error);
-        return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-});
-router.post('/reports', adminAuth_1.requireAdminAuth, async (req, res) => {
-    const title = safeString(req.body?.title, 200);
-    const severity = safeString(req.body?.severity || 'medium', 30);
-    const targetType = safeString(req.body?.targetType, 60);
-    const targetId = safeString(req.body?.targetId, 80);
-    const targetUserIdRaw = toPositiveInt(req.body?.targetUserId, 0);
-    const reporterUserIdRaw = toPositiveInt(req.body?.reporterUserId, 0);
-    const description = safeString(req.body?.description, 5000);
-    const reason = readReason(req);
-    if (!title || !targetType || !targetId)
-        return res.status(400).json({ error: '请填写工单标题和关联目标' });
-    if (!REPORT_SEVERITIES.has(severity))
-        return res.status(400).json({ error: '无效风险等级' });
-    if (!reason)
-        return res.status(400).json({ error: '请填写创建原因' });
-    try {
-        const result = await (0, db_1.query)(`INSERT INTO risk_reports
-         (status, severity, source, reporter_user_id, target_type, target_id, target_user_id, title, description,
-          assigned_admin_id, created_by_admin_id, updated_by_admin_id)
-       VALUES ('open', ?, 'admin', ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
-            severity,
-            reporterUserIdRaw || null,
-            targetType,
-            targetId,
-            targetUserIdRaw || null,
-            title,
-            description || null,
-            req.admin.adminId,
-            req.admin.adminId,
-            req.admin.adminId,
-        ]);
-        const reportId = Number(result?.insertId || 0);
-        const afterRows = await (0, db_1.query)('SELECT * FROM risk_reports WHERE id = ? LIMIT 1', [reportId]);
-        const after = afterRows?.[0];
-        await audit({ req, action: 'risk_report.create', targetType: 'risk_report', targetId: reportId, reason, after });
-        return res.status(201).json({ report: after });
-    }
-    catch (error) {
-        console.error('Admin create report error:', error);
-        return res.status(500).json({ error: '服务器错误，请稍后再试' });
-    }
-});
-router.patch('/reports/:reportId', adminAuth_1.requireAdminAuth, async (req, res) => {
-    const reportId = toPositiveInt(req.params.reportId, 0);
-    const status = safeString(req.body?.status, 30);
-    const severity = safeString(req.body?.severity, 30);
-    const resolutionNote = safeString(req.body?.resolutionNote, 5000);
-    const reason = readReason(req);
-    if (!reportId)
-        return res.status(400).json({ error: '无效工单ID' });
-    if (status && !REPORT_STATUSES.has(status))
-        return res.status(400).json({ error: '无效工单状态' });
-    if (severity && !REPORT_SEVERITIES.has(severity))
-        return res.status(400).json({ error: '无效风险等级' });
-    if (!reason)
-        return res.status(400).json({ error: '请填写操作原因' });
-    try {
-        const beforeRows = await (0, db_1.query)('SELECT * FROM risk_reports WHERE id = ? LIMIT 1', [reportId]);
-        const before = beforeRows?.[0];
-        if (!before)
-            return res.status(404).json({ error: '未找到风控工单' });
-        const nextStatus = status || before.status;
-        const nextSeverity = severity || before.severity;
-        await (0, db_1.query)(`UPDATE risk_reports
-       SET status = ?,
-           severity = ?,
-           resolution_note = ?,
-           updated_by_admin_id = ?,
-           resolved_at = CASE WHEN ? IN ('resolved','dismissed') THEN COALESCE(resolved_at, CURRENT_TIMESTAMP) ELSE NULL END
-       WHERE id = ?`, [nextStatus, nextSeverity, resolutionNote || before.resolution_note || null, req.admin.adminId, nextStatus, reportId]);
-        const afterRows = await (0, db_1.query)('SELECT * FROM risk_reports WHERE id = ? LIMIT 1', [reportId]);
-        const after = afterRows?.[0];
-        await audit({ req, action: 'risk_report.update', targetType: 'risk_report', targetId: reportId, reason, before, after });
-        return res.json({ report: after });
-    }
-    catch (error) {
-        console.error('Admin update report error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
