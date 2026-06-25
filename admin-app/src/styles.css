@@ -332,11 +332,45 @@ th {
   background: #fbfcfe;
 }
 
+.classrooms-table th:nth-child(3),
+.classrooms-table td:nth-child(3) {
+  width: 96px;
+  padding-right: 12px;
+}
+
+.classrooms-table td:nth-child(3) {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
 .classrooms-table th:nth-child(4),
 .classrooms-table td:nth-child(4) {
-  width: 56px;
-  padding-left: 8px;
-  padding-right: 8px;
+  width: 44px;
+  padding-left: 10px;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+
+.classrooms-table th:nth-child(6),
+.classrooms-table td:nth-child(6),
+.classrooms-table th:nth-child(11),
+.classrooms-table td:nth-child(11) {
+  min-width: 44px;
+  white-space: nowrap;
+}
+
+.classrooms-table td:nth-child(9) {
+  min-width: 86px;
+}
+
+.lesson-hours-summary {
+  display: grid;
+  gap: 3px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.lesson-hours-summary span {
   white-space: nowrap;
 }
 
@@ -496,6 +530,11 @@ tr:last-child td {
 .badge-medium {
   background: #e7f0ff;
   color: #1f5eaa;
+}
+
+.badge-platform_review {
+  background: #f0e8ff;
+  color: #6d28d9;
 }
 
 .drawer {

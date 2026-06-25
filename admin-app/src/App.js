@@ -860,7 +860,11 @@ const getLessonHoursSummary = (row) => {
     row.disputed_hours ? `争议 ${formatHours(row.disputed_hours)}` : '',
     row.final_hours ? `最终 ${formatHours(row.final_hours)}` : '',
   ].filter(Boolean);
-  return parts.join(' / ');
+  return (
+    <div className="lesson-hours-summary">
+      {parts.map((part) => <span key={part}>{part}</span>)}
+    </div>
+  );
 };
 
 function ReplayDialog({ course, onClose }) {
