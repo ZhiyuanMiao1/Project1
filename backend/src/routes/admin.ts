@@ -138,7 +138,6 @@ const getEffectiveClassroomStatus = (row: any) => {
 const getReplayStatus = (row: any) => {
   const recordingCount = toNumber(row?.recording_count, 0);
   if (!recordingCount) return 'none';
-  if (toNumber(row?.active_recording_count, 0) > 0) return 'running';
   if (toNumber(row?.stopped_recording_count, 0) > 0) return 'ready';
   return safeString(row?.latest_recording_status, 30).toLowerCase() === 'failed' ? 'failed' : 'none';
 };
