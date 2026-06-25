@@ -878,6 +878,7 @@ function ReplayDialog({ course, onClose }) {
   return (
     <div className="modal-backdrop" role="presentation">
       <div className="modal wide-modal" role="dialog" aria-modal="true" aria-labelledby="replay-title">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="关闭">×</button>
         <h2 id="replay-title">课堂回放 #{courseId}</h2>
         <State loading={loading} error={error}>
           <div className="replay-list">
@@ -895,9 +896,6 @@ function ReplayDialog({ course, onClose }) {
             )) : <div className="empty">暂无 MP4 回放</div>}
           </div>
         </State>
-        <div className="modal-actions">
-          <button className="ghost" onClick={onClose}>关闭</button>
-        </div>
       </div>
     </div>
   );
@@ -978,7 +976,7 @@ function ClassroomsPage() {
               <button className="ghost" type="button" title="查看回放" onClick={() => setReplayCourse(item)}>
                 <FontAwesomeIcon icon={faVideo} />
               </button>
-              <button type="button" onClick={() => setDetail(item.id)}>详情</button>
+              <button className="detail-action" type="button" onClick={() => setDetail(item.id)}>详情</button>
             </div>,
           ])}
         />
