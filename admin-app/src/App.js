@@ -816,10 +816,48 @@ function MentorDrawer({ userId, onClose }) {
 function OrdersPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/orders', { params: { q, status, limit: 50 } }),
     [q, status]
   );
+
+  const orders = useMemo(() => {
+    const sorted = [...(data?.orders || [])];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+
+      if (sort.field === 'created_at') {
+        comparison = (new Date(a.created_at).getTime() || 0) - (new Date(b.created_at).getTime() || 0);
+      } else if (sort.field === 'student_public_id') {
+        comparison = String(a.student_public_id || '').localeCompare(
+          String(b.student_public_id || ''),
+          'zh-CN',
+          { numeric: true, sensitivity: 'base' }
+        );
+      } else {
+        comparison = asNumber(a[sort.field]) - asNumber(b[sort.field]);
+      }
+
+      return sort.direction === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [data?.orders, sort]);
+
+  const updateSort = (field, direction) => {
+    setSort({ field, direction });
+  };
+
+  const orderColumns = [
+    <SortHeader label={'\u8ba2\u5355ID'} field="id" sort={sort} onSort={updateSort} />,
+    <SortHeader label="StudentID" field="student_public_id" sort={sort} onSort={updateSort} />,
+    '\u90ae\u7bb1',
+    'Provider',
+    '\u72b6\u6001',
+    <SortHeader label={'\u8bfe\u65f6'} field="topup_hours" sort={sort} onSort={updateSort} />,
+    <SortHeader label={'\u91d1\u989d'} field="amount_cny" sort={sort} onSort={updateSort} />,
+    <SortHeader label={'\u521b\u5efa\u65f6\u95f4'} field="created_at" sort={sort} onSort={updateSort} />,
+  ];
 
   return (
     <section>
@@ -836,8 +874,8 @@ function OrdersPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
-          columns={['订单ID', 'StudentID', '邮箱', 'Provider', '状态', '课时', '金额', '创建时间']}
-          rows={(data?.orders || []).map((order) => [
+          columns={orderColumns}
+          rows={orders.map((order) => [
             order.id,
             order.student_public_id || '-',
             order.email || '-',
@@ -911,12 +949,48 @@ function ClassroomsPage() {
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [replayCourse, setReplayCourse] = useState(null);
+  const [sort, setSort] = useState({ field: 'starts_at', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/classrooms', {
       params: { q, status, lessonHoursStatus, replayStatus, startDate, endDate, limit: 80 },
     }),
     [q, status, lessonHoursStatus, replayStatus, startDate, endDate, reload]
   );
+
+  const classrooms = useMemo(() => {
+    const sorted = [...(data?.classrooms || [])];
+    sorted.sort((a, b) => {
+      let comparison = 0;
+
+      if (sort.field === 'starts_at') {
+        comparison = (new Date(a.startsAt || a.starts_at).getTime() || 0) - (new Date(b.startsAt || b.starts_at).getTime() || 0);
+      } else {
+        comparison = asNumber(a[sort.field]) - asNumber(b[sort.field]);
+      }
+
+      return sort.direction === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [data?.classrooms, sort]);
+
+  const updateSort = (field, direction) => {
+    setSort({ field, direction });
+  };
+
+  const classroomColumns = [
+    <SortHeader label="课堂ID" field="id" sort={sort} onSort={updateSort} />,
+    '课程方向 / 类型',
+    <SortHeader label="上课时间" field="starts_at" sort={sort} onSort={updateSort} />,
+    <SortHeader label="时长" field="duration_hours" sort={sort} onSort={updateSort} />,
+    '课堂状态',
+    '学生',
+    '导师',
+    '课时确认',
+    '课时数',
+    '回放',
+    '评价',
+    '操作',
+  ];
 
   const openWatch = (courseId) => {
     window.open(`/classrooms/${encodeURIComponent(courseId)}/watch`, '_blank', 'noopener,noreferrer');
@@ -955,9 +1029,9 @@ function ClassroomsPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
-          columns={['课堂ID', '课程方向 / 类型', '上课时间', '时长', '课堂状态', '学生', '导师', '课时确认', '课时数', '回放', '评价', '操作']}
+          columns={classroomColumns}
           className="classrooms-table"
-          rows={(data?.classrooms || []).map((item) => [
+          rows={classrooms.map((item) => [
             item.id,
             formatCourseDirectionType(item.course_direction, item.course_type),
             formatDate(item.startsAt || item.starts_at),

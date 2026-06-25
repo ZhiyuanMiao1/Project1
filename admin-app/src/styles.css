@@ -332,6 +332,17 @@ th {
   background: #fbfcfe;
 }
 
+.classrooms-table th:nth-child(1),
+.classrooms-table td:nth-child(1) {
+  width: 70px;
+  padding-right: 8px;
+}
+
+.classrooms-table th:nth-child(2),
+.classrooms-table td:nth-child(2) {
+  padding-left: 11px;
+}
+
 .classrooms-table th:nth-child(3),
 .classrooms-table td:nth-child(3) {
   width: 96px;
@@ -423,7 +434,7 @@ th {
 .sort-header {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 3px;
   color: inherit;
   font: inherit;
 }
