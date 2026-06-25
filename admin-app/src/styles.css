@@ -360,7 +360,9 @@ th {
 }
 
 .classrooms-table td:nth-child(9) {
-  min-width: 86px;
+  min-width: 74px;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .classrooms-table th:nth-child(10),
@@ -394,7 +396,7 @@ th {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
 }
 
