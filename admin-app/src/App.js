@@ -77,6 +77,79 @@ const formatHours = (value) => {
   return `${Number.isInteger(rounded) ? rounded : String(rounded).replace(/0+$/, '').replace(/\.$/, '')}h`;
 };
 
+const formatHourValue = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return '-';
+  const rounded = Math.round(n * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/0+$/, '').replace(/\.$/, '');
+};
+
+const courseDirectionLabels = {
+  'cs-foundation': '\u7f16\u7a0b\u57fa\u7840',
+  algo: '\u6570\u636e\u7ed3\u6784\u4e0e\u7b97\u6cd5',
+  ml: '\u673a\u5668\u5b66\u4e60',
+  'ai-large-model': 'AI \u5927\u6a21\u578b',
+  'data-analysis': '\u6570\u636e\u5206\u6790',
+  'business-analytics': '\u5546\u4e1a\u5206\u6790',
+  'advanced-math': '\u9ad8\u7b49\u6570\u5b66',
+  statistics: '\u6982\u7387\u4e0e\u7edf\u8ba1',
+  physics: '\u7269\u7406\u5b66',
+  'electrical-electronics': '\u7535\u6c14\u4e0e\u7535\u5b50',
+  'mechanical-engineering': '\u673a\u68b0\u5de5\u7a0b',
+  'civil-structural': '\u571f\u6728 / \u7ed3\u6784',
+  'life-science': '\u751f\u547d\u79d1\u5b66',
+  'public-health': '\u5065\u5eb7\u4e0e\u516c\u5171\u536b\u751f',
+  chemistry: '\u5316\u5b66',
+  'materials-science': '\u6750\u6599\u79d1\u5b66',
+  'software-engineering': '\u8f6f\u4ef6\u5de5\u7a0b',
+  'cloud-computing': '\u4e91\u8ba1\u7b97',
+  cybersecurity: '\u7f51\u7edc\u5b89\u5168',
+  finance: '\u91d1\u878d\u5b66',
+  accounting: '\u4f1a\u8ba1\u5b66',
+  economics: '\u7ecf\u6d4e\u5b66',
+  marketing: '\u5e02\u573a\u8425\u9500',
+  management: '\u7ba1\u7406\u5b66',
+  operations: '\u7ba1\u7406\u5b66',
+  'project-management': '\u7ba1\u7406\u5b66',
+  psychology: '\u5fc3\u7406\u5b66',
+  education: '\u6559\u80b2\u5b66',
+  'design-creative': '\u8bbe\u8ba1 / \u521b\u610f',
+  linguistics: '\u8bed\u8a00\u5b66',
+  'communication-studies': '\u4f20\u64ad\u5b66',
+  law: '\u6cd5\u5f8b',
+  writing: '\u8bba\u6587\u5199\u4f5c\u4e0e\u6da6\u8272',
+  'career-coaching': '\u6c42\u804c\u8f85\u5bfc',
+  others: '\u5176\u5b83\u8bfe\u7a0b\u65b9\u5411',
+};
+
+const courseTypeLabels = {
+  'course-selection': '\u9009\u8bfe\u6307\u5bfc',
+  'pre-study': '\u8bfe\u524d\u9884\u4e60',
+  'assignment-project': '\u4f5c\u4e1a\u9879\u76ee',
+  'final-review': '\u671f\u672b\u590d\u4e60',
+  'in-class-support': '\u6bd5\u4e1a\u8bba\u6587',
+  others: '\u5176\u5b83\u7c7b\u578b',
+};
+
+const formatCourseDirection = (value) => {
+  const key = String(value || '').trim();
+  if (!key) return '-';
+  return courseDirectionLabels[key] || key;
+};
+
+const formatCourseType = (value) => {
+  const key = String(value || '').trim();
+  if (!key) return '-';
+  return courseTypeLabels[key] || key;
+};
+
+const formatCourseDirectionType = (direction, type) => (
+  <div className="course-kind-cell">
+    <span>{formatCourseDirection(direction)}</span>
+    <span>{formatCourseType(type)}</span>
+  </div>
+);
+
 const formatFileSize = (value) => {
   const bytes = Number(value);
   if (!Number.isFinite(bytes) || bytes <= 0) return '-';
@@ -93,6 +166,12 @@ const formatFileSize = (value) => {
 const asNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+};
+
+const formatReviewScore = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return n.toFixed(1);
 };
 
 const parseUrlList = (value) => {
@@ -528,9 +607,9 @@ function DetailGrid({ items }) {
   );
 }
 
-function DataTable({ columns, rows, compact = false }) {
+function DataTable({ columns, rows, compact = false, className = '' }) {
   return (
-    <div className={`table-wrap ${compact ? 'compact' : ''}`}>
+    <div className={`table-wrap ${compact ? 'compact' : ''} ${className}`.trim()}>
       <table>
         <thead>
           <tr>{columns.map((col, index) => <th key={index}>{col}</th>)}</tr>
@@ -875,18 +954,19 @@ function ClassroomsPage() {
       <State loading={loading} error={error}>
         <DataTable
           columns={['课堂ID', '课程方向 / 类型', '上课时间', '时长', '课堂状态', '学生', '导师', '课时确认', '课时数', '回放', '评价', '操作']}
+          className="classrooms-table"
           rows={(data?.classrooms || []).map((item) => [
             item.id,
-            [item.course_direction || '-', item.course_type || '-'].join(' / '),
+            formatCourseDirectionType(item.course_direction, item.course_type),
             formatDate(item.startsAt || item.starts_at),
-            formatHours(item.duration_hours),
+            formatHourValue(item.duration_hours),
             <Badge value={item.effectiveStatus || item.status} />,
             <strong>{item.student_public_id || '-'}</strong>,
             <div className="stacked-cell"><strong>{item.mentor_public_id || '-'}</strong><span>{item.mentor_display_name || item.mentor_email || '-'}</span></div>,
             <Badge value={item.lesson_hours_status || 'none'} />,
             getLessonHoursSummary(item),
             <Badge value={item.replayStatus} />,
-            item.reviewStatus === 'reviewed' ? `已评价 ${asNumber(item.review_overall_score).toFixed(1)}` : '未评价',
+            item.reviewStatus === 'reviewed' ? formatReviewScore(item.review_overall_score) : '-',
             <div className="row-actions">
               <button className="ghost" type="button" title="进入课堂" onClick={() => openWatch(item.id)}>
                 <FontAwesomeIcon icon={faEye} />
@@ -919,8 +999,8 @@ function ClassroomDrawer({ courseId, onClose }) {
         <h2>课堂 #{classroom.id}</h2>
         <DetailGrid
           items={[
-            ['课程方向', classroom.course_direction],
-            ['课程类型', classroom.course_type],
+            ['课程方向', formatCourseDirection(classroom.course_direction)],
+            ['课程类型', formatCourseType(classroom.course_type)],
             ['上课时间', formatDate(classroom.startsAt || classroom.starts_at)],
             ['预约时长', formatHours(classroom.duration_hours)],
             ['原始状态', <Badge value={classroom.status} />],

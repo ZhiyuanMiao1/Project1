@@ -332,6 +332,14 @@ th {
   background: #fbfcfe;
 }
 
+.classrooms-table th:nth-child(4),
+.classrooms-table td:nth-child(4) {
+  width: 56px;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
 .sort-header {
   display: inline-flex;
   align-items: center;
@@ -390,6 +398,18 @@ tr:last-child td {
 .stacked-cell span {
   color: #66758d;
   font-size: 13px;
+}
+
+.course-kind-cell {
+  display: grid;
+  gap: 3px;
+  max-width: 150px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.course-kind-cell span {
+  overflow-wrap: anywhere;
 }
 
 .text-action {
