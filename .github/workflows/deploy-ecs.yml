@@ -42,3 +42,84 @@ jobs:                                                                # 任务集
             sudo systemctl reload nginx                              # 重载 Nginx
             curl -I http://127.0.0.1/ | head -n 1                    # 简单检查首页返回
             echo "✅ Deploy finished"                                # 输出完成信息
+
+      - name: Install and configure Alibaba Cloud CLI                 # 安装并配置阿里云 CLI
+        env:
+          ALIBABA_CLOUD_ACCESS_KEY_ID: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_ID }}
+          ALIBABA_CLOUD_ACCESS_KEY_SECRET: ${{ secrets.ALIBABA_CLOUD_ACCESS_KEY_SECRET }}
+        run: |
+          set -euo pipefail
+          : "${ALIBABA_CLOUD_ACCESS_KEY_ID:?Missing GitHub secret ALIBABA_CLOUD_ACCESS_KEY_ID}"
+          : "${ALIBABA_CLOUD_ACCESS_KEY_SECRET:?Missing GitHub secret ALIBABA_CLOUD_ACCESS_KEY_SECRET}"
+          curl -fsSL https://aliyuncli.alicdn.com/install.sh -o aliyun-install.sh
+          sudo bash aliyun-install.sh
+          aliyun configure set \
+            --mode AK \
+            --region cn-hangzhou \
+            --access-key-id "$ALIBABA_CLOUD_ACCESS_KEY_ID" \
+            --access-key-secret "$ALIBABA_CLOUD_ACCESS_KEY_SECRET"
+
+      - name: Collect frontend static asset URLs                      # 收集前端静态资源 URL
+        id: esa_assets
+        env:
+          ECS_HOST: ${{ secrets.ECS_HOST }}
+          ECS_SSH_KEY: ${{ secrets.ECS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          key_file="$(mktemp)"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s\n' "$ECS_SSH_KEY" > "$key_file"
+          chmod 600 "$key_file"
+
+          asset_urls="$(
+            ssh -i "$key_file" -o StrictHostKeyChecking=no -p 22 "ecs-user@$ECS_HOST" '
+              set -e
+              FRONTEND_BUILD_DIR="/opt/mentory/my-app/build"
+              if [ ! -d "$FRONTEND_BUILD_DIR/static" ]; then
+                FRONTEND_BUILD_DIR="/var/www/mentory"
+              fi
+              find "$FRONTEND_BUILD_DIR/static" -type f \( -name "*.js" -o -name "*.css" \) -printf "%p\n" \
+                | sort \
+                | sed "s#^$FRONTEND_BUILD_DIR/##" \
+                | sed "s#^#https://mentory.cc/#"
+            '
+          )"
+
+          echo "Static assets to preload:"
+          printf '%s\n' "$asset_urls"
+
+          {
+            echo "urls<<EOF"
+            printf '%s\n' "$asset_urls"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Purge and preload Alibaba Cloud ESA cache                # 刷新并预热 ESA 缓存
+        env:
+          ESA_SITE_ID: ${{ secrets.ESA_SITE_ID }}
+          PRELOAD_URLS: ${{ steps.esa_assets.outputs.urls }}
+        run: |
+          set -euo pipefail
+          : "${ESA_SITE_ID:?Missing GitHub secret ESA_SITE_ID}"
+
+          purge_urls=$'https://mentory.cc/\nhttps://mentory.cc/index.html'
+          aliyun esa PurgeCaches \
+            --SiteId "$ESA_SITE_ID" \
+            --Type file \
+            --Content "$purge_urls"
+
+          printf '%s\n' "$PRELOAD_URLS" | sed '/^[[:space:]]*$/d' > preload-urls.txt
+          if [ ! -s preload-urls.txt ]; then
+            echo "No static JS/CSS assets found to preload."
+            exit 0
+          fi
+
+          split -l 100 preload-urls.txt preload-batch-
+          for batch in preload-batch-*; do
+            batch_urls="$(cat "$batch")"
+            echo "Preloading static assets:"
+            printf '%s\n' "$batch_urls"
+            aliyun esa PreloadCaches \
+              --SiteId "$ESA_SITE_ID" \
+              --Content "$batch_urls"
+          done
