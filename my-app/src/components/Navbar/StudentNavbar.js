@@ -14,12 +14,23 @@ import { preloadDotLottiePlayer } from '../../utils/dotLottiePlayerLoader';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
+import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
-const LazyTimezoneModal = lazy(() => import('../TimezoneModal/TimezoneModal'));
-const LazyCourseTypeModal = lazy(() => import('../CourseTypeModal/CourseTypeModal'));
-const LazyStudentAuthModal = lazy(() => import('../AuthModal/StudentAuthModal'));
-const LazyCourseOnboardingModal = lazy(() => import('../CourseOnboardingModal/CourseOnboardingModal'));
+const loadTimezoneModal = () => import('../TimezoneModal/TimezoneModal');
+const loadCourseTypeModal = () => import('../CourseTypeModal/CourseTypeModal');
+const loadStudentAuthModal = () => import('../AuthModal/StudentAuthModal');
+const loadCourseOnboardingModal = () => import('../CourseOnboardingModal/CourseOnboardingModal');
+const LazyTimezoneModal = lazy(loadTimezoneModal);
+const LazyCourseTypeModal = lazy(loadCourseTypeModal);
+const LazyStudentAuthModal = lazy(loadStudentAuthModal);
+const LazyCourseOnboardingModal = lazy(loadCourseOnboardingModal);
+
+const preloadLazy = (loader) => {
+  Promise.resolve()
+    .then(loader)
+    .catch(() => {});
+};
 
 function AnchoredLoadingFallback({
   anchorRef,
@@ -266,9 +277,12 @@ function StudentNavbar() {
   };
 
   const handlePublishCourseRequest = async () => {
+    preloadRoute('studentCourseRequest')?.catch(() => {});
+    preloadLazy(loadCourseOnboardingModal);
     preloadDotLottiePlayer();
 
     if (!isLoggedIn) {
+      preloadLazy(loadStudentAuthModal);
       setPostLoginRedirect('/student/course-request', 'student');
       setForceLogin(true);
       setShowAuthModal(true);
@@ -296,8 +310,13 @@ function StudentNavbar() {
   };
 
   const toggleAuthModal = () => {
+    preloadLazy(loadStudentAuthModal);
     setForceLogin(false);
     setShowAuthModal((prev) => !prev);
+  };
+
+  const preloadStudentAuthMenu = () => {
+    preloadLazy(loadStudentAuthModal);
   };
 
   return (
@@ -318,6 +337,7 @@ function StudentNavbar() {
             </button>
             <button
               className={`nav-tab ${isMentorActive ? 'active' : ''} ${!isMentorRegistered ? 'disabled' : ''}`}
+              {...createRouteIntentProps('mentorHome')}
               onClick={() => { if (isMentorRegistered) navigate('/mentor'); }}
               disabled={!isMentorRegistered}
               aria-disabled={!isMentorRegistered}
@@ -331,6 +351,7 @@ function StudentNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={publishBtnRef}
+            {...createRouteIntentProps('studentCourseRequest')}
             onClick={handlePublishCourseRequest}
             disabled={checkingCourseRequestDrafts}
           >
@@ -339,6 +360,9 @@ function StudentNavbar() {
           <span
             className="icon-circle nav-menu-trigger"
             ref={userIconRef}
+            onMouseEnter={preloadStudentAuthMenu}
+            onFocus={preloadStudentAuthMenu}
+            onPointerDown={preloadStudentAuthMenu}
             onClick={toggleAuthModal}
           >
             {isLoggedIn ? (
@@ -379,6 +403,7 @@ function StudentNavbar() {
               ref={timezoneRef}
               className={`search-item timezone ${activeFilter === 'timezone' ? 'active' : ''}`}
               onClick={() => {
+                preloadLazy(loadTimezoneModal);
                 setShowTimezoneModal(true);
                 setPendingFilter('timezone');
               }}
@@ -395,6 +420,7 @@ function StudentNavbar() {
               ref={courseTypeRef}
               className={`search-item course-type ${activeFilter === 'courseType' ? 'active' : ''}`}
               onClick={() => {
+                preloadLazy(loadCourseTypeModal);
                 setShowCourseTypeModal(true);
                 setPendingFilter('courseType');
               }}

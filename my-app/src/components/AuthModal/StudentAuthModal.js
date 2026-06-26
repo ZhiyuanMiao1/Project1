@@ -13,6 +13,17 @@ import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
+import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
+
+const STUDENT_ACTION_ROUTE_KEYS = {
+  favorites: 'studentFavorites',
+  courses: 'studentCourses',
+  messages: 'messages',
+  wallet: 'wallet',
+  settings: 'accountSettings',
+  help: 'helpCenter',
+  publish: 'studentCourseRequest',
+};
 
 const StudentAuthModal = ({
   onClose,
@@ -37,6 +48,10 @@ const StudentAuthModal = ({
   const { newCourseCount: internalCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
   const resolvedUnreadCount = typeof unreadCount === 'number' ? unreadCount : internalUnreadCount;
   const resolvedCourseCount = typeof courseCount === 'number' ? courseCount : internalCourseCount;
+  const getIntentProps = (action) => {
+    const routeKey = STUDENT_ACTION_ROUTE_KEYS[action];
+    return routeKey ? createRouteIntentProps(routeKey) : {};
+  };
 
   // Position the dropdown next to the avatar/menu icon
   useLayoutEffect(() => {
@@ -81,30 +96,37 @@ const StudentAuthModal = ({
         if (!isLoggedIn) setShowLoginPopup(true);
         return;
       case 'favorites':
+        preloadRoute('studentFavorites')?.catch(() => {});
         onClose && onClose();
         navigate('/student/favorites?role=student', { state: { from: 'student' } });
         return;
       case 'courses':
+        preloadRoute('studentCourses')?.catch(() => {});
         onClose && onClose();
         navigate('/student/courses', { state: { from: 'student' } });
         return;
       case 'messages':
+        preloadRoute('messages')?.catch(() => {});
         onClose && onClose();
         navigate('/student/messages', { state: { from: 'student' } });
         return;
       case 'wallet':
+        preloadRoute('wallet')?.catch(() => {});
         onClose && onClose();
         navigate('/student/wallet', { state: { from: 'student' } });
         return;
       case 'settings':
+        preloadRoute('accountSettings')?.catch(() => {});
         onClose && onClose();
         navigate('/student/settings', { state: { from: 'student' } });
         return;
       case 'help':
+        preloadRoute('helpCenter')?.catch(() => {});
         onClose && onClose();
         navigate('/student/help', { state: { from: 'student' } });
         return;
       case 'publish':
+        preloadRoute('studentCourseRequest')?.catch(() => {});
         if (!isLoggedIn) {
           setPostLoginRedirect('/student/course-request', 'student');
           setShowLoginPopup(true);
@@ -175,6 +197,7 @@ const StudentAuthModal = ({
             <>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('favorites')}
                 onClick={() => handleAuthAction('favorites')}
               >
                 <i className="far fa-heart auth-icon" aria-hidden="true"></i>
@@ -182,6 +205,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
+                {...getIntentProps('courses')}
                 onClick={() => handleAuthAction('courses')}
               >
                 <span className="auth-modal-option-main">
@@ -192,6 +216,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
+                {...getIntentProps('messages')}
                 onClick={() => handleAuthAction('messages')}
               >
                 <span className="auth-modal-option-main">
@@ -202,6 +227,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
+                {...getIntentProps('wallet')}
                 onClick={() => handleAuthAction('wallet')}
               >
                 <FiCreditCard className="auth-icon" />
@@ -209,6 +235,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('settings')}
                 onClick={() => handleAuthAction('settings')}
               >
                 <FiSettings className="auth-icon" />
@@ -216,6 +243,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('help')}
                 onClick={() => handleAuthAction('help')}
               >
                 <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
@@ -223,6 +251,7 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
+                {...getIntentProps('publish')}
                 onClick={() => handleAuthAction('publish')}
               >
                 <RiMegaphoneLine className="auth-icon" />
@@ -251,12 +280,14 @@ const StudentAuthModal = ({
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('publish')}
                 onClick={() => handleAuthAction('publish')}
               >
                 {t('app.route.courseRequest', '发布课程需求')}
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('help')}
                 onClick={() => handleAuthAction('help')}
               >
                 {t('app.route.help', '帮助中心')}

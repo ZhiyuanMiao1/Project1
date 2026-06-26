@@ -14,6 +14,16 @@ import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
+import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
+
+const MENTOR_ACTION_ROUTE_KEYS = {
+  favorites: 'studentFavorites',
+  courses: 'mentorCourses',
+  messages: 'messages',
+  settings: 'accountSettings',
+  help: 'helpCenter',
+  editProfile: 'mentorProfileEditor',
+};
 
 const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = null, courseCount = null }) => {
   const { t } = useI18n();
@@ -30,6 +40,10 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   const { newCourseCount: internalCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
   const resolvedUnreadCount = typeof unreadCount === 'number' ? unreadCount : internalUnreadCount;
   const resolvedCourseCount = typeof courseCount === 'number' ? courseCount : internalCourseCount;
+  const getIntentProps = (action) => {
+    const routeKey = MENTOR_ACTION_ROUTE_KEYS[action];
+    return routeKey ? createRouteIntentProps(routeKey) : {};
+  };
 
   useEffect(() => {
     const sync = (e) => {
@@ -100,6 +114,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   }, [isLoggedIn]);
 
   const checkEditPermission = async () => {
+    preloadRoute('mentorProfileEditor')?.catch(() => {});
     try {
       const res = await api.get('/api/mentor/permissions');
       if (res?.data?.canEditProfile) {
@@ -134,23 +149,28 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         return;
       case 'favorites':
         if (isPendingMentor) return;
+        preloadRoute('studentFavorites')?.catch(() => {});
         onClose && onClose();
         navigate('/student/favorites?role=mentor', { state: { from: 'mentor' } });
         return;
       case 'courses':
         if (isPendingMentor) return;
+        preloadRoute('mentorCourses')?.catch(() => {});
         onClose && onClose();
         navigate('/mentor/courses', { state: { from: 'mentor' } });
         return;
       case 'messages':
+        preloadRoute('messages')?.catch(() => {});
         onClose && onClose();
         navigate('/mentor/messages', { state: { from: 'mentor' } });
         return;
       case 'settings':
+        preloadRoute('accountSettings')?.catch(() => {});
         onClose && onClose();
         navigate('/mentor/settings', { state: { from: 'mentor' } });
         return;
       case 'help':
+        preloadRoute('helpCenter')?.catch(() => {});
         onClose && onClose();
         navigate('/mentor/help', { state: { from: 'mentor' } });
         return;
@@ -208,6 +228,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
             <>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('favorites')}
                 disabled={isPendingMentor}
                 aria-disabled={isPendingMentor}
                 title={isPendingMentor ? t('auth.unavailableDuringMentorReview', '导师审核中，暂不可用') : undefined}
@@ -218,6 +239,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button auth-modal-option-button--with-badge"
+                {...getIntentProps('courses')}
                 disabled={isPendingMentor}
                 aria-disabled={isPendingMentor}
                 title={isPendingMentor ? t('auth.unavailableDuringMentorReview', '导师审核中，暂不可用') : undefined}
@@ -231,6 +253,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button auth-divider auth-modal-option-button--with-badge"
+                {...getIntentProps('messages')}
                 onClick={() => handleAuthAction('messages')}
               >
                 <span className="auth-modal-option-main">
@@ -241,6 +264,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('settings')}
                 onClick={() => handleAuthAction('settings')}
               >
                 <FiSettings className="auth-icon" />
@@ -248,6 +272,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('help')}
                 onClick={() => handleAuthAction('help')}
               >
                 <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
@@ -255,6 +280,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button auth-divider"
+                {...getIntentProps('editProfile')}
                 onClick={() => handleAuthAction('editProfile')}
                 disabled={isLoggedIn && canEditProfile === false}
                 aria-disabled={isLoggedIn && canEditProfile === false}
@@ -286,12 +312,14 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('editProfile')}
                 onClick={() => handleAuthAction('editProfile')}
               >
                 {t('app.route.profileEditor', '编辑个人名片')}
               </button>
               <button
                 className="auth-modal-option-button"
+                {...getIntentProps('help')}
                 onClick={() => handleAuthAction('help')}
               >
                 {t('app.route.help', '帮助中心')}

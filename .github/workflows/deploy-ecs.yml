@@ -102,11 +102,11 @@ jobs:                                                                # 任务集
           set -euo pipefail
           : "${ESA_SITE_ID:?Missing GitHub secret ESA_SITE_ID}"
 
-          purge_urls=$'https://mentory.cc/\nhttps://mentory.cc/index.html'
+          purge_content="$(python3 -c 'import json; print(json.dumps({"Files":["https://mentory.cc/","https://mentory.cc/index.html"]}, separators=(",",":")))')"
           aliyun esa PurgeCaches \
             --SiteId "$ESA_SITE_ID" \
             --Type file \
-            --Content "$purge_urls"
+            --Content "$purge_content"
 
           printf '%s\n' "$PRELOAD_URLS" | sed '/^[[:space:]]*$/d' > preload-urls.txt
           if [ ! -s preload-urls.txt ]; then
@@ -119,7 +119,8 @@ jobs:                                                                # 任务集
             batch_urls="$(cat "$batch")"
             echo "Preloading static assets:"
             printf '%s\n' "$batch_urls"
+            batch_content="$(python3 -c 'import json, sys; print(json.dumps([line.strip() for line in open(sys.argv[1], encoding="utf-8") if line.strip()], separators=(",",":")))' "$batch")"
             aliyun esa PreloadCaches \
               --SiteId "$ESA_SITE_ID" \
-              --Content "$batch_urls"
+              --Content "$batch_content"
           done

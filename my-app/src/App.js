@@ -13,23 +13,25 @@ import { getAuthToken } from './utils/authStorage';
 import { LanguageProvider, useI18n } from './i18n/language';
 import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lessonHours';
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
+import {
+  loadAccountSettingsPage,
+  loadClassroomPage,
+  loadCourseRequestDetailPage,
+  loadCoursesPage,
+  loadFavoriteCollectionPage,
+  loadFavoritesPage,
+  loadHelpCenterPage,
+  loadMentorCoursesPage,
+  loadMentorDetailPage,
+  loadMentorPage,
+  loadMentorProfileEditorPage,
+  loadMessagesPage,
+  loadRecentVisitsPage,
+  loadStudentCourseRequestPage,
+  loadWalletPage,
+} from './routePreloaders';
 
 const BRAND_NAME = 'Mentory';
-const loadMentorPage = () => import(/* webpackPrefetch: true */ './components/MentorPage/MentorPage');
-const loadStudentCourseRequestPage = () => import(/* webpackPrefetch: true */ './pages/StudentCourseRequest/StudentCourseRequestPage');
-const loadMentorProfileEditorPage = () => import(/* webpackPrefetch: true */ './pages/MentorProfileEditor/MentorProfileEditorPage');
-const loadFavoritesPage = () => import(/* webpackPrefetch: true */ './pages/Favorites/FavoritesPage');
-const loadFavoriteCollectionPage = () => import(/* webpackPrefetch: true */ './pages/Favorites/FavoriteCollectionPage');
-const loadCoursesPage = () => import(/* webpackPrefetch: true */ './pages/Courses/CoursesPage');
-const loadMentorCoursesPage = () => import(/* webpackPrefetch: true */ './pages/Courses/MentorCoursesPage');
-const loadMessagesPage = () => import(/* webpackPrefetch: true */ './pages/Messages/MessagesPage');
-const loadRecentVisitsPage = () => import(/* webpackPrefetch: true */ './pages/RecentVisits/RecentVisitsPage');
-const loadAccountSettingsPage = () => import(/* webpackPrefetch: true */ './pages/AccountSettings/AccountSettingsPage');
-const loadMentorDetailPage = () => import(/* webpackPrefetch: true */ './pages/MentorDetail/MentorDetailPage');
-const loadCourseRequestDetailPage = () => import(/* webpackPrefetch: true */ './pages/CourseRequestDetail/CourseRequestDetailPage');
-const loadWalletPage = () => import(/* webpackPrefetch: true */ './pages/Wallet/WalletPage');
-const loadClassroomPage = () => import(/* webpackPrefetch: true */ './pages/Classroom/ClassroomPage');
-const loadHelpCenterPage = () => import(/* webpackPrefetch: true */ './pages/HelpCenter/HelpCenterPage');
 
 const LazyMentorPage = lazy(loadMentorPage);
 const LazyStudentCourseRequestPage = lazy(loadStudentCourseRequestPage);
@@ -46,26 +48,6 @@ const LazyCourseRequestDetailPage = lazy(loadCourseRequestDetailPage);
 const LazyWalletPage = lazy(loadWalletPage);
 const LazyClassroomPage = lazy(loadClassroomPage);
 const LazyHelpCenterPage = lazy(loadHelpCenterPage);
-
-const BACKGROUND_ROUTE_LOADERS = [
-  loadMentorDetailPage,
-  loadStudentCourseRequestPage,
-  loadMessagesPage,
-  loadWalletPage,
-  loadMentorPage,
-  loadCoursesPage,
-  loadFavoritesPage,
-  loadAccountSettingsPage,
-  loadHelpCenterPage,
-  loadRecentVisitsPage,
-  loadMentorProfileEditorPage,
-  loadMentorCoursesPage,
-  loadCourseRequestDetailPage,
-  loadClassroomPage,
-  loadFavoriteCollectionPage,
-];
-
-let hasStartedBackgroundRouteWarmup = false;
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -124,75 +106,6 @@ function RouteTitleManager() {
     const route = getDocumentTitleRouteByPath(location.pathname);
     document.title = route ? t(route.titleKey || '', route.title) : BRAND_NAME;
   }, [location.pathname, t]);
-
-  return null;
-}
-
-const canWarmBackgroundRoutes = () => {
-  if (typeof navigator === 'undefined') return true;
-  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (!connection) return true;
-  if (connection.saveData) return false;
-  const effectiveType = String(connection.effectiveType || '').toLowerCase();
-  return !effectiveType.includes('2g');
-};
-
-function BackgroundRouteWarmup() {
-  const location = useLocation();
-
-  useEffect(() => {
-    if (hasStartedBackgroundRouteWarmup) return undefined;
-    if (normalizePathname(location.pathname) !== '/student') return undefined;
-    if (!canWarmBackgroundRoutes()) return undefined;
-
-    hasStartedBackgroundRouteWarmup = true;
-
-    let cancelled = false;
-    let idleId = null;
-    let timeoutId = null;
-    const queue = [...BACKGROUND_ROUTE_LOADERS];
-
-    const scheduleNext = (fn, delay = 250) => {
-      if (cancelled) return;
-      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
-        idleId = window.requestIdleCallback(fn, { timeout: 2000 });
-        return;
-      }
-      timeoutId = window.setTimeout(fn, delay);
-    };
-
-    const runNext = () => {
-      if (cancelled || queue.length === 0) return;
-      const loader = queue.shift();
-      Promise.resolve()
-        .then(() => loader())
-        .catch(() => null)
-        .finally(() => {
-          if (cancelled || queue.length === 0) return;
-          scheduleNext(runNext);
-        });
-    };
-
-    const start = () => scheduleNext(runNext, 0);
-
-    if (typeof document !== 'undefined' && document.readyState === 'complete') {
-      start();
-      return () => {
-        cancelled = true;
-        if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
-        if (timeoutId != null) window.clearTimeout(timeoutId);
-      };
-    }
-
-    const onLoad = () => start();
-    window.addEventListener('load', onLoad, { once: true });
-    return () => {
-      cancelled = true;
-      window.removeEventListener('load', onLoad);
-      if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId);
-      if (timeoutId != null) window.clearTimeout(timeoutId);
-    };
-  }, [location.pathname]);
 
   return null;
 }
@@ -391,7 +304,6 @@ function App() {
     <LanguageProvider>
       <Router>
         <RouteTitleManager />
-        <BackgroundRouteWarmup />
         <AuthSessionManager />
         <PendingLessonHoursGate />
         <CourseStartReminderGate />

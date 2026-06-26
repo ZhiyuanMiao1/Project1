@@ -17,6 +17,7 @@ import { inferRequiredRoleFromPath, setPostLoginRedirect } from '../../utils/pos
 import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
+import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -162,6 +163,7 @@ function MentorNavbar() {
   };
 
   const handleEditProfileClick = async () => {
+    preloadRoute('mentorProfileEditor')?.catch(() => {});
     // 无权限（审核中/非导师）直接不可点
     if (canEditProfile === false) return;
     try {
@@ -223,6 +225,7 @@ function MentorNavbar() {
             type="button"
             className="nav-link nav-text"
             ref={editProfileBtnRef}
+            {...createRouteIntentProps('mentorProfileEditor')}
             onClick={handleEditProfileClick}
             disabled={canEditProfile === false}
             aria-disabled={canEditProfile === false}
