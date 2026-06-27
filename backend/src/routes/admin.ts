@@ -863,7 +863,7 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
   const { page, limit, offset } = getPaging(req);
   const q = safeString(req.query.q, 100);
   const provider = safeString(req.query.provider, 20);
-  const status = safeString(req.query.status, 40);
+  const status = safeString(req.query.status, 40).toLowerCase();
   const startDate = safeString(req.query.startDate, 20);
   const endDate = safeString(req.query.endDate, 20);
   const where = ['1=1'];
@@ -885,9 +885,15 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
     where.push('bo.provider = ?');
     params.push(provider);
   }
-  if (status) {
+  if (status === 'pending') {
+    where.push("bo.status IN ('CREATED', 'APPROVED')");
+  } else if (status === 'paid') {
+    where.push("(bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED', 'CAPTURED'))");
+  } else if (status === 'failed') {
+    where.push("bo.status IN ('FAILED', 'VOIDED')");
+  } else if (status) {
     where.push('bo.status = ?');
-    params.push(status);
+    params.push(status.toUpperCase());
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
     where.push('bo.created_at >= ?');

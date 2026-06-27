@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faChalkboardUser,
@@ -243,6 +243,25 @@ function Badge({ value }) {
   return <span className={`badge badge-${key}`}>{statusText[key] || value || '-'}</span>;
 }
 
+const getOrderStatusMeta = (order) => {
+  const status = String(order?.status || '').toUpperCase();
+  if (order?.credited_at || status === 'COMPLETED' || status === 'CAPTURED') {
+    return { key: 'paid', label: '已支付' };
+  }
+  if (status === 'FAILED' || status === 'VOIDED') {
+    return { key: 'failed', label: '失败/取消' };
+  }
+  if (status === 'CREATED' || status === 'APPROVED') {
+    return { key: 'pending', label: '待支付' };
+  }
+  return { key: 'unknown', label: '待确认' };
+};
+
+function OrderStatusBadge({ order }) {
+  const meta = getOrderStatusMeta(order);
+  return <span className={`badge badge-order-${meta.key}`}>{meta.label}</span>;
+}
+
 function Toolbar({ children }) {
   return <div className="toolbar">{children}</div>;
 }
@@ -269,6 +288,25 @@ function SearchBox({ value, onChange, placeholder = '搜索邮箱、ID、关键�
       <FontAwesomeIcon icon={faMagnifyingGlass} />
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </label>
+  );
+}
+
+function SegmentedFilter({ value, onChange, options, ariaLabel }) {
+  return (
+    <div className="segmented-filter" role="radiogroup" aria-label={ariaLabel}>
+      {options.map((option) => (
+        <button
+          key={option.value || 'all'}
+          type="button"
+          className={value === option.value ? 'active' : ''}
+          onClick={() => onChange(option.value)}
+          role="radio"
+          aria-checked={value === option.value}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -343,7 +381,22 @@ function LoginPage({ onLogin }) {
   );
 }
 
-function Shell({ admin, onLogout }) {
+const getTopbarTitle = (pathname) => {
+  if (pathname === '/dashboard') return { title: 'Dashboard', subtitle: '平台运营数据概览' };
+  if (pathname === '/users') return { title: '学生管理' };
+  if (pathname === '/mentors/reviews') return { title: '导师管理' };
+  if (pathname === '/orders') return { title: '订单管理' };
+  if (pathname === '/classrooms') return { title: '课堂管理' };
+  if (pathname === '/audit-logs') return { title: '审计日志', subtitle: '后台写操作记录' };
+  const watchMatch = pathname.match(/^\/classrooms\/(\d+)\/watch$/);
+  if (watchMatch) return { title: `课堂旁观 #${watchMatch[1]}`, subtitle: '只读模式，不会触发学生或导师操作' };
+  return { title: 'Dashboard', subtitle: '平台运营数据概览' };
+};
+
+function Shell({ onLogout }) {
+  const location = useLocation();
+  const topbarTitle = getTopbarTitle(location.pathname);
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -364,9 +417,9 @@ function Shell({ admin, onLogout }) {
       </aside>
       <main className="content">
         <header className="topbar">
-          <div>
-            <strong>{admin?.displayName || admin?.username || 'Admin'}</strong>
-            <span>本地环境</span>
+          <div className="topbar-title">
+            <strong>{topbarTitle.title}</strong>
+            {topbarTitle.subtitle ? <span>{topbarTitle.subtitle}</span> : null}
           </div>
           <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
             <FontAwesomeIcon icon={faRotateRight} />
@@ -429,7 +482,7 @@ function Dashboard() {
 
 function PageTitle({ title, subtitle }) {
   return (
-    <div className="page-title">
+    <div className="page-title" hidden>
       <div>
         <h1>{title}</h1>
         {subtitle ? <p>{subtitle}</p> : null}
@@ -669,6 +722,13 @@ function MentorReviewsPage() {
     setSort({ field, direction });
   };
 
+  const statusOptions = [
+    { value: '', label: '全部' },
+    { value: 'pending', label: '待审核' },
+    { value: 'approved', label: '已通过' },
+    { value: 'rejected', label: '已驳回' },
+  ];
+
   const openResume = (mentor) => {
     if (!parseUrlList(mentor.mentor_resume_url).length) return;
     const token = getToken();
@@ -694,12 +754,12 @@ function MentorReviewsPage() {
       <PageTitle title="导师管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、MentorID、姓名" />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部状态</option>
-          <option value="pending">待审核</option>
-          <option value="approved">已通过</option>
-          <option value="rejected">已驳回</option>
-        </select>
+        <SegmentedFilter
+          value={status}
+          onChange={setStatus}
+          options={statusOptions}
+          ariaLabel="导师审核状态"
+        />
         <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
@@ -849,6 +909,13 @@ function OrdersPage() {
     setSort({ field, direction });
   };
 
+  const statusOptions = [
+    { value: '', label: '全部' },
+    { value: 'pending', label: '待支付' },
+    { value: 'paid', label: '已支付' },
+    { value: 'failed', label: '失败/取消' },
+  ];
+
   const orderColumns = [
     <SortHeader label={'\u8ba2\u5355ID'} field="id" sort={sort} onSort={updateSort} />,
     <SortHeader label="StudentID" field="student_public_id" sort={sort} onSort={updateSort} />,
@@ -865,13 +932,12 @@ function OrdersPage() {
       <PageTitle title="订单管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、订单号、StudentID" />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部状态</option>
-          <option value="CREATED">CREATED</option>
-          <option value="COMPLETED">COMPLETED</option>
-          <option value="CAPTURED">CAPTURED</option>
-          <option value="FAILED">FAILED</option>
-        </select>
+        <SegmentedFilter
+          value={status}
+          onChange={setStatus}
+          options={statusOptions}
+          ariaLabel="订单状态"
+        />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -881,7 +947,7 @@ function OrdersPage() {
             order.student_public_id || '-',
             order.email || '-',
             order.provider,
-            <Badge value={order.status} />,
+            <OrderStatusBadge order={order} />,
             order.topup_hours,
             formatIntegerAmount(order.amount_cny),
             formatDate(order.created_at),
@@ -1334,7 +1400,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage onLogin={handleLogin} />} />
-      <Route path="/*" element={isLoggedIn ? <Shell admin={admin} onLogout={logout} /> : <Navigate to="/login" replace />} />
+      <Route path="/*" element={isLoggedIn ? <Shell onLogout={logout} /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 }
