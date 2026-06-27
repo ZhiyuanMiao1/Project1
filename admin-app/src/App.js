@@ -446,14 +446,13 @@ function State({ loading, error, children }) {
 
 function UsersPage() {
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
-    () => api('/api/admin/users', { params: { q, status, limit: 50 } }),
-    [q, status, reload]
+    () => api('/api/admin/users', { params: { q, limit: 50 } }),
+    [q, reload]
   );
 
   const users = useMemo(() => {
@@ -494,11 +493,6 @@ function UsersPage() {
       <PageTitle title="学生管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部状态</option>
-          <option value="active">正常</option>
-          <option value="suspended">已封禁</option>
-        </select>
         <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
