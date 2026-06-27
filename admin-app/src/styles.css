@@ -482,6 +482,11 @@ tr:last-child td {
   flex-wrap: wrap;
 }
 
+.action-text {
+  color: #176b87;
+  font-weight: 600;
+}
+
 .stacked-cell {
   display: grid;
   gap: 3px;
