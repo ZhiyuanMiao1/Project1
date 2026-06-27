@@ -487,6 +487,10 @@ tr:last-child td {
   font-weight: 600;
 }
 
+.status-action {
+  font-weight: 400;
+}
+
 .stacked-cell {
   display: grid;
   gap: 3px;

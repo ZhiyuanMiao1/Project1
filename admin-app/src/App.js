@@ -515,9 +515,17 @@ function UsersPage() {
             formatDate(user.created_at),
             <div className="row-actions">
               <button className="ghost" onClick={() => setDetail(user.id)}>详情</button>
-              <span className="action-text">
+              <button
+                type="button"
+                className="ghost status-action"
+                onClick={() => setDialog({
+                  user,
+                  nextStatus: user.account_status === 'suspended' ? 'active' : 'suspended',
+                  title: user.account_status === 'suspended' ? '解封学生账号' : '封禁学生账号',
+                })}
+              >
                 {user.account_status === 'suspended' ? '解封' : '封禁'}
-              </span>
+              </button>
             </div>,
           ])}
         />
