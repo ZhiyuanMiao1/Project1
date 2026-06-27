@@ -348,7 +348,6 @@ function Shell({ admin, onLogout }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-mark">M</div>
           <div>
             <strong>Mentory</strong>
             <span>Admin Console</span>

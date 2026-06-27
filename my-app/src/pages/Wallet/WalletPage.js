@@ -480,8 +480,7 @@ function WalletPage() {
     );
   };
 
-  const canUsePayPalButton =
-    isHoursValid && !isPayPalInitializing && isPayPalEligible && !payPalInitError && !!fxQuote && !isFxQuoteExpired;
+  const canUsePayPalButton = isHoursValid && !isPayPalInitializing;
 
   const toggleStudentAuthModal = () => {
     setShowStudentAuth((prev) => !prev);
@@ -694,6 +693,9 @@ function WalletPage() {
                       )}
                       {!isPayPalInitializing && !payPalInitError && !isPayPalEligible && (
                         <div className="wallet-empty">{t('wallet.paypalUnavailable', 'PayPal 当前不可用')}</div>
+                      )}
+                      {!isPayPalInitializing && !payPalInitError && isPayPalEligible && fxError && !fxQuote && (
+                        <div className="wallet-empty">{fxError}</div>
                       )}
                     </div>
                   ) : (

@@ -145,19 +145,19 @@ button.link-button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 190px minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .sidebar {
   background: #172033;
   color: #fff;
-  padding: 20px 14px;
+  padding: 20px 12px;
 }
 
 .sidebar-brand {
-  gap: 12px;
-  padding: 4px 8px 22px;
+  gap: 0;
+  padding: 6px 10px 24px;
 }
 
 .sidebar-brand .brand-mark {
@@ -184,7 +184,7 @@ button.link-button {
   text-align: left;
   text-decoration: none;
   border-radius: 6px;
-  padding: 11px 12px;
+  padding: 11px 10px;
 }
 
 .sidebar a svg {
@@ -334,13 +334,14 @@ th {
 
 .classrooms-table th:nth-child(1),
 .classrooms-table td:nth-child(1) {
-  width: 70px;
-  padding-right: 8px;
+  width: 82px;
+  padding-right: 6px;
+  white-space: nowrap;
 }
 
 .classrooms-table th:nth-child(2),
 .classrooms-table td:nth-child(2) {
-  padding-left: 11px;
+  padding-left: 8px;
 }
 
 .classrooms-table th:nth-child(3),
