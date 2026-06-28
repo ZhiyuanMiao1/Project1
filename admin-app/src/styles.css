@@ -1465,6 +1465,25 @@ tr:last-child td {
   color: #6d28d9;
 }
 
+.platform-review-status {
+  min-height: auto;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.platform-review-status:hover,
+.platform-review-status:focus-visible {
+  background: transparent;
+}
+
+.platform-review-status:hover .badge,
+.platform-review-status:focus-visible .badge {
+  box-shadow: inset 0 0 0 1px #8b5cf6;
+}
+
 .badge-ready {
   background: #e0f2fe;
   color: #0369a1;
@@ -1594,6 +1613,10 @@ tr:last-child td {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+.lesson-review-modal {
+  width: min(880px, 100%);
+}
+
 .modal-close {
   position: absolute;
   top: 14px;
@@ -1629,6 +1652,88 @@ tr:last-child td {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.lesson-review-content {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.lesson-review-content h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.review-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: 34px;
+  align-items: start;
+}
+
+.review-evidence-grid div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.review-evidence-grid span,
+.review-reason span {
+  color: #66758d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.review-evidence-grid strong {
+  font-size: 18px;
+}
+
+.review-choice-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.review-choice-group label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.review-choice-group label.selected {
+  border-color: #176b87;
+  background: #e8f1f5;
+}
+
+.review-choice-group input {
+  min-height: auto;
+}
+
+.review-choice-group span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.review-choice-group em {
+  color: #176b87;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.review-reason {
+  display: grid;
+  gap: 7px;
 }
 
 .replay-list {

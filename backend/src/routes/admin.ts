@@ -2,13 +2,17 @@ import crypto from 'crypto';
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import { query } from '../db';
+import { pool, query } from '../db';
 import { requireAdminAuth, getAdminJwtSecret } from '../middleware/adminAuth';
 import { ensureAdminSchema } from '../services/adminSchema';
 import { revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
 import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
+import {
+  ensureMentorRecommendationColumns,
+  recomputeMentorCompletedSessionCount,
+} from '../services/mentorRecommendation';
 
 const router = Router();
 
@@ -1191,6 +1195,121 @@ router.get('/classrooms/:courseId', requireAdminAuth, async (req: Request, res: 
     console.error('Admin classroom detail error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
+});
+
+router.patch('/classrooms/:courseId/lesson-hours/final-decision', requireAdminAuth, async (req: Request, res: Response) => {
+  const courseId = toPositiveInt(req.params.courseId, 0);
+  const decision = safeString((req.body as any)?.decision, 40).toLowerCase();
+  const reason = readReason(req, 4);
+  if (!courseId) return res.status(400).json({ error: '无效课堂ID' });
+  if (decision !== 'mentor_proposed' && decision !== 'student_disputed') {
+    return res.status(400).json({ error: '请选择采信导师提交课时或学生争议课时' });
+  }
+  if (!reason) return res.status(400).json({ error: '请填写裁决依据' });
+
+  let conn: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
+  let before: any = null;
+  let after: any = null;
+  try {
+    await ensureMentorRecommendationColumns();
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    const [rows] = await conn.execute<any[]>(
+      `SELECT
+         lhc.id, lhc.message_item_id, lhc.thread_id, lhc.course_session_id,
+         lhc.student_user_id, lhc.mentor_user_id, lhc.proposed_hours,
+         lhc.disputed_hours, lhc.final_hours, lhc.status,
+         cs.duration_hours AS session_duration_hours, cs.status AS session_status
+       FROM lesson_hour_confirmations lhc
+       INNER JOIN course_sessions cs ON cs.id = lhc.course_session_id
+       WHERE lhc.course_session_id = ?
+       ORDER BY lhc.id DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [courseId]
+    );
+    before = rows?.[0];
+    if (!before) {
+      await conn.rollback();
+      return res.status(404).json({ error: '未找到课时确认记录' });
+    }
+    if (safeString(before.status, 40).toLowerCase() !== 'platform_review') {
+      await conn.rollback();
+      return res.status(409).json({ error: '当前课时确认不在平台介入状态' });
+    }
+
+    const proposedHours = toNumber(before.proposed_hours, 0);
+    const disputedHours = toNumber(before.disputed_hours, 0);
+    const finalHours = decision === 'mentor_proposed' ? proposedHours : disputedHours;
+    if (!Number.isFinite(finalHours) || finalHours <= 0) {
+      await conn.rollback();
+      return res.status(409).json({ error: '待裁决课时数据不完整，请刷新后重试' });
+    }
+
+    await conn.execute(
+      `UPDATE lesson_hour_confirmations
+       SET status = 'dispute_confirmed',
+           final_hours = ?,
+           responded_by_user_id = NULL,
+           responded_at = CURRENT_TIMESTAMP,
+           settled_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [finalHours, Number(before.id)]
+    );
+    await conn.execute(
+      `UPDATE course_sessions
+       SET duration_hours = ?, status = 'completed'
+       WHERE id = ?`,
+      [finalHours, courseId]
+    );
+    await recomputeMentorCompletedSessionCount(conn, Number(before.mentor_user_id));
+    await conn.execute(
+      `UPDATE users
+       SET lesson_balance_hours = lesson_balance_hours - ?
+       WHERE id = ?`,
+      [finalHours, Number(before.student_user_id)]
+    );
+    await conn.execute(
+      `UPDATE message_threads
+       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [Number(before.message_item_id), Number(before.thread_id)]
+    );
+
+    const [afterRows] = await conn.execute<any[]>(
+      `SELECT lhc.*, cs.duration_hours AS session_duration_hours, cs.status AS session_status
+       FROM lesson_hour_confirmations lhc
+       INNER JOIN course_sessions cs ON cs.id = lhc.course_session_id
+       WHERE lhc.id = ?
+       LIMIT 1`,
+      [Number(before.id)]
+    );
+    after = afterRows?.[0] || null;
+    await conn.commit();
+  } catch (error) {
+    try { await conn?.rollback(); } catch {}
+    console.error('Admin classroom lesson hours final decision error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  } finally {
+    try { conn?.release(); } catch {}
+  }
+
+  try {
+    await audit({
+      req,
+      action: 'classroom.lesson_hours.final_decision',
+      targetType: 'course_session',
+      targetId: courseId,
+      reason,
+      before,
+      after: { ...after, decision },
+    });
+  } catch (error) {
+    console.error('Admin classroom lesson hours audit error:', error);
+  }
+
+  return res.json({ ok: true, classroomId: String(courseId), decision, lessonHours: after });
 });
 
 router.get('/classrooms/:courseId/chat', requireAdminAuth, async (req: Request, res: Response) => {

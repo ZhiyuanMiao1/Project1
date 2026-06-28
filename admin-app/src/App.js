@@ -360,7 +360,7 @@ function LoginPage({ onLogin }) {
 }
 
 const getTopbarTitle = (pathname) => {
-  if (pathname === '/dashboard') return { title: 'Dashboard', subtitle: '平台运营数据概览' };
+  if (pathname === '/dashboard') return { title: 'Dashboard' };
   if (pathname === '/users') return { title: '学生管理' };
   if (pathname === '/mentors/reviews') return { title: '导师管理' };
   if (pathname === '/orders') return { title: '订单管理' };
@@ -368,7 +368,7 @@ const getTopbarTitle = (pathname) => {
   if (pathname === '/audit-logs') return { title: '审计日志', subtitle: '后台写操作记录' };
   const watchMatch = pathname.match(/^\/classrooms\/(\d+)\/watch$/);
   if (watchMatch) return { title: `课堂旁观 #${watchMatch[1]}`, subtitle: '只读模式，不会触发学生或导师操作' };
-  return { title: 'Dashboard', subtitle: '平台运营数据概览' };
+  return { title: 'Dashboard' };
 };
 
 function Shell({ onLogout }) {
@@ -438,7 +438,7 @@ function Dashboard() {
 
   return (
     <section>
-      <PageTitle title="Dashboard" subtitle="平台运营数据概览" />
+      <PageTitle title="Dashboard" />
       <State loading={loading} error={error}>
         <div className="metric-grid">
           {cards.map(([label, value, hint]) => (
@@ -1297,6 +1297,158 @@ function ReplayDialog({ course, onClose }) {
   );
 }
 
+function PlatformReviewStatus({ classroom, onOpen }) {
+  if (classroom.lesson_hours_status !== 'platform_review') {
+    return <Badge value={classroom.lesson_hours_status || 'none'} />;
+  }
+  return (
+    <button
+      className="platform-review-status"
+      type="button"
+      onClick={() => onOpen(classroom)}
+      title="处理平台介入"
+    >
+      <Badge value="platform_review" />
+    </button>
+  );
+}
+
+function LessonHoursReviewDialog({ course, onClose, onSettled }) {
+  const courseId = course?.id;
+  const detailState = useAsync(() => api(`/api/admin/classrooms/${courseId}`), [courseId]);
+  const replayState = useAsync(() => api(`/api/admin/classrooms/${courseId}/replay-files`), [courseId]);
+  const [decision, setDecision] = useState('mentor_proposed');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const classroom = detailState.data?.classroom || course || {};
+  const lesson = classroom.latestLessonHours || course || {};
+  const replayFiles = replayState.data?.files || [];
+  const proposedHours = lesson.proposed_hours || course?.proposed_hours;
+  const disputedHours = lesson.disputed_hours || course?.disputed_hours;
+
+  if (!courseId) return null;
+
+  const submitDecision = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await api(`/api/admin/classrooms/${courseId}/lesson-hours/final-decision`, {
+        method: 'PATCH',
+        body: { decision, reason },
+      });
+      onSettled();
+      onClose();
+    } catch (error) {
+      setSubmitError(error.message || '处理失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="modal wide-modal lesson-review-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-review-title" onSubmit={submitDecision}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="关闭">×</button>
+        <h2 id="lesson-review-title">平台介入处理 #{courseId}</h2>
+        <State loading={detailState.loading} error={detailState.error}>
+          <div className="lesson-review-content">
+            <section className="review-evidence-grid" aria-label="课时争议信息">
+              <div>
+                <span>预约时长</span>
+                <strong>{formatHours(classroom.duration_hours || course?.duration_hours)}</strong>
+              </div>
+              <div>
+                <span>导师提交</span>
+                <strong>{formatHours(proposedHours)}</strong>
+              </div>
+              <div>
+                <span>学生争议</span>
+                <strong>{formatHours(disputedHours)}</strong>
+              </div>
+            </section>
+
+            <section className="review-choice-group" aria-label="最终裁决">
+              <label className={decision === 'mentor_proposed' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="lesson-hours-decision"
+                  value="mentor_proposed"
+                  checked={decision === 'mentor_proposed'}
+                  onChange={(event) => setDecision(event.target.value)}
+                />
+                <span>
+                  <strong>采信导师提交</strong>
+                  <em>{formatHours(proposedHours)}</em>
+                </span>
+              </label>
+              <label className={decision === 'student_disputed' ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="lesson-hours-decision"
+                  value="student_disputed"
+                  checked={decision === 'student_disputed'}
+                  onChange={(event) => setDecision(event.target.value)}
+                  disabled={!asNumber(disputedHours)}
+                />
+                <span>
+                  <strong>采信学生争议</strong>
+                  <em>{formatHours(disputedHours)}</em>
+                </span>
+              </label>
+            </section>
+
+            <section>
+              <h3>课堂回放证据</h3>
+              <State loading={replayState.loading} error={replayState.error}>
+                <div className="replay-list embedded">
+                  {replayFiles.length ? replayFiles.map((file) => (
+                    <div className="replay-item" key={file.fileId || file.fileName}>
+                      <FontAwesomeIcon icon={faVideo} />
+                      <div>
+                        <strong>{file.fileName || '课堂回放'}</strong>
+                        <span>{formatDate(file.lastModified)} · {formatFileSize(file.sizeBytes)}</span>
+                      </div>
+                      <button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')} disabled={!file.url}>
+                        <FontAwesomeIcon icon={faPlay} /> 播放
+                      </button>
+                    </div>
+                  )) : <div className="empty">暂无 MP4 回放</div>}
+                </div>
+              </State>
+            </section>
+
+            <section>
+              <h3>录制记录</h3>
+              <DataTable
+                compact
+                columns={['ID', '状态', '开始', '停止']}
+                rows={(classroom.recordings || []).map((recording) => [
+                  recording.id,
+                  <Badge value={recording.status} />,
+                  formatDate(recording.startedAt || recording.started_at),
+                  formatDate(recording.stoppedAt || recording.stopped_at),
+                ])}
+              />
+            </section>
+
+            <label className="review-reason">
+              <span>裁决依据</span>
+              <textarea value={reason} onChange={(event) => setReason(event.target.value)} placeholder="记录参考的回放片段、双方说法和最终判断" required />
+            </label>
+            {submitError ? <div className="error">{submitError}</div> : null}
+          </div>
+        </State>
+        <div className="modal-actions">
+          <button className="ghost" type="button" onClick={onClose}>取消</button>
+          <button type="submit" disabled={submitting || detailState.loading}>{submitting ? '处理中...' : '确认裁决'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ClassroomsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
@@ -1306,12 +1458,14 @@ function ClassroomsPage() {
   const [endDate, setEndDate] = useState('');
   const [detail, setDetail] = useState(null);
   const [replayCourse, setReplayCourse] = useState(null);
+  const [lessonReviewCourse, setLessonReviewCourse] = useState(null);
+  const [reload, setReload] = useState(0);
   const [sort, setSort] = useState({ field: 'starts_at', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/classrooms', {
       params: { q, status, lessonHoursStatus, replayStatus, startDate, endDate, limit: 80 },
     }),
-    [q, status, lessonHoursStatus, replayStatus, startDate, endDate]
+    [q, status, lessonHoursStatus, replayStatus, startDate, endDate, reload]
   );
 
   const classrooms = useMemo(() => {
@@ -1422,7 +1576,7 @@ function ClassroomsPage() {
             <Badge value={item.effectiveStatus || item.status} />,
             <strong>{item.student_public_id || '-'}</strong>,
             <div className="stacked-cell"><strong>{item.mentor_public_id || '-'}</strong><span>{item.mentor_display_name || item.mentor_email || '-'}</span></div>,
-            <Badge value={item.lesson_hours_status || 'none'} />,
+            <PlatformReviewStatus classroom={item} onOpen={setLessonReviewCourse} />,
             getLessonHoursSummary(item),
             <Badge value={item.replayStatus} />,
             item.reviewStatus === 'reviewed' ? formatReviewScore(item.review_overall_score) : '-',
@@ -1440,6 +1594,13 @@ function ClassroomsPage() {
       </State>
       {detail ? <ClassroomDrawer courseId={detail} onClose={() => setDetail(null)} /> : null}
       {replayCourse ? <ReplayDialog course={replayCourse} onClose={() => setReplayCourse(null)} /> : null}
+      {lessonReviewCourse ? (
+        <LessonHoursReviewDialog
+          course={lessonReviewCourse}
+          onClose={() => setLessonReviewCourse(null)}
+          onSettled={() => setReload((value) => value + 1)}
+        />
+      ) : null}
     </section>
   );
 }
