@@ -525,10 +525,10 @@ th {
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   border-radius: 6px;
   background: transparent;
-  color: inherit;
+  color: #006c73;
+  font-weight: 700;
   box-shadow: none;
 }
 
@@ -539,20 +539,36 @@ th {
   color: #172033;
 }
 
-.status-filter-caret {
-  color: #a5afbd;
-  font-size: 10px;
-  line-height: 1;
+.status-filter-header-active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
 }
 
-.status-filter-current {
-  color: #176b87;
-  font-size: 12px;
-  font-weight: 600;
+.status-filter-header.status-filter-header-active.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
 }
 
-.status-filter-header:not(.active) .status-filter-current {
-  display: none;
+.status-filter-header-suspended .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header.status-filter-header-suspended.active .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-active .status-filter-trigger:hover,
+.status-filter-header-active:focus-within .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-suspended .status-filter-trigger:hover,
+.status-filter-header-suspended:focus-within .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
 }
 
 .status-filter-menu {
@@ -599,7 +615,7 @@ th {
   justify-content: flex-start;
   border-radius: 6px;
   background: transparent;
-  color: #51627d;
+  color: #005f66;
   font-weight: 500;
   text-align: left;
   box-shadow: none;
@@ -609,8 +625,30 @@ th {
 .status-filter-menu button:hover,
 .status-filter-menu button:focus-visible,
 .status-filter-menu button.active {
-  background: #e8f1f5;
-  color: #11566d;
+  background: #dff3f2;
+  color: #006c73;
+}
+
+.status-filter-menu .status-filter-option-active {
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-suspended {
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-active:hover,
+.status-filter-menu .status-filter-option-active:focus-visible,
+.status-filter-menu .status-filter-option-active.active {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-suspended:hover,
+.status-filter-menu .status-filter-option-suspended:focus-visible,
+.status-filter-menu .status-filter-option-suspended.active {
+  background: #fde8e6;
+  color: #b42318;
 }
 
 tr:last-child td {

@@ -609,22 +609,28 @@ function SortHeader({ label, field, sort, onSort }) {
 function StatusFilterHeader({ value, options, onChange }) {
   const activeOption = options.find((option) => option.value === value) || options[0];
   return (
-    <span className={`status-filter-header${value ? ' active' : ''}`}>
+    <span className={[
+      'status-filter-header',
+      value ? 'active' : '',
+      value ? `status-filter-header-${value}` : '',
+    ].filter(Boolean).join(' ')}>
       <button
         type="button"
         className="status-filter-trigger"
         aria-haspopup="menu"
         aria-label="筛选学生状态"
       >
-        <span>状态</span>
-        <span className="status-filter-caret">▼</span>
+        <span>{value ? activeOption.label : '状态'}</span>
       </button>
       <span className="status-filter-menu" role="menu" aria-label="学生状态筛选">
         {options.map((option) => (
           <button
             key={option.value || 'all'}
             type="button"
-            className={value === option.value ? 'active' : ''}
+            className={[
+              value === option.value ? 'active' : '',
+              option.value ? `status-filter-option-${option.value}` : 'status-filter-option-all',
+            ].filter(Boolean).join(' ')}
             onClick={() => onChange(option.value)}
             role="menuitemradio"
             aria-checked={value === option.value}
@@ -633,7 +639,6 @@ function StatusFilterHeader({ value, options, onChange }) {
           </button>
         ))}
       </span>
-      <span className="status-filter-current">{activeOption.label}</span>
     </span>
   );
 }
