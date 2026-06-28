@@ -781,10 +781,7 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
     const today = new Date();
     if (days === 0) {
       const todayKey = toLocalDateKey(today);
-      setDraftStartDate(todayKey);
-      setDraftEndDate(todayKey);
-      onStartDateChange(todayKey);
-      onEndDateChange(todayKey);
+      selectDate(todayKey);
       setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
       return;
     }
