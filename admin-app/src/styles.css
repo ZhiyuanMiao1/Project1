@@ -595,27 +595,34 @@ th {
 
 .range-calendar-nav {
   position: absolute;
-  top: 112px;
+  top: 130px;
   right: 34px;
   left: 34px;
   display: flex;
   justify-content: space-between;
+  transform: translateY(-50%);
   pointer-events: none;
 }
 
 .range-calendar-arrow {
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  min-height: 38px;
+  display: grid;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
   padding: 0;
   border-radius: 50%;
   background: transparent;
   color: #222;
-  font-size: 34px;
   line-height: 1;
+  place-items: center;
   box-shadow: none;
   pointer-events: auto;
+}
+
+.range-calendar-arrow svg {
+  width: 11px;
+  height: 11px;
 }
 
 .range-calendar-arrow:hover,
@@ -638,13 +645,13 @@ th {
   border-radius: 16px;
   color: #56647a;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .range-calendar-selected strong {
   color: #172033;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .range-calendar-months {
@@ -665,7 +672,8 @@ th {
 .range-calendar-title {
   color: #222;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
+  line-height: 28px;
   text-align: center;
 }
 
@@ -681,7 +689,7 @@ th {
   gap: 6px 0;
   color: #6b6f78;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .range-calendar-weekdays span {
@@ -749,7 +757,7 @@ th {
   background: transparent;
   color: #222;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: none;
 }
 
@@ -783,7 +791,7 @@ th {
   border-radius: 999px;
   background: #fff;
   color: #222;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
   box-shadow: none;
 }

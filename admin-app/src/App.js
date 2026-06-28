@@ -5,6 +5,8 @@ import {
   faChalkboardUser,
   faChartLine,
   faCheck,
+  faChevronLeft,
+  faChevronRight,
   faClipboardCheck,
   faEye,
   faFileInvoiceDollar,
@@ -813,7 +815,7 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
             onClick={() => setViewMonth((month) => addMonths(month, -1))}
             aria-label="上一个月"
           >
-            ‹
+            <FontAwesomeIcon icon={faChevronLeft} />
           </button>
           <button
             type="button"
@@ -821,7 +823,7 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
             onClick={() => setViewMonth((month) => addMonths(month, 1))}
             aria-label="下一个月"
           >
-            ›
+            <FontAwesomeIcon icon={faChevronRight} />
           </button>
         </span>
         <span className="range-calendar-selected">
