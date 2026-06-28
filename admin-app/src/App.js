@@ -266,22 +266,6 @@ function Toolbar({ children }) {
   return <div className="toolbar">{children}</div>;
 }
 
-function RefreshButton({ onClick, loading }) {
-  const label = loading ? '刷新中...' : '刷新';
-  return (
-    <button
-      type="button"
-      className="ghost refresh-button icon-only"
-      onClick={onClick}
-      disabled={loading}
-      aria-label={label}
-      title={label}
-    >
-      <FontAwesomeIcon icon={faRotateRight} className={loading ? 'spin' : ''} />
-    </button>
-  );
-}
-
 function SearchBox({ value, onChange, placeholder = '搜索邮箱、ID、关键字' }) {
   return (
     <label className="search-box">
@@ -1007,7 +991,6 @@ function ClassroomsPage() {
   const [replayStatus, setReplayStatus] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [replayCourse, setReplayCourse] = useState(null);
   const [sort, setSort] = useState({ field: 'starts_at', direction: 'desc' });
@@ -1015,7 +998,7 @@ function ClassroomsPage() {
     () => api('/api/admin/classrooms', {
       params: { q, status, lessonHoursStatus, replayStatus, startDate, endDate, limit: 80 },
     }),
-    [q, status, lessonHoursStatus, replayStatus, startDate, endDate, reload]
+    [q, status, lessonHoursStatus, replayStatus, startDate, endDate]
   );
 
   const classrooms = useMemo(() => {
@@ -1057,17 +1040,24 @@ function ClassroomsPage() {
     window.open(`/classrooms/${encodeURIComponent(courseId)}/watch`, '_blank', 'noopener,noreferrer');
   };
 
+  const statusOptions = [
+    { value: '', label: '全部' },
+    { value: 'scheduled', label: '未开始' },
+    { value: 'completed', label: '已结束' },
+    { value: 'cancelled', label: '已取消' },
+  ];
+
   return (
     <section>
       <PageTitle title="课堂管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索课堂ID、邮箱、StudentID、MentorID、导师姓名" />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
-          <option value="">全部课堂状态</option>
-          <option value="scheduled">未开始</option>
-          <option value="completed">已结束</option>
-          <option value="cancelled">已取消</option>
-        </select>
+        <SegmentedFilter
+          value={status}
+          onChange={setStatus}
+          options={statusOptions}
+          ariaLabel="课堂状态"
+        />
         <select value={lessonHoursStatus} onChange={(event) => setLessonHoursStatus(event.target.value)}>
           <option value="">全部课时确认</option>
           <option value="none">无记录</option>
@@ -1086,7 +1076,6 @@ function ClassroomsPage() {
         </select>
         <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} aria-label="开始日期" />
         <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} aria-label="结束日期" />
-        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
