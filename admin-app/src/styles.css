@@ -354,7 +354,9 @@ button.link-button {
 }
 
 .table-wrap:has(.status-filter-header:hover),
-.table-wrap:has(.status-filter-header:focus-within) {
+.table-wrap:has(.status-filter-header:focus-within),
+.table-wrap:has(.date-filter-header:hover),
+.table-wrap:has(.date-filter-header:focus-within) {
   overflow: visible;
 }
 
@@ -403,6 +405,10 @@ th {
 .classrooms-table td:nth-child(3) {
   font-size: 14px;
   line-height: 1.35;
+}
+
+.classrooms-table th:nth-child(3) .date-filter-trigger {
+  padding-left: 0;
 }
 
 .classrooms-table th:nth-child(4),
@@ -510,6 +516,162 @@ th {
 .sort-arrows button:hover,
 .sort-arrows button.active {
   color: #172033;
+}
+
+.date-filter-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+}
+
+.date-filter-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.date-filter-trigger {
+  min-height: 28px;
+  max-width: 168px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.date-filter-trigger:hover,
+.date-filter-header:focus-within .date-filter-trigger,
+.date-filter-header.active .date-filter-trigger {
+  background: #eef3f8;
+  color: #172033;
+}
+
+.date-filter-header.active .date-filter-trigger {
+  color: #006c73;
+}
+
+.date-filter-menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  min-width: 0;
+  display: none;
+  grid-template-columns: 118px 118px auto;
+  align-items: end;
+  gap: 10px;
+  padding: 11px 10px 10px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(to bottom, transparent 0, transparent 6px, #fff 6px, #fff 100%);
+  background-clip: padding-box;
+  border-top-color: transparent;
+  box-shadow: 0 14px 34px rgba(31, 42, 68, 0.14);
+}
+
+.date-filter-menu::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  z-index: -1;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(31, 42, 68, 0.14);
+}
+
+.date-filter-header:hover .date-filter-menu,
+.date-filter-header:focus-within .date-filter-menu {
+  display: grid;
+}
+
+.date-filter-menu label {
+  display: grid;
+  gap: 5px;
+  width: 118px;
+  color: #51627d;
+  font-size: 12px;
+  font-weight: 600;
+  justify-items: start;
+}
+
+.date-input-shell {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 118px;
+  justify-self: start;
+  width: 118px;
+  height: 34px;
+  min-height: 0;
+}
+
+.date-filter-menu .date-input {
+  width: 118px;
+  height: 34px;
+  min-height: 0;
+  padding: 0 18px 0 9px;
+  line-height: 34px;
+}
+
+.date-filter-menu .date-input.empty {
+  color: transparent;
+}
+
+.date-filter-menu .date-input.empty::-webkit-datetime-edit {
+  color: transparent;
+}
+
+.date-filter-menu .date-input.empty::-webkit-datetime-edit-fields-wrapper,
+.date-filter-menu .date-input.empty::-webkit-datetime-edit-text,
+.date-filter-menu .date-input.empty::-webkit-datetime-edit-month-field,
+.date-filter-menu .date-input.empty::-webkit-datetime-edit-day-field,
+.date-filter-menu .date-input.empty::-webkit-datetime-edit-year-field {
+  background: transparent;
+  color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.date-input-placeholder {
+  position: absolute;
+  top: 50%;
+  left: 9px;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  color: #172033;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.date-filter-menu .date-input.empty:focus {
+  color: transparent;
+}
+
+.date-filter-menu .date-input.empty::-webkit-calendar-picker-indicator {
+  color: #172033;
+  margin-right: -4px;
+  opacity: 1;
+}
+
+.date-filter-clear {
+  min-height: 34px;
+  min-width: 48px;
+  padding: 0 10px;
+  background: #eef3f8;
+  color: #26364d;
+  white-space: nowrap;
 }
 
 .status-filter-header {

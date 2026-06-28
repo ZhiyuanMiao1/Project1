@@ -635,6 +635,92 @@ function StatusFilterHeader({ value, options, onChange, defaultLabel = '状态',
   );
 }
 
+const openDatePicker = (input) => {
+  try {
+    input?.showPicker?.();
+  } catch {
+    // Some browsers only allow showPicker during a direct pointer/click gesture.
+  }
+};
+
+function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onStartDateChange, onEndDateChange }) {
+  const hasRange = Boolean(startDate || endDate);
+  const displayLabel = hasRange ? [startDate || '开始', endDate || '结束'].join(' - ') : label;
+  return (
+    <span className={`date-filter-header${hasRange ? ' active' : ''}`}>
+      <span className="date-filter-main">
+        <button
+          type="button"
+          className="date-filter-trigger"
+          aria-haspopup="menu"
+          aria-label={`${label}日期筛选`}
+        >
+          {displayLabel}
+        </button>
+        <span className="sort-arrows">
+          <button
+            type="button"
+            className={sort.field === field && sort.direction === 'asc' ? 'active' : ''}
+            onClick={() => onSort(field, 'asc')}
+            aria-label={`${label}升序`}
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            className={sort.field === field && sort.direction === 'desc' ? 'active' : ''}
+            onClick={() => onSort(field, 'desc')}
+            aria-label={`${label}降序`}
+          >
+            ▼
+          </button>
+        </span>
+      </span>
+      <span className="date-filter-menu" role="menu" aria-label={`${label}日期范围筛选`}>
+        <label>
+          <span>开始日期</span>
+          <span className="date-input-shell">
+            <input
+              type="date"
+              lang="en-CA"
+              className={`date-input${startDate ? '' : ' empty'}`}
+              value={startDate}
+              onClick={(event) => openDatePicker(event.currentTarget)}
+              onChange={(event) => onStartDateChange(event.target.value)}
+            />
+            {!startDate ? <span className="date-input-placeholder">yyyy/mm/dd</span> : null}
+          </span>
+        </label>
+        <label>
+          <span>结束日期</span>
+          <span className="date-input-shell">
+            <input
+              type="date"
+              lang="en-CA"
+              className={`date-input${endDate ? '' : ' empty'}`}
+              value={endDate}
+              onClick={(event) => openDatePicker(event.currentTarget)}
+              onChange={(event) => onEndDateChange(event.target.value)}
+            />
+            {!endDate ? <span className="date-input-placeholder">yyyy/mm/dd</span> : null}
+          </span>
+        </label>
+        <button
+          type="button"
+          className="date-filter-clear"
+          onClick={() => {
+            onStartDateChange('');
+            onEndDateChange('');
+          }}
+          disabled={!hasRange}
+        >
+          清除
+        </button>
+      </span>
+    </span>
+  );
+}
+
 function UserDrawer({ userId, onClose }) {
   const { loading, error, data } = useAsync(() => api(`/api/admin/users/${userId}`), [userId]);
   return (
@@ -1095,7 +1181,16 @@ function ClassroomsPage() {
   const classroomColumns = [
     <SortHeader label="课堂ID" field="id" sort={sort} onSort={updateSort} />,
     '课程方向 / 类型',
-    <SortHeader label="上课时间" field="starts_at" sort={sort} onSort={updateSort} />,
+    <DateRangeHeader
+      label="上课时间"
+      field="starts_at"
+      sort={sort}
+      onSort={updateSort}
+      startDate={startDate}
+      endDate={endDate}
+      onStartDateChange={setStartDate}
+      onEndDateChange={setEndDate}
+    />,
     <SortHeader label="时长" field="duration_hours" sort={sort} onSort={updateSort} />,
     <StatusFilterHeader
       value={status}
@@ -1130,8 +1225,6 @@ function ClassroomsPage() {
       <PageTitle title="课堂管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索课堂ID、邮箱、StudentID、MentorID、导师姓名" />
-        <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} aria-label="开始日期" />
-        <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} aria-label="结束日期" />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
