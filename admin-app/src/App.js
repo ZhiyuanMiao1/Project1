@@ -446,8 +446,7 @@ function Shell({ onLogout }) {
 }
 
 function Dashboard() {
-  const [reload, setReload] = useState(0);
-  const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), [reload]);
+  const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), []);
   const cards = useMemo(() => {
     const d = data || {};
     return [
@@ -462,9 +461,6 @@ function Dashboard() {
   return (
     <section>
       <PageTitle title="Dashboard" subtitle="平台运营数据概览" />
-      <Toolbar>
-        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
-      </Toolbar>
       <State loading={loading} error={error}>
         <div className="metric-grid">
           {cards.map(([label, value, hint]) => (
@@ -546,7 +542,6 @@ function UsersPage() {
       <PageTitle title="学生管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} />
-        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -760,7 +755,6 @@ function MentorReviewsPage() {
           options={statusOptions}
           ariaLabel="导师审核状态"
         />
-        <RefreshButton onClick={() => setReload((n) => n + 1)} loading={loading} />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
