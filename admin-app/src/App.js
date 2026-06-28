@@ -479,13 +479,14 @@ function State({ loading, error, children }) {
 
 function UsersPage() {
   const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
-    () => api('/api/admin/users', { params: { q, limit: 50 } }),
-    [q, reload]
+    () => api('/api/admin/users', { params: { q, status, limit: 50 } }),
+    [q, status, reload]
   );
 
   const users = useMemo(() => {
@@ -511,6 +512,12 @@ function UsersPage() {
     setSort({ field, direction });
   };
 
+  const statusOptions = [
+    { value: '', label: '全部状态' },
+    { value: 'active', label: '正常' },
+    { value: 'suspended', label: '已封禁' },
+  ];
+
   const updateStatus = async (reason) => {
     await api(`/api/admin/users/${dialog.user.id}/status`, {
       method: 'PATCH',
@@ -534,7 +541,7 @@ function UsersPage() {
             '邮箱',
             <SortHeader label="课时余额" field="lesson_balance_hours" sort={sort} onSort={updateSort} />,
             <SortHeader label="累计充值（CNY）" field="total_paid_cny" sort={sort} onSort={updateSort} />,
-            '状态',
+            <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} />,
             <SortHeader label="注册时间" field="created_at" sort={sort} onSort={updateSort} />,
             '操作',
           ]}
@@ -595,6 +602,38 @@ function SortHeader({ label, field, sort, onSort }) {
           ▼
         </button>
       </span>
+    </span>
+  );
+}
+
+function StatusFilterHeader({ value, options, onChange }) {
+  const activeOption = options.find((option) => option.value === value) || options[0];
+  return (
+    <span className={`status-filter-header${value ? ' active' : ''}`}>
+      <button
+        type="button"
+        className="status-filter-trigger"
+        aria-haspopup="menu"
+        aria-label="筛选学生状态"
+      >
+        <span>状态</span>
+        <span className="status-filter-caret">▼</span>
+      </button>
+      <span className="status-filter-menu" role="menu" aria-label="学生状态筛选">
+        {options.map((option) => (
+          <button
+            key={option.value || 'all'}
+            type="button"
+            className={value === option.value ? 'active' : ''}
+            onClick={() => onChange(option.value)}
+            role="menuitemradio"
+            aria-checked={value === option.value}
+          >
+            {option.label}
+          </button>
+        ))}
+      </span>
+      <span className="status-filter-current">{activeOption.label}</span>
     </span>
   );
 }

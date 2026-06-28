@@ -353,6 +353,11 @@ button.link-button {
   border-radius: 8px;
 }
 
+.table-wrap:has(.status-filter-header:hover),
+.table-wrap:has(.status-filter-header:focus-within) {
+  overflow: visible;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -505,6 +510,106 @@ th {
 .sort-arrows button:hover,
 .sort-arrows button.active {
   color: #172033;
+}
+
+.status-filter-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.status-filter-trigger {
+  min-height: 28px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.status-filter-trigger:hover,
+.status-filter-header:focus-within .status-filter-trigger,
+.status-filter-header.active .status-filter-trigger {
+  background: #eef3f8;
+  color: #172033;
+}
+
+.status-filter-caret {
+  color: #a5afbd;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.status-filter-current {
+  color: #176b87;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-filter-header:not(.active) .status-filter-current {
+  display: none;
+}
+
+.status-filter-menu {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 0;
+  min-width: 112px;
+  display: none;
+  padding: 11px 5px 5px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background:
+    linear-gradient(to bottom, transparent 0, transparent 6px, #fff 6px, #fff 100%);
+  background-clip: padding-box;
+  border-top-color: transparent;
+  box-shadow: 0 14px 34px rgba(31, 42, 68, 0.14);
+}
+
+.status-filter-menu::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: -1px;
+  bottom: -1px;
+  left: -1px;
+  z-index: -1;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(31, 42, 68, 0.14);
+}
+
+.status-filter-header:hover .status-filter-menu,
+.status-filter-header:focus-within .status-filter-menu {
+  display: grid;
+  gap: 2px;
+}
+
+.status-filter-menu button {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 10px;
+  justify-content: flex-start;
+  border-radius: 6px;
+  background: transparent;
+  color: #51627d;
+  text-align: left;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.status-filter-menu button:hover,
+.status-filter-menu button:focus-visible,
+.status-filter-menu button.active {
+  background: #e8f1f5;
+  color: #11566d;
 }
 
 tr:last-child td {
