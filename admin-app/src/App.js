@@ -635,17 +635,146 @@ function StatusFilterHeader({ value, options, onChange, defaultLabel = '状态',
   );
 }
 
-const openDatePicker = (input) => {
-  try {
-    input?.showPicker?.();
-  } catch {
-    // Some browsers only allow showPicker during a direct pointer/click gesture.
-  }
+const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+
+const toLocalDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
+
+const parseDateKey = (value) => {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const addDays = (date, days) => {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const addMonths = (date, months) => new Date(date.getFullYear(), date.getMonth() + months, 1);
+
+const buildCalendarMonth = (monthDate) => {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const firstWeekday = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: firstWeekday }, (_, index) => ({ key: `blank-${index}`, blank: true }));
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+    cells.push({
+      key: toLocalDateKey(date),
+      date,
+      day,
+      value: toLocalDateKey(date),
+    });
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push({ key: `blank-tail-${cells.length}`, blank: true });
+  }
+
+  return cells;
+};
+
+function RangeCalendarMonth({ monthDate, startDate, endDate, onDateSelect }) {
+  const startTime = parseDateKey(startDate)?.getTime();
+  const endTime = parseDateKey(endDate)?.getTime();
+  const today = toLocalDateKey(new Date());
+
+  return (
+    <span className="range-calendar-month">
+      <span className="range-calendar-title">
+        {monthDate.getFullYear()} 年 {monthDate.getMonth() + 1} 月
+      </span>
+      <span className="range-calendar-weekdays">
+        {WEEKDAY_LABELS.map((weekday) => <span key={weekday}>{weekday}</span>)}
+      </span>
+      <span className="range-calendar-grid">
+        {buildCalendarMonth(monthDate).map((cell) => {
+          if (cell.blank) return <span key={cell.key} className="range-calendar-cell empty" />;
+
+          const cellTime = cell.date.getTime();
+          const isStart = cell.value === startDate;
+          const isEnd = cell.value === endDate;
+          const isInRange = startTime && endTime && cellTime > startTime && cellTime < endTime;
+          const isSingleDay = startDate && startDate === endDate && cell.value === startDate;
+
+          return (
+            <span
+              key={cell.key}
+              className={[
+                'range-calendar-cell',
+                isStart ? 'range-start' : '',
+                isEnd ? 'range-end' : '',
+                isInRange ? 'in-range' : '',
+                isSingleDay ? 'single-day' : '',
+                cell.value === today ? 'today' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              <button
+                type="button"
+                className="range-calendar-day"
+                onClick={() => onDateSelect(cell.value)}
+                aria-label={`${cell.value} ${isStart || isEnd ? '已选择' : '可选择'}`}
+                aria-pressed={isStart || isEnd}
+              >
+                {cell.day}
+              </button>
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
+}
 
 function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onStartDateChange, onEndDateChange }) {
   const hasRange = Boolean(startDate || endDate);
   const displayLabel = hasRange ? [startDate || '开始', endDate || '结束'].join(' - ') : label;
+  const [viewMonth, setViewMonth] = useState(() => {
+    const parsedStart = parseDateKey(startDate);
+    return parsedStart ? new Date(parsedStart.getFullYear(), parsedStart.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  });
+  const secondMonth = useMemo(() => addMonths(viewMonth, 1), [viewMonth]);
+
+  const selectDate = (value) => {
+    if (!startDate || (startDate && endDate)) {
+      onStartDateChange(value);
+      onEndDateChange('');
+      return;
+    }
+
+    if (value < startDate) {
+      onStartDateChange(value);
+      onEndDateChange('');
+      return;
+    }
+
+    onEndDateChange(value);
+  };
+
+  const applyCenteredRange = (days) => {
+    const today = new Date();
+    if (days === 0) {
+      const todayKey = toLocalDateKey(today);
+      onStartDateChange(todayKey);
+      onEndDateChange(todayKey);
+      setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+      return;
+    }
+
+    onStartDateChange(toLocalDateKey(addDays(today, -days)));
+    onEndDateChange(toLocalDateKey(addDays(today, days)));
+    setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
+
   return (
     <span className={`date-filter-header${hasRange ? ' active' : ''}`}>
       <span className="date-filter-main">
@@ -677,45 +806,62 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
         </span>
       </span>
       <span className="date-filter-menu" role="menu" aria-label={`${label}日期范围筛选`}>
-        <label>
-          <span>开始日期</span>
-          <span className="date-input-shell">
-            <input
-              type="date"
-              lang="en-CA"
-              className={`date-input${startDate ? '' : ' empty'}`}
-              value={startDate}
-              onClick={(event) => openDatePicker(event.currentTarget)}
-              onChange={(event) => onStartDateChange(event.target.value)}
-            />
-            {!startDate ? <span className="date-input-placeholder">yyyy/mm/dd</span> : null}
-          </span>
-        </label>
-        <label>
-          <span>结束日期</span>
-          <span className="date-input-shell">
-            <input
-              type="date"
-              lang="en-CA"
-              className={`date-input${endDate ? '' : ' empty'}`}
-              value={endDate}
-              onClick={(event) => openDatePicker(event.currentTarget)}
-              onChange={(event) => onEndDateChange(event.target.value)}
-            />
-            {!endDate ? <span className="date-input-placeholder">yyyy/mm/dd</span> : null}
-          </span>
-        </label>
-        <button
-          type="button"
-          className="date-filter-clear"
-          onClick={() => {
-            onStartDateChange('');
-            onEndDateChange('');
-          }}
-          disabled={!hasRange}
-        >
-          清除
-        </button>
+        <span className="range-calendar-nav">
+          <button
+            type="button"
+            className="range-calendar-arrow previous"
+            onClick={() => setViewMonth((month) => addMonths(month, -1))}
+            aria-label="上一个月"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className="range-calendar-arrow next"
+            onClick={() => setViewMonth((month) => addMonths(month, 1))}
+            aria-label="下一个月"
+          >
+            ›
+          </button>
+        </span>
+        <span className="range-calendar-selected">
+          <span>开始日期 <strong>{startDate || 'yyyy/mm/dd'}</strong></span>
+          <span>结束日期 <strong>{endDate || 'yyyy/mm/dd'}</strong></span>
+        </span>
+        <span className="range-calendar-months">
+          <RangeCalendarMonth
+            monthDate={viewMonth}
+            startDate={startDate}
+            endDate={endDate}
+            onDateSelect={selectDate}
+          />
+          <RangeCalendarMonth
+            monthDate={secondMonth}
+            startDate={startDate}
+            endDate={endDate}
+            onDateSelect={selectDate}
+          />
+        </span>
+        <span className="range-calendar-footer">
+          <button
+            type="button"
+            className="date-filter-clear"
+            onClick={() => {
+              onStartDateChange('');
+              onEndDateChange('');
+            }}
+            disabled={!hasRange}
+          >
+            清除
+          </button>
+          <button
+            type="button"
+            className="range-calendar-quick"
+            onClick={() => applyCenteredRange(0)}
+          >
+            今天
+          </button>
+        </span>
       </span>
     </span>
   );
