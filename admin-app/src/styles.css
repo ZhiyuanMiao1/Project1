@@ -607,6 +607,46 @@ th {
   color: #0369a1;
 }
 
+.status-filter-header-scheduled .status-filter-trigger,
+.status-filter-header.status-filter-header-scheduled.active .status-filter-trigger,
+.status-filter-header-none .status-filter-trigger,
+.status-filter-header.status-filter-header-none.active .status-filter-trigger {
+  background: #eef2f7;
+  color: #26364d;
+}
+
+.status-filter-header-completed .status-filter-trigger,
+.status-filter-header.status-filter-header-completed.active .status-filter-trigger,
+.status-filter-header-confirmed .status-filter-trigger,
+.status-filter-header.status-filter-header-confirmed.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-cancelled .status-filter-trigger,
+.status-filter-header.status-filter-header-cancelled.active .status-filter-trigger,
+.status-filter-header-disputed .status-filter-trigger,
+.status-filter-header.status-filter-header-disputed.active .status-filter-trigger,
+.status-filter-header-dispute_confirmed .status-filter-trigger,
+.status-filter-header.status-filter-header-dispute_confirmed.active .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-platform_review .status-filter-trigger,
+.status-filter-header.status-filter-header-platform_review.active .status-filter-trigger {
+  background: #f0e8ff;
+  color: #6d28d9;
+}
+
+.status-filter-header-running .status-filter-trigger,
+.status-filter-header.status-filter-header-running.active .status-filter-trigger,
+.status-filter-header-ready .status-filter-trigger,
+.status-filter-header.status-filter-header-ready.active .status-filter-trigger {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 .status-filter-header-active .status-filter-trigger:hover,
 .status-filter-header-active:focus-within .status-filter-trigger {
   background: #e7f6ee;
@@ -663,6 +703,46 @@ th {
 
 .status-filter-header-alipay .status-filter-trigger:hover,
 .status-filter-header-alipay:focus-within .status-filter-trigger {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-filter-header-scheduled .status-filter-trigger:hover,
+.status-filter-header-scheduled:focus-within .status-filter-trigger,
+.status-filter-header-none .status-filter-trigger:hover,
+.status-filter-header-none:focus-within .status-filter-trigger {
+  background: #eef2f7;
+  color: #26364d;
+}
+
+.status-filter-header-completed .status-filter-trigger:hover,
+.status-filter-header-completed:focus-within .status-filter-trigger,
+.status-filter-header-confirmed .status-filter-trigger:hover,
+.status-filter-header-confirmed:focus-within .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-cancelled .status-filter-trigger:hover,
+.status-filter-header-cancelled:focus-within .status-filter-trigger,
+.status-filter-header-disputed .status-filter-trigger:hover,
+.status-filter-header-disputed:focus-within .status-filter-trigger,
+.status-filter-header-dispute_confirmed .status-filter-trigger:hover,
+.status-filter-header-dispute_confirmed:focus-within .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-platform_review .status-filter-trigger:hover,
+.status-filter-header-platform_review:focus-within .status-filter-trigger {
+  background: #f0e8ff;
+  color: #6d28d9;
+}
+
+.status-filter-header-running .status-filter-trigger:hover,
+.status-filter-header-running:focus-within .status-filter-trigger,
+.status-filter-header-ready .status-filter-trigger:hover,
+.status-filter-header-ready:focus-within .status-filter-trigger {
   background: #e0f2fe;
   color: #0369a1;
 }
@@ -765,6 +845,31 @@ th {
   color: #0369a1;
 }
 
+.status-filter-menu .status-filter-option-scheduled,
+.status-filter-menu .status-filter-option-none {
+  color: #26364d;
+}
+
+.status-filter-menu .status-filter-option-completed,
+.status-filter-menu .status-filter-option-confirmed {
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-cancelled,
+.status-filter-menu .status-filter-option-disputed,
+.status-filter-menu .status-filter-option-dispute_confirmed {
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-platform_review {
+  color: #6d28d9;
+}
+
+.status-filter-menu .status-filter-option-running,
+.status-filter-menu .status-filter-option-ready {
+  color: #0369a1;
+}
+
 .status-filter-menu .status-filter-option-active:hover,
 .status-filter-menu .status-filter-option-active:focus-visible,
 .status-filter-menu .status-filter-option-active.active {
@@ -831,6 +936,56 @@ th {
 .status-filter-menu .status-filter-option-alipay:hover,
 .status-filter-menu .status-filter-option-alipay:focus-visible,
 .status-filter-menu .status-filter-option-alipay.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-filter-menu .status-filter-option-scheduled:hover,
+.status-filter-menu .status-filter-option-scheduled:focus-visible,
+.status-filter-menu .status-filter-option-scheduled.active,
+.status-filter-menu .status-filter-option-none:hover,
+.status-filter-menu .status-filter-option-none:focus-visible,
+.status-filter-menu .status-filter-option-none.active {
+  background: #eef2f7;
+  color: #26364d;
+}
+
+.status-filter-menu .status-filter-option-completed:hover,
+.status-filter-menu .status-filter-option-completed:focus-visible,
+.status-filter-menu .status-filter-option-completed.active,
+.status-filter-menu .status-filter-option-confirmed:hover,
+.status-filter-menu .status-filter-option-confirmed:focus-visible,
+.status-filter-menu .status-filter-option-confirmed.active {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-cancelled:hover,
+.status-filter-menu .status-filter-option-cancelled:focus-visible,
+.status-filter-menu .status-filter-option-cancelled.active,
+.status-filter-menu .status-filter-option-disputed:hover,
+.status-filter-menu .status-filter-option-disputed:focus-visible,
+.status-filter-menu .status-filter-option-disputed.active,
+.status-filter-menu .status-filter-option-dispute_confirmed:hover,
+.status-filter-menu .status-filter-option-dispute_confirmed:focus-visible,
+.status-filter-menu .status-filter-option-dispute_confirmed.active {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-platform_review:hover,
+.status-filter-menu .status-filter-option-platform_review:focus-visible,
+.status-filter-menu .status-filter-option-platform_review.active {
+  background: #f0e8ff;
+  color: #6d28d9;
+}
+
+.status-filter-menu .status-filter-option-running:hover,
+.status-filter-menu .status-filter-option-running:focus-visible,
+.status-filter-menu .status-filter-option-running.active,
+.status-filter-menu .status-filter-option-ready:hover,
+.status-filter-menu .status-filter-option-ready:focus-visible,
+.status-filter-menu .status-filter-option-ready.active {
   background: #e0f2fe;
   color: #0369a1;
 }
