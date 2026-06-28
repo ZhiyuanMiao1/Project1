@@ -559,6 +559,54 @@ th {
   color: #b42318;
 }
 
+.status-filter-header-pending .status-filter-trigger,
+.status-filter-header.status-filter-header-pending.active .status-filter-trigger {
+  background: #fff4df;
+  color: #9a5b00;
+}
+
+.status-filter-header-approved .status-filter-trigger,
+.status-filter-header.status-filter-header-approved.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-rejected .status-filter-trigger,
+.status-filter-header.status-filter-header-rejected.active .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-paid .status-filter-trigger,
+.status-filter-header.status-filter-header-paid.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-failed .status-filter-trigger,
+.status-filter-header.status-filter-header-failed.active .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-paypal .status-filter-trigger,
+.status-filter-header.status-filter-header-paypal.active .status-filter-trigger {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.status-filter-header-wechat .status-filter-trigger,
+.status-filter-header.status-filter-header-wechat.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-alipay .status-filter-trigger,
+.status-filter-header.status-filter-header-alipay.active .status-filter-trigger {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 .status-filter-header-active .status-filter-trigger:hover,
 .status-filter-header-active:focus-within .status-filter-trigger {
   background: #e7f6ee;
@@ -569,6 +617,54 @@ th {
 .status-filter-header-suspended:focus-within .status-filter-trigger {
   background: #fde8e6;
   color: #b42318;
+}
+
+.status-filter-header-pending .status-filter-trigger:hover,
+.status-filter-header-pending:focus-within .status-filter-trigger {
+  background: #fff4df;
+  color: #9a5b00;
+}
+
+.status-filter-header-approved .status-filter-trigger:hover,
+.status-filter-header-approved:focus-within .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-rejected .status-filter-trigger:hover,
+.status-filter-header-rejected:focus-within .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-paid .status-filter-trigger:hover,
+.status-filter-header-paid:focus-within .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-failed .status-filter-trigger:hover,
+.status-filter-header-failed:focus-within .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header-paypal .status-filter-trigger:hover,
+.status-filter-header-paypal:focus-within .status-filter-trigger {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.status-filter-header-wechat .status-filter-trigger:hover,
+.status-filter-header-wechat:focus-within .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-alipay .status-filter-trigger:hover,
+.status-filter-header-alipay:focus-within .status-filter-trigger {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .status-filter-menu {
@@ -637,6 +733,38 @@ th {
   color: #b42318;
 }
 
+.status-filter-menu .status-filter-option-pending {
+  color: #9a5b00;
+}
+
+.status-filter-menu .status-filter-option-approved {
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-rejected {
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-paid {
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-failed {
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-paypal {
+  color: #1f5eaa;
+}
+
+.status-filter-menu .status-filter-option-wechat {
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-alipay {
+  color: #0369a1;
+}
+
 .status-filter-menu .status-filter-option-active:hover,
 .status-filter-menu .status-filter-option-active:focus-visible,
 .status-filter-menu .status-filter-option-active.active {
@@ -649,6 +777,62 @@ th {
 .status-filter-menu .status-filter-option-suspended.active {
   background: #fde8e6;
   color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-pending:hover,
+.status-filter-menu .status-filter-option-pending:focus-visible,
+.status-filter-menu .status-filter-option-pending.active {
+  background: #fff4df;
+  color: #9a5b00;
+}
+
+.status-filter-menu .status-filter-option-approved:hover,
+.status-filter-menu .status-filter-option-approved:focus-visible,
+.status-filter-menu .status-filter-option-approved.active {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-rejected:hover,
+.status-filter-menu .status-filter-option-rejected:focus-visible,
+.status-filter-menu .status-filter-option-rejected.active {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-paid:hover,
+.status-filter-menu .status-filter-option-paid:focus-visible,
+.status-filter-menu .status-filter-option-paid.active {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-failed:hover,
+.status-filter-menu .status-filter-option-failed:focus-visible,
+.status-filter-menu .status-filter-option-failed.active {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-menu .status-filter-option-paypal:hover,
+.status-filter-menu .status-filter-option-paypal:focus-visible,
+.status-filter-menu .status-filter-option-paypal.active {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.status-filter-menu .status-filter-option-wechat:hover,
+.status-filter-menu .status-filter-option-wechat:focus-visible,
+.status-filter-menu .status-filter-option-wechat.active {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-alipay:hover,
+.status-filter-menu .status-filter-option-alipay:focus-visible,
+.status-filter-menu .status-filter-option-alipay.active {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 tr:last-child td {
@@ -801,6 +985,21 @@ tr:last-child td {
 .badge-medium {
   background: #e7f0ff;
   color: #1f5eaa;
+}
+
+.badge-provider-paypal {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.badge-provider-wechat {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.badge-provider-alipay {
+  background: #e0f2fe;
+  color: #0369a1;
 }
 
 .badge-platform_review {

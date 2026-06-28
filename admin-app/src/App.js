@@ -262,6 +262,17 @@ function OrderStatusBadge({ order }) {
   return <span className={`badge badge-order-${meta.key}`}>{meta.label}</span>;
 }
 
+const providerText = {
+  paypal: 'PayPal',
+  alipay: '支付宝',
+  wechat: '微信',
+};
+
+function ProviderBadge({ value }) {
+  const key = String(value || '').toLowerCase();
+  return <span className={`badge badge-provider-${key}`}>{providerText[key] || value || '-'}</span>;
+}
+
 function Toolbar({ children }) {
   return <div className="toolbar">{children}</div>;
 }
@@ -606,7 +617,7 @@ function SortHeader({ label, field, sort, onSort }) {
   );
 }
 
-function StatusFilterHeader({ value, options, onChange }) {
+function StatusFilterHeader({ value, options, onChange, defaultLabel = '状态', ariaLabel = '学生状态筛选' }) {
   const activeOption = options.find((option) => option.value === value) || options[0];
   return (
     <span className={[
@@ -618,11 +629,11 @@ function StatusFilterHeader({ value, options, onChange }) {
         type="button"
         className="status-filter-trigger"
         aria-haspopup="menu"
-        aria-label="筛选学生状态"
+        aria-label={ariaLabel}
       >
-        <span>{value ? activeOption.label : '状态'}</span>
+        <span>{value ? activeOption.label : defaultLabel}</span>
       </button>
-      <span className="status-filter-menu" role="menu" aria-label="学生状态筛选">
+      <span className="status-filter-menu" role="menu" aria-label={ariaLabel}>
         {options.map((option) => (
           <button
             key={option.value || 'all'}
@@ -777,12 +788,6 @@ function MentorReviewsPage() {
       <PageTitle title="导师管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、MentorID、姓名" />
-        <SegmentedFilter
-          value={status}
-          onChange={setStatus}
-          options={statusOptions}
-          ariaLabel="导师审核状态"
-        />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -792,7 +797,7 @@ function MentorReviewsPage() {
             <SortHeader label="学校/学历" field="school_degree" sort={sort} onSort={updateSort} />,
             '简历',
             <SortHeader label="已授课时" field="total_teaching_hours" sort={sort} onSort={updateSort} />,
-            <SortHeader label="状态" field="mentor_review_status" sort={sort} onSort={updateSort} />,
+            <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} ariaLabel="导师审核状态筛选" />,
             <SortHeader label="申请时间" field="mentor_created_at" sort={sort} onSort={updateSort} />,
             '操作',
           ]}
@@ -899,10 +904,11 @@ function MentorDrawer({ userId, onClose }) {
 function OrdersPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [provider, setProvider] = useState('');
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const { loading, error, data } = useAsync(
-    () => api('/api/admin/orders', { params: { q, status, limit: 50 } }),
-    [q, status]
+    () => api('/api/admin/orders', { params: { q, status, provider, limit: 50 } }),
+    [q, status, provider]
   );
 
   const orders = useMemo(() => {
@@ -938,12 +944,30 @@ function OrdersPage() {
     { value: 'failed', label: '失败/取消' },
   ];
 
+  const providerOptions = [
+    { value: '', label: '全部 Provider' },
+    { value: 'paypal', label: 'PayPal' },
+    { value: 'wechat', label: '微信' },
+    { value: 'alipay', label: '支付宝' },
+  ];
+
   const orderColumns = [
     <SortHeader label={'\u8ba2\u5355ID'} field="id" sort={sort} onSort={updateSort} />,
     <SortHeader label="StudentID" field="student_public_id" sort={sort} onSort={updateSort} />,
     '\u90ae\u7bb1',
-    'Provider',
-    '\u72b6\u6001',
+    <StatusFilterHeader
+      value={provider}
+      options={providerOptions}
+      onChange={setProvider}
+      defaultLabel="Provider"
+      ariaLabel="订单 Provider 筛选"
+    />,
+    <StatusFilterHeader
+      value={status}
+      options={statusOptions}
+      onChange={setStatus}
+      ariaLabel="订单状态筛选"
+    />,
     <SortHeader label={'\u8bfe\u65f6'} field="topup_hours" sort={sort} onSort={updateSort} />,
     <SortHeader label={'\u91d1\u989d'} field="amount_cny" sort={sort} onSort={updateSort} />,
     <SortHeader label={'\u521b\u5efa\u65f6\u95f4'} field="created_at" sort={sort} onSort={updateSort} />,
@@ -954,12 +978,6 @@ function OrdersPage() {
       <PageTitle title="订单管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、订单号、StudentID" />
-        <SegmentedFilter
-          value={status}
-          onChange={setStatus}
-          options={statusOptions}
-          ariaLabel="订单状态"
-        />
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -968,7 +986,7 @@ function OrdersPage() {
             order.id,
             order.student_public_id || '-',
             order.email || '-',
-            order.provider,
+            <ProviderBadge value={order.provider} />,
             <OrderStatusBadge order={order} />,
             order.topup_hours,
             formatIntegerAmount(order.amount_cny),
