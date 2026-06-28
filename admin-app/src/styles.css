@@ -356,7 +356,8 @@ button.link-button {
 .table-wrap:has(.status-filter-header:hover),
 .table-wrap:has(.status-filter-header:focus-within),
 .table-wrap:has(.date-filter-header:hover),
-.table-wrap:has(.date-filter-header:focus-within) {
+.table-wrap:has(.date-filter-header:focus-within),
+.table-wrap:has(.date-filter-header.open) {
   overflow: visible;
 }
 
@@ -387,18 +388,22 @@ th {
 .classrooms-table th:nth-child(1),
 .classrooms-table td:nth-child(1) {
   width: 82px;
+  min-width: 82px;
   padding-right: 6px;
   white-space: nowrap;
 }
 
 .classrooms-table th:nth-child(2),
 .classrooms-table td:nth-child(2) {
+  width: 150px;
+  min-width: 150px;
   padding-left: 8px;
 }
 
 .classrooms-table th:nth-child(3),
 .classrooms-table td:nth-child(3) {
-  width: 96px;
+  width: 126px;
+  min-width: 126px;
   padding-right: 12px;
 }
 
@@ -409,6 +414,7 @@ th {
 
 .classrooms-table th:nth-child(3) .date-filter-trigger {
   padding-left: 0;
+  text-align: left;
 }
 
 .classrooms-table th:nth-child(4),
@@ -584,12 +590,14 @@ th {
 }
 
 .date-filter-header:hover .date-filter-menu,
-.date-filter-header:focus-within .date-filter-menu {
+.date-filter-header:focus-within .date-filter-menu,
+.date-filter-header.open .date-filter-menu {
   display: grid;
 }
 
 .date-filter-header:hover::after,
-.date-filter-header:focus-within::after {
+.date-filter-header:focus-within::after,
+.date-filter-header.open::after {
   display: block;
 }
 

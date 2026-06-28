@@ -739,46 +739,76 @@ function RangeCalendarMonth({ monthDate, startDate, endDate, onDateSelect }) {
 
 function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onStartDateChange, onEndDateChange }) {
   const hasRange = Boolean(startDate || endDate);
-  const displayLabel = hasRange ? [startDate || '开始', endDate || '结束'].join(' - ') : label;
+  const displayLabel = hasRange ? '已选时间' : label;
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState(startDate);
+  const [draftEndDate, setDraftEndDate] = useState(endDate);
   const [viewMonth, setViewMonth] = useState(() => {
     const parsedStart = parseDateKey(startDate);
     return parsedStart ? new Date(parsedStart.getFullYear(), parsedStart.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   });
   const secondMonth = useMemo(() => addMonths(viewMonth, 1), [viewMonth]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setDraftStartDate(startDate);
+      setDraftEndDate(endDate);
+    }
+  }, [endDate, isOpen, startDate]);
+
   const selectDate = (value) => {
-    if (!startDate || (startDate && endDate)) {
-      onStartDateChange(value);
-      onEndDateChange('');
+    setIsOpen(true);
+
+    if (!draftStartDate || (draftStartDate && draftEndDate)) {
+      setDraftStartDate(value);
+      setDraftEndDate('');
       return;
     }
 
-    if (value < startDate) {
-      onStartDateChange(value);
-      onEndDateChange('');
+    if (value < draftStartDate) {
+      setDraftStartDate(value);
+      setDraftEndDate('');
       return;
     }
 
+    setDraftEndDate(value);
+    onStartDateChange(draftStartDate);
     onEndDateChange(value);
   };
 
   const applyCenteredRange = (days) => {
+    setIsOpen(true);
     const today = new Date();
     if (days === 0) {
       const todayKey = toLocalDateKey(today);
+      setDraftStartDate(todayKey);
+      setDraftEndDate(todayKey);
       onStartDateChange(todayKey);
       onEndDateChange(todayKey);
       setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
       return;
     }
 
-    onStartDateChange(toLocalDateKey(addDays(today, -days)));
-    onEndDateChange(toLocalDateKey(addDays(today, days)));
+    const centeredStart = toLocalDateKey(addDays(today, -days));
+    const centeredEnd = toLocalDateKey(addDays(today, days));
+    setDraftStartDate(centeredStart);
+    setDraftEndDate(centeredEnd);
+    onStartDateChange(centeredStart);
+    onEndDateChange(centeredEnd);
     setViewMonth(new Date(today.getFullYear(), today.getMonth(), 1));
   };
 
   return (
-    <span className={`date-filter-header${hasRange ? ' active' : ''}`}>
+    <span
+      className={[
+        'date-filter-header',
+        hasRange ? 'active' : '',
+        isOpen ? 'open' : '',
+      ].filter(Boolean).join(' ')}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+      onFocus={() => setIsOpen(true)}
+    >
       <span className="date-filter-main">
         <button
           type="button"
@@ -812,7 +842,10 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
           <button
             type="button"
             className="range-calendar-arrow previous"
-            onClick={() => setViewMonth((month) => addMonths(month, -1))}
+            onClick={() => {
+              setIsOpen(true);
+              setViewMonth((month) => addMonths(month, -1));
+            }}
             aria-label="上一个月"
           >
             <FontAwesomeIcon icon={faChevronLeft} />
@@ -820,27 +853,30 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
           <button
             type="button"
             className="range-calendar-arrow next"
-            onClick={() => setViewMonth((month) => addMonths(month, 1))}
+            onClick={() => {
+              setIsOpen(true);
+              setViewMonth((month) => addMonths(month, 1));
+            }}
             aria-label="下一个月"
           >
             <FontAwesomeIcon icon={faChevronRight} />
           </button>
         </span>
         <span className="range-calendar-selected">
-          <span>开始日期 <strong>{startDate || 'yyyy/mm/dd'}</strong></span>
-          <span>结束日期 <strong>{endDate || 'yyyy/mm/dd'}</strong></span>
+          <span>开始日期 <strong>{draftStartDate || 'yyyy/mm/dd'}</strong></span>
+          <span>结束日期 <strong>{draftEndDate || 'yyyy/mm/dd'}</strong></span>
         </span>
         <span className="range-calendar-months">
           <RangeCalendarMonth
             monthDate={viewMonth}
-            startDate={startDate}
-            endDate={endDate}
+            startDate={draftStartDate}
+            endDate={draftEndDate}
             onDateSelect={selectDate}
           />
           <RangeCalendarMonth
             monthDate={secondMonth}
-            startDate={startDate}
-            endDate={endDate}
+            startDate={draftStartDate}
+            endDate={draftEndDate}
             onDateSelect={selectDate}
           />
         </span>
@@ -849,10 +885,13 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
             type="button"
             className="date-filter-clear"
             onClick={() => {
+              setIsOpen(true);
+              setDraftStartDate('');
+              setDraftEndDate('');
               onStartDateChange('');
               onEndDateChange('');
             }}
-            disabled={!hasRange}
+            disabled={!hasRange && !draftStartDate && !draftEndDate}
           >
             清除
           </button>
