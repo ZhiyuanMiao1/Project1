@@ -997,6 +997,8 @@ router.get('/classrooms', requireAdminAuth, async (req: Request, res: Response) 
   if (LESSON_HOURS_STATUSES.has(lessonHoursStatus)) {
     if (lessonHoursStatus === 'none') {
       where.push('latest_lhc.id IS NULL');
+    } else if (lessonHoursStatus === 'confirmed') {
+      where.push("latest_lhc.status IN ('confirmed', 'dispute_confirmed')");
     } else {
       where.push('latest_lhc.status = ?');
       params.push(lessonHoursStatus);

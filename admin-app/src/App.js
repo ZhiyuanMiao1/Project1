@@ -46,9 +46,9 @@ const statusText = {
   cancelled: '已取消',
   none: '无记录',
   confirmed: '已确认',
-  disputed: '有争议',
-  dispute_confirmed: '争议已确认',
-  platform_review: '平台处理中',
+  disputed: '待导师处理',
+  dispute_confirmed: '已确认',
+  platform_review: '平台介入',
   running: '录制中',
   ready: '已生成',
   reviewed: '已评价',
@@ -1078,11 +1078,10 @@ function ClassroomsPage() {
   const lessonHoursStatusOptions = [
     { value: '', label: '全部课时确认' },
     { value: 'none', label: '无记录' },
-    { value: 'pending', label: '待确认' },
+    { value: 'pending', label: '待学生确认' },
+    { value: 'disputed', label: '待导师处理' },
     { value: 'confirmed', label: '已确认' },
-    { value: 'disputed', label: '有争议' },
-    { value: 'dispute_confirmed', label: '争议已确认' },
-    { value: 'platform_review', label: '平台处理中' },
+    { value: 'platform_review', label: '平台介入' },
   ];
 
   const replayStatusOptions = [
