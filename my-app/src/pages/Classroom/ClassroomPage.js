@@ -2557,27 +2557,35 @@ function ClassroomPage() {
       },
     ];
 
-    let startedCount = 0;
-    for (const stream of streams) {
-      if (!stream.playUrl || !stream.element) continue;
-      const player = new sdk.AlivcLivePlayer();
-      observerPlayerRefs.current.push(player);
-      try {
-        await player.startPlay(stream.playUrl, stream.element, stream.screenElement);
-        startedCount += 1;
-      } catch (error) {
-        try { player.destroy?.(); } catch {}
+    const playableStreams = streams.filter((stream) => stream.playUrl && stream.element);
+    if (!playableStreams.length) {
+      if (mountedRef.current && joinedRef.current) {
+        setStatusText(t('classroom.observerMissingStreams', '旁听鉴权缺少课堂播放地址'));
       }
-    }
-
-    if (!mountedRef.current || !joinedRef.current) return;
-    if (startedCount > 0) {
-      setErrorMessage('');
-      setStatusText(t('classroom.observerWatching', '旁听中'));
       return;
     }
 
+    const markPlaybackStarted = () => {
+      if (!mountedRef.current || !joinedRef.current) return;
+      setErrorMessage('');
+      setStatusText(t('classroom.observerWatching', '旁听中'));
+    };
+
     setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
+
+    playableStreams.forEach((stream) => {
+      const player = new sdk.AlivcLivePlayer();
+      observerPlayerRefs.current.push(player);
+      try {
+        Promise.resolve(player.startPlay(stream.playUrl, stream.element, stream.screenElement))
+          .then(markPlaybackStarted)
+          .catch(() => {
+            try { player.destroy?.(); } catch {}
+          });
+      } catch (error) {
+        try { player.destroy?.(); } catch {}
+      }
+    });
   }, [stopObserverPlayback, t]);
 
   const syncClassroomPresence = useCallback(async (options = {}) => {
@@ -3763,6 +3771,7 @@ function ClassroomPage() {
                 ref={remoteScreenVideoRef}
                 autoPlay
                 playsInline
+                muted={isObserverMode}
                 className={`classroom-presentation-video ${remoteScreenReady ? 'is-active' : ''}`}
                 onLoadedData={markRemoteScreenReady}
                 onCanPlay={markRemoteScreenReady}
@@ -3784,7 +3793,7 @@ function ClassroomPage() {
             <div className="classroom-video-box">
               {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingStudentVideo', '等待学生画面...')}</div> : null}
               {!isObserverMode && cameraMuted ? <div className="classroom-video-placeholder">{t('classroom.localCameraOff', LOCAL_CAMERA_OFF_TEXT)}</div> : null}
-              <video ref={localVideoRef} autoPlay playsInline muted={!isObserverMode} />
+              <video ref={localVideoRef} autoPlay playsInline muted />
             </div>
           </article>
 
@@ -3792,7 +3801,7 @@ function ClassroomPage() {
             <div className="classroom-video-title">{isObserverMode ? t('classroom.mentorVideo', '导师画面') : t('classroom.remoteVideo', '对方画面')}</div>
             <div className="classroom-video-box">
               {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingMentorVideo', '等待导师画面...')}</div> : null}
-              <video ref={remoteVideoRef} autoPlay playsInline />
+              <video ref={remoteVideoRef} autoPlay playsInline muted={isObserverMode} />
             </div>
           </article>
         </section>
