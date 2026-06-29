@@ -210,13 +210,22 @@ router.get('/classrooms/:courseId/observer-auth', async (req, res) => {
             userId: context.mentorPublicId,
             timestamp,
         });
+        const observerUserId = `observer_${courseId}_${observer.adminId}`;
+        const observerStreamAuth = (0, aliyunRtc_1.createAliyunLiveStreamAuthInfo)({
+            appId: runtime.appId,
+            appKey: runtime.appKey,
+            roomId: context.roomId,
+            userId: observerUserId,
+            timestamp,
+        });
         return res.json({
             liveAuth: {
                 mode: 'readonly-observer',
                 sdkAppId: runtime.appId,
                 roomId: context.roomId,
-                selfUserId: context.studentPublicId,
+                selfUserId: observerStreamAuth.userId,
                 remoteUserId: context.mentorPublicId,
+                observerJoinUrl: observerStreamAuth.pushUrl,
                 selfPlayUrl: studentStreamAuth.playUrl,
                 remotePlayUrl: mentorStreamAuth.playUrl,
                 expiresAt: new Date(timestamp * 1000).toISOString(),

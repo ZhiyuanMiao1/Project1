@@ -60,6 +60,8 @@ const SCREEN_SHARE_PROFILE = {
   bitrateKbps: 3000,
   fps: 15,
 };
+const OBSERVER_PLAY_RETRY_DELAY_MS = 3000;
+const OBSERVER_LIVE_INSTANCE_ID = 'classroom-observer';
 const REMOTE_STOPPLAY_NOOP = async () => undefined;
 
 let liveSdkPromise = null;
@@ -412,11 +414,27 @@ const clearVideoElement = (element, options = {}) => {
   } catch {}
 };
 
+const createObserverKeepaliveStream = () => {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const context = canvas.getContext('2d');
+  if (context) {
+    context.fillStyle = '#000000';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  if (typeof canvas.captureStream !== 'function') return null;
+  const stream = canvas.captureStream(1);
+  return stream?.getTracks?.().length ? stream : null;
+};
+
 const toLiveAuthInfo = (rawAuthInfo) => {
   const roomId = safeText(rawAuthInfo?.roomId);
   const selfUserId = safeText(rawAuthInfo?.selfUserId);
   const remoteUserId = safeText(rawAuthInfo?.remoteUserId);
   const pushUrl = safeText(rawAuthInfo?.pushUrl);
+  const observerJoinUrl = safeText(rawAuthInfo?.observerJoinUrl);
   const remotePlayUrl = safeText(rawAuthInfo?.remotePlayUrl);
   const selfPlayUrl = safeText(rawAuthInfo?.selfPlayUrl);
   const expiresAt = safeText(rawAuthInfo?.expiresAt);
@@ -433,6 +451,7 @@ const toLiveAuthInfo = (rawAuthInfo) => {
     selfUserId,
     remoteUserId,
     pushUrl,
+    observerJoinUrl,
     remotePlayUrl,
     selfPlayUrl,
     expiresAt,
@@ -641,7 +660,10 @@ function ClassroomPage() {
   const remoteScreenVideoRef = useRef(null);
   const pusherRef = useRef(null);
   const playerRef = useRef(null);
+  const observerKeepaliveStreamRef = useRef(null);
   const observerPlayerRefs = useRef([]);
+  const observerPlaybackRetryTimerRef = useRef(0);
+  const observerPlaybackAttemptRef = useRef(0);
   const liveAuthRef = useRef(null);
   const screenPreviewStreamRef = useRef(null);
   const screenTrackRef = useRef(null);
@@ -1791,11 +1813,28 @@ function ClassroomPage() {
 
   ensureCloudRecordingStartedRef.current = ensureCloudRecordingStarted;
 
-  const startLocalPush = useCallback(async () => {
+  const startLocalPush = useCallback(async (options = {}) => {
+    const { forceRestart = false } = options;
     const pusher = pusherRef.current;
     const pushUrl = safeText(liveAuthRef.current?.pushUrl);
     if (!pusher || !pushUrl) {
       throw new Error(t('classroom.pushNotReady', '课堂推流尚未就绪'));
+    }
+
+    if (forceRestart && (localPushActiveRef.current || hasActiveLocalPushSession(pusher))) {
+      if (typeof pusher.restartPush === 'function') {
+        try {
+          await pusher.restartPush();
+          localPushActiveRef.current = true;
+          await ensureCloudRecordingStartedRef.current();
+          return;
+        } catch {}
+      } else {
+        try {
+          await pusher.stopPush?.();
+        } catch {}
+        localPushActiveRef.current = false;
+      }
     }
 
     if (localPushActiveRef.current || hasActiveLocalPushSession(pusher)) {
@@ -2301,6 +2340,7 @@ function ClassroomPage() {
     const remotePlayUrl = safeText(liveAuth?.remotePlayUrl);
     const remoteUserId = safeText(liveAuth?.remoteUserId);
     const displayName = safeText(remoteLabelRef.current) || t('classroom.remoteFallback', '对方');
+    const isObserverPlayback = isObserverMode;
     const hadRemoteStream = hasEstablishedRemotePlayback();
     let player = null;
     let sessionId = 0;
@@ -2343,7 +2383,9 @@ function ClassroomPage() {
       });
       await teardownRemotePlayback();
 
-      player = new sdk.AlivcLivePlayer();
+      player = new sdk.AlivcLivePlayer(
+        isObserverPlayback ? { instanceId: OBSERVER_LIVE_INSTANCE_ID } : undefined
+      );
       sessionId = remotePlayerSessionRef.current + 1;
       remotePlayerSessionRef.current = sessionId;
       remoteStopInFlightRef.current = false;
@@ -2358,6 +2400,13 @@ function ClassroomPage() {
         willDestroy: false,
       });
 
+      if (isObserverPlayback) {
+        try {
+          remoteVideoRef.current.muted = true;
+          remoteVideoRef.current.autoplay = true;
+          remoteVideoRef.current.playsInline = true;
+        } catch {}
+      }
       const playInfo = await player.startPlay(
         remotePlayUrl,
         remoteVideoRef.current,
@@ -2412,7 +2461,11 @@ function ClassroomPage() {
         remotePresentRef.current = true;
         setRemotePresent(true);
         setErrorMessage('');
-        setStatusText(buildJoinedStatusText({ remotePresent: true, remoteReady: false, remoteLabel: displayName }));
+        if (isObserverPlayback) {
+          setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
+        } else {
+          setStatusText(buildJoinedStatusText({ remotePresent: true, remoteReady: false, remoteLabel: displayName }));
+        }
       }
 
       bindEmitter(playInfo, 'canplay', () => {
@@ -2422,7 +2475,11 @@ function ClassroomPage() {
         setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
-        setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
+        if (isObserverPlayback) {
+          setStatusText(t('classroom.observerWatching', '旁听中'));
+        } else {
+          setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
+        }
       });
 
       bindEmitter(playInfo, 'update', () => {
@@ -2432,7 +2489,11 @@ function ClassroomPage() {
         setRemotePresent(true);
         setRemoteReady(true);
         setErrorMessage('');
-        if (joinedRef.current) setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
+        if (isObserverPlayback) {
+          if (joinedRef.current) setStatusText(t('classroom.observerWatching', '旁听中'));
+        } else if (joinedRef.current) {
+          setStatusText(t('classroom.bothJoined', '双方已进入课堂'));
+        }
       });
 
       bindEmitter(playInfo, 'userleft', () => {
@@ -2447,6 +2508,12 @@ function ClassroomPage() {
           willStopPlay: remotePlaybackActiveRef.current,
           willDestroy: true,
         });
+        if (isObserverPlayback) {
+          void teardownRemotePlayback().then(() => {
+            scheduleRemotePlaybackRetry(OBSERVER_PLAY_RETRY_DELAY_MS);
+          });
+          return;
+        }
         void handleRemotePlaybackUnavailable({
           remotePresent: false,
           hadRemoteStream: true,
@@ -2498,6 +2565,13 @@ function ClassroomPage() {
       }
       if (!mountedRef.current || !joinedRef.current || (sessionId && !isLatestPlaybackAttempt())) return;
 
+      if (isObserverPlayback) {
+        setErrorMessage('');
+        setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
+        scheduleRemotePlaybackRetry(OBSERVER_PLAY_RETRY_DELAY_MS);
+        return;
+      }
+
       if (isRetryableRemotePlayError(error)) {
         const nextRemotePresent = remotePresentRef.current;
         await handleRemotePlaybackUnavailable({
@@ -2522,22 +2596,32 @@ function ClassroomPage() {
     destroyRemotePlayerInstance,
     handleRemotePlaybackUnavailable,
     hasEstablishedRemotePlayback,
+    isObserverMode,
     logRemoteCleanup,
     markRemoteMediaProgress,
+    scheduleRemotePlaybackRetry,
     t,
     teardownRemotePlayback,
   ]);
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
+  const clearObserverPlaybackRetry = useCallback(() => {
+    if (!observerPlaybackRetryTimerRef.current) return;
+    window.clearTimeout(observerPlaybackRetryTimerRef.current);
+    observerPlaybackRetryTimerRef.current = 0;
+  }, []);
+
   const stopObserverPlayback = useCallback(async () => {
+    clearObserverPlaybackRetry();
+    observerPlaybackAttemptRef.current += 1;
     const players = observerPlayerRefs.current;
     observerPlayerRefs.current = [];
     await Promise.all(players.map(async (player) => {
       try { await player?.stopPlay?.(); } catch {}
       try { player?.destroy?.(); } catch {}
     }));
-  }, []);
+  }, [clearObserverPlaybackRetry]);
 
   const startObserverPlayback = useCallback(async (sdk) => {
     const liveAuth = liveAuthRef.current;
@@ -2545,48 +2629,74 @@ function ClassroomPage() {
 
     await stopObserverPlayback();
 
-    const streams = [
-      {
-        playUrl: safeText(liveAuth.selfPlayUrl),
-        element: localVideoRef.current,
-      },
-      {
-        playUrl: safeText(liveAuth.remotePlayUrl),
-        element: remoteVideoRef.current,
-        screenElement: remoteScreenVideoRef.current || undefined,
-      },
-    ];
-
-    const playableStreams = streams.filter((stream) => stream.playUrl && stream.element);
-    if (!playableStreams.length) {
+    const studentStream = {
+      playUrl: safeText(liveAuth.selfPlayUrl),
+      element: localVideoRef.current,
+    };
+    if (!studentStream.playUrl || !studentStream.element) {
       if (mountedRef.current && joinedRef.current) {
         setStatusText(t('classroom.observerMissingStreams', '旁听鉴权缺少课堂播放地址'));
       }
       return;
     }
 
-    const markPlaybackStarted = () => {
+    const attemptId = observerPlaybackAttemptRef.current + 1;
+    observerPlaybackAttemptRef.current = attemptId;
+
+    const markPlaybackStarted = (player) => {
+      if (player && !observerPlayerRefs.current.includes(player)) {
+        try { player.destroy?.(); } catch {}
+        return;
+      }
       if (!mountedRef.current || !joinedRef.current) return;
+      clearObserverPlaybackRetry();
       setErrorMessage('');
       setStatusText(t('classroom.observerWatching', '旁听中'));
     };
 
+    const scheduleRetry = () => {
+      if (!mountedRef.current || !joinedRef.current) return;
+      if (observerPlaybackRetryTimerRef.current) return;
+      observerPlaybackRetryTimerRef.current = window.setTimeout(() => {
+        observerPlaybackRetryTimerRef.current = 0;
+        if (!mountedRef.current || !joinedRef.current) return;
+        void startObserverPlayback(sdk);
+      }, OBSERVER_PLAY_RETRY_DELAY_MS);
+    };
+
     setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
 
-    playableStreams.forEach((stream) => {
-      const player = new sdk.AlivcLivePlayer();
-      observerPlayerRefs.current.push(player);
+    const player = new sdk.AlivcLivePlayer({ instanceId: OBSERVER_LIVE_INSTANCE_ID });
+    observerPlayerRefs.current.push(player);
+    try {
       try {
-        Promise.resolve(player.startPlay(stream.playUrl, stream.element, stream.screenElement))
-          .then(markPlaybackStarted)
-          .catch(() => {
-            try { player.destroy?.(); } catch {}
-          });
-      } catch (error) {
-        try { player.destroy?.(); } catch {}
-      }
-    });
-  }, [stopObserverPlayback, t]);
+        studentStream.element.muted = true;
+        studentStream.element.autoplay = true;
+        studentStream.element.playsInline = true;
+      } catch {}
+      Promise.resolve(player.startPlay(studentStream.playUrl, studentStream.element))
+        .then(() => {
+          if (observerPlaybackAttemptRef.current !== attemptId) return;
+          markPlaybackStarted(player);
+        })
+        .catch(() => {
+          if (observerPlaybackAttemptRef.current !== attemptId) return;
+          observerPlayerRefs.current = observerPlayerRefs.current.filter((item) => item !== player);
+          try { player.destroy?.(); } catch {}
+          scheduleRetry();
+        });
+    } catch (error) {
+      observerPlayerRefs.current = observerPlayerRefs.current.filter((item) => item !== player);
+      try { player.destroy?.(); } catch {}
+      scheduleRetry();
+    }
+  }, [clearObserverPlaybackRetry, stopObserverPlayback, t]);
+
+  const markObserverPlaybackReady = useCallback(() => {
+    if (!isObserverMode || !mountedRef.current || !joinedRef.current) return;
+    setErrorMessage('');
+    setStatusText(t('classroom.observerWatching', '旁听中'));
+  }, [isObserverMode, t]);
 
   const syncClassroomPresence = useCallback(async (options = {}) => {
     const normalizedCourseId = safeText(courseId);
@@ -2696,6 +2806,12 @@ function ClassroomPage() {
           await pusher.stopScreenShare();
         }
       } catch {}
+      try {
+        if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
+          await startLocalPush();
+        }
+        syncLocalMicMuteState(micMuted);
+      } catch {}
     }
 
     if (mountedRef.current) {
@@ -2708,7 +2824,7 @@ function ClassroomPage() {
       }
     }
     void syncClassroomPresence({ screenSharing: false });
-  }, [buildJoinedStatusText, clearScreenTrackListener, syncClassroomPresence]);
+  }, [buildJoinedStatusText, clearScreenTrackListener, micMuted, startLocalPush, syncClassroomPresence, syncLocalMicMuteState]);
 
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) {
@@ -2749,6 +2865,24 @@ function ClassroomPage() {
         remoteRecoveryPendingRef.current = false;
         remoteRecoveryTimestampRef.current = 0;
         await stopObserverPlayback();
+        await teardownRemotePlayback();
+        const pusher = pusherRef.current;
+        if (pusher) {
+          try {
+            if (typeof pusher.stopCustomStream === 'function') await pusher.stopCustomStream();
+          } catch {}
+          try {
+            if (typeof pusher.leaveChannel === 'function') await pusher.leaveChannel();
+          } catch {}
+          try {
+            if (typeof pusher.destroy === 'function') await pusher.destroy();
+          } catch {}
+        }
+        pusherRef.current = null;
+        try {
+          observerKeepaliveStreamRef.current?.getTracks?.().forEach((track) => track.stop());
+        } catch {}
+        observerKeepaliveStreamRef.current = null;
         clearVideoElement(localVideoRef.current);
         clearVideoElement(remoteVideoRef.current);
         clearVideoElement(remoteScreenVideoRef.current);
@@ -3177,11 +3311,50 @@ function ClassroomPage() {
         if (cancelled || !mountedRef.current) return;
 
         if (isObserverMode) {
+          const observerJoinUrl = safeText(liveAuth.observerJoinUrl);
+          if (!observerJoinUrl) {
+            throw new Error(t('classroom.observerJoinAuthMissing', '旁听鉴权缺少入房地址'));
+          }
+          const observerPusher = new sdk.AlivcLivePusher();
+          pusherRef.current = observerPusher;
+          await observerPusher.init({
+            instanceId: OBSERVER_LIVE_INSTANCE_ID,
+            audio: false,
+            video: false,
+            screen: false,
+            connectRetryCount: 3,
+            logLevel: resolveAliyunSdkLogLevelNone(sdk),
+          });
+          if (cancelled || !mountedRef.current) return;
+          setStatusText(t('classroom.observerJoiningRoom', '旁听中，正在进入课堂房间...'));
+          if (typeof observerPusher.join === 'function') {
+            await observerPusher.join(observerJoinUrl);
+          } else {
+            throw new Error(t('classroom.observerJoinUnsupported', '当前实时音视频 SDK 不支持旁听入房'));
+          }
+          const observerKeepaliveStream = createObserverKeepaliveStream();
+          observerKeepaliveStreamRef.current = observerKeepaliveStream;
+          if (observerKeepaliveStream && typeof observerPusher.startCustomStream === 'function') {
+            await observerPusher.startCustomStream(observerKeepaliveStream);
+          }
+          if (typeof observerPusher.startPublish === 'function') {
+            try {
+              await observerPusher.startPublish();
+            } catch (publishError) {
+              console.warn('Observer data channel activation failed:', publishError);
+              throw new Error(parseErrorMessage(
+                publishError,
+                t('classroom.observerSignalActivationFailed', '旁听信令通道打开失败')
+              ));
+            }
+          }
+          if (cancelled || !mountedRef.current) return;
           joinedRef.current = true;
           setJoined(true);
           setJoining(false);
           setStatusText(t('classroom.observerConnecting', '旁听中，正在连接课堂画面...'));
           await startObserverPlayback(sdk);
+          void startRemotePlayback({ force: true });
           void syncClassroomPresence();
           return;
         }
@@ -3253,7 +3426,7 @@ function ClassroomPage() {
 
         const initConfig = {
           audio: true,
-          video: false,
+          video: true,
           connectRetryCount: 3,
           logLevel: resolveAliyunSdkLogLevelNone(sdk),
         };
@@ -3268,6 +3441,10 @@ function ClassroomPage() {
 
         await pusher.init(initConfig);
         if (cancelled || !mountedRef.current) return;
+        try {
+          await pusher.stopCamera?.();
+        } catch {}
+        detachVisibleCameraPreview();
         syncLocalMicMuteState(true);
 
         if (cancelled || !mountedRef.current) return;
@@ -3311,6 +3488,7 @@ function ClassroomPage() {
   }, [
     buildJoinedStatusText,
     courseId,
+    detachVisibleCameraPreview,
     isObserverMode,
     leaveAndDestroy,
     observerToken,
@@ -3373,7 +3551,9 @@ function ClassroomPage() {
         detachVisibleCameraPreview();
       } else {
         await pusher.startCamera();
-        await startLocalPush();
+        if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
+          await startLocalPush();
+        }
         syncLocalMicMuteState(micMuted);
         await startVisibleCameraPreview();
       }
@@ -3452,7 +3632,9 @@ function ClassroomPage() {
       }
 
       syncLocalMicMuteState(micMuted);
-      await startLocalPush();
+      if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
+        await startLocalPush();
+      }
 
       if (mountedRef.current) {
         setScreenSharing(true);
@@ -3793,7 +3975,15 @@ function ClassroomPage() {
             <div className="classroom-video-box">
               {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingStudentVideo', '等待学生画面...')}</div> : null}
               {!isObserverMode && cameraMuted ? <div className="classroom-video-placeholder">{t('classroom.localCameraOff', LOCAL_CAMERA_OFF_TEXT)}</div> : null}
-              <video ref={localVideoRef} autoPlay playsInline muted />
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedData={isObserverMode ? markObserverPlaybackReady : undefined}
+                onCanPlay={isObserverMode ? markObserverPlaybackReady : undefined}
+                onPlaying={isObserverMode ? markObserverPlaybackReady : undefined}
+              />
             </div>
           </article>
 
@@ -3801,7 +3991,15 @@ function ClassroomPage() {
             <div className="classroom-video-title">{isObserverMode ? t('classroom.mentorVideo', '导师画面') : t('classroom.remoteVideo', '对方画面')}</div>
             <div className="classroom-video-box">
               {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingMentorVideo', '等待导师画面...')}</div> : null}
-              <video ref={remoteVideoRef} autoPlay playsInline muted={isObserverMode} />
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                muted={isObserverMode}
+                onLoadedData={isObserverMode ? markObserverPlaybackReady : undefined}
+                onCanPlay={isObserverMode ? markObserverPlaybackReady : undefined}
+                onPlaying={isObserverMode ? markObserverPlaybackReady : undefined}
+              />
             </div>
           </article>
         </section>
