@@ -74,7 +74,8 @@ const ensureAdminSchema = async () => {
     await addColumnIfMissing('ALTER TABLE account_settings ADD COLUMN mentor_resume_url TEXT NULL');
     await addColumnIfMissing("ALTER TABLE user_roles ADD COLUMN mentor_review_status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending' AFTER mentor_approved");
     await addColumnIfMissing('ALTER TABLE user_roles ADD COLUMN mentor_review_note TEXT NULL AFTER mentor_review_status');
-    await addColumnIfMissing('ALTER TABLE user_roles ADD COLUMN mentor_reviewed_at TIMESTAMP NULL DEFAULT NULL AFTER mentor_review_note');
+    await addColumnIfMissing('ALTER TABLE user_roles ADD COLUMN mentor_qs_top100 TINYINT(1) NOT NULL DEFAULT 0 AFTER mentor_review_note');
+    await addColumnIfMissing('ALTER TABLE user_roles ADD COLUMN mentor_reviewed_at TIMESTAMP NULL DEFAULT NULL AFTER mentor_qs_top100');
     await addColumnIfMissing('ALTER TABLE user_roles ADD COLUMN mentor_reviewed_by_admin_id BIGINT NULL AFTER mentor_reviewed_at');
     await addIndexIfMissing('ALTER TABLE user_roles ADD KEY idx_user_roles_mentor_review (role, mentor_review_status, mentor_approved)');
     await (0, db_1.query)("UPDATE user_roles SET mentor_review_status = 'approved' WHERE role = 'mentor' AND mentor_approved = 1 AND mentor_review_status <> 'approved'");

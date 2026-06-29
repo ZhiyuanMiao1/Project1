@@ -222,6 +222,10 @@ function StudentListings() {
       filtered = filtered.filter((m) => countTeachingLanguages(m?.teachingLanguages ?? m?.languages) >= 2);
     }
 
+    if (courseType === 'QS前100') {
+      filtered = filtered.filter((m) => m?.qsTop100 === true || m?.mentor_qs_top100 === 1 || m?.mentor_qs_top100 === true);
+    }
+
     if (courseType === '评分高') {
       return [...filtered].sort((a, b) => {
         const ratingA = Number(a?.rating) || 0;

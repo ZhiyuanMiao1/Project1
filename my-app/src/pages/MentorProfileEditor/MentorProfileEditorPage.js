@@ -7,7 +7,7 @@ import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentListingCard from '../../components/ListingCard/StudentListingCard';
-import { applyAvatarFallback, resolveAvatarSrc } from '../../utils/avatarPlaceholder';
+import { applyAvatarFallback } from '../../utils/avatarPlaceholder';
 import { useI18n } from '../../i18n/language';
 
 // ===== Time zone helpers (shared style/logic with student step 3) =====
@@ -544,13 +544,8 @@ function MentorProfileEditorPage() {
     courses,
     imageUrl: avatarPreviewUrl || avatarUrl || null,
   }), [avatarPreviewUrl, avatarUrl, courses, degree, gender, language, name, school, t, teachingLanguageLabel, timezone]);
-  const editorAvatarSeed = school || timezone || 'mentor-editor';
-  const editorAvatarSrc = resolveAvatarSrc({
-    src: avatarPreviewUrl || avatarUrl,
-    name,
-    seed: editorAvatarSeed,
-    size: 320,
-  });
+  const hasEditorAvatar = Boolean(avatarPreviewUrl || avatarUrl);
+  const editorAvatarSrc = avatarPreviewUrl || avatarUrl || '';
 
   // 学历选择（复用“时区列表”样式/交互）
   const DEGREE_OPTIONS = useMemo(() => ([
@@ -820,17 +815,19 @@ function MentorProfileEditorPage() {
               onClick={onPickAvatar}
               disabled={avatarUploading}
             >
-              <img
-                className="mx-editor-avatar-img"
-                src={editorAvatarSrc}
-                alt={t('mentorProfileEditor.avatarAlt', '头像')}
-                onError={(event) => applyAvatarFallback(event, {
-                  name,
-                  seed: editorAvatarSeed,
-                  size: 320,
-                })}
-              />
-              {!avatarPreviewUrl && !avatarUrl && (
+              {hasEditorAvatar && (
+                <img
+                  className="mx-editor-avatar-img"
+                  src={editorAvatarSrc}
+                  alt={t('mentorProfileEditor.avatarAlt', '头像')}
+                  onError={(event) => applyAvatarFallback(event, {
+                    name: '',
+                    seed: 'mentor-editor-avatar',
+                    size: 320,
+                  })}
+                />
+              )}
+              {!hasEditorAvatar && (
                 <span className="mx-editor-avatar-placeholder">{t('mentorProfileEditor.avatarPlaceholder', '头像')}</span>
               )}
               {avatarUploading && (

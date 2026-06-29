@@ -628,7 +628,7 @@ router.get('/mentors/reviews', requireAdminAuth, async (req: Request, res: Respo
     const rows = await query<any[]>(
       `SELECT
          ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
-         ur.mentor_review_note, ur.mentor_reviewed_at, ur.created_at AS mentor_created_at,
+         ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at, ur.created_at AS mentor_created_at,
          u.username, u.email, u.account_status, u.last_login_at,
          mp.display_name, mp.degree, mp.school, mp.timezone, mp.avatar_url, mp.updated_at AS profile_updated_at,
          s.mentor_resume_url,
@@ -663,7 +663,7 @@ router.get('/mentors/:userId/review', requireAdminAuth, async (req: Request, res
     const rows = await query<any[]>(
       `SELECT
          ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
-         ur.mentor_review_note, ur.mentor_reviewed_at, ur.mentor_reviewed_by_admin_id,
+         ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at, ur.mentor_reviewed_by_admin_id,
          ur.created_at AS mentor_created_at,
          u.username, u.email, u.account_status, u.last_login_at,
          mp.display_name, mp.gender, mp.degree, mp.school, mp.timezone, mp.courses_json,
@@ -794,7 +794,7 @@ router.get('/mentors/:userId/resume-preview', async (req: Request, res: Response
 
 router.post('/mentors/:userId/approve', requireAdminAuth, async (req: Request, res: Response) => {
   const userId = toPositiveInt(req.params.userId, 0);
-  const reason = readReason(req, 0);
+  const qsTop100 = req.body?.qsTop100 === true || req.body?.qsTop100 === 1 || req.body?.qsTop100 === '1' || req.body?.qsTop100 === 'true';
   if (!userId) return res.status(400).json({ error: '无效导师ID' });
 
   try {
@@ -808,18 +808,19 @@ router.post('/mentors/:userId/approve', requireAdminAuth, async (req: Request, r
       `UPDATE user_roles
        SET mentor_approved = 1,
            mentor_review_status = 'approved',
-           mentor_review_note = ?,
+           mentor_review_note = NULL,
+           mentor_qs_top100 = ?,
            mentor_reviewed_at = CURRENT_TIMESTAMP,
            mentor_reviewed_by_admin_id = ?
        WHERE user_id = ? AND role = 'mentor'`,
-      [reason || null, req.admin!.adminId, userId]
+      [qsTop100 ? 1 : 0, req.admin!.adminId, userId]
     );
     const afterRows = await query<any[]>(
       "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
       [userId]
     );
     const after = afterRows?.[0];
-    await audit({ req, action: 'mentor.approve', targetType: 'mentor', targetId: userId, reason: reason || null, before, after });
+    await audit({ req, action: 'mentor.approve', targetType: 'mentor', targetId: userId, reason: qsTop100 ? 'QS100' : null, before, after });
     return res.json({ mentor: after });
   } catch (error) {
     console.error('Admin approve mentor error:', error);
@@ -845,6 +846,7 @@ router.post('/mentors/:userId/reject', requireAdminAuth, async (req: Request, re
        SET mentor_approved = 0,
            mentor_review_status = 'rejected',
            mentor_review_note = ?,
+           mentor_qs_top100 = 0,
            mentor_reviewed_at = CURRENT_TIMESTAMP,
            mentor_reviewed_by_admin_id = ?
        WHERE user_id = ? AND role = 'mentor'`,

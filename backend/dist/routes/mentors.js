@@ -108,6 +108,7 @@ const parseAvailability = (value) => {
     }
 };
 let mentorRatingColumnsEnsured = false;
+let mentorQsTop100ColumnEnsured = false;
 const isMissingRatingColumnsError = (e) => {
     const code = String(e?.code || '');
     const message = String(e?.message || '');
@@ -135,6 +136,29 @@ const ensureMentorRatingColumns = async () => {
     const okReviewCount = await ensureColumn('ALTER TABLE mentor_profiles ADD COLUMN review_count INT NOT NULL DEFAULT 0');
     mentorRatingColumnsEnsured = okRating && okReviewCount;
     return mentorRatingColumnsEnsured;
+};
+const isMissingMentorQsTop100ColumnError = (e) => {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('mentor_qs_top100');
+};
+const ensureMentorQsTop100Column = async () => {
+    if (mentorQsTop100ColumnEnsured)
+        return true;
+    try {
+        await (0, db_1.query)('ALTER TABLE user_roles ADD COLUMN mentor_qs_top100 TINYINT(1) NOT NULL DEFAULT 0 AFTER mentor_review_note');
+        mentorQsTop100ColumnEnsured = true;
+        return true;
+    }
+    catch (e) {
+        const code = String(e?.code || '');
+        const message = String(e?.message || '');
+        if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+            mentorQsTop100ColumnEnsured = true;
+            return true;
+        }
+        return false;
+    }
 };
 const parseCourses = (raw) => {
     if (!raw)
@@ -300,6 +324,7 @@ router.get('/approved', async (_req, res) => {
         SELECT
           ur.user_id,
           ur.public_id,
+          ur.mentor_qs_top100,
           ur.created_at AS mentor_created_at,
           u.username,
           u.last_login_at,
@@ -335,6 +360,7 @@ router.get('/approved', async (_req, res) => {
       SELECT
         ur.user_id,
         ur.public_id,
+        ur.mentor_qs_top100,
         ur.created_at AS mentor_created_at,
         u.username,
         u.last_login_at,
@@ -387,10 +413,16 @@ router.get('/approved', async (_req, res) => {
             const missingRating = isMissingRatingColumnsError(e);
             const missingTeaching = (0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e);
             const missingResponseTime = (0, mentorResponseTime_1.isMissingMentorResponseTimeColumnError)(e);
-            if (!missingRating && !missingTeaching && !missingResponseTime)
+            const missingQsTop100 = isMissingMentorQsTop100ColumnError(e);
+            if (!missingRating && !missingTeaching && !missingResponseTime && !missingQsTop100)
                 throw e;
             if (missingRating) {
                 const ensured = await ensureMentorRatingColumns();
+                if (!ensured)
+                    throw e;
+            }
+            if (missingQsTop100) {
+                const ensured = await ensureMentorQsTop100Column();
                 if (!ensured)
                     throw e;
             }
@@ -441,6 +473,7 @@ router.get('/approved', async (_req, res) => {
                     imageUrl: row.avatar_url || null,
                     avatarUrl: row.avatar_url || null,
                     avgResponseMinutes: (0, mentorResponseTime_1.normalizeMentorResponseMinutes)(row.avg_appointment_response_minutes),
+                    qsTop100: row.mentor_qs_top100 === 1 || row.mentor_qs_top100 === true,
                     mentorCreatedAt: row.mentor_created_at,
                     lastLoginAt: row.last_login_at,
                     profileUpdatedAt: row.updated_at,
@@ -671,6 +704,7 @@ router.get('/:mentorId/detail', async (req, res) => {
         SELECT
           ur.user_id,
           ur.public_id,
+          ur.mentor_qs_top100,
           u.username,
           mp.display_name,
           mp.gender,
@@ -708,10 +742,16 @@ router.get('/:mentorId/detail', async (req, res) => {
             const missingRating = isMissingRatingColumnsError(e);
             const missingTeaching = (0, mentorTeachingLanguages_1.isMissingTeachingLanguagesColumnError)(e);
             const missingResponseTime = (0, mentorResponseTime_1.isMissingMentorResponseTimeColumnError)(e);
-            if (!missingRating && !missingTeaching && !missingResponseTime)
+            const missingQsTop100 = isMissingMentorQsTop100ColumnError(e);
+            if (!missingRating && !missingTeaching && !missingResponseTime && !missingQsTop100)
                 throw e;
             if (missingRating) {
                 const ensured = await ensureMentorRatingColumns();
+                if (!ensured)
+                    throw e;
+            }
+            if (missingQsTop100) {
+                const ensured = await ensureMentorQsTop100Column();
                 if (!ensured)
                     throw e;
             }
@@ -744,6 +784,7 @@ router.get('/:mentorId/detail', async (req, res) => {
             languages: (0, mentorTeachingLanguages_1.formatTeachingLanguageCodesForCard)((0, mentorTeachingLanguages_1.parseTeachingLanguagesJson)(row.teaching_languages_json)),
             imageUrl: row.avatar_url || null,
             avgResponseMinutes: (0, mentorResponseTime_1.normalizeMentorResponseMinutes)(row.avg_appointment_response_minutes),
+            qsTop100: row.mentor_qs_top100 === 1 || row.mentor_qs_top100 === true,
         };
         const reviewSummary = buildEmptyMentorReviewSummary();
         const mentorUserId = Number(row.user_id);

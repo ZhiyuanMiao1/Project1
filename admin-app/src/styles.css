@@ -1648,6 +1648,21 @@ tr:last-child td {
   color: #66758d;
 }
 
+.modal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: #172033;
+  font-weight: 600;
+}
+
+.modal-checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: #19728b;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

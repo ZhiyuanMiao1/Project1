@@ -90,7 +90,10 @@ export const ensureAdminSchema = async () => {
     'ALTER TABLE user_roles ADD COLUMN mentor_review_note TEXT NULL AFTER mentor_review_status'
   );
   await addColumnIfMissing(
-    'ALTER TABLE user_roles ADD COLUMN mentor_reviewed_at TIMESTAMP NULL DEFAULT NULL AFTER mentor_review_note'
+    'ALTER TABLE user_roles ADD COLUMN mentor_qs_top100 TINYINT(1) NOT NULL DEFAULT 0 AFTER mentor_review_note'
+  );
+  await addColumnIfMissing(
+    'ALTER TABLE user_roles ADD COLUMN mentor_reviewed_at TIMESTAMP NULL DEFAULT NULL AFTER mentor_qs_top100'
   );
   await addColumnIfMissing(
     'ALTER TABLE user_roles ADD COLUMN mentor_reviewed_by_admin_id BIGINT NULL AFTER mentor_reviewed_at'

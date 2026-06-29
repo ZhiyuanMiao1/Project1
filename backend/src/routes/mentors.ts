@@ -140,6 +140,7 @@ type ApprovedMentorRow = {
   completed_session_count?: any;
   last_login_at?: Date | string | null;
   mentor_created_at?: Date | string | null;
+  mentor_qs_top100?: any;
   availability_json?: string | null;
   availability_updated_at?: Date | string | null;
   updated_at?: Date | string | null;
@@ -159,6 +160,7 @@ type ApprovedMentorCard = {
   languages: string;
   imageUrl: string | null;
   avgResponseMinutes: number | null;
+  qsTop100: boolean;
   relevanceScore?: number;
   relevanceCourse?: string;
   recommendScore?: number;
@@ -192,6 +194,7 @@ type MentorReviewCommentRow = {
 };
 
 let mentorRatingColumnsEnsured = false;
+let mentorQsTop100ColumnEnsured = false;
 
 const isMissingRatingColumnsError = (e: any) => {
   const code = String(e?.code || '');
@@ -220,6 +223,30 @@ const ensureMentorRatingColumns = async () => {
 
   mentorRatingColumnsEnsured = okRating && okReviewCount;
   return mentorRatingColumnsEnsured;
+};
+
+const isMissingMentorQsTop100ColumnError = (e: any) => {
+  const code = String(e?.code || '');
+  const message = String(e?.message || '');
+  return (code === 'ER_BAD_FIELD_ERROR' || message.includes('Unknown column')) && message.includes('mentor_qs_top100');
+};
+
+const ensureMentorQsTop100Column = async () => {
+  if (mentorQsTop100ColumnEnsured) return true;
+
+  try {
+    await query('ALTER TABLE user_roles ADD COLUMN mentor_qs_top100 TINYINT(1) NOT NULL DEFAULT 0 AFTER mentor_review_note');
+    mentorQsTop100ColumnEnsured = true;
+    return true;
+  } catch (e: any) {
+    const code = String(e?.code || '');
+    const message = String(e?.message || '');
+    if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+      mentorQsTop100ColumnEnsured = true;
+      return true;
+    }
+    return false;
+  }
 };
 
 const parseCourses = (raw: any): string[] => {
@@ -401,6 +428,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
         SELECT
           ur.user_id,
           ur.public_id,
+          ur.mentor_qs_top100,
           ur.created_at AS mentor_created_at,
           u.username,
           u.last_login_at,
@@ -439,6 +467,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
       SELECT
         ur.user_id,
         ur.public_id,
+        ur.mentor_qs_top100,
         ur.created_at AS mentor_created_at,
         u.username,
         u.last_login_at,
@@ -494,9 +523,14 @@ router.get('/approved', async (_req: Request, res: Response) => {
       const missingRating = isMissingRatingColumnsError(e);
       const missingTeaching = isMissingTeachingLanguagesColumnError(e);
       const missingResponseTime = isMissingMentorResponseTimeColumnError(e);
-      if (!missingRating && !missingTeaching && !missingResponseTime) throw e;
+      const missingQsTop100 = isMissingMentorQsTop100ColumnError(e);
+      if (!missingRating && !missingTeaching && !missingResponseTime && !missingQsTop100) throw e;
       if (missingRating) {
         const ensured = await ensureMentorRatingColumns();
+        if (!ensured) throw e;
+      }
+      if (missingQsTop100) {
+        const ensured = await ensureMentorQsTop100Column();
         if (!ensured) throw e;
       }
       if (missingTeaching) {
@@ -547,6 +581,7 @@ router.get('/approved', async (_req: Request, res: Response) => {
           imageUrl: row.avatar_url || null,
           avatarUrl: row.avatar_url || null,
           avgResponseMinutes: normalizeMentorResponseMinutes(row.avg_appointment_response_minutes),
+          qsTop100: row.mentor_qs_top100 === 1 || row.mentor_qs_top100 === true,
           mentorCreatedAt: row.mentor_created_at,
           lastLoginAt: row.last_login_at,
           profileUpdatedAt: row.updated_at,
@@ -820,6 +855,7 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
         SELECT
           ur.user_id,
           ur.public_id,
+          ur.mentor_qs_top100,
           u.username,
           mp.display_name,
           mp.gender,
@@ -861,9 +897,14 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
       const missingRating = isMissingRatingColumnsError(e);
       const missingTeaching = isMissingTeachingLanguagesColumnError(e);
       const missingResponseTime = isMissingMentorResponseTimeColumnError(e);
-      if (!missingRating && !missingTeaching && !missingResponseTime) throw e;
+      const missingQsTop100 = isMissingMentorQsTop100ColumnError(e);
+      if (!missingRating && !missingTeaching && !missingResponseTime && !missingQsTop100) throw e;
       if (missingRating) {
         const ensured = await ensureMentorRatingColumns();
+        if (!ensured) throw e;
+      }
+      if (missingQsTop100) {
+        const ensured = await ensureMentorQsTop100Column();
         if (!ensured) throw e;
       }
       if (missingTeaching) {
@@ -894,6 +935,7 @@ router.get('/:mentorId/detail', async (req: Request, res: Response) => {
       languages: formatTeachingLanguageCodesForCard(parseTeachingLanguagesJson(row.teaching_languages_json)),
       imageUrl: row.avatar_url || null,
       avgResponseMinutes: normalizeMentorResponseMinutes(row.avg_appointment_response_minutes),
+      qsTop100: row.mentor_qs_top100 === 1 || row.mentor_qs_top100 === true,
     };
 
     const reviewSummary = buildEmptyMentorReviewSummary();
