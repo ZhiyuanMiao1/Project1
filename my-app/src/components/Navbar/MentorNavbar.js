@@ -28,14 +28,14 @@ const START_DATE_LABELS = {
 };
 
 const START_DATE_EN_LABELS = {
-  '0_1': 'Urgent (within 1 day)',
-  '1_3': 'Soon (within 3 days)',
+  '0_1': 'Urgent <1d',
+  '1_3': 'Soon <3d',
   '3_7': 'Within a week',
   gt7: 'Long term',
 };
 
 function MentorNavbar() {
-  const { isEnglish, t } = useI18n();
+  const { getCourseTypeLabel, isEnglish, t } = useI18n();
   const timezoneRef = useRef(null); // 时区筛选锚点
   const courseTypeRef = useRef(null); // 课程类型锚点
   const startDateRef = useRef(null); // 首课日期锚点
@@ -297,7 +297,7 @@ function MentorNavbar() {
               <input
                 type="text"
                 placeholder={t('nav.chooseCourseType', '选择课程类型')}
-                value={courseTypeToCnLabel(selectedCourseType)}
+                value={selectedCourseType ? getCourseTypeLabel(selectedCourseType, courseTypeToCnLabel(selectedCourseType)) : ''}
                 readOnly
               />
             </div>

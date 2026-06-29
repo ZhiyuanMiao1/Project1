@@ -1,7 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './StartDateModal.css';
+import { useI18n } from '../../i18n/language';
 
 const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
+  const { t } = useI18n();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
@@ -60,32 +62,32 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
             className="start-date-option-button"
             onClick={() => handleStartDateSelect('0_1')}
           >
-            紧急（1天内）
+            {t('startDate.urgent', '紧急（1天内）')}
           </button>
           <button
             className="start-date-option-button"
             onClick={() => handleStartDateSelect('1_3')}
           >
-            近期（3天内）
+            {t('startDate.soon', '近期（3天内）')}
           </button>
           <button
             className="start-date-option-button"
             onClick={() => handleStartDateSelect('3_7')}
           >
-            一周内
+            {t('startDate.withinWeek', '一周内')}
           </button>
           <button
             className="start-date-option-button"
             onClick={() => handleStartDateSelect('gt7')}
           >
-            长期
+            {t('startDate.longTerm', '长期')}
           </button>
           <button
             className="start-date-option-button"
             onClick={() => handleStartDateSelect('')}
-            aria-label="重置首课日期"
+            aria-label={t('startDate.resetAria', '重置首课日期')}
           >
-            重置
+            {t('common.reset', '重置')}
           </button>
         </div>
       </div>

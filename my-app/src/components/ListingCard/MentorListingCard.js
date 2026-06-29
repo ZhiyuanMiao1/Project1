@@ -209,7 +209,7 @@ function MentorListingCard({
     const raw = data?.expectedDuration;
     if (typeof raw === 'string') {
       const text = raw.trim();
-      const match = text.match(/^预计时长[:：]\s*(\d+(?:\.\d+)?)\s*小时$/);
+      const match = text.match(/^(?:预计时长[:：]\s*)?(\d+(?:\.\d+)?)\s*小时$/);
       if (match) return t('listings.hours', '{hours}小时', { hours: match[1] });
       return text;
     }

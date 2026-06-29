@@ -1,8 +1,10 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './CourseTypeModal.css';
 import { COURSE_TYPE_ID_TO_LABEL } from '../../constants/courseMappings';
+import { useI18n } from '../../i18n/language';
 
 const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) => {
+  const { getCourseTypeLabel, t } = useI18n();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
@@ -60,31 +62,31 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
           {mode === 'studentFeatures' ? (
             <>
               <button className="course-type-button" onClick={() => handleCourseTypeSelect('评分高')}>
-                评分高
+                {t('mentorFilter.highRating', '评分高')}
                 <i className="fas fa-star"></i>
               </button>
               <button className="course-type-button" onClick={() => handleCourseTypeSelect('经验丰富')}>
-                经验丰富
+                {t('mentorFilter.experienced', '经验丰富')}
                 <i className="fas fa-award"></i>
               </button>
               <button className="course-type-button" onClick={() => handleCourseTypeSelect('快速响应')}>
-                快速响应
+                {t('mentorFilter.fastResponse', '快速响应')}
                 <i className="fas fa-bolt"></i>
               </button>
               <button className="course-type-button" onClick={() => handleCourseTypeSelect('双语授课')}>
-                双语授课
+                {t('mentorFilter.bilingualTeaching', '双语授课')}
                 <i className="fas fa-language"></i>
               </button>
               <button className="course-type-button" onClick={() => handleCourseTypeSelect('QS前100')}>
-                QS前100
+                {t('mentorFilter.qsTop100', 'QS前100')}
                 <i className="fas fa-university"></i>
               </button>
               <button
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('')}
-                aria-label="清空选择"
+                aria-label={t('mentorFilter.clearSelection', '清空选择')}
               >
-                重置
+                {t('common.reset', '重置')}
                 <i className="fas fa-eraser"></i>
               </button>
             </>
@@ -95,7 +97,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('course-selection')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['course-selection'] || '选课指导'}
+                {getCourseTypeLabel('course-selection', COURSE_TYPE_ID_TO_LABEL['course-selection'] || '选课指导')}
                 <i className="fas fa-lightbulb"></i>
               </button>
 
@@ -104,7 +106,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('pre-study')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['pre-study'] || '课前预习'}
+                {getCourseTypeLabel('pre-study', COURSE_TYPE_ID_TO_LABEL['pre-study'] || '课前预习')}
                 <i className="fas fa-chalkboard-teacher"></i>
               </button>
 
@@ -113,7 +115,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('assignment-project')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['assignment-project'] || '作业项目'}
+                {getCourseTypeLabel('assignment-project', COURSE_TYPE_ID_TO_LABEL['assignment-project'] || '作业项目')}
                 <i className="fas fa-book"></i>
               </button>
 
@@ -122,7 +124,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('final-review')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['final-review'] || '期末复习'}
+                {getCourseTypeLabel('final-review', COURSE_TYPE_ID_TO_LABEL['final-review'] || '期末复习')}
                 <i className="fas fa-graduation-cap"></i>
               </button>
 
@@ -131,7 +133,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('in-class-support')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['in-class-support'] || '毕业论文'}
+                {getCourseTypeLabel('in-class-support', COURSE_TYPE_ID_TO_LABEL['in-class-support'] || '毕业论文')}
                 <i className="fas fa-pen"></i>
               </button>
 
@@ -140,7 +142,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('others')}
               >
-                {COURSE_TYPE_ID_TO_LABEL['others'] || '其它类型'}
+                {getCourseTypeLabel('others', COURSE_TYPE_ID_TO_LABEL['others'] || '其它类型')}
                 <i className="fas fa-code"></i>
               </button>
 
@@ -148,9 +150,9 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
               <button
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('')}
-                aria-label="清空课程类型选择"
+                aria-label={t('courseType.clearSelection', '清空课程类型选择')}
               >
-                重置
+                {t('common.reset', '重置')}
                 <i className="fas fa-eraser"></i>
               </button>
             </>

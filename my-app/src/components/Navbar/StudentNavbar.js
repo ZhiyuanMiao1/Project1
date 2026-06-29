@@ -319,6 +319,19 @@ function StudentNavbar() {
     preloadLazy(loadStudentAuthModal);
   };
 
+  const getMentorFeatureLabel = (value) => {
+    const key = String(value || '').trim();
+    if (!key) return '';
+    const labels = {
+      评分高: t('mentorFilter.highRating', '评分高'),
+      经验丰富: t('mentorFilter.experienced', '经验丰富'),
+      快速响应: t('mentorFilter.fastResponse', '快速响应'),
+      双语授课: t('mentorFilter.bilingualTeaching', '双语授课'),
+      QS前100: t('mentorFilter.qsTop100', 'QS前100'),
+    };
+    return labels[key] || key;
+  };
+
   return (
     <header className="navbar">
       {/* 顶部双层导航 */}
@@ -429,7 +442,7 @@ function StudentNavbar() {
               <input
                 type="text"
                 placeholder={t('nav.chooseMentorSpecialty', '选择导师特色')}
-                value={selectedCourseType}
+                value={getMentorFeatureLabel(selectedCourseType)}
                 readOnly
               />
             </div>

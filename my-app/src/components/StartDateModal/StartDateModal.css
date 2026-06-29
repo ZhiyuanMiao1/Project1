@@ -41,6 +41,7 @@
   display: flex;
   align-items: center; /* 图标和文字垂直居中 */
   justify-content: space-between; /* 图标和文字两端对齐 */
+  gap: 12px;
   padding: 15px 30px; /* 按钮内边距 */
   border-radius: 20px; /* 圆角边框 */
   background-color: transparent; /* 按钮背景色 */
@@ -48,6 +49,7 @@
   font-size: 16px; /* 文字大小 */
   color: #333; /* 文字颜色 */
   cursor: pointer; /* 鼠标悬停时显示手型 */
+  white-space: nowrap;
   transition: background-color 0.2s ease; /* 背景色变化动画 */
   position: relative; /* 使伪元素定位有效 */
 }
