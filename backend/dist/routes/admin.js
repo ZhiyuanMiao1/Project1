@@ -498,7 +498,11 @@ router.get('/mentors/reviews', adminAuth_1.requireAdminAuth, async (req, res) =>
     const status = safeString(req.query.status, 20);
     const where = ["ur.role = 'mentor'"];
     const params = [];
-    if (status === 'approved' || status === 'rejected' || status === 'pending') {
+    if (status === 'suspended') {
+        where.push('u.account_status = ?');
+        params.push(status);
+    }
+    else if (status === 'approved' || status === 'rejected' || status === 'pending') {
         where.push('ur.mentor_review_status = ?');
         params.push(status);
     }
@@ -705,11 +709,9 @@ router.post('/mentors/:userId/approve', adminAuth_1.requireAdminAuth, async (req
 });
 router.post('/mentors/:userId/reject', adminAuth_1.requireAdminAuth, async (req, res) => {
     const userId = toPositiveInt(req.params.userId, 0);
-    const reason = readReason(req);
+    const reason = readReason(req, 0);
     if (!userId)
         return res.status(400).json({ error: '无效导师ID' });
-    if (!reason)
-        return res.status(400).json({ error: '请填写驳回原因' });
     try {
         const beforeRows = await (0, db_1.query)("SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [userId]);
         const before = beforeRows?.[0];

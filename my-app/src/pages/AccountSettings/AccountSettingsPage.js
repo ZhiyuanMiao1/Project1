@@ -175,6 +175,7 @@ function AccountSettingsPage({ mode = 'student' }) {
       email: typeof user?.email === 'string' ? user.email : '',
       studentId: role === 'student' && typeof publicId === 'string' ? publicId : '',
       mentorId: role === 'mentor' && typeof publicId === 'string' ? publicId : '',
+      mentorReviewStatus: null,
       degree: '',
       school: '',
       studentCreatedAt: null,
@@ -244,7 +245,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   useEffect(() => {
     if (!isLoggedIn) {
       setIdsStatus('idle');
-      setAccountProfile({ email: '', studentId: '', mentorId: '', degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null });
+      setAccountProfile({ email: '', studentId: '', mentorId: '', mentorReviewStatus: null, degree: '', school: '', studentCreatedAt: null, mentorCreatedAt: null });
       setStudentAvatarUrl(null);
       setMentorAvatarUrl(null);
       setStudentAvatarUploading(false);
@@ -292,6 +293,7 @@ function AccountSettingsPage({ mode = 'student' }) {
           email: typeof data.email === 'string' ? data.email : '',
           studentId: typeof data.studentId === 'string' ? data.studentId : '',
           mentorId: typeof data.mentorId === 'string' ? data.mentorId : '',
+          mentorReviewStatus: ['pending', 'approved', 'rejected'].includes(data.mentorReviewStatus) ? data.mentorReviewStatus : null,
           degree: typeof data.degree === 'string' ? data.degree : '',
           school: typeof data.school === 'string' ? data.school : '',
           studentCreatedAt: typeof data.studentCreatedAt === 'string' ? data.studentCreatedAt : null,
@@ -450,7 +452,11 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
   const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notActivated', '暂未开通'));
-  const canActivateMentor = isLoggedIn && idsStatus !== 'loading' && !accountProfile.mentorId;
+  const canResubmitMentorApplication = accountProfile.mentorReviewStatus === 'rejected';
+  const canActivateMentor = isLoggedIn && idsStatus !== 'loading' && (!accountProfile.mentorId || canResubmitMentorApplication);
+  const mentorActivationLabel = canResubmitMentorApplication
+    ? t('settings.resubmitMentorApplication', '重新提交')
+    : t('common.openMentor', '点击开通');
   const emailValue = accountProfile.email || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
   const degreeValue = accountProfile.degree
     ? ({ '本科': t('profile.degree.bachelor', '本科'), '硕士': t('profile.degree.master', '硕士'), PhD: t('profile.degree.phd', 'PhD') }[accountProfile.degree] || accountProfile.degree)
@@ -916,6 +922,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   studentIdValue={studentIdValue}
                   mentorIdValue={mentorIdValue}
                   canActivateMentor={canActivateMentor}
+                  mentorActivationLabel={mentorActivationLabel}
                   emailValue={emailValue}
                   degreeValue={degreeValue}
                   schoolValue={schoolValue}
@@ -1035,6 +1042,7 @@ function AccountSettingsPage({ mode = 'student' }) {
               ...prev,
               mentorId: nextMentorId || prev.mentorId,
               mentorCreatedAt: prev.mentorCreatedAt || new Date().toISOString(),
+              mentorReviewStatus: payload?.mentorReviewStatus || 'pending',
             }));
             setIdsStatus('loaded');
             showToast(t('settings.toast.mentorSubmitted', '导师申请已提交，我们会尽快审核'));

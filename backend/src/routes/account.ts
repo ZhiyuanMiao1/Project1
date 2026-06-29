@@ -17,6 +17,7 @@ type CurrentUserRow = {
 type PublicIdRow = {
   role: Role;
   public_id: string;
+  mentor_review_status?: 'pending' | 'approved' | 'rejected' | null;
   created_at?: Date | string | null;
 };
 
@@ -428,12 +429,13 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
     }
 
     const rows = await dbQuery<PublicIdRow[]>(
-      "SELECT role, public_id, created_at FROM user_roles WHERE user_id = ? AND role IN ('student','mentor')",
+      "SELECT role, public_id, mentor_review_status, created_at FROM user_roles WHERE user_id = ? AND role IN ('student','mentor')",
       [userId]
     );
 
     let studentId: string | null = null;
     let mentorId: string | null = null;
+    let mentorReviewStatus: 'pending' | 'approved' | 'rejected' | null = null;
     let studentCreatedAt: Date | string | null = null;
     let mentorCreatedAt: Date | string | null = null;
     for (const row of rows) {
@@ -443,6 +445,9 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       }
       if (row.role === 'mentor') {
         mentorId = row.public_id;
+        if (row.mentor_review_status === 'pending' || row.mentor_review_status === 'approved' || row.mentor_review_status === 'rejected') {
+          mentorReviewStatus = row.mentor_review_status;
+        }
         mentorCreatedAt = row.created_at ?? null;
       }
     }
@@ -463,6 +468,7 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       email,
       studentId,
       mentorId,
+      mentorReviewStatus,
       degree,
       school,
       studentCreatedAt,
@@ -509,7 +515,7 @@ router.post(
       if (!ensured) return res.status(500).json({ error: '服务器错误，请稍后再试' });
 
       let mentorRows = await dbQuery<any[]>(
-        "SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+        "SELECT public_id, mentor_approved, mentor_review_status FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
         [req.user.id]
       );
 
@@ -519,7 +525,7 @@ router.post(
           [req.user.id]
         );
         mentorRows = await dbQuery<any[]>(
-          "SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+          "SELECT public_id, mentor_approved, mentor_review_status FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
           [req.user.id]
         );
       }
@@ -535,9 +541,22 @@ router.post(
         [req.user.id, 1, JSON.stringify(resumeUrls)]
       );
 
+      if (!(mentorRow?.mentor_approved === 1 || mentorRow?.mentor_approved === true)) {
+        await dbQuery(
+          `UPDATE user_roles
+           SET mentor_review_status = 'pending',
+               mentor_review_note = NULL,
+               mentor_reviewed_at = NULL,
+               mentor_reviewed_by_admin_id = NULL
+           WHERE user_id = ? AND role = 'mentor'`,
+          [req.user.id]
+        );
+      }
+
       return res.status(201).json({
         mentorId,
         mentorApproved: mentorRow?.mentor_approved === 1 || mentorRow?.mentor_approved === true,
+        mentorReviewStatus: (mentorRow?.mentor_approved === 1 || mentorRow?.mentor_approved === true) ? 'approved' : 'pending',
         resumeUrl: resumeUrls[0] || null,
         resumeUrls,
       });

@@ -979,12 +979,17 @@ function DataTable({ columns, rows, compact = false, className = '' }) {
   );
 }
 
+function getMentorStatusValue(mentor) {
+  return mentor?.account_status === 'suspended' ? 'suspended' : mentor?.mentor_review_status;
+}
+
 function MentorReviewsPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [accountDialog, setAccountDialog] = useState(null);
   const [sort, setSort] = useState({ field: 'mentor_created_at', direction: 'desc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/mentors/reviews', { params: { q, status, limit: 50 } }),
@@ -1026,6 +1031,7 @@ function MentorReviewsPage() {
     { value: 'pending', label: '待审核' },
     { value: 'approved', label: '已通过' },
     { value: 'rejected', label: '已驳回' },
+    { value: 'suspended', label: '已封禁' },
   ];
 
   const openResume = (mentor) => {
@@ -1047,6 +1053,16 @@ function MentorReviewsPage() {
       body,
     });
     setDialog(null);
+    setDetail(null);
+    setReload((n) => n + 1);
+  };
+
+  const updateMentorAccountStatus = async (reason) => {
+    await api(`/api/admin/users/${accountDialog.mentor.user_id}/status`, {
+      method: 'PATCH',
+      body: { status: accountDialog.nextStatus, reason },
+    });
+    setAccountDialog(null);
     setDetail(null);
     setReload((n) => n + 1);
   };
@@ -1079,7 +1095,7 @@ function MentorReviewsPage() {
               </button>
             ) : null,
             asNumber(mentor.total_teaching_hours).toLocaleString('zh-CN', { maximumFractionDigits: 2 }),
-            <Badge value={mentor.mentor_review_status} />,
+            <Badge value={getMentorStatusValue(mentor)} />,
             formatDate(mentor.mentor_created_at),
             <div className="row-actions">
               <button
@@ -1089,7 +1105,7 @@ function MentorReviewsPage() {
               >
                 详情
               </button>
-              {mentor.mentor_review_status === 'pending' ? (
+              {mentor.mentor_review_status === 'pending' || mentor.mentor_review_status === 'rejected' ? (
                 <>
                   <button
                     type="button"
@@ -1100,39 +1116,60 @@ function MentorReviewsPage() {
                   >
                     <FontAwesomeIcon icon={faCheck} />
                   </button>
-                  <button
-                    type="button"
-                    className="icon-action reject-action"
-                    title="驳回"
-                    aria-label="驳回"
-                    onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
-                  >
-                    <FontAwesomeIcon icon={faXmark} />
-                  </button>
+                  {mentor.mentor_review_status === 'pending' ? (
+                    <button
+                      type="button"
+                      className="icon-action reject-action"
+                      title="驳回"
+                      aria-label="驳回"
+                      onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
+                    >
+                      <FontAwesomeIcon icon={faXmark} />
+                    </button>
+                  ) : null}
                 </>
               ) : null}
             </div>,
           ])}
         />
       </State>
-      {detail ? <MentorDrawer userId={detail} onClose={() => setDetail(null)} /> : null}
+      {detail ? (
+        <MentorDrawer
+          userId={detail}
+          onClose={() => setDetail(null)}
+          onStatusAction={(mentor) => setAccountDialog({
+            mentor,
+            nextStatus: mentor.account_status === 'suspended' ? 'active' : 'suspended',
+            title: mentor.account_status === 'suspended' ? '解封导师账号' : '封禁导师账号',
+          })}
+        />
+      ) : null}
       <ReasonDialog
         key={dialog ? `${dialog.action}-${dialog.mentor.user_id}` : 'mentor-review-dialog'}
         config={dialog ? {
           title: dialog.title,
           description: `目标导师：${dialog.mentor.email} (${dialog.mentor.public_id})`,
-          reasonRequired: dialog.action === 'reject',
+          reasonRequired: false,
           placeholder: '填写驳回原因',
           showQsTop100: dialog.action === 'approve',
         } : null}
         onClose={() => setDialog(null)}
         onSubmit={submitReview}
       />
+      <ReasonDialog
+        key={accountDialog ? `mentor-account-${accountDialog.mentor.user_id}-${accountDialog.nextStatus}` : 'mentor-account-dialog'}
+        config={accountDialog ? {
+          title: accountDialog.title,
+          description: `目标导师：${accountDialog.mentor.email} (${accountDialog.mentor.public_id})`,
+        } : null}
+        onClose={() => setAccountDialog(null)}
+        onSubmit={updateMentorAccountStatus}
+      />
     </section>
   );
 }
 
-function MentorDrawer({ userId, onClose }) {
+function MentorDrawer({ userId, onClose, onStatusAction }) {
   const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId]);
   const mentor = data?.mentor || {};
   const resumeUrl = parseUrlList(mentor.resumeUrls || mentor.mentor_resume_url)[0] || '';
@@ -1152,6 +1189,7 @@ function MentorDrawer({ userId, onClose }) {
         <h2>{mentor.public_id} · {mentor.email}</h2>
         <DetailGrid
           items={[
+            ['状态', <Badge value={getMentorStatusValue(mentor)} />],
             ['审核状态', <Badge value={mentor.mentor_review_status} />],
             ['姓名', mentor.display_name],
             ['学校', mentor.school],
@@ -1163,6 +1201,15 @@ function MentorDrawer({ userId, onClose }) {
             ['审核备注', mentor.mentor_review_note],
           ]}
         />
+        <div className="drawer-actions">
+          <button
+            type="button"
+            className="ghost status-action"
+            onClick={() => onStatusAction?.(mentor)}
+          >
+            {mentor.account_status === 'suspended' ? '解封账号' : '封禁账号'}
+          </button>
+        </div>
         <h3>课程方向</h3>
         <div className="chip-row">{(mentor.courses || []).map((item) => <span className="chip" key={item}>{item}</span>)}</div>
         <h3>授课语言</h3>

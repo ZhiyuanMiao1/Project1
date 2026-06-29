@@ -598,7 +598,10 @@ router.get('/mentors/reviews', requireAdminAuth, async (req: Request, res: Respo
   const where = ["ur.role = 'mentor'"];
   const params: any[] = [];
 
-  if (status === 'approved' || status === 'rejected' || status === 'pending') {
+  if (status === 'suspended') {
+    where.push('u.account_status = ?');
+    params.push(status);
+  } else if (status === 'approved' || status === 'rejected' || status === 'pending') {
     where.push('ur.mentor_review_status = ?');
     params.push(status);
   }
@@ -830,9 +833,8 @@ router.post('/mentors/:userId/approve', requireAdminAuth, async (req: Request, r
 
 router.post('/mentors/:userId/reject', requireAdminAuth, async (req: Request, res: Response) => {
   const userId = toPositiveInt(req.params.userId, 0);
-  const reason = readReason(req);
+  const reason = readReason(req, 0);
   if (!userId) return res.status(400).json({ error: '无效导师ID' });
-  if (!reason) return res.status(400).json({ error: '请填写驳回原因' });
 
   try {
     const beforeRows = await query<any[]>(

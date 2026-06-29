@@ -217,6 +217,7 @@ function ProfileSection({
   studentIdValue,
   mentorIdValue,
   canActivateMentor,
+  mentorActivationLabel,
   emailValue,
   degreeValue,
   schoolValue,
@@ -285,7 +286,7 @@ function ProfileSection({
                 className="settings-inline-link"
                 onClick={onActivateMentor}
               >
-                {t('common.openMentor', '点击开通')}
+                {mentorActivationLabel || t('common.openMentor', '点击开通')}
               </button>
             ) : (
               renderMaybeLoadingText(mentorIdValue)
