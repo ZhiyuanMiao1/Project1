@@ -13,6 +13,7 @@ const adminSchema_1 = require("../services/adminSchema");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const aliyunRtc_1 = require("../services/aliyunRtc");
 const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
+const classroomObserverToken_1 = require("../services/classroomObserverToken");
 const ossClient_1 = require("../services/ossClient");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
@@ -1268,6 +1269,7 @@ router.get('/classrooms/:courseId/observer-auth', adminAuth_1.requireAdminAuth, 
         return res.json({
             courseId: String(courseId),
             mode: 'readonly-observer',
+            observerToken: (0, classroomObserverToken_1.createClassroomObserverToken)(courseId, Number(req.admin?.adminId || 0)),
             roomId,
             expiresAt: new Date(expires * 1000).toISOString(),
             status: classroom.status,

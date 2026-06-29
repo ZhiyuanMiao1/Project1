@@ -5,6 +5,7 @@ const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const ossClient_1 = require("../services/ossClient");
 const classroomAccess_1 = require("../services/classroomAccess");
+const classroomObserverToken_1 = require("../services/classroomObserverToken");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 const MAX_TEXT_LENGTH = 4000;
@@ -68,16 +69,28 @@ const mapSenderRole = (senderUserId, studentUserId, mentorUserId) => {
         return 'student';
     return '';
 };
-router.get('/:courseId/chat', auth_1.requireAuth, async (req, res) => {
-    if (!req.user)
-        return res.status(401).json({ error: '未授权' });
+router.get('/:courseId/chat', async (req, res) => {
     const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
     if (!Number.isFinite(courseId) || courseId <= 0) {
         return res.status(400).json({ error: '无效课堂ID' });
     }
     try {
-        const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
-        const chatClosed = (0, classroomAccess_1.isClassroomClosed)(context);
+        const observer = (0, classroomObserverToken_1.verifyClassroomObserverToken)(req.query.observerToken, courseId);
+        let context = null;
+        let observerContext = null;
+        if (observer) {
+            observerContext = await (0, classroomAccess_1.loadClassroomObserverContext)(courseId);
+        }
+        else {
+            const authResult = await (0, auth_1.readAuthUserFromRequest)(req);
+            if (authResult.error)
+                return res.status(authResult.error.status).json({ error: authResult.error.message });
+            req.user = authResult.user;
+            if (!req.user)
+                return res.status(401).json({ error: '未授权' });
+            context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
+        }
+        const chatClosed = context ? (0, classroomAccess_1.isClassroomClosed)(context) : false;
         if (chatClosed) {
             await markClassroomFilesReady(courseId, new Date());
         }
@@ -108,7 +121,7 @@ router.get('/:courseId/chat', auth_1.requireAuth, async (req, res) => {
       `, [courseId]);
         const messages = (messageRows || []).map((row) => {
             const senderUserId = Number(row?.sender_user_id);
-            const senderRole = mapSenderRole(senderUserId, context.studentUserId, context.mentorUserId);
+            const senderRole = mapSenderRole(senderUserId, context?.studentUserId || observerContext?.studentUserId || 0, context?.mentorUserId || observerContext?.mentorUserId || 0);
             const messageType = (0, classroomAccess_1.safeText)(row?.message_type).toLowerCase();
             const fileId = (0, classroomAccess_1.safeText)(row?.file_id).toLowerCase();
             return {
@@ -485,9 +498,7 @@ router.post('/:courseId/chat/files/prepare-cleanup', auth_1.requireAuth, async (
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
-router.get('/:courseId/chat/files/:fileId/download-url', auth_1.requireAuth, async (req, res) => {
-    if (!req.user)
-        return res.status(401).json({ error: '未授权' });
+router.get('/:courseId/chat/files/:fileId/download-url', async (req, res) => {
     const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
     const fileId = (0, classroomAccess_1.safeText)(req.params.fileId).toLowerCase();
     if (!Number.isFinite(courseId) || courseId <= 0) {
@@ -497,7 +508,19 @@ router.get('/:courseId/chat/files/:fileId/download-url', auth_1.requireAuth, asy
         return res.status(400).json({ error: '无效文件标识' });
     }
     try {
-        await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
+        const observer = (0, classroomObserverToken_1.verifyClassroomObserverToken)(req.query.observerToken, courseId);
+        if (observer) {
+            await (0, classroomAccess_1.loadClassroomObserverContext)(courseId);
+        }
+        else {
+            const authResult = await (0, auth_1.readAuthUserFromRequest)(req);
+            if (authResult.error)
+                return res.status(authResult.error.status).json({ error: authResult.error.message });
+            req.user = authResult.user;
+            if (!req.user)
+                return res.status(401).json({ error: '未授权' });
+            await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id);
+        }
         const fileRows = await (0, db_1.query)(`
       SELECT original_file_name, oss_key, cleanup_status
       FROM classroom_temp_files

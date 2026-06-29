@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadAuthorizedClassroomContext = exports.isClassroomClosed = exports.isMissingClassroomSchemaError = exports.getEffectiveCourseStatus = exports.toIsoString = exports.parseStoredUtcDate = exports.toNumber = exports.safeText = exports.ClassroomHttpError = void 0;
+exports.loadClassroomObserverContext = exports.loadAuthorizedClassroomContext = exports.isClassroomClosed = exports.isMissingClassroomSchemaError = exports.getEffectiveCourseStatus = exports.toIsoString = exports.parseStoredUtcDate = exports.toNumber = exports.safeText = exports.ClassroomHttpError = void 0;
 const db_1 = require("../db");
 class ClassroomHttpError extends Error {
     constructor(statusCode, message) {
@@ -169,3 +169,66 @@ const loadAuthorizedClassroomContext = async (courseId, currentUserId, options =
     };
 };
 exports.loadAuthorizedClassroomContext = loadAuthorizedClassroomContext;
+const loadClassroomObserverContext = async (courseId) => {
+    const sessionRows = await (0, db_1.query)(`
+    SELECT
+      id,
+      status,
+      starts_at,
+      duration_hours,
+      student_user_id,
+      mentor_user_id
+    FROM course_sessions
+    WHERE id = ?
+    LIMIT 1
+    `, [courseId]);
+    const sessionRow = sessionRows?.[0];
+    if (!sessionRow)
+        throw new ClassroomHttpError(404, '课程不存在');
+    const studentUserId = (0, exports.toNumber)(sessionRow.student_user_id, 0);
+    const mentorUserId = (0, exports.toNumber)(sessionRow.mentor_user_id, 0);
+    const roleRows = await (0, db_1.query)(`
+    SELECT user_id, role, public_id
+    FROM user_roles
+    WHERE (user_id = ? AND role = 'student')
+       OR (user_id = ? AND role = 'mentor')
+    `, [studentUserId, mentorUserId]);
+    const userRows = await (0, db_1.query)(`
+    SELECT id, username
+    FROM users
+    WHERE id IN (?, ?)
+    `, [studentUserId, mentorUserId]);
+    const rolePublicIdMap = new Map();
+    roleRows.forEach((row) => {
+        const userId = (0, exports.toNumber)(row.user_id, 0);
+        const role = (0, exports.safeText)(row.role).toLowerCase();
+        const publicId = (0, exports.safeText)(row.public_id);
+        if (!userId || !role || !publicId)
+            return;
+        rolePublicIdMap.set(`${userId}:${role}`, publicId);
+    });
+    const userNameMap = new Map();
+    userRows.forEach((row) => {
+        const userId = (0, exports.toNumber)(row.id, 0);
+        const userName = (0, exports.safeText)(row.username);
+        if (!userId || !userName)
+            return;
+        userNameMap.set(userId, userName);
+    });
+    const studentPublicId = rolePublicIdMap.get(`${studentUserId}:student`) || `s${studentUserId}`;
+    const mentorPublicId = rolePublicIdMap.get(`${mentorUserId}:mentor`) || `m${mentorUserId}`;
+    return {
+        courseId,
+        status: (0, exports.getEffectiveCourseStatus)(sessionRow),
+        startsAt: (0, exports.toIsoString)(sessionRow.starts_at),
+        durationHours: Number((Math.round((0, exports.toNumber)(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2)),
+        roomId: `course_${courseId}`,
+        studentUserId,
+        mentorUserId,
+        studentPublicId,
+        mentorPublicId,
+        studentUserName: userNameMap.get(studentUserId) || studentPublicId,
+        mentorUserName: userNameMap.get(mentorUserId) || mentorPublicId,
+    };
+};
+exports.loadClassroomObserverContext = loadClassroomObserverContext;

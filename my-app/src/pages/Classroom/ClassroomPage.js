@@ -14,7 +14,7 @@ import {
   FiVideoOff,
   FiX,
 } from 'react-icons/fi';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
@@ -423,7 +423,8 @@ const toLiveAuthInfo = (rawAuthInfo) => {
   const sdkAppId = safeText(rawAuthInfo?.sdkAppId);
   const mode = safeText(rawAuthInfo?.mode) || 'aliyun-live-artc';
 
-  if (!roomId || !selfUserId || !remoteUserId || !pushUrl || !remotePlayUrl) return null;
+  if (!roomId || !selfUserId || !remoteUserId || !remotePlayUrl) return null;
+  if (mode !== 'readonly-observer' && !pushUrl) return null;
 
   return {
     mode,
@@ -632,6 +633,7 @@ function ClassroomPage() {
   const { language, t } = useI18n();
   const navigate = useNavigate();
   const { courseId } = useParams();
+  const location = useLocation();
   const localVideoRef = useRef(null);
   const localCameraPreviewRef = useRef(null);
   const localScreenVideoRef = useRef(null);
@@ -639,6 +641,7 @@ function ClassroomPage() {
   const remoteScreenVideoRef = useRef(null);
   const pusherRef = useRef(null);
   const playerRef = useRef(null);
+  const observerPlayerRefs = useRef([]);
   const liveAuthRef = useRef(null);
   const screenPreviewStreamRef = useRef(null);
   const screenTrackRef = useRef(null);
@@ -744,10 +747,20 @@ function ClassroomPage() {
   const [chatClosed, setChatClosed] = useState(false);
   const [cleanupEligible, setCleanupEligible] = useState(false);
   const [chatDownloadingFileId, setChatDownloadingFileId] = useState('');
+  const [observerCount, setObserverCount] = useState(0);
+
+  const observerToken = useMemo(() => {
+    try {
+      return safeText(new URLSearchParams(location.search || '').get('observerToken'));
+    } catch {
+      return '';
+    }
+  }, [location.search]);
+  const isObserverMode = Boolean(observerToken);
 
   const backHref = useMemo(
-    () => (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses'),
-    [session?.roleInSession]
+    () => (isObserverMode ? '/' : (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses')),
+    [isObserverMode, session?.roleInSession]
   );
   const messagesHref = useMemo(
     () => (session?.roleInSession === 'mentor' ? '/mentor/messages' : '/student/messages'),
@@ -756,7 +769,7 @@ function ClassroomPage() {
   const threadId = useMemo(() => safeText(session?.threadId), [session?.threadId]);
   const isMentorInSession = session?.roleInSession === 'mentor';
   const { totalBadgeCount } = useMenuBadgeSummary({
-    enabled: isLoggedIn,
+    enabled: isLoggedIn && !isObserverMode,
     courseViews: [isMentorInSession ? 'mentor' : 'student'],
   });
   const remoteLabel = useMemo(() => safeText(session?.remoteUserName) || t('classroom.remoteFallback', '对方'), [session?.remoteUserName, t]);
@@ -804,7 +817,7 @@ function ClassroomPage() {
   useEffect(() => {
     let alive = true;
 
-    if (!session?.courseId) {
+    if (!session?.courseId || isObserverMode) {
       setUserTimeZone(getDefaultTimeZone());
       return () => {
         alive = false;
@@ -825,7 +838,7 @@ function ClassroomPage() {
     return () => {
       alive = false;
     };
-  }, [session?.courseId]);
+  }, [isObserverMode, session?.courseId]);
 
   const toggleMenu = useCallback(() => {
     if (isMentorInSession) {
@@ -1041,7 +1054,10 @@ function ClassroomPage() {
     if (!silent && mountedRef.current) setChatLoading(true);
 
     try {
-      const response = await api.get(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat`);
+      const response = await api.get(
+        `/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat`,
+        isObserverMode ? { params: { observerToken } } : undefined
+      );
       if (!mountedRef.current) return null;
       applyChatSnapshot(response?.data || {});
       if (!silent) setChatError('');
@@ -1055,7 +1071,7 @@ function ClassroomPage() {
       chatSyncInFlightRef.current = false;
       if (!silent && mountedRef.current) setChatLoading(false);
     }
-  }, [applyChatSnapshot, courseId, t]);
+  }, [applyChatSnapshot, courseId, isObserverMode, observerToken, t]);
 
   const prepareClassroomTempFilesCleanup = useCallback(async ({ silent = true } = {}) => {
     const normalizedCourseId = safeText(courseId);
@@ -2514,11 +2530,72 @@ function ClassroomPage() {
 
   startRemotePlaybackRef.current = startRemotePlayback;
 
+  const stopObserverPlayback = useCallback(async () => {
+    const players = observerPlayerRefs.current;
+    observerPlayerRefs.current = [];
+    await Promise.all(players.map(async (player) => {
+      try { await player?.stopPlay?.(); } catch {}
+      try { player?.destroy?.(); } catch {}
+    }));
+  }, []);
+
+  const startObserverPlayback = useCallback(async (sdk) => {
+    const liveAuth = liveAuthRef.current;
+    if (!sdk || !liveAuth || !joinedRef.current) return;
+
+    await stopObserverPlayback();
+
+    const streams = [
+      {
+        playUrl: safeText(liveAuth.selfPlayUrl),
+        element: localVideoRef.current,
+      },
+      {
+        playUrl: safeText(liveAuth.remotePlayUrl),
+        element: remoteVideoRef.current,
+        screenElement: remoteScreenVideoRef.current || undefined,
+      },
+    ];
+
+    let startedCount = 0;
+    for (const stream of streams) {
+      if (!stream.playUrl || !stream.element) continue;
+      const player = new sdk.AlivcLivePlayer();
+      observerPlayerRefs.current.push(player);
+      try {
+        await player.startPlay(stream.playUrl, stream.element, stream.screenElement);
+        startedCount += 1;
+      } catch (error) {
+        try { player.destroy?.(); } catch {}
+      }
+    }
+
+    if (!mountedRef.current || !joinedRef.current) return;
+    if (startedCount > 0) {
+      setErrorMessage('');
+      setStatusText(t('classroom.observerWatching', '旁听中'));
+      return;
+    }
+
+    setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
+  }, [stopObserverPlayback, t]);
+
   const syncClassroomPresence = useCallback(async (options = {}) => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId || !mountedRef.current || !joinedRef.current) return;
 
     try {
+      if (isObserverMode) {
+        const response = await api.post(
+          `/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/observer-presence`,
+          { observerToken }
+        );
+        if (mountedRef.current && joinedRef.current) {
+          setObserverCount(Number(response?.data?.observerCount) || 0);
+        }
+        return;
+      }
+
       const nextLocalScreenSharing = typeof options.screenSharing === 'boolean'
         ? options.screenSharing
         : screenSharingRef.current;
@@ -2531,6 +2608,7 @@ function ClassroomPage() {
       const prevRemotePresent = remotePresentRef.current;
       const nextRemotePresent = Boolean(response?.data?.remotePresent);
       const nextRemoteScreenSharing = Boolean(response?.data?.remoteScreenSharing);
+      setObserverCount(Number(response?.data?.observerCount) || 0);
       const hadRemoteStream = hasEstablishedRemotePlayback();
       const presenceAlreadyInitialized = presenceInitializedRef.current;
 
@@ -2590,7 +2668,9 @@ function ClassroomPage() {
     courseId,
     handleRemotePlaybackUnavailable,
     hasEstablishedRemotePlayback,
+    isObserverMode,
     markRemoteScreenIdle,
+    observerToken,
     resolveRemoteUnavailableStatusText,
     scheduleRemotePlaybackRetry,
   ]);
@@ -2647,6 +2727,34 @@ function ClassroomPage() {
 
     try {
       const normalizedCourseId = safeText(courseId);
+      if (isObserverMode) {
+        if (normalizedCourseId && observerToken) {
+          void api.delete(
+            `/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/observer-presence`,
+            { data: { observerToken } }
+          ).catch(() => {});
+        }
+        clearRemotePlaybackRetry();
+        liveAuthRef.current = null;
+        presenceInitializedRef.current = false;
+        remoteStartInFlightRef.current = false;
+        remoteRecoveryPendingRef.current = false;
+        remoteRecoveryTimestampRef.current = 0;
+        await stopObserverPlayback();
+        clearVideoElement(localVideoRef.current);
+        clearVideoElement(remoteVideoRef.current);
+        clearVideoElement(remoteScreenVideoRef.current);
+        if (mountedRef.current) {
+          setJoined(false);
+          setRemotePresent(false);
+          setRemoteReady(false);
+          setRemoteScreenSharing(false);
+          setRemoteScreenReady(false);
+          setObserverCount(0);
+        }
+        return;
+      }
+
       if (normalizedCourseId) {
         if (chatClosedRef.current || cleanupEligibleRef.current) {
           void api.post(`/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/prepare-cleanup`).catch(() => {});
@@ -2723,7 +2831,18 @@ function ClassroomPage() {
       });
       cleaningRef.current = false;
     }
-  }, [clearPresenceHeartbeat, clearRemotePlaybackRetry, courseId, logRemoteCleanup, stopLocalPush, stopScreenShare, teardownRemotePlayback]);
+  }, [
+    clearPresenceHeartbeat,
+    clearRemotePlaybackRetry,
+    courseId,
+    isObserverMode,
+    logRemoteCleanup,
+    observerToken,
+    stopLocalPush,
+    stopObserverPlayback,
+    stopScreenShare,
+    teardownRemotePlayback,
+  ]);
 
   useEffect(() => {
     if (!joined) {
@@ -3015,6 +3134,7 @@ function ClassroomPage() {
         setCameraActionPending(false);
         setLocalScreenReady(false);
         setRemoteScreenReady(false);
+        setObserverCount(0);
         recordingStartedRef.current = false;
         recordingStartInFlightRef.current = false;
         setRecordingStatus('idle');
@@ -3024,7 +3144,12 @@ function ClassroomPage() {
       }
 
       try {
-        const response = await api.get(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/auth`);
+        const response = await api.get(
+          isObserverMode
+            ? `/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/observer-auth`
+            : `/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/auth`,
+          isObserverMode ? { params: { observerToken } } : undefined
+        );
         if (cancelled || !mountedRef.current) return;
 
         const sessionInfo = response?.data?.session && typeof response.data.session === 'object'
@@ -3042,6 +3167,16 @@ function ClassroomPage() {
 
         const sdk = await loadAliyunLiveSdk();
         if (cancelled || !mountedRef.current) return;
+
+        if (isObserverMode) {
+          joinedRef.current = true;
+          setJoined(true);
+          setJoining(false);
+          setStatusText(t('classroom.observerConnecting', '旁听中，正在连接课堂画面...'));
+          await startObserverPlayback(sdk);
+          void syncClassroomPresence();
+          return;
+        }
 
         const supportResult = normalizeSupportResult(
           typeof sdk.AlivcLivePusher?.checkSystemRequirements === 'function'
@@ -3165,7 +3300,20 @@ function ClassroomPage() {
       mountedRef.current = false;
       void leaveAndDestroy();
     };
-  }, [buildJoinedStatusText, courseId, leaveAndDestroy, reportRuntimeIssue, startLocalPush, startRemotePlayback, syncLocalMicMuteState, t]);
+  }, [
+    buildJoinedStatusText,
+    courseId,
+    isObserverMode,
+    leaveAndDestroy,
+    observerToken,
+    reportRuntimeIssue,
+    startLocalPush,
+    startObserverPlayback,
+    startRemotePlayback,
+    syncClassroomPresence,
+    syncLocalMicMuteState,
+    t,
+  ]);
 
   useEffect(() => {
     const handleWindowRuntimeEvent = (event) => {
@@ -3324,7 +3472,7 @@ function ClassroomPage() {
   const handleSendChatMessage = useCallback(async () => {
     const normalizedCourseId = safeText(courseId);
     const textContent = safeText(chatMessageText);
-    if (!normalizedCourseId || !textContent || chatClosed || chatSending || chatUploading) return;
+    if (isObserverMode || !normalizedCourseId || !textContent || chatClosed || chatSending || chatUploading) return;
 
     setChatSending(true);
     setChatError('');
@@ -3342,7 +3490,7 @@ function ClassroomPage() {
     } finally {
       if (mountedRef.current) setChatSending(false);
     }
-  }, [chatClosed, chatMessageText, chatSending, chatUploading, courseId, syncClassroomChat, t]);
+  }, [chatClosed, chatMessageText, chatSending, chatUploading, courseId, isObserverMode, syncClassroomChat, t]);
 
   const handleChatInputKeyDown = useCallback((event) => {
     if (event.key !== 'Enter' || event.shiftKey) return;
@@ -3352,6 +3500,7 @@ function ClassroomPage() {
 
   const uploadClassroomChatFile = useCallback(async (file) => {
     const normalizedCourseId = safeText(courseId);
+    if (isObserverMode) throw new Error(t('classroom.observerReadonly', '旁听模式下聊天为只读'));
     if (!normalizedCourseId) throw new Error(t('classroom.invalidClassroomId', '无效课堂ID'));
 
     const signRes = await api.post('/api/oss/policy', {
@@ -3396,12 +3545,12 @@ function ClassroomPage() {
       ossKey: key,
       fileUrl,
     };
-  }, [courseId, t]);
+  }, [courseId, isObserverMode, t]);
 
   const handleChatFileChange = useCallback(async (event) => {
     const files = Array.from(event.target?.files || []);
     event.target.value = '';
-    if (!files.length || chatClosed) return;
+    if (!files.length || chatClosed || isObserverMode) return;
 
     const acceptedFiles = files.filter(isAllowedClassroomChatFile);
     const rejectedFiles = files.filter((file) => !isAllowedClassroomChatFile(file));
@@ -3440,7 +3589,7 @@ function ClassroomPage() {
     } finally {
       if (mountedRef.current) setChatUploading(false);
     }
-  }, [chatClosed, courseId, syncClassroomChat, t, uploadClassroomChatFile]);
+  }, [chatClosed, courseId, isObserverMode, syncClassroomChat, t, uploadClassroomChatFile]);
 
   const handleDownloadChatFile = useCallback(async (fileId) => {
     const normalizedCourseId = safeText(courseId);
@@ -3451,7 +3600,8 @@ function ClassroomPage() {
     setChatError('');
     try {
       const response = await api.get(
-        `/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/${encodeURIComponent(normalizedFileId)}/download-url`
+        `/api/classrooms/${encodeURIComponent(normalizedCourseId)}/chat/files/${encodeURIComponent(normalizedFileId)}/download-url`,
+        isObserverMode ? { params: { observerToken } } : undefined
       );
       const url = safeText(response?.data?.url);
       if (!url) throw new Error(t('classroom.downloadLinkFailed', '下载链接生成失败'));
@@ -3463,12 +3613,12 @@ function ClassroomPage() {
     } finally {
       if (mountedRef.current) setChatDownloadingFileId('');
     }
-  }, [courseId, t]);
+  }, [courseId, isObserverMode, observerToken, t]);
 
   const handleOpenChatFilePicker = useCallback(() => {
-    if (chatClosed || chatUploading || chatSending) return;
+    if (isObserverMode || chatClosed || chatUploading || chatSending) return;
     chatFileInputRef.current?.click();
-  }, [chatClosed, chatSending, chatUploading]);
+  }, [chatClosed, chatSending, chatUploading, isObserverMode]);
 
   const handleOpenEndSessionDialog = useCallback(() => {
     const defaultHours = currentCourseCard?.durationHours ?? session?.durationHours ?? 1;
@@ -3534,12 +3684,13 @@ function ClassroomPage() {
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
   const nextLessonControlDisabled = controlsDisabled || !threadId || !currentCourseCard || rescheduleSending;
-  const chatCanSend = !controlsDisabled
+  const chatCanSend = !isObserverMode
+    && !controlsDisabled
     && !chatClosed
     && !chatSending
     && !chatUploading
     && !!safeText(chatMessageText);
-  const chatComposerDisabled = controlsDisabled || chatClosed || chatSending || chatUploading;
+  const chatComposerDisabled = isObserverMode || controlsDisabled || chatClosed || chatSending || chatUploading;
   const incomingDecisionBusy = Boolean(
     incomingAppointmentCard && String(appointmentBusyId) === String(incomingAppointmentCard.id)
   );
@@ -3556,32 +3707,43 @@ function ClassroomPage() {
       <div className="container">
         <header className="classroom-header">
           <BrandMark className="nav-logo-text" to={backHref} />
-          <button
-            type="button"
-            className="icon-circle classroom-menu unread-badge-anchor"
-            aria-label={t('common.menuMore', '更多菜单')}
-            ref={menuAnchorRef}
-            onClick={toggleMenu}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            {isLoggedIn ? (
-              <UnreadBadge
-                count={totalBadgeCount}
-                variant="nav"
-                className="unread-badge-top-right"
-                ariaLabel={t('common.pendingReminders', '待处理提醒')}
-              />
-            ) : null}
-          </button>
+          {!isObserverMode ? (
+            <button
+              type="button"
+              className="icon-circle classroom-menu unread-badge-anchor"
+              aria-label={t('common.menuMore', '更多菜单')}
+              ref={menuAnchorRef}
+              onClick={toggleMenu}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <line x1="5" y1="8" x2="20" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="5" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="5" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              {isLoggedIn ? (
+                <UnreadBadge
+                  count={totalBadgeCount}
+                  variant="nav"
+                  className="unread-badge-top-right"
+                  ariaLabel={t('common.pendingReminders', '待处理提醒')}
+                />
+              ) : null}
+            </button>
+          ) : null}
         </header>
 
         <section className="classroom-meta">
-          <h1>{t('classroom.title', '课堂')}</h1>
+          <h1>{isObserverMode ? t('classroom.observerTitle', '课堂旁听') : t('classroom.title', '课堂')}</h1>
           <div className="classroom-status"><LoadingText text={statusText} active={/[.．。]{2,}|…/u.test(statusText)} /></div>
+          {isObserverMode ? (
+            <div className="classroom-observer-notice">
+              {t('classroom.observerReadonlyNotice', '平台旁听模式：你看到的是学生和导师的同一课堂页面，聊天与课堂操作为只读。')}
+            </div>
+          ) : observerCount > 0 ? (
+            <div className="classroom-observer-notice" role="status">
+              {t('classroom.observerPresentNotice', '平台正在旁听本节课堂')}
+            </div>
+          ) : null}
           {recordingStatusText ? (
             <div className={`classroom-recording-status classroom-recording-status--${recordingStatus}`}>
               <span className="classroom-recording-dot" aria-hidden="true" />
@@ -3618,22 +3780,24 @@ function ClassroomPage() {
 
         <section className={`classroom-stage ${presentationVisible ? 'is-covered' : ''}`}>
           <article className="classroom-video-panel">
-            <div className="classroom-video-title">{t('classroom.localVideo', '我的画面')}</div>
+            <div className="classroom-video-title">{isObserverMode ? t('classroom.studentVideo', '学生画面') : t('classroom.localVideo', '我的画面')}</div>
             <div className="classroom-video-box">
-              {cameraMuted ? <div className="classroom-video-placeholder">{t('classroom.localCameraOff', LOCAL_CAMERA_OFF_TEXT)}</div> : null}
-              <video ref={localVideoRef} autoPlay playsInline muted />
+              {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingStudentVideo', '等待学生画面...')}</div> : null}
+              {!isObserverMode && cameraMuted ? <div className="classroom-video-placeholder">{t('classroom.localCameraOff', LOCAL_CAMERA_OFF_TEXT)}</div> : null}
+              <video ref={localVideoRef} autoPlay playsInline muted={!isObserverMode} />
             </div>
           </article>
 
           <article className="classroom-video-panel">
-            <div className="classroom-video-title">{t('classroom.remoteVideo', '对方画面')}</div>
+            <div className="classroom-video-title">{isObserverMode ? t('classroom.mentorVideo', '导师画面') : t('classroom.remoteVideo', '对方画面')}</div>
             <div className="classroom-video-box">
+              {isObserverMode ? <div className="classroom-video-placeholder">{t('classroom.waitingMentorVideo', '等待导师画面...')}</div> : null}
               <video ref={remoteVideoRef} autoPlay playsInline />
             </div>
           </article>
         </section>
 
-        <section className="classroom-controls">
+        {!isObserverMode ? <section className="classroom-controls">
           <button
             type="button"
             className="classroom-control-btn"
@@ -3684,7 +3848,7 @@ function ClassroomPage() {
             <FiPhoneOff size={16} />
             <span>{isMentorInSession ? t('classroom.end', '结束课堂') : t('classroom.leave', '离开课堂')}</span>
           </button>
-        </section>
+        </section> : null}
 
         <section className="classroom-chat-panel">
           <div className="classroom-chat-panel-head">
@@ -3712,6 +3876,9 @@ function ClassroomPage() {
 
             {chatMessages.map((message) => {
               const isMine = message.senderRole === session?.roleInSession;
+              const messageAuthor = isObserverMode
+                ? (message.senderRole === 'mentor' ? t('classroom.mentor', '导师') : message.senderRole === 'student' ? t('classroom.student', '学生') : t('classroom.unknownSender', '未知'))
+                : (isMine ? t('classroom.me', '我') : remoteLabel);
               const file = message.file;
               const fileCleanupStatus = safeText(file?.cleanupStatus).toLowerCase();
               const fileUnavailable = fileCleanupStatus === 'deleted';
@@ -3723,7 +3890,7 @@ function ClassroomPage() {
                   className={`classroom-chat-message ${isMine ? 'is-mine' : 'is-theirs'}`}
                 >
                   <div className="classroom-chat-message-meta">
-                    <span className="classroom-chat-message-author">{isMine ? t('classroom.me', '我') : remoteLabel}</span>
+                    <span className="classroom-chat-message-author">{messageAuthor}</span>
                     <span className="classroom-chat-message-time">{formatClassroomChatTime(message.createdAt, userTimeZone)}</span>
                   </div>
 
@@ -3762,7 +3929,7 @@ function ClassroomPage() {
                 setChatMessageText(event.target.value.slice(0, MAX_CLASSROOM_CHAT_TEXT_LENGTH));
               }}
               onKeyDown={handleChatInputKeyDown}
-              placeholder={chatClosed ? t('classroom.chatClosedPlaceholder', '课堂已结束，聊天区域为只读') : t('classroom.chatPlaceholder', '输入课堂消息，按 Enter 发送，Shift + Enter 换行')}
+              placeholder={isObserverMode ? t('classroom.observerChatPlaceholder', '旁听模式下聊天区域为只读') : (chatClosed ? t('classroom.chatClosedPlaceholder', '课堂已结束，聊天区域为只读') : t('classroom.chatPlaceholder', '输入课堂消息，按 Enter 发送，Shift + Enter 换行'))}
               disabled={chatComposerDisabled}
               rows={3}
             />

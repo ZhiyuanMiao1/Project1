@@ -1555,8 +1555,44 @@ function ClassroomsPage() {
     setSort({ field, direction });
   };
 
-  const openWatch = (courseId) => {
-    window.open(`/classrooms/${encodeURIComponent(courseId)}/watch`, '_blank', 'noopener,noreferrer');
+  const resolveClassroomOrigin = () => {
+    const configuredOrigin = String(process.env.REACT_APP_CLASSROOM_APP_ORIGIN || '').trim();
+    if (configuredOrigin) return configuredOrigin.replace(/\/+$/, '');
+
+    try {
+      const currentUrl = new URL(window.location.href);
+      if ((currentUrl.hostname === 'localhost' || currentUrl.hostname === '127.0.0.1') && currentUrl.port === '3001') {
+        currentUrl.port = '3000';
+        currentUrl.pathname = '';
+        currentUrl.search = '';
+        currentUrl.hash = '';
+        return currentUrl.origin;
+      }
+    } catch {}
+
+    return window.location.origin;
+  };
+
+  const openWatch = async (courseId) => {
+    const placeholder = window.open('', '_blank');
+    try {
+      const authData = await api(`/api/admin/classrooms/${encodeURIComponent(courseId)}/observer-auth`);
+      const observerToken = String(authData?.observerToken || '').trim();
+      if (!observerToken) throw new Error('旁听鉴权失败');
+
+      const classroomOrigin = resolveClassroomOrigin();
+      const classroomUrl = new URL(`/classroom/${encodeURIComponent(courseId)}`, classroomOrigin);
+      classroomUrl.searchParams.set('observerToken', observerToken);
+      if (placeholder) {
+        placeholder.opener = null;
+        placeholder.location.href = classroomUrl.toString();
+      } else {
+        window.open(classroomUrl.toString(), '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      if (placeholder) placeholder.close();
+      alert(error?.message || '进入课堂失败');
+    }
   };
 
   const statusOptions = [

@@ -107,6 +107,20 @@
   font-size: 13px;
 }
 
+.classroom-observer-notice {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+  border-radius: 999px;
+  border: 1px solid #facc15;
+  background: #fefce8;
+  color: #854d0e;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .classroom-stage {
   margin-top: 22px;
   display: grid;

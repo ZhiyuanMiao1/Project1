@@ -39,6 +39,20 @@ export type AuthorizedClassroomContext = {
   mentorUserId: number;
 };
 
+export type ClassroomObserverContext = {
+  courseId: number;
+  status: string;
+  startsAt: string;
+  durationHours: number;
+  roomId: string;
+  studentUserId: number;
+  mentorUserId: number;
+  studentPublicId: string;
+  mentorPublicId: string;
+  studentUserName: string;
+  mentorUserName: string;
+};
+
 export class ClassroomHttpError extends Error {
   statusCode: number;
 
@@ -237,5 +251,81 @@ export const loadAuthorizedClassroomContext = async (
     roomId: `course_${courseId}`,
     studentUserId,
     mentorUserId,
+  };
+};
+
+export const loadClassroomObserverContext = async (courseId: number): Promise<ClassroomObserverContext> => {
+  const sessionRows = await dbQuery<CourseSessionRow[]>(
+    `
+    SELECT
+      id,
+      status,
+      starts_at,
+      duration_hours,
+      student_user_id,
+      mentor_user_id
+    FROM course_sessions
+    WHERE id = ?
+    LIMIT 1
+    `,
+    [courseId]
+  );
+  const sessionRow = sessionRows?.[0];
+  if (!sessionRow) throw new ClassroomHttpError(404, '课程不存在');
+
+  const studentUserId = toNumber(sessionRow.student_user_id, 0);
+  const mentorUserId = toNumber(sessionRow.mentor_user_id, 0);
+
+  const roleRows = await dbQuery<RolePublicIdRow[]>(
+    `
+    SELECT user_id, role, public_id
+    FROM user_roles
+    WHERE (user_id = ? AND role = 'student')
+       OR (user_id = ? AND role = 'mentor')
+    `,
+    [studentUserId, mentorUserId]
+  );
+
+  const userRows = await dbQuery<UserNameRow[]>(
+    `
+    SELECT id, username
+    FROM users
+    WHERE id IN (?, ?)
+    `,
+    [studentUserId, mentorUserId]
+  );
+
+  const rolePublicIdMap = new Map<string, string>();
+  roleRows.forEach((row) => {
+    const userId = toNumber(row.user_id, 0);
+    const role = safeText(row.role).toLowerCase();
+    const publicId = safeText(row.public_id);
+    if (!userId || !role || !publicId) return;
+    rolePublicIdMap.set(`${userId}:${role}`, publicId);
+  });
+
+  const userNameMap = new Map<number, string>();
+  userRows.forEach((row) => {
+    const userId = toNumber(row.id, 0);
+    const userName = safeText(row.username);
+    if (!userId || !userName) return;
+    userNameMap.set(userId, userName);
+  });
+
+  const studentPublicId = rolePublicIdMap.get(`${studentUserId}:student`) || `s${studentUserId}`;
+  const mentorPublicId = rolePublicIdMap.get(`${mentorUserId}:mentor`) || `m${mentorUserId}`;
+
+  return {
+    courseId,
+    status: getEffectiveCourseStatus(sessionRow),
+    startsAt: toIsoString(sessionRow.starts_at),
+    durationHours: Number((Math.round(toNumber(sessionRow.duration_hours, 0) * 100) / 100).toFixed(2)),
+    roomId: `course_${courseId}`,
+    studentUserId,
+    mentorUserId,
+    studentPublicId,
+    mentorPublicId,
+    studentUserName: userNameMap.get(studentUserId) || studentPublicId,
+    mentorUserName: userNameMap.get(mentorUserId) || mentorPublicId,
   };
 };

@@ -8,6 +8,7 @@ import { ensureAdminSchema } from '../services/adminSchema';
 import { revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
+import { createClassroomObserverToken } from '../services/classroomObserverToken';
 import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
 import {
   ensureMentorRecommendationColumns,
@@ -1442,6 +1443,7 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
     return res.json({
       courseId: String(courseId),
       mode: 'readonly-observer',
+      observerToken: createClassroomObserverToken(courseId, Number(req.admin?.adminId || 0)),
       roomId,
       expiresAt: new Date(expires * 1000).toISOString(),
       status: classroom.status,

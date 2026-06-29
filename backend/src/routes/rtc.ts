@@ -12,9 +12,11 @@ import {
   AuthorizedClassroomContext,
   ClassroomHttpError,
   isMissingClassroomSchemaError,
+  loadClassroomObserverContext,
   loadAuthorizedClassroomContext,
   safeText,
 } from '../services/classroomAccess';
+import { verifyClassroomObserverToken } from '../services/classroomObserverToken';
 
 const router = Router();
 
@@ -26,8 +28,14 @@ type ClassroomPresenceEntry = {
   screenSharing: boolean;
 };
 
+type ClassroomObserverPresenceEntry = {
+  adminId: number;
+  lastSeenAt: number;
+};
+
 const CLASSROOM_PRESENCE_TTL_MS = 4500;
 const classroomPresenceStore = new Map<string, Map<string, ClassroomPresenceEntry>>();
+const classroomObserverPresenceStore = new Map<string, Map<string, ClassroomObserverPresenceEntry>>();
 
 const pruneClassroomPresence = (courseId?: string) => {
   const now = Date.now();
@@ -45,6 +53,26 @@ const pruneClassroomPresence = (courseId?: string) => {
 
     if (entries.size === 0) {
       classroomPresenceStore.delete(currentCourseId);
+    }
+  });
+};
+
+const pruneClassroomObserverPresence = (courseId?: string) => {
+  const now = Date.now();
+  const targetCourseIds = courseId ? [courseId] : Array.from(classroomObserverPresenceStore.keys());
+
+  targetCourseIds.forEach((currentCourseId) => {
+    const entries = classroomObserverPresenceStore.get(currentCourseId);
+    if (!entries) return;
+
+    entries.forEach((entry, key) => {
+      if (now - entry.lastSeenAt > CLASSROOM_PRESENCE_TTL_MS) {
+        entries.delete(key);
+      }
+    });
+
+    if (entries.size === 0) {
+      classroomObserverPresenceStore.delete(currentCourseId);
     }
   });
 };
@@ -70,6 +98,35 @@ const removeClassroomPresence = (courseId: string, publicId: string) => {
     classroomPresenceStore.delete(courseId);
   }
   return entries.size;
+};
+
+const touchClassroomObserverPresence = (courseId: string, adminId: number) => {
+  pruneClassroomObserverPresence(courseId);
+
+  let entries = classroomObserverPresenceStore.get(courseId);
+  if (!entries) {
+    entries = new Map<string, ClassroomObserverPresenceEntry>();
+    classroomObserverPresenceStore.set(courseId, entries);
+  }
+
+  entries.set(String(adminId), { adminId, lastSeenAt: Date.now() });
+};
+
+const removeClassroomObserverPresence = (courseId: string, adminId: number) => {
+  const entries = classroomObserverPresenceStore.get(courseId);
+  if (!entries) return 0;
+
+  entries.delete(String(adminId));
+  if (entries.size === 0) {
+    classroomObserverPresenceStore.delete(courseId);
+  }
+  return entries.size;
+};
+
+const getClassroomObserverCount = (courseId: number | string) => {
+  const courseKey = String(courseId);
+  pruneClassroomObserverPresence(courseKey);
+  return classroomObserverPresenceStore.get(courseKey)?.size || 0;
 };
 
 const getClassroomPresenceEntries = (context: AuthorizedClassroomContext): ClassroomRecordingPresenceEntry[] => {
@@ -103,6 +160,7 @@ const getClassroomPresencePayload = (context: AuthorizedClassroomContext) => {
     remoteUserId: context.remoteUserPublicId,
     remoteUserName: context.remoteUserName,
     remoteLastSeenAt: remotePresence ? new Date(remotePresence.lastSeenAt).toISOString() : '',
+    observerCount: getClassroomObserverCount(context.courseId),
   };
 };
 
@@ -173,6 +231,76 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
   }
 });
 
+router.get('/classrooms/:courseId/observer-auth', async (req: Request, res: Response) => {
+  const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+  if (!Number.isFinite(courseId) || courseId <= 0) {
+    return res.status(400).json({ error: '无效课程ID' });
+  }
+
+  const observer = verifyClassroomObserverToken(req.query.observerToken, courseId);
+  if (!observer) return res.status(401).json({ error: '旁听链接已失效，请从后台重新进入' });
+
+  const runtime = getAliyunLiveRuntimeConfig();
+  if (!runtime) {
+    return res.status(500).json({ error: '实时音视频配置缺失，请检查 ALIYUN_LIVE_ARTC_APP_ID / ALIYUN_LIVE_ARTC_APP_KEY' });
+  }
+
+  try {
+    const context = await loadClassroomObserverContext(courseId);
+    const timestamp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+    const studentStreamAuth = createAliyunLiveStreamAuthInfo({
+      appId: runtime.appId,
+      appKey: runtime.appKey,
+      roomId: context.roomId,
+      userId: context.studentPublicId,
+      timestamp,
+    });
+    const mentorStreamAuth = createAliyunLiveStreamAuthInfo({
+      appId: runtime.appId,
+      appKey: runtime.appKey,
+      roomId: context.roomId,
+      userId: context.mentorPublicId,
+      timestamp,
+    });
+
+    return res.json({
+      liveAuth: {
+        mode: 'readonly-observer',
+        sdkAppId: runtime.appId,
+        roomId: context.roomId,
+        selfUserId: context.studentPublicId,
+        remoteUserId: context.mentorPublicId,
+        selfPlayUrl: studentStreamAuth.playUrl,
+        remotePlayUrl: mentorStreamAuth.playUrl,
+        expiresAt: new Date(timestamp * 1000).toISOString(),
+      },
+      userName: '平台旁听',
+      session: {
+        courseId: String(courseId),
+        status: context.status,
+        startsAt: context.startsAt,
+        durationHours: context.durationHours,
+        threadId: '',
+        roleInSession: 'observer',
+        remoteRole: 'mentor',
+        observerMode: true,
+        studentUserName: context.studentUserName,
+        mentorUserName: context.mentorUserName,
+        remoteUserName: context.mentorUserName,
+      },
+    });
+  } catch (e) {
+    if (e instanceof ClassroomHttpError) {
+      return res.status(e.statusCode).json({ error: e.message });
+    }
+    if (isMissingClassroomSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Live classroom observer auth error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.post('/classrooms/:courseId/presence', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未登录' });
 
@@ -213,6 +341,34 @@ router.post('/classrooms/:courseId/presence', requireAuth, async (req: Request, 
   }
 });
 
+router.post('/classrooms/:courseId/observer-presence', async (req: Request, res: Response) => {
+  const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+  if (!Number.isFinite(courseId) || courseId <= 0) {
+    return res.status(400).json({ error: '无效课程ID' });
+  }
+
+  const observer = verifyClassroomObserverToken(req.body?.observerToken || req.query.observerToken, courseId);
+  if (!observer) return res.status(401).json({ error: '旁听链接已失效，请从后台重新进入' });
+
+  try {
+    await loadClassroomObserverContext(courseId);
+    touchClassroomObserverPresence(String(courseId), observer.adminId);
+    return res.json({
+      observerPresent: true,
+      observerCount: getClassroomObserverCount(courseId),
+    });
+  } catch (e) {
+    if (e instanceof ClassroomHttpError) {
+      return res.status(e.statusCode).json({ error: e.message });
+    }
+    if (isMissingClassroomSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Live classroom observer presence heartbeat error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.delete('/classrooms/:courseId/presence', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未登录' });
 
@@ -236,6 +392,19 @@ router.delete('/classrooms/:courseId/presence', requireAuth, async (req: Request
     console.error('Live classroom presence leave error:', e);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
+});
+
+router.delete('/classrooms/:courseId/observer-presence', async (req: Request, res: Response) => {
+  const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+  if (!Number.isFinite(courseId) || courseId <= 0) {
+    return res.status(400).json({ error: '无效课程ID' });
+  }
+
+  const observer = verifyClassroomObserverToken(req.body?.observerToken || req.query.observerToken, courseId);
+  if (!observer) return res.status(204).end();
+
+  removeClassroomObserverPresence(String(courseId), observer.adminId);
+  return res.status(204).end();
 });
 
 router.post('/classrooms/:courseId/recording/start', requireAuth, async (req: Request, res: Response) => {
