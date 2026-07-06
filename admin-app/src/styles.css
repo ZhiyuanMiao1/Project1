@@ -385,6 +385,27 @@ th {
   background: #fbfcfe;
 }
 
+.students-table th:last-child,
+.students-table td:last-child {
+  width: 196px;
+  min-width: 196px;
+  padding-left: 8px;
+  padding-right: 14px;
+  text-align: left;
+}
+
+.students-table .row-actions {
+  gap: 34px;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.students-table .row-actions button.ghost {
+  min-height: auto;
+  padding: 0;
+}
+
 .classrooms-table th:nth-child(1),
 .classrooms-table td:nth-child(1) {
   width: 82px;

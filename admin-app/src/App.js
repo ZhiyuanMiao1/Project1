@@ -544,6 +544,7 @@ function UsersPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
+          className="students-table"
           columns={[
             <SortHeader label="StudentID" field="id" sort={sort} onSort={updateSort} />,
             '邮箱',
