@@ -384,15 +384,23 @@ button.link-button {
   color: #66758d;
 }
 
-.dashboard-metric strong {
+.dashboard-metric-value {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+
+.dashboard-metric-value strong {
   color: #172033;
   font-size: 26px;
   line-height: 1.15;
   word-break: break-word;
 }
 
-.dashboard-metric small {
+.dashboard-metric-value small {
   line-height: 1.45;
+  white-space: nowrap;
 }
 
 .metric-blue::before,
