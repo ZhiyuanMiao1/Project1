@@ -361,8 +361,10 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
       roleRows,
       mentorRows,
       orderRows,
+      paidStudentRows,
       courseRows,
       lessonRows,
+      trendRows,
     ] = await Promise.all([
       query<any[]>(
         `SELECT
@@ -389,12 +391,63 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
         `SELECT
            COUNT(*) AS totalOrders,
            SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN 1 ELSE 0 END) AS paidOrders,
-           COALESCE(SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN amount_cny ELSE 0 END), 0) AS paidAmountCny
+           COALESCE(SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN amount_cny ELSE 0 END), 0) AS paidAmountCny,
+           SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 ELSE 0 END) AS paidOrdersThisMonth,
+           COALESCE(SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyThisMonth,
+           COALESCE(SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_SUB(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) < DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyLastMonth,
+           SUM(CASE WHEN status IN ('VOIDED','FAILED') THEN 1 ELSE 0 END) AS failedOrders
          FROM billing_orders`
       ),
-      query<any[]>('SELECT COUNT(*) AS scheduledCourses FROM course_sessions WHERE status = "scheduled"'),
       query<any[]>(
-        "SELECT COUNT(*) AS pendingLessonHours FROM lesson_hour_confirmations WHERE status IN ('pending','disputed','platform_review')"
+        `SELECT COUNT(DISTINCT bo.user_id) AS paidStudents
+         FROM billing_orders bo
+         INNER JOIN user_roles ur ON ur.user_id = bo.user_id AND ur.role = 'student'
+         WHERE bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED','CAPTURED')`
+      ),
+      query<any[]>(
+        `SELECT
+           COUNT(CASE WHEN status = 'scheduled' THEN 1 END) AS scheduledCourses,
+           COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedCourses,
+           COUNT(CASE WHEN status = 'completed' AND starts_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 END) AS completedCoursesThisMonth,
+           COUNT(CASE WHEN status = 'completed'
+             AND starts_at >= DATE_SUB(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
+             AND starts_at < DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 END) AS completedCoursesLastMonth,
+           COUNT(DISTINCT CASE WHEN starts_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+             AND status IN ('scheduled','completed') THEN mentor_user_id END) AS activeMentors
+         FROM course_sessions`
+      ),
+      query<any[]>(
+        `SELECT
+           COUNT(*) AS pendingLessonHours,
+           COUNT(CASE WHEN status IN ('disputed','platform_review') THEN 1 END) AS disputedLessonHours
+         FROM lesson_hour_confirmations
+         WHERE status IN ('pending','disputed','platform_review')`
+      ),
+      query<any[]>(
+        `SELECT trend_day AS day, SUM(gmvCny) AS gmvCny, SUM(completedCourses) AS completedCourses
+         FROM (
+           SELECT DATE(COALESCE(credited_at, captured_at, updated_at, created_at)) AS trend_day,
+             COALESCE(SUM(amount_cny), 0) AS gmvCny,
+             0 AS completedCourses
+           FROM billing_orders
+           WHERE (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_SUB(CURRENT_DATE, INTERVAL 29 DAY)
+           GROUP BY DATE(COALESCE(credited_at, captured_at, updated_at, created_at))
+           UNION ALL
+           SELECT DATE(starts_at) AS trend_day,
+             0 AS gmvCny,
+             COUNT(*) AS completedCourses
+           FROM course_sessions
+           WHERE status = 'completed'
+             AND starts_at >= DATE_SUB(CURRENT_DATE, INTERVAL 29 DAY)
+           GROUP BY DATE(starts_at)
+         ) daily
+         GROUP BY trend_day
+         ORDER BY trend_day`
       ),
     ]);
 
@@ -403,8 +456,10 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
       roles: roleRows?.[0] || {},
       mentors: mentorRows?.[0] || {},
       orders: orderRows?.[0] || {},
+      paidStudents: paidStudentRows?.[0] || {},
       courses: courseRows?.[0] || {},
       lessonHours: lessonRows?.[0] || {},
+      trends: trendRows || [],
     });
   } catch (error) {
     console.error('Admin dashboard summary error:', error);

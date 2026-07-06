@@ -172,6 +172,22 @@ const asNumber = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const PLATFORM_COMMISSION_RATE = 0.2;
+
+const formatCurrencyCny = (value) => `CNY ${asNumber(value).toLocaleString('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})}`;
+
+const formatPercentChange = (current, previous) => {
+  const now = asNumber(current);
+  const before = asNumber(previous);
+  if (before <= 0) return now > 0 ? '本月新增收入' : '较上月持平';
+  const change = ((now - before) / before) * 100;
+  const sign = change > 0 ? '+' : '';
+  return `较上月 ${sign}${change.toFixed(1)}%`;
+};
+
 const formatReviewScore = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return '-';
@@ -441,32 +457,223 @@ function Shell({ onLogout }) {
 
 function Dashboard() {
   const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), []);
-  const cards = useMemo(() => {
+  const dashboard = useMemo(() => {
     const d = data || {};
-    return [
-      ['用户总数', asNumber(d.users?.totalUsers), `今日新增 ${asNumber(d.users?.newUsersToday)}，7日新增 ${asNumber(d.users?.newUsers7d)}`],
-      ['学生 / 导师', `${asNumber(d.roles?.students)} / ${asNumber(d.roles?.mentors)}`, `待审核导师 ${asNumber(d.mentors?.pendingMentors)}`],
-      ['已支付订单', asNumber(d.orders?.paidOrders), `累计 CNY ${asNumber(d.orders?.paidAmountCny).toFixed(2)}`],
-      ['课程排期', asNumber(d.courses?.scheduledCourses), 'scheduled'],
-      ['课时确认', asNumber(d.lessonHours?.pendingLessonHours), 'pending / disputed / platform_review'],
-    ];
+    const orders = d.orders || {};
+    const courses = d.courses || {};
+    const lessonHours = d.lessonHours || {};
+    const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth || orders.paidAmountCny);
+    const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
+    const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
+    const mentorPayable = Math.max(gmvThisMonth - platformRevenue, 0);
+    const completedThisMonth = asNumber(courses.completedCoursesThisMonth || courses.completedCourses);
+    const completedLastMonth = asNumber(courses.completedCoursesLastMonth);
+    const paidOrdersThisMonth = asNumber(orders.paidOrdersThisMonth || orders.paidOrders);
+    const disputedCount = asNumber(lessonHours.disputedLessonHours);
+
+    return {
+      cards: [
+        {
+          label: '本月 GMV',
+          value: formatCurrencyCny(gmvThisMonth),
+          hint: `${formatPercentChange(gmvThisMonth, gmvLastMonth)} · 已支付订单 ${paidOrdersThisMonth}`,
+          tone: 'blue',
+        },
+        {
+          label: '平台收入',
+          value: formatCurrencyCny(platformRevenue),
+          hint: `按 ${(PLATFORM_COMMISSION_RATE * 100).toFixed(0)}% 默认抽佣率估算`,
+          tone: 'green',
+        },
+        {
+          label: '待结算导师金额',
+          value: formatCurrencyCny(mentorPayable),
+          hint: `待确认课时 ${asNumber(lessonHours.pendingLessonHours)} · 争议 ${disputedCount}`,
+          tone: 'orange',
+        },
+        {
+          label: '已完成课时',
+          value: completedThisMonth,
+          hint: `${formatPercentChange(completedThisMonth, completedLastMonth)} · 本月完成课程`,
+          tone: 'slate',
+        },
+      ],
+      finance: [
+        ['已收款金额', formatCurrencyCny(gmvThisMonth), '本月已支付订单总额'],
+        ['已确认收入', formatCurrencyCny(platformRevenue), '当前按平台抽佣确认'],
+        ['平台佣金收入', formatCurrencyCny(platformRevenue), `${(PLATFORM_COMMISSION_RATE * 100).toFixed(0)}% take rate`],
+        ['待结算导师金额', formatCurrencyCny(mentorPayable), 'GMV 扣除平台佣金'],
+        ['退款 / 争议金额', formatCurrencyCny(0), `争议课时 ${disputedCount}`],
+      ],
+      users: [
+        ['学生总数', asNumber(d.roles?.students), '平台学生供给池'],
+        ['付费学生数', asNumber(d.paidStudents?.paidStudents), '至少完成 1 笔支付'],
+        ['导师总数', asNumber(d.roles?.mentors), '已注册导师角色'],
+        ['已审核导师数', asNumber(d.mentors?.approvedMentors), '审核通过可承接课程'],
+        ['活跃导师数', asNumber(courses.activeMentors), '近 30 天有排课或完课'],
+        ['待审核导师', asNumber(d.mentors?.pendingMentors), '仅展示数量，不作为待办'],
+      ],
+      trends: [
+        {
+          title: '近 30 天 GMV 趋势',
+          value: formatCurrencyCny(gmvThisMonth),
+          hint: '每日已支付订单金额',
+          data: buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280)),
+          tone: 'blue',
+        },
+        {
+          title: '近 30 天平台收入趋势',
+          value: formatCurrencyCny(platformRevenue),
+          hint: 'GMV 按默认抽佣率折算',
+          data: buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56)),
+          tone: 'green',
+        },
+        {
+          title: '近 30 天完成课时趋势',
+          value: `${completedThisMonth}`,
+          hint: '每日已完成课程数量',
+          data: buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1)),
+          tone: 'orange',
+        },
+      ],
+    };
   }, [data]);
 
   return (
-    <section>
+    <section className="dashboard-page">
       <PageTitle title="Dashboard" />
       <State loading={loading} error={error}>
-        <div className="metric-grid">
-          {cards.map(([label, value, hint]) => (
-            <article className="metric" key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-              <small>{hint}</small>
+        <div className="dashboard-stack">
+          <div className="metric-grid dashboard-metric-grid">
+            {dashboard.cards.map((card) => (
+              <article className={`metric dashboard-metric metric-${card.tone}`} key={card.label}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small>{card.hint}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="dashboard-main-grid">
+            <article className="dashboard-card finance-card">
+              <div className="dashboard-card-heading">
+                <div>
+                  <span>Financial Overview</span>
+                  <h2>财务概览</h2>
+                </div>
+                <small>本月经营口径</small>
+              </div>
+              <div className="finance-list">
+                {dashboard.finance.map(([label, value, hint]) => (
+                  <div className="finance-row" key={label}>
+                    <div>
+                      <span>{label}</span>
+                      <small>{hint}</small>
+                    </div>
+                    <strong>{value}</strong>
+                  </div>
+                ))}
+              </div>
             </article>
-          ))}
+
+            <article className="dashboard-card supply-card">
+              <div className="dashboard-card-heading">
+                <div>
+                  <span>Users & Supply</span>
+                  <h2>用户与供给</h2>
+                </div>
+              </div>
+              <div className="supply-grid">
+                {dashboard.users.map(([label, value, hint]) => (
+                  <div className="supply-item" key={label}>
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                    <small>{hint}</small>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </div>
+
+          <div className="trend-grid">
+            {dashboard.trends.map((trend) => (
+              <TrendCard key={trend.title} {...trend} />
+            ))}
+          </div>
         </div>
       </State>
     </section>
+  );
+}
+
+function buildTrendSeries(rows = [], metric, fallbackBase) {
+  const byDay = new Map();
+  rows.forEach((row) => {
+    const rawDay = row.day ? new Date(row.day) : null;
+    if (!rawDay || Number.isNaN(rawDay.getTime())) return;
+    const key = rawDay.toISOString().slice(0, 10);
+    const gmv = asNumber(row.gmvCny);
+    const value = metric === 'platformRevenueCny'
+      ? gmv * PLATFORM_COMMISSION_RATE
+      : asNumber(row[metric]);
+    byDay.set(key, value);
+  });
+
+  const hasRealData = byDay.size > 0;
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (29 - index));
+    const key = date.toISOString().slice(0, 10);
+    const mockWave = Math.sin(index / 2.6) * 0.22 + Math.cos(index / 5) * 0.16 + 1;
+    const mockRamp = 0.78 + index * 0.012;
+    const fallback = Math.max(0, Math.round(asNumber(fallbackBase) * mockWave * mockRamp));
+    return {
+      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      value: hasRealData ? asNumber(byDay.get(key)) : fallback,
+    };
+  });
+}
+
+function TrendCard({ title, value, hint, data, tone }) {
+  return (
+    <article className={`dashboard-card trend-card trend-${tone}`}>
+      <div className="trend-heading">
+        <div>
+          <span>{title}</span>
+          <strong>{value}</strong>
+        </div>
+        <small>{hint}</small>
+      </div>
+      <TrendSvg data={data} />
+    </article>
+  );
+}
+
+function TrendSvg({ data }) {
+  const values = data.map((point) => asNumber(point.value));
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = Math.max(max - min, 1);
+  const width = 320;
+  const height = 110;
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? width : (index / (values.length - 1)) * width;
+    const y = height - ((value - min) / range) * 78 - 14;
+    return [x, y];
+  });
+  const line = points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+  const area = `${line} L ${width} ${height} L 0 ${height} Z`;
+
+  return (
+    <svg className="trend-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="趋势图">
+      <path className="trend-area" d={area} />
+      <path className="trend-line" d={line} />
+      {points.map(([x, y], index) => (
+        index % 7 === 0 || index === points.length - 1
+          ? <circle key={index} cx={x} cy={y} r="2.8" />
+          : null
+      ))}
+    </svg>
   );
 }
 

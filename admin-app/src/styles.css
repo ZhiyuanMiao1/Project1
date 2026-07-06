@@ -346,6 +346,245 @@ button.link-button {
   font-size: 30px;
 }
 
+.dashboard-page {
+  padding-bottom: 18px;
+}
+
+.dashboard-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-metric {
+  min-height: 150px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 16px 42px rgba(23, 32, 51, 0.06);
+}
+
+.dashboard-metric::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #176b87;
+}
+
+.dashboard-metric span,
+.dashboard-card-heading span,
+.trend-heading span,
+.finance-row span,
+.supply-item span {
+  color: #66758d;
+}
+
+.dashboard-metric strong {
+  color: #172033;
+  font-size: 26px;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.dashboard-metric small {
+  line-height: 1.45;
+}
+
+.metric-blue::before,
+.trend-blue .trend-line,
+.trend-blue circle {
+  background: #176b87;
+  stroke: #176b87;
+}
+
+.metric-green::before,
+.trend-green .trend-line,
+.trend-green circle {
+  background: #13866f;
+  stroke: #13866f;
+}
+
+.metric-orange::before,
+.trend-orange .trend-line,
+.trend-orange circle {
+  background: #b56b18;
+  stroke: #b56b18;
+}
+
+.metric-slate::before {
+  background: #56647a;
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.75fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.dashboard-card {
+  background: #fff;
+  border: 1px solid #e4e8f0;
+  border-radius: 8px;
+  box-shadow: 0 16px 42px rgba(23, 32, 51, 0.05);
+}
+
+.dashboard-card-heading,
+.trend-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dashboard-card-heading h2 {
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.dashboard-card-heading small,
+.trend-heading small,
+.finance-row small,
+.supply-item small {
+  color: #7b8799;
+}
+
+.finance-card {
+  padding: 22px;
+}
+
+.finance-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.finance-row {
+  display: grid;
+  gap: 10px;
+  min-height: 108px;
+  padding: 16px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.finance-row:first-child {
+  grid-row: span 2;
+  align-content: center;
+  background: #f0f7fa;
+  border-color: #d5e7ee;
+}
+
+.finance-row:first-child strong {
+  font-size: 30px;
+}
+
+.finance-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.finance-row strong {
+  color: #172033;
+  font-size: 22px;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.supply-card {
+  padding: 22px;
+}
+
+.supply-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.supply-item {
+  display: grid;
+  gap: 7px;
+  min-height: 112px;
+  padding: 15px;
+  border: 1px solid #edf0f5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.supply-item strong {
+  color: #172033;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.trend-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.trend-heading strong {
+  display: block;
+  margin-top: 7px;
+  color: #172033;
+  font-size: 22px;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.trend-heading small {
+  max-width: 132px;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.trend-svg {
+  width: 100%;
+  min-height: 110px;
+  display: block;
+  overflow: visible;
+}
+
+.trend-area {
+  fill: rgba(23, 107, 135, 0.10);
+}
+
+.trend-green .trend-area {
+  fill: rgba(19, 134, 111, 0.10);
+}
+
+.trend-orange .trend-area {
+  fill: rgba(181, 107, 24, 0.11);
+}
+
+.trend-line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trend-svg circle {
+  fill: #fff;
+  stroke-width: 2;
+}
+
 .table-wrap {
   overflow: auto;
   background: #fff;
@@ -2131,6 +2370,20 @@ tr:last-child td {
   .metric-grid,
   .inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-main-grid,
+  .trend-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-list,
+  .supply-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-row:first-child {
+    grid-row: auto;
   }
 
   .watch-layout,
