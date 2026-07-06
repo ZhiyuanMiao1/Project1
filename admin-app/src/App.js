@@ -464,10 +464,14 @@ function Dashboard() {
     const lessonHours = d.lessonHours || {};
     const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth || orders.paidAmountCny);
     const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
+    const totalGmv = asNumber(orders.paidAmountCny);
+    const totalPlatformRevenue = totalGmv * PLATFORM_COMMISSION_RATE;
+    const totalMentorPayable = Math.max(totalGmv - totalPlatformRevenue, 0);
     const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
     const mentorPayable = Math.max(gmvThisMonth - platformRevenue, 0);
     const completedThisMonth = asNumber(courses.completedCoursesThisMonth || courses.completedCourses);
     const completedLastMonth = asNumber(courses.completedCoursesLastMonth);
+    const totalCompletedCourses = asNumber(courses.completedCourses);
     const paidOrdersThisMonth = asNumber(orders.paidOrdersThisMonth || orders.paidOrders);
     const disputedCount = asNumber(lessonHours.disputedLessonHours);
 
@@ -480,21 +484,47 @@ function Dashboard() {
           tone: 'blue',
         },
         {
-          label: '平台收入',
+          label: '本月平台收入',
           value: formatCurrencyCny(platformRevenue),
           hint: `按 ${(PLATFORM_COMMISSION_RATE * 100).toFixed(0)}% 默认抽佣率估算`,
           tone: 'green',
         },
         {
-          label: '待结算导师金额',
+          label: '本月待结算导师金额',
           value: formatCurrencyCny(mentorPayable),
           hint: `待确认课时 ${asNumber(lessonHours.pendingLessonHours)} · 争议 ${disputedCount}`,
           tone: 'orange',
         },
         {
-          label: '已完成课时',
+          label: '本月已完成课时',
           value: completedThisMonth,
           hint: `${formatPercentChange(completedThisMonth, completedLastMonth)} · 本月完成课程`,
+          tone: 'slate',
+        },
+      ],
+      cumulative: [
+        {
+          label: '累计 GMV',
+          value: formatCurrencyCny(totalGmv),
+          hint: `累计已支付订单 ${asNumber(orders.paidOrders)}`,
+          tone: 'blue',
+        },
+        {
+          label: '累计平台收入',
+          value: formatCurrencyCny(totalPlatformRevenue),
+          hint: `按 ${(PLATFORM_COMMISSION_RATE * 100).toFixed(0)}% 默认抽佣率估算`,
+          tone: 'green',
+        },
+        {
+          label: '累计导师应结算',
+          value: formatCurrencyCny(totalMentorPayable),
+          hint: '累计 GMV 扣除平台佣金',
+          tone: 'orange',
+        },
+        {
+          label: '累计完成课时',
+          value: totalCompletedCourses,
+          hint: '历史已完成课程数量',
           tone: 'slate',
         },
       ],
@@ -546,6 +576,16 @@ function Dashboard() {
         <div className="dashboard-stack">
           <div className="metric-grid dashboard-metric-grid">
             {dashboard.cards.map((card) => (
+              <article className={`metric dashboard-metric metric-${card.tone}`} key={card.label}>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small>{card.hint}</small>
+              </article>
+            ))}
+          </div>
+
+          <div className="metric-grid dashboard-metric-grid">
+            {dashboard.cumulative.map((card) => (
               <article className={`metric dashboard-metric metric-${card.tone}`} key={card.label}>
                 <span>{card.label}</span>
                 <strong>{card.value}</strong>
