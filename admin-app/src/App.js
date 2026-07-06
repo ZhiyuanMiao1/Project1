@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+  faBan,
   faChalkboardUser,
   faChartLine,
   faCheck,
@@ -16,6 +17,7 @@ import {
   faRightFromBracket,
   faRotateRight,
   faTriangleExclamation,
+  faUnlock,
   faUsers,
   faVideo,
   faXmark,
@@ -565,14 +567,16 @@ function UsersPage() {
               <button className="ghost" onClick={() => setDetail(user.id)}>详情</button>
               <button
                 type="button"
-                className="ghost status-action"
+                className="icon-action suspend-action"
+                title={user.account_status === 'suspended' ? '解封学生账号' : '封禁学生账号'}
+                aria-label={user.account_status === 'suspended' ? '解封学生账号' : '封禁学生账号'}
                 onClick={() => setDialog({
                   user,
                   nextStatus: user.account_status === 'suspended' ? 'active' : 'suspended',
                   title: user.account_status === 'suspended' ? '解封学生账号' : '封禁学生账号',
                 })}
               >
-                {user.account_status === 'suspended' ? '解封' : '封禁'}
+                <FontAwesomeIcon icon={user.account_status === 'suspended' ? faUnlock : faBan} />
               </button>
             </div>,
           ])}
@@ -1076,6 +1080,7 @@ function MentorReviewsPage() {
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
+          className="mentors-table"
           columns={[
             <SortHeader label="MentorID" field="public_id" sort={sort} onSort={updateSort} />,
             <SortHeader label="邮箱" field="email" sort={sort} onSort={updateSort} />,
@@ -1130,6 +1135,19 @@ function MentorReviewsPage() {
                   ) : null}
                 </>
               ) : null}
+              <button
+                type="button"
+                className="icon-action suspend-action"
+                title={mentor.account_status === 'suspended' ? '解封导师账号' : '封禁导师账号'}
+                aria-label={mentor.account_status === 'suspended' ? '解封导师账号' : '封禁导师账号'}
+                onClick={() => setAccountDialog({
+                  mentor,
+                  nextStatus: mentor.account_status === 'suspended' ? 'active' : 'suspended',
+                  title: mentor.account_status === 'suspended' ? '解封导师账号' : '封禁导师账号',
+                })}
+              >
+                <FontAwesomeIcon icon={mentor.account_status === 'suspended' ? faUnlock : faBan} />
+              </button>
             </div>,
           ])}
         />

@@ -385,25 +385,173 @@ th {
   background: #fbfcfe;
 }
 
-.students-table th:last-child,
-.students-table td:last-child {
-  width: 196px;
-  min-width: 196px;
-  padding-left: 8px;
-  padding-right: 14px;
-  text-align: left;
+.students-table table {
+  table-layout: fixed;
+  min-width: 980px;
 }
 
-.students-table .row-actions {
-  gap: 34px;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
+.students-table th,
+.students-table td {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.students-table th:nth-child(1),
+.students-table td:nth-child(1) {
+  width: 9%;
   white-space: nowrap;
 }
 
-.students-table .row-actions button.ghost {
+.students-table th:nth-child(2),
+.students-table td:nth-child(2) {
+  width: 23%;
+}
+
+.students-table th:nth-child(3),
+.students-table td:nth-child(3) {
+  width: 13%;
+  white-space: nowrap;
+}
+
+.students-table th:nth-child(4),
+.students-table td:nth-child(4) {
+  width: 14%;
+  white-space: nowrap;
+}
+
+.students-table th:nth-child(5),
+.students-table td:nth-child(5) {
+  width: 9%;
+  white-space: nowrap;
+}
+
+.students-table th:nth-child(6),
+.students-table td:nth-child(6) {
+  width: 18%;
+  white-space: nowrap;
+}
+
+.students-table th:last-child,
+.students-table td:last-child {
+  width: 14%;
+  padding-left: 10px;
+  padding-right: 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.students-table .row-actions {
+  display: grid;
+  grid-template-columns: 34px 24px;
+  align-items: center;
+  column-gap: 40px;
+  justify-content: start;
+  white-space: nowrap;
+}
+
+.students-table .row-actions button {
   min-height: auto;
   padding: 0;
+}
+
+.mentors-table table {
+  min-width: 1040px;
+}
+
+.mentors-table th,
+.mentors-table td {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.mentors-table th:nth-child(1),
+.mentors-table td:nth-child(1) {
+  width: 92px;
+  min-width: 92px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.mentors-table th:nth-child(2),
+.mentors-table td:nth-child(2) {
+  width: 170px;
+  min-width: 170px;
+  padding-left: 8px;
+}
+
+.mentors-table th:nth-child(3),
+.mentors-table td:nth-child(3) {
+  width: 260px;
+  min-width: 220px;
+}
+
+.mentors-table th:nth-child(4),
+.mentors-table td:nth-child(4) {
+  width: 86px;
+  min-width: 86px;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.mentors-table th:nth-child(5),
+.mentors-table td:nth-child(5) {
+  width: 94px;
+  min-width: 94px;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.mentors-table th:nth-child(6),
+.mentors-table td:nth-child(6) {
+  width: 86px;
+  min-width: 86px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.mentors-table th:nth-child(7),
+.mentors-table td:nth-child(7) {
+  width: 168px;
+  min-width: 168px;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+.mentors-table th:last-child,
+.mentors-table td:last-child {
+  width: 172px;
+  min-width: 172px;
+  padding-left: 10px;
+  padding-right: 12px;
+  white-space: nowrap;
+}
+
+.mentors-table .row-actions {
+  display: grid;
+  grid-template-columns: 34px 24px 24px 24px;
+  align-items: center;
+  column-gap: 14px;
+  justify-content: start;
+  white-space: nowrap;
+}
+
+.mentors-table .detail-action {
+  grid-column: 1;
+}
+
+.mentors-table .approve-action {
+  grid-column: 2;
+}
+
+.mentors-table .reject-action {
+  grid-column: 3;
+}
+
+.mentors-table .suspend-action {
+  grid-column: 4;
 }
 
 .classrooms-table th:nth-child(1),
@@ -1417,6 +1565,15 @@ tr:last-child td {
 
 .reject-action:hover {
   color: #a8271b;
+}
+
+.suspend-action {
+  color: #51627d;
+  font-size: 18px;
+}
+
+.suspend-action:hover {
+  color: #c43224;
 }
 
 .badge {
