@@ -209,6 +209,11 @@ button.link-button {
   padding: 0 28px 32px;
 }
 
+.dashboard-content {
+  min-height: 100vh;
+  background: #fff;
+}
+
 .topbar {
   justify-content: space-between;
   min-height: 72px;
@@ -359,6 +364,7 @@ button.link-button {
 }
 
 .dashboard-page {
+  background: #fff;
   padding-bottom: 0;
 }
 
@@ -444,25 +450,36 @@ button.link-button {
 
 .dashboard-stack {
   display: grid;
-  gap: 24px;
+  gap: 0;
 }
 
 .dashboard-metric-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 24px;
+  gap: 0;
 }
 
 .dashboard-metric {
+  position: relative;
   min-height: 168px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 22px;
   overflow: hidden;
-  border-color: #e5ebf5;
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
   padding: 28px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.07);
+  box-shadow: none;
+}
+
+.dashboard-metric:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  right: 0;
+  bottom: 28px;
+  width: 1px;
+  background: #e6ebf2;
 }
 
 .dashboard-metric span,
@@ -522,23 +539,54 @@ button.link-button {
 }
 
 .dashboard-main-grid {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.96fr) minmax(420px, 1.04fr);
-  gap: 24px;
+  gap: 0;
   align-items: stretch;
 }
 
 .dashboard-bottom-grid {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.96fr) minmax(420px, 1.04fr);
-  gap: 24px;
+  gap: 0;
 }
 
 .dashboard-card {
   background: #fff;
-  border: 1px solid #e5ebf5;
-  border-radius: 8px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.dashboard-main-grid::before,
+.dashboard-bottom-grid::before {
+  content: "";
+  position: absolute;
+  top: 56px;
+  bottom: 56px;
+  left: 48%;
+  width: 1px;
+  background: #e6ebf2;
+}
+
+.dashboard-main-grid::after {
+  content: "";
+  position: absolute;
+  right: 64px;
+  bottom: 0;
+  left: 64px;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    #e6ebf2 0,
+    #e6ebf2 calc(48% - 48px),
+    transparent calc(48% - 48px),
+    transparent calc(48% + 48px),
+    #e6ebf2 calc(48% + 48px),
+    #e6ebf2 100%
+  );
 }
 
 .dashboard-card-heading {
@@ -576,7 +624,6 @@ button.link-button {
   display: grid;
   gap: 0;
   margin-top: 14px;
-  border-radius: 8px;
 }
 
 .finance-row {
@@ -586,6 +633,7 @@ button.link-button {
   align-items: center;
   min-height: 52px;
   padding: 10px 18px;
+  border-bottom: 1px solid #eef2f7;
   background: #fff;
 }
 
@@ -662,8 +710,8 @@ button.link-button {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   overflow: hidden;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid #e6ebf2;
+  background: #fff;
 }
 
 .fulfillment-item {
@@ -673,8 +721,8 @@ button.link-button {
   align-content: center;
   justify-items: center;
   gap: 16px;
-  border-right: 1px solid #fff;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82));
+  border-right: 1px solid #e6ebf2;
+  background: #fff;
 }
 
 .fulfillment-item:last-child {
@@ -685,7 +733,7 @@ button.link-button {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 4px;
+  height: 3px;
   background: #0f66e8;
 }
 
@@ -2694,9 +2742,35 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  .dashboard-main-grid::before,
+  .dashboard-bottom-grid::before {
+    display: none;
+  }
+
+  .dashboard-main-grid::after {
+    right: 0;
+    left: 0;
+    background: #e6ebf2;
+  }
+
   .dashboard-metric {
     min-height: auto;
     padding: 22px;
+    border-bottom: 1px solid #e6ebf2;
+  }
+
+  .dashboard-metric::after {
+    display: none;
+  }
+
+  .dashboard-metric:last-child {
+    border-bottom: 0;
+  }
+
+  .dashboard-main-grid .dashboard-card:first-child,
+  .dashboard-bottom-grid .dashboard-card:first-child {
+    border-right: 0;
+    border-bottom: 1px solid #e6ebf2;
   }
 
   .finance-list,
@@ -2711,6 +2785,18 @@ tr:last-child td {
 
   .fulfillment-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fulfillment-item {
+    border-bottom: 1px solid #e6ebf2;
+  }
+
+  .fulfillment-item:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .fulfillment-item:last-child {
+    border-bottom: 0;
   }
 
   .supply-item {

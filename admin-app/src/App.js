@@ -429,7 +429,7 @@ function Shell({ onLogout }) {
           ))}
         </nav>
       </aside>
-      <main className="content">
+      <main className={`content ${isDashboard ? 'dashboard-content' : ''}`}>
         <header className={`topbar ${isDashboard ? 'dashboard-topbar' : ''}`}>
           <div className="topbar-title">
             <strong>{topbarTitle.title}</strong>
