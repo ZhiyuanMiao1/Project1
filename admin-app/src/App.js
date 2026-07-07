@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBan,
@@ -8,6 +8,7 @@ import {
   faChartLine,
   faChartPie,
   faCheck,
+  faChevronDown,
   faChevronLeft,
   faChevronRight,
   faClipboardCheck,
@@ -408,6 +409,7 @@ const getTopbarTitle = (pathname) => {
 function Shell({ onLogout }) {
   const location = useLocation();
   const topbarTitle = getTopbarTitle(location.pathname);
+  const isDashboard = location.pathname === '/dashboard';
 
   return (
     <div className="app-shell">
@@ -428,11 +430,12 @@ function Shell({ onLogout }) {
         </nav>
       </aside>
       <main className="content">
-        <header className="topbar">
+        <header className={`topbar ${isDashboard ? 'dashboard-topbar' : ''}`}>
           <div className="topbar-title">
             <strong>{topbarTitle.title}</strong>
             {topbarTitle.subtitle ? <span>{topbarTitle.subtitle}</span> : null}
           </div>
+          {isDashboard ? <DashboardTopbarDateRangeFilter /> : null}
           <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
             <FontAwesomeIcon icon={faRotateRight} />
             刷新
@@ -457,18 +460,57 @@ function Shell({ onLogout }) {
   );
 }
 
+function getCurrentMonthDateRange() {
+  const formatDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const now = new Date();
+  return {
+    startDate: formatDateKey(new Date(now.getFullYear(), now.getMonth(), 1)),
+    endDate: formatDateKey(now),
+  };
+}
+
+function getRecentDaysDateRange(days) {
+  const now = new Date();
+  return {
+    startDate: toLocalDateKey(addDays(now, -(days - 1))),
+    endDate: toLocalDateKey(now),
+  };
+}
+
+function getCurrentYearDateRange() {
+  const now = new Date();
+  return {
+    startDate: toLocalDateKey(new Date(now.getFullYear(), 0, 1)),
+    endDate: toLocalDateKey(now),
+  };
+}
+
 function Dashboard() {
-  const { loading, error, data } = useAsync(() => api('/api/admin/dashboard/summary'), []);
+  const initialRange = useMemo(() => getCurrentMonthDateRange(), []);
+  const [searchParams] = useSearchParams();
+  const rawStartDate = searchParams.get('startDate') || initialRange.startDate;
+  const rawEndDate = searchParams.get('endDate') || initialRange.endDate;
+  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(rawStartDate) ? rawStartDate : initialRange.startDate;
+  const endDate = /^\d{4}-\d{2}-\d{2}$/.test(rawEndDate) ? rawEndDate : initialRange.endDate;
+  const { loading, error, data } = useAsync(
+    () => api('/api/admin/dashboard/summary', { params: { startDate, endDate } }),
+    [startDate, endDate]
+  );
   const dashboard = useMemo(() => {
     const d = data || {};
     const orders = d.orders || {};
     const courses = d.courses || {};
     const lessonHours = d.lessonHours || {};
-    const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth || orders.paidAmountCny);
+    const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth ?? orders.paidAmountCny);
     const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
     const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
     const mentorPayable = Math.max(gmvThisMonth - platformRevenue, 0);
-    const completedThisMonth = asNumber(courses.completedCoursesThisMonth || courses.completedCourses);
+    const completedThisMonth = asNumber(courses.completedCoursesThisMonth ?? courses.completedCourses);
     const completedLastMonth = asNumber(courses.completedCoursesLastMonth);
     const disputedCount = asNumber(lessonHours.disputedLessonHours);
     const pendingLessonHours = asNumber(lessonHours.pendingLessonHours);
@@ -481,14 +523,14 @@ function Dashboard() {
       ? ((completedThisMonth - completedLastMonth) / completedLastMonth) * 100
       : (completedThisMonth > 0 ? 100 : 0);
     const formatDelta = (value) => `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
-    const gmvSeries = buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280));
-    const revenueSeries = buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56));
-    const completedSeries = buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1));
+    const gmvSeries = buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280), startDate, endDate);
+    const revenueSeries = buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56), startDate, endDate);
+    const completedSeries = buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1), startDate, endDate);
 
     return {
       cards: [
         {
-          label: '本月 GMV',
+          label: 'GMV',
           value: formatCurrencyCny(gmvThisMonth),
           hint: '较上月',
           delta: formatDelta(gmvChange),
@@ -510,7 +552,7 @@ function Dashboard() {
           icon: faUserTie,
         },
         {
-          label: '已完成课时',
+          label: '完成课时',
           value: completedThisMonth,
           hint: `${completedLastMonth ? `较上月 ${formatDelta(completedChange)}` : '本月完成'}`,
           tone: 'slate',
@@ -544,7 +586,7 @@ function Dashboard() {
         { label: '完成课时', tone: 'purple', data: completedSeries },
       ],
     };
-  }, [data]);
+  }, [data, endDate, startDate]);
 
   return (
     <section className="dashboard-page">
@@ -658,7 +700,7 @@ function Dashboard() {
   );
 }
 
-function buildTrendSeries(rows = [], metric, fallbackBase) {
+function buildTrendSeries(rows = [], metric, fallbackBase, startDate, endDate) {
   const byDay = new Map();
   rows.forEach((row) => {
     const rawDay = row.day ? new Date(row.day) : null;
@@ -672,10 +714,15 @@ function buildTrendSeries(rows = [], metric, fallbackBase) {
   });
 
   const hasRealData = byDay.size > 0;
-  return Array.from({ length: 30 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (29 - index));
-    const key = date.toISOString().slice(0, 10);
+  const parsedStart = parseDateKey(startDate);
+  const parsedEnd = parseDateKey(endDate);
+  const end = parsedEnd || new Date();
+  const start = parsedStart || addDays(end, -29);
+  const dayCount = Math.max(1, Math.min(370, Math.round((end.getTime() - start.getTime()) / 86400000) + 1));
+
+  return Array.from({ length: dayCount }, (_, index) => {
+    const date = addDays(start, index);
+    const key = toLocalDateKey(date);
     const mockWave = Math.sin(index / 2.6) * 0.22 + Math.cos(index / 5) * 0.16 + 1;
     const mockRamp = 0.78 + index * 0.012;
     const fallback = Math.max(0, Math.round(asNumber(fallbackBase) * mockWave * mockRamp));
@@ -707,7 +754,10 @@ function MultiTrendSvg({ series }) {
   const lineFor = (points) => points.map((point, index) => (
     `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`
   )).join(' ');
-  const labelIndexes = [0, 5, 10, 15, 20, 25, 29];
+  const labelSource = pointsBySeries[0] || [];
+  const labelIndexes = labelSource.length <= 7
+    ? labelSource.map((_, index) => index)
+    : Array.from({ length: 7 }, (_, index) => Math.round((index / 6) * (labelSource.length - 1)));
 
   return (
     <svg className="multi-trend-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="近30天趋势">
@@ -1191,6 +1241,190 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
         </span>
       </span>
     </span>
+  );
+}
+
+function DashboardDateRangeFilter({ className = '', startDate, endDate, onRangeChange }) {
+  const currentMonthRange = useMemo(() => getCurrentMonthDateRange(), []);
+  const recent30DaysRange = useMemo(() => getRecentDaysDateRange(30), []);
+  const currentYearRange = useMemo(() => getCurrentYearDateRange(), []);
+  const [isOpen, setIsOpen] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState(startDate);
+  const [draftEndDate, setDraftEndDate] = useState(endDate);
+  const [viewMonth, setViewMonth] = useState(() => {
+    const parsedStart = parseDateKey(startDate);
+    return parsedStart ? new Date(parsedStart.getFullYear(), parsedStart.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  });
+  const secondMonth = useMemo(() => addMonths(viewMonth, 1), [viewMonth]);
+  const isCurrentMonth = startDate === currentMonthRange.startDate && endDate === currentMonthRange.endDate;
+  const isRecent30Days = startDate === recent30DaysRange.startDate && endDate === recent30DaysRange.endDate;
+  const isCurrentYear = startDate === currentYearRange.startDate && endDate === currentYearRange.endDate;
+  let displayLabel = `${(startDate || 'yyyy/mm/dd').replace(/-/g, '/')} - ${(endDate || 'yyyy/mm/dd').replace(/-/g, '/')}`;
+  if (isCurrentMonth) {
+    displayLabel = '本月';
+  } else if (isRecent30Days) {
+    displayLabel = '30天';
+  } else if (isCurrentYear) {
+    displayLabel = '本年';
+  }
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDraftStartDate(startDate);
+      setDraftEndDate(endDate);
+    }
+  }, [endDate, isOpen, startDate]);
+
+  const commitRange = (nextStartDate, nextEndDate) => {
+    onRangeChange(nextStartDate, nextEndDate);
+  };
+
+  const selectDate = (value) => {
+    setIsOpen(true);
+
+    if (!draftStartDate || (draftStartDate && draftEndDate)) {
+      setDraftStartDate(value);
+      setDraftEndDate('');
+      return;
+    }
+
+    if (value < draftStartDate) {
+      setDraftStartDate(value);
+      setDraftEndDate('');
+      return;
+    }
+
+    setDraftEndDate(value);
+    commitRange(draftStartDate, value);
+  };
+
+  const applyPresetRange = (range) => {
+    setDraftStartDate(range.startDate);
+    setDraftEndDate(range.endDate);
+    commitRange(range.startDate, range.endDate);
+    const parsedStart = parseDateKey(range.startDate);
+    if (parsedStart) setViewMonth(new Date(parsedStart.getFullYear(), parsedStart.getMonth(), 1));
+    setIsOpen(true);
+  };
+
+  return (
+    <span
+      className={[
+        'date-filter-header',
+        'dashboard-date-filter',
+        className,
+        startDate && endDate ? 'active' : '',
+        isOpen ? 'open' : '',
+      ].filter(Boolean).join(' ')}
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+      onFocus={() => setIsOpen(true)}
+    >
+      <button
+        type="button"
+        className="dashboard-date-filter-trigger"
+        aria-haspopup="menu"
+        aria-label="Dashboard 日期范围筛选"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <span>{displayLabel}</span>
+        <FontAwesomeIcon icon={faChevronDown} />
+      </button>
+      <span className="date-filter-menu dashboard-date-filter-menu" role="menu" aria-label="Dashboard 日期范围筛选">
+        <span className="range-calendar-nav">
+          <button
+            type="button"
+            className="range-calendar-arrow previous"
+            onClick={() => {
+              setIsOpen(true);
+              setViewMonth((month) => addMonths(month, -1));
+            }}
+            aria-label="上一个月"
+          >
+            <FontAwesomeIcon icon={faChevronLeft} />
+          </button>
+          <button
+            type="button"
+            className="range-calendar-arrow next"
+            onClick={() => {
+              setIsOpen(true);
+              setViewMonth((month) => addMonths(month, 1));
+            }}
+            aria-label="下一个月"
+          >
+            <FontAwesomeIcon icon={faChevronRight} />
+          </button>
+        </span>
+        <span className="range-calendar-selected">
+          <span>开始日期 <strong>{draftStartDate || 'yyyy/mm/dd'}</strong></span>
+          <span>结束日期 <strong>{draftEndDate || 'yyyy/mm/dd'}</strong></span>
+        </span>
+        <span className="range-calendar-months">
+          <RangeCalendarMonth
+            monthDate={viewMonth}
+            startDate={draftStartDate}
+            endDate={draftEndDate}
+            onDateSelect={selectDate}
+          />
+          <RangeCalendarMonth
+            monthDate={secondMonth}
+            startDate={draftStartDate}
+            endDate={draftEndDate}
+            onDateSelect={selectDate}
+          />
+        </span>
+        <span className="range-calendar-footer">
+          <button
+            type="button"
+            className="range-calendar-quick"
+            onClick={() => applyPresetRange(currentMonthRange)}
+          >
+            本月
+          </button>
+          <button
+            type="button"
+            className="range-calendar-quick"
+            onClick={() => applyPresetRange(recent30DaysRange)}
+          >
+            30天
+          </button>
+          <button
+            type="button"
+            className="range-calendar-quick"
+            onClick={() => applyPresetRange(currentYearRange)}
+          >
+            本年
+          </button>
+        </span>
+      </span>
+    </span>
+  );
+}
+
+function DashboardTopbarDateRangeFilter() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentMonthRange = useMemo(() => getCurrentMonthDateRange(), []);
+  const rawStartDate = searchParams.get('startDate') || currentMonthRange.startDate;
+  const rawEndDate = searchParams.get('endDate') || currentMonthRange.endDate;
+  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(rawStartDate) ? rawStartDate : currentMonthRange.startDate;
+  const endDate = /^\d{4}-\d{2}-\d{2}$/.test(rawEndDate) ? rawEndDate : currentMonthRange.endDate;
+
+  const updateRange = (nextStartDate, nextEndDate) => {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set('startDate', nextStartDate);
+      next.set('endDate', nextEndDate);
+      return next;
+    }, { replace: true });
+  };
+
+  return (
+    <DashboardDateRangeFilter
+      className="dashboard-topbar-date-filter"
+      startDate={startDate}
+      endDate={endDate}
+      onRangeChange={updateRange}
+    />
   );
 }
 

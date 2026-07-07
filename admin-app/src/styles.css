@@ -241,6 +241,18 @@ button.link-button {
   margin-right: 10px;
 }
 
+.dashboard-topbar {
+  justify-content: flex-start;
+}
+
+.dashboard-topbar .topbar-title {
+  margin-right: auto;
+}
+
+.dashboard-topbar .refresh-button {
+  margin-left: 0;
+}
+
 .spin {
   animation: spin 0.8s linear infinite;
 }
@@ -350,6 +362,67 @@ button.link-button {
   padding-bottom: 0;
 }
 
+.dashboard-date-filter {
+  position: relative;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.dashboard-topbar-date-filter {
+  margin-right: 10px;
+}
+
+.dashboard-topbar-date-filter + .refresh-button {
+  margin-left: 0;
+}
+
+.dashboard-date-filter::after {
+  right: 0;
+  left: auto;
+}
+
+.dashboard-date-filter-trigger {
+  min-width: 132px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 14px;
+  border: 1px solid #dde5f1;
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font-weight: 500;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-date-filter-trigger svg {
+  color: #000;
+  stroke-width: 1.6;
+}
+
+.dashboard-date-filter-trigger > span {
+  color: #000;
+}
+
+.dashboard-date-filter-trigger:hover,
+.dashboard-date-filter:focus-within .dashboard-date-filter-trigger,
+.dashboard-date-filter.open .dashboard-date-filter-trigger {
+  background: #f8fafc;
+  color: #000;
+}
+
+.dashboard-topbar-date-filter .date-filter-menu.dashboard-date-filter-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  left: auto;
+  width: 680px;
+  max-width: min(680px, calc(100vw - 56px));
+  text-align: left;
+}
+
 .dashboard-stack {
   display: grid;
   gap: 24px;
@@ -381,12 +454,8 @@ button.link-button {
 }
 
 .dashboard-metric-icon {
-  width: 64px;
-  height: 64px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  background: #eef4ff;
   color: #0f66e8;
   font-size: 26px;
 }
@@ -419,17 +488,14 @@ button.link-button {
 }
 
 .metric-green .dashboard-metric-icon {
-  background: #edf8f3;
   color: #0aa366;
 }
 
 .metric-orange .dashboard-metric-icon {
-  background: #fff4e8;
   color: #df7600;
 }
 
 .metric-slate .dashboard-metric-icon {
-  background: #eef3fb;
   color: #1557c7;
 }
 
@@ -1391,6 +1457,11 @@ th {
   font-weight: 600;
   white-space: nowrap;
   box-shadow: none;
+}
+
+.range-calendar-quick {
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .date-filter-clear {
@@ -2551,6 +2622,29 @@ tr:last-child td {
   .metric-grid,
   .inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-date-filter {
+    width: 100%;
+  }
+
+  .dashboard-topbar-date-filter {
+    margin-left: 0;
+    margin-right: 0;
+    order: 2;
+  }
+
+  .dashboard-date-filter-trigger {
+    width: 100%;
+  }
+
+  .dashboard-topbar-date-filter .date-filter-menu.dashboard-date-filter-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    left: auto;
+    width: min(680px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
   }
 
   .dashboard-main-grid,

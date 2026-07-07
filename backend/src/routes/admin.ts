@@ -40,6 +40,45 @@ const safeString = (value: unknown, max = 255) => {
   return text.slice(0, max);
 };
 
+const toLocalDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (value: unknown) => {
+  const text = safeString(value, 20);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const [year, month, day] = text.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toLocalDateKey(parsed) === text ? text : null;
+};
+
+const addLocalDays = (dateKey: string, days: number) => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return toLocalDateKey(date);
+};
+
+const getCurrentMonthRange = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { startDate: toLocalDateKey(start), endDate: toLocalDateKey(end) };
+};
+
+const getPreviousDateRange = (startDate: string, endDate: string) => {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+  const previousEndDate = addLocalDays(startDate, -1);
+  const previousStartDate = addLocalDays(previousEndDate, -(days - 1));
+  return { previousStartDate, previousEndDate };
+};
+
 const toPositiveInt = (value: unknown, fallback: number, max = Number.MAX_SAFE_INTEGER) => {
   const n = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(n) || n <= 0) return fallback;
@@ -354,7 +393,18 @@ router.get('/auth/me', requireAdminAuth, async (req: Request, res: Response) => 
   return res.json({ admin: req.admin });
 });
 
-router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Response) => {
+router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Response) => {
+  const defaultRange = getCurrentMonthRange();
+  let startDate = parseDateKey(req.query.startDate) || defaultRange.startDate;
+  let endDate = parseDateKey(req.query.endDate) || defaultRange.endDate;
+  if (startDate > endDate) [startDate, endDate] = [endDate, startDate];
+
+  const { previousStartDate, previousEndDate } = getPreviousDateRange(startDate, endDate);
+  const rangeStart = `${startDate} 00:00:00`;
+  const rangeEnd = `${endDate} 23:59:59`;
+  const previousRangeStart = `${previousStartDate} 00:00:00`;
+  const previousRangeEnd = `${previousEndDate} 23:59:59`;
+
   try {
     const [
       userRows,
@@ -390,35 +440,51 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
       query<any[]>(
         `SELECT
            COUNT(*) AS totalOrders,
-           SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN 1 ELSE 0 END) AS paidOrders,
-           COALESCE(SUM(CASE WHEN credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED') THEN amount_cny ELSE 0 END), 0) AS paidAmountCny,
            SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
-             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 ELSE 0 END) AS paidOrdersThisMonth,
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS paidOrders,
            COALESCE(SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
-             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyThisMonth,
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ? THEN amount_cny ELSE 0 END), 0) AS paidAmountCny,
+           SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS paidOrdersThisMonth,
            COALESCE(SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
-             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_SUB(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
-             AND COALESCE(credited_at, captured_at, updated_at, created_at) < DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyLastMonth,
-           SUM(CASE WHEN status IN ('VOIDED','FAILED') THEN 1 ELSE 0 END) AS failedOrders
-         FROM billing_orders`
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ? THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyThisMonth,
+           COALESCE(SUM(CASE WHEN (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ? THEN amount_cny ELSE 0 END), 0) AS paidAmountCnyLastMonth,
+           SUM(CASE WHEN status IN ('VOIDED','FAILED') AND COALESCE(updated_at, created_at) BETWEEN ? AND ? THEN 1 ELSE 0 END) AS failedOrders
+         FROM billing_orders`,
+        [
+          rangeStart, rangeEnd,
+          rangeStart, rangeEnd,
+          rangeStart, rangeEnd,
+          rangeStart, rangeEnd,
+          previousRangeStart, previousRangeEnd,
+          rangeStart, rangeEnd,
+        ]
       ),
       query<any[]>(
         `SELECT COUNT(DISTINCT bo.user_id) AS paidStudents
          FROM billing_orders bo
          INNER JOIN user_roles ur ON ur.user_id = bo.user_id AND ur.role = 'student'
-         WHERE bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED','CAPTURED')`
+         WHERE (bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED','CAPTURED'))
+           AND COALESCE(bo.credited_at, bo.captured_at, bo.updated_at, bo.created_at) BETWEEN ? AND ?`,
+        [rangeStart, rangeEnd]
       ),
       query<any[]>(
         `SELECT
-           COUNT(CASE WHEN status = 'scheduled' THEN 1 END) AS scheduledCourses,
-           COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completedCourses,
-           COUNT(CASE WHEN status = 'completed' AND starts_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 END) AS completedCoursesThisMonth,
-           COUNT(CASE WHEN status = 'completed'
-             AND starts_at >= DATE_SUB(DATE_FORMAT(CURRENT_DATE, '%Y-%m-01'), INTERVAL 1 MONTH)
-             AND starts_at < DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN 1 END) AS completedCoursesLastMonth,
-           COUNT(DISTINCT CASE WHEN starts_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+           COUNT(CASE WHEN status = 'scheduled' AND starts_at BETWEEN ? AND ? THEN 1 END) AS scheduledCourses,
+           COUNT(CASE WHEN status = 'completed' AND starts_at BETWEEN ? AND ? THEN 1 END) AS completedCourses,
+           COUNT(CASE WHEN status = 'completed' AND starts_at BETWEEN ? AND ? THEN 1 END) AS completedCoursesThisMonth,
+           COUNT(CASE WHEN status = 'completed' AND starts_at BETWEEN ? AND ? THEN 1 END) AS completedCoursesLastMonth,
+           COUNT(DISTINCT CASE WHEN starts_at BETWEEN ? AND ?
              AND status IN ('scheduled','completed') THEN mentor_user_id END) AS activeMentors
-         FROM course_sessions`
+         FROM course_sessions`,
+        [
+          rangeStart, rangeEnd,
+          rangeStart, rangeEnd,
+          rangeStart, rangeEnd,
+          previousRangeStart, previousRangeEnd,
+          rangeStart, rangeEnd,
+        ]
       ),
       query<any[]>(
         `SELECT
@@ -435,7 +501,7 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
              0 AS completedCourses
            FROM billing_orders
            WHERE (credited_at IS NOT NULL OR status IN ('COMPLETED','CAPTURED'))
-             AND COALESCE(credited_at, captured_at, updated_at, created_at) >= DATE_SUB(CURRENT_DATE, INTERVAL 29 DAY)
+             AND COALESCE(credited_at, captured_at, updated_at, created_at) BETWEEN ? AND ?
            GROUP BY DATE(COALESCE(credited_at, captured_at, updated_at, created_at))
            UNION ALL
            SELECT DATE(starts_at) AS trend_day,
@@ -443,11 +509,12 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
              COUNT(*) AS completedCourses
            FROM course_sessions
            WHERE status = 'completed'
-             AND starts_at >= DATE_SUB(CURRENT_DATE, INTERVAL 29 DAY)
+             AND starts_at BETWEEN ? AND ?
            GROUP BY DATE(starts_at)
          ) daily
          GROUP BY trend_day
-         ORDER BY trend_day`
+         ORDER BY trend_day`,
+        [rangeStart, rangeEnd, rangeStart, rangeEnd]
       ),
     ]);
 
@@ -460,6 +527,7 @@ router.get('/dashboard/summary', requireAdminAuth, async (_req: Request, res: Re
       courses: courseRows?.[0] || {},
       lessonHours: lessonRows?.[0] || {},
       trends: trendRows || [],
+      range: { startDate, endDate, previousStartDate, previousEndDate },
     });
   } catch (error) {
     console.error('Admin dashboard summary error:', error);
