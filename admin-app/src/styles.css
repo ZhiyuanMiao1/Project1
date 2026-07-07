@@ -605,6 +605,13 @@ button.link-button {
   font-size: 16px;
 }
 
+.finance-icon {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+}
+
 .finance-copy {
   display: grid;
   gap: 2px;
@@ -733,10 +740,12 @@ button.link-button {
 .supply-item {
   position: relative;
   display: grid;
+  grid-template-rows: 28px 48px 38px 24px;
+  align-items: center;
   justify-items: center;
-  gap: 12px;
+  gap: 8px;
   min-height: 170px;
-  padding: 0 18px;
+  padding: 0 12px;
   border-right: 1px solid #e3e8f1;
   background: #fff;
   text-align: center;
@@ -747,9 +756,10 @@ button.link-button {
 }
 
 .supply-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
   font-size: 19px;
 }
 
@@ -759,10 +769,22 @@ button.link-button {
   line-height: 1;
 }
 
+.supply-item > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
 .supply-item small {
   display: flex;
   gap: 6px;
   align-items: center;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .trend-legend {

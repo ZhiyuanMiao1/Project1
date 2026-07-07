@@ -187,9 +187,9 @@ const asNumber = (value) => {
 
 const PLATFORM_COMMISSION_RATE = 0.2;
 
-const formatCurrencyCny = (value) => `CNY ${asNumber(value).toLocaleString('zh-CN', {
+const formatCurrencyCny = (value) => asNumber(value).toLocaleString('zh-CN', {
   maximumFractionDigits: 0,
-})}`;
+});
 
 const formatReviewScore = (value) => {
   const n = Number(value);
