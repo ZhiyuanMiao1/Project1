@@ -425,7 +425,11 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
       mentorRows,
       orderRows,
       paidStudentRows,
+      previousPaidStudentRows,
       courseRows,
+      previousActiveMentorRows,
+      previousRoleRows,
+      previousApprovedMentorRows,
       lessonRows,
       trendRows,
     ] = await Promise.all([
@@ -441,14 +445,20 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
         `SELECT
            SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) AS students,
            SUM(CASE WHEN role = 'mentor' THEN 1 ELSE 0 END) AS mentors
-         FROM user_roles`
+         FROM user_roles
+         WHERE created_at <= ?`,
+        [rangeEnd]
       ),
       query<any[]>(
         `SELECT
-           SUM(CASE WHEN role = 'mentor' AND mentor_approved = 1 THEN 1 ELSE 0 END) AS approvedMentors,
+           SUM(CASE WHEN role = 'mentor'
+             AND mentor_approved = 1
+             AND COALESCE(mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors,
            SUM(CASE WHEN role = 'mentor' AND mentor_review_status = 'pending' AND mentor_approved = 0 THEN 1 ELSE 0 END) AS pendingMentors,
            SUM(CASE WHEN role = 'mentor' AND mentor_review_status = 'rejected' THEN 1 ELSE 0 END) AS rejectedMentors
-         FROM user_roles`
+         FROM user_roles
+         WHERE created_at <= ?`,
+        [rangeEnd, rangeEnd]
       ),
       query<any[]>(
         `SELECT
@@ -483,6 +493,14 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
         [rangeStart, rangeEnd]
       ),
       query<any[]>(
+        `SELECT COUNT(DISTINCT bo.user_id) AS paidStudents
+         FROM billing_orders bo
+         INNER JOIN user_roles ur ON ur.user_id = bo.user_id AND ur.role = 'student'
+         WHERE (bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED','CAPTURED'))
+           AND COALESCE(bo.credited_at, bo.captured_at, bo.updated_at, bo.created_at) BETWEEN ? AND ?`,
+        [previousRangeStart, previousRangeEnd]
+      ),
+      query<any[]>(
         `SELECT
            COUNT(CASE WHEN status = 'scheduled' AND starts_at BETWEEN ? AND ? THEN 1 END) AS scheduledCourses,
            COUNT(CASE WHEN status = 'completed' AND starts_at BETWEEN ? AND ? THEN 1 END) AS completedCourses,
@@ -498,6 +516,28 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
           previousRangeStart, previousRangeEnd,
           rangeStart, rangeEnd,
         ]
+      ),
+      query<any[]>(
+        `SELECT
+           COUNT(DISTINCT CASE WHEN starts_at BETWEEN ? AND ?
+             AND status IN ('scheduled','completed') THEN mentor_user_id END) AS activeMentors
+         FROM course_sessions`,
+        [previousRangeStart, previousRangeEnd]
+      ),
+      query<any[]>(
+        `SELECT
+           SUM(CASE WHEN role = 'student' AND created_at <= ? THEN 1 ELSE 0 END) AS students,
+           SUM(CASE WHEN role = 'mentor' AND created_at <= ? THEN 1 ELSE 0 END) AS mentors
+         FROM user_roles`,
+        [previousRangeEnd, previousRangeEnd]
+      ),
+      query<any[]>(
+        `SELECT
+           SUM(CASE WHEN role = 'mentor'
+             AND mentor_approved = 1
+             AND COALESCE(mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors
+         FROM user_roles`,
+        [previousRangeEnd]
       ),
       query<any[]>(
         `SELECT
@@ -531,6 +571,14 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
       ),
     ]);
 
+    const percentChange = (currentValue: unknown, previousValue: unknown) => {
+      const current = Number(currentValue || 0);
+      const previous = Number(previousValue || 0);
+      if (previous > 0) return ((current - previous) / previous) * 100;
+      if (current > 0) return 100;
+      return 0;
+    };
+
     return res.json({
       users: userRows?.[0] || {},
       roles: roleRows?.[0] || {},
@@ -538,6 +586,13 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
       orders: orderRows?.[0] || {},
       paidStudents: paidStudentRows?.[0] || {},
       courses: courseRows?.[0] || {},
+      comparison: {
+        studentsChange: percentChange(roleRows?.[0]?.students, previousRoleRows?.[0]?.students),
+        paidStudentsChange: percentChange(paidStudentRows?.[0]?.paidStudents, previousPaidStudentRows?.[0]?.paidStudents),
+        mentorsChange: percentChange(roleRows?.[0]?.mentors, previousRoleRows?.[0]?.mentors),
+        approvedMentorsChange: percentChange(mentorRows?.[0]?.approvedMentors, previousApprovedMentorRows?.[0]?.approvedMentors),
+        activeMentorsChange: percentChange(courseRows?.[0]?.activeMentors, previousActiveMentorRows?.[0]?.activeMentors),
+      },
       lessonHours: lessonRows?.[0] || {},
       trends: trendRows || [],
       range: { startDate, endDate, previousStartDate, previousEndDate },

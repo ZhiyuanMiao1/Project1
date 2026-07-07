@@ -506,6 +506,7 @@ function Dashboard() {
     const orders = d.orders || {};
     const courses = d.courses || {};
     const lessonHours = d.lessonHours || {};
+    const comparison = d.comparison || {};
     const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth ?? orders.paidAmountCny);
     const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
     const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
@@ -594,11 +595,11 @@ function Dashboard() {
         { label: '争议中', value: disputedCount, tone: 'red' },
       ],
       users: [
-        { label: '学生总数', value: asNumber(d.roles?.students), hint: '较上月', delta: '+8%', icon: faGraduationCap },
-        { label: '付费学生', value: asNumber(d.paidStudents?.paidStudents), hint: '较上月', delta: '+12%', icon: faWallet },
-        { label: '导师总数', value: asNumber(d.roles?.mentors), hint: '较上月', delta: '+4%', icon: faUserTie },
-        { label: '已审核导师', value: asNumber(d.mentors?.approvedMentors), hint: '较上月', delta: '+6%', icon: faShieldHalved },
-        { label: '活跃导师', value: asNumber(courses.activeMentors), hint: '较上月', delta: '+10%', icon: faStar },
+        { label: '学生总数', value: asNumber(d.roles?.students), hint: '较上月', delta: formatDelta(asNumber(comparison.studentsChange)), icon: faGraduationCap },
+        { label: '付费学生', value: asNumber(d.paidStudents?.paidStudents), hint: '较上月', delta: formatDelta(asNumber(comparison.paidStudentsChange)), icon: faWallet },
+        { label: '导师总数', value: asNumber(d.roles?.mentors), hint: '较上月', delta: formatDelta(asNumber(comparison.mentorsChange)), icon: faUserTie },
+        { label: '已审核导师', value: asNumber(d.mentors?.approvedMentors), hint: '较上月', delta: formatDelta(asNumber(comparison.approvedMentorsChange)), icon: faShieldHalved },
+        { label: '活跃导师', value: asNumber(courses.activeMentors), hint: '较上月', delta: formatDelta(asNumber(comparison.activeMentorsChange)), icon: faStar },
       ],
       trends: [
         { label: 'GMV', tone: 'blue', data: gmvSeries },
