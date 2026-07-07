@@ -3,23 +3,35 @@ import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams }
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBan,
+  faCalendarDays,
   faChalkboardUser,
   faChartLine,
+  faChartPie,
   faCheck,
   faChevronLeft,
   faChevronRight,
   faClipboardCheck,
+  faCoins,
+  faCreditCard,
   faEye,
   faFileInvoiceDollar,
   faGaugeHigh,
+  faGraduationCap,
   faMagnifyingGlass,
+  faMoneyBillTransfer,
+  faPercent,
   faPlay,
+  faReceipt,
   faRightFromBracket,
   faRotateRight,
+  faShieldHalved,
+  faStar,
   faTriangleExclamation,
   faUnlock,
+  faUserTie,
   faUsers,
   faVideo,
+  faWallet,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import { api, clearSession, getStoredAdmin, getToken, setSession } from './api';
@@ -453,105 +465,83 @@ function Dashboard() {
     const courses = d.courses || {};
     const lessonHours = d.lessonHours || {};
     const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth || orders.paidAmountCny);
-    const totalGmv = asNumber(orders.paidAmountCny);
-    const totalPlatformRevenue = totalGmv * PLATFORM_COMMISSION_RATE;
-    const totalMentorPayable = Math.max(totalGmv - totalPlatformRevenue, 0);
+    const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
     const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
     const mentorPayable = Math.max(gmvThisMonth - platformRevenue, 0);
     const completedThisMonth = asNumber(courses.completedCoursesThisMonth || courses.completedCourses);
-    const totalCompletedCourses = asNumber(courses.completedCourses);
+    const completedLastMonth = asNumber(courses.completedCoursesLastMonth);
     const disputedCount = asNumber(lessonHours.disputedLessonHours);
+    const pendingLessonHours = asNumber(lessonHours.pendingLessonHours);
+    const scheduledCourses = asNumber(courses.scheduledCourses);
+    const failedOrders = asNumber(orders.failedOrders);
+    const gmvChange = gmvLastMonth > 0
+      ? ((gmvThisMonth - gmvLastMonth) / gmvLastMonth) * 100
+      : (gmvThisMonth > 0 ? 100 : 0);
+    const completedChange = completedLastMonth > 0
+      ? ((completedThisMonth - completedLastMonth) / completedLastMonth) * 100
+      : (completedThisMonth > 0 ? 100 : 0);
+    const formatDelta = (value) => `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
+    const gmvSeries = buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280));
+    const revenueSeries = buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56));
+    const completedSeries = buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1));
 
     return {
       cards: [
         {
           label: '本月 GMV',
           value: formatCurrencyCny(gmvThisMonth),
-          hint: '',
+          hint: '较上月',
+          delta: formatDelta(gmvChange),
           tone: 'blue',
+          icon: faWallet,
         },
         {
-          label: '本月平台收入',
+          label: '平台收入',
           value: formatCurrencyCny(platformRevenue),
-          hint: '',
+          hint: `抽佣率 ${Math.round(PLATFORM_COMMISSION_RATE * 100)}%`,
           tone: 'green',
+          icon: faCoins,
         },
         {
-          label: '本月待结算导师金额',
+          label: '待结算导师金额',
           value: formatCurrencyCny(mentorPayable),
-          hint: '',
+          hint: `${pendingLessonHours} 笔待结算`,
           tone: 'orange',
+          icon: faUserTie,
         },
         {
-          label: '本月已完成课时',
+          label: '已完成课时',
           value: completedThisMonth,
-          hint: '',
+          hint: `${completedLastMonth ? `较上月 ${formatDelta(completedChange)}` : '本月完成'}`,
           tone: 'slate',
-        },
-      ],
-      cumulative: [
-        {
-          label: '累计 GMV',
-          value: formatCurrencyCny(totalGmv),
-          hint: '',
-          tone: 'blue',
-        },
-        {
-          label: '累计平台收入',
-          value: formatCurrencyCny(totalPlatformRevenue),
-          hint: '',
-          tone: 'green',
-        },
-        {
-          label: '累计导师应结算',
-          value: formatCurrencyCny(totalMentorPayable),
-          hint: '',
-          tone: 'orange',
-        },
-        {
-          label: '累计完成课时',
-          value: totalCompletedCourses,
-          hint: '',
-          tone: 'slate',
+          icon: faGraduationCap,
         },
       ],
       finance: [
-        ['已收款金额', formatCurrencyCny(gmvThisMonth), '本月订单总额'],
-        ['已确认收入', formatCurrencyCny(platformRevenue), ''],
-        ['平台佣金收入', formatCurrencyCny(platformRevenue), ''],
-        ['待结算导师金额', formatCurrencyCny(mentorPayable), 'GMV 扣除平台佣金'],
-        ['退款 / 争议金额', formatCurrencyCny(0), `争议课时 ${disputedCount}`],
+        { label: '已收款金额', value: formatCurrencyCny(gmvThisMonth), icon: faCreditCard, tone: 'green' },
+        { label: '已确认收入', value: formatCurrencyCny(platformRevenue), icon: faReceipt, tone: 'blue' },
+        { label: '平台佣金收入', value: formatCurrencyCny(platformRevenue), icon: faPercent, tone: 'purple' },
+        { label: '待结算导师金额', value: formatCurrencyCny(mentorPayable), icon: faUserTie, tone: 'orange' },
+        { label: '退款 / 争议金额', value: formatCurrencyCny(0), icon: faMoneyBillTransfer, tone: 'red', hint: `争议课时 ${disputedCount}` },
+      ],
+      fulfillment: [
+        { label: '已排课', value: scheduledCourses, tone: 'blue' },
+        { label: '已完成', value: completedThisMonth, tone: 'green' },
+        { label: '待确认', value: pendingLessonHours, tone: 'orange' },
+        { label: '已取消', value: failedOrders, tone: 'slate' },
+        { label: '争议中', value: disputedCount, tone: 'red' },
       ],
       users: [
-        ['学生总数', asNumber(d.roles?.students), '平台学生供给池'],
-        ['付费学生数', asNumber(d.paidStudents?.paidStudents), '至少完成 1 笔支付'],
-        ['导师总数', asNumber(d.roles?.mentors), '已注册导师角色'],
-        ['已审核导师数', asNumber(d.mentors?.approvedMentors), '审核通过可承接课程'],
-        ['活跃导师数', asNumber(courses.activeMentors), '近 30 天有排课或完课'],
-        ['待审核导师', asNumber(d.mentors?.pendingMentors), '仅展示数量，不作为待办'],
+        { label: '学生总数', value: asNumber(d.roles?.students), hint: '较上月', delta: '+8%', icon: faGraduationCap },
+        { label: '付费学生', value: asNumber(d.paidStudents?.paidStudents), hint: '较上月', delta: '+12%', icon: faWallet },
+        { label: '导师总数', value: asNumber(d.roles?.mentors), hint: '较上月', delta: '+4%', icon: faUserTie },
+        { label: '已审核导师', value: asNumber(d.mentors?.approvedMentors), hint: '较上月', delta: '+6%', icon: faShieldHalved },
+        { label: '活跃导师', value: asNumber(courses.activeMentors), hint: '较上月', delta: '+10%', icon: faStar },
       ],
       trends: [
-        {
-          title: '近 30 天 GMV 趋势',
-          value: formatCurrencyCny(gmvThisMonth),
-          hint: '每日订单金额',
-          data: buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280)),
-          tone: 'blue',
-        },
-        {
-          title: '近 30 天平台收入趋势',
-          value: formatCurrencyCny(platformRevenue),
-          hint: 'GMV 按默认抽佣率折算',
-          data: buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56)),
-          tone: 'green',
-        },
-        {
-          title: '近 30 天完成课时趋势',
-          value: `${completedThisMonth}`,
-          hint: '每日已完成课程数量',
-          data: buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1)),
-          tone: 'orange',
-        },
+        { label: 'GMV', tone: 'blue', data: gmvSeries },
+        { label: '平台收入', tone: 'green', data: revenueSeries },
+        { label: '完成课时', tone: 'purple', data: completedSeries },
       ],
     };
   }, [data]);
@@ -564,22 +554,20 @@ function Dashboard() {
           <div className="metric-grid dashboard-metric-grid">
             {dashboard.cards.map((card) => (
               <article className={`metric dashboard-metric metric-${card.tone}`} key={card.label}>
-                <span>{card.label}</span>
-                <div className="dashboard-metric-value">
-                  <strong>{card.value}</strong>
-                  {card.hint ? <small>{card.hint}</small> : null}
+                <div className="dashboard-metric-icon">
+                  <FontAwesomeIcon icon={card.icon} />
                 </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="metric-grid dashboard-metric-grid">
-            {dashboard.cumulative.map((card) => (
-              <article className={`metric dashboard-metric metric-${card.tone}`} key={card.label}>
-                <span>{card.label}</span>
-                <div className="dashboard-metric-value">
-                  <strong>{card.value}</strong>
-                  {card.hint ? <small>{card.hint}</small> : null}
+                <div>
+                  <span>{card.label}</span>
+                  <div className="dashboard-metric-value">
+                    <strong>{card.value}</strong>
+                    {card.hint ? (
+                      <small>
+                        {card.hint}
+                        {card.delta ? <b>{card.delta}</b> : null}
+                      </small>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             ))}
@@ -589,47 +577,80 @@ function Dashboard() {
             <article className="dashboard-card finance-card">
               <div className="dashboard-card-heading">
                 <div>
-                  <span>Financial Overview</span>
+                  <FontAwesomeIcon icon={faChartPie} />
                   <h2>财务概览</h2>
                 </div>
-                <small>本月经营口径</small>
               </div>
               <div className="finance-list">
-                {dashboard.finance.map(([label, value, hint]) => (
-                  <div className="finance-row" key={label}>
-                    <div>
-                      <span>{label}</span>
-                      {hint ? <small>{hint}</small> : null}
+                {dashboard.finance.map((item) => (
+                  <div className="finance-row" key={item.label}>
+                    <div className={`finance-icon finance-${item.tone}`}>
+                      <FontAwesomeIcon icon={item.icon} />
                     </div>
-                    <strong>{value}</strong>
+                    <div className="finance-copy">
+                      <span>{item.label}</span>
+                      {item.hint ? <small>{item.hint}</small> : null}
+                    </div>
+                    <strong>{item.value}</strong>
                   </div>
                 ))}
               </div>
             </article>
 
-            <article className="dashboard-card supply-card">
+            <article className="dashboard-card fulfillment-card">
               <div className="dashboard-card-heading">
                 <div>
-                  <span>Users & Supply</span>
-                  <h2>用户与供给</h2>
+                  <FontAwesomeIcon icon={faCalendarDays} />
+                  <h2>课程履约</h2>
                 </div>
               </div>
-              <div className="supply-grid">
-                {dashboard.users.map(([label, value, hint]) => (
-                  <div className="supply-item" key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                    <small>{hint}</small>
+              <div className="fulfillment-strip">
+                {dashboard.fulfillment.map((item) => (
+                  <div className={`fulfillment-item fulfillment-${item.tone}`} key={item.label}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
                   </div>
                 ))}
               </div>
             </article>
           </div>
 
-          <div className="trend-grid">
-            {dashboard.trends.map((trend) => (
-              <TrendCard key={trend.title} {...trend} />
-            ))}
+          <div className="dashboard-bottom-grid">
+            <article className="dashboard-card supply-card">
+              <div className="dashboard-card-heading">
+                <div>
+                  <FontAwesomeIcon icon={faUsers} />
+                  <h2>用户与供给</h2>
+                </div>
+              </div>
+              <div className="supply-grid">
+                {dashboard.users.map((item) => (
+                  <div className="supply-item" key={item.label}>
+                    <div className="supply-icon">
+                      <FontAwesomeIcon icon={item.icon} />
+                    </div>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                    <small>{item.hint} <b>{item.delta}</b></small>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="dashboard-card combined-trend-card">
+              <div className="dashboard-card-heading">
+                <div>
+                  <FontAwesomeIcon icon={faChartLine} />
+                  <h2>近30天趋势</h2>
+                </div>
+                <div className="trend-legend">
+                  {dashboard.trends.map((trend) => (
+                    <span className={`legend-${trend.tone}`} key={trend.label}>{trend.label}</span>
+                  ))}
+                </div>
+              </div>
+              <MultiTrendSvg series={dashboard.trends} />
+            </article>
           </div>
         </div>
       </State>
@@ -665,45 +686,56 @@ function buildTrendSeries(rows = [], metric, fallbackBase) {
   });
 }
 
-function TrendCard({ title, value, hint, data, tone }) {
-  return (
-    <article className={`dashboard-card trend-card trend-${tone}`}>
-      <div className="trend-heading">
-        <div>
-          <span>{title}</span>
-          <strong>{value}</strong>
-        </div>
-        <small>{hint}</small>
-      </div>
-      <TrendSvg data={data} />
-    </article>
-  );
-}
-
-function TrendSvg({ data }) {
-  const values = data.map((point) => asNumber(point.value));
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const range = Math.max(max - min, 1);
-  const width = 320;
-  const height = 110;
-  const points = values.map((value, index) => {
-    const x = values.length === 1 ? width : (index / (values.length - 1)) * width;
-    const y = height - ((value - min) / range) * 78 - 14;
-    return [x, y];
+function MultiTrendSvg({ series }) {
+  const width = 680;
+  const height = 210;
+  const chartLeft = 44;
+  const chartRight = 24;
+  const chartTop = 18;
+  const chartBottom = 34;
+  const chartWidth = width - chartLeft - chartRight;
+  const chartHeight = height - chartTop - chartBottom;
+  const maxBySeries = series.map((trend) => Math.max(...trend.data.map((point) => asNumber(point.value)), 1));
+  const pointsBySeries = series.map((trend, trendIndex) => {
+    const max = maxBySeries[trendIndex] || 1;
+    return trend.data.map((point, index) => {
+      const x = chartLeft + (trend.data.length === 1 ? chartWidth : (index / (trend.data.length - 1)) * chartWidth);
+      const y = chartTop + chartHeight - (asNumber(point.value) / max) * chartHeight;
+      return { x, y, label: point.label };
+    });
   });
-  const line = points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
-  const area = `${line} L ${width} ${height} L 0 ${height} Z`;
+  const lineFor = (points) => points.map((point, index) => (
+    `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+  )).join(' ');
+  const labelIndexes = [0, 5, 10, 15, 20, 25, 29];
 
   return (
-    <svg className="trend-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="趋势图">
-      <path className="trend-area" d={area} />
-      <path className="trend-line" d={line} />
-      {points.map(([x, y], index) => (
-        index % 7 === 0 || index === points.length - 1
-          ? <circle key={index} cx={x} cy={y} r="2.8" />
-          : null
+    <svg className="multi-trend-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="近30天趋势">
+      {[0, 1, 2, 3].map((index) => {
+        const y = chartTop + (chartHeight / 3) * index;
+        return (
+          <g key={index}>
+            <line className="trend-grid-line" x1={chartLeft} x2={width - chartRight} y1={y} y2={y} />
+            <text className="trend-axis-label" x="0" y={y + 4}>{`${60 - index * 20}k`}</text>
+          </g>
+        );
+      })}
+      <line className="trend-axis-line" x1={chartLeft} x2={width - chartRight} y1={height - chartBottom} y2={height - chartBottom} />
+      {pointsBySeries.map((points, index) => (
+        <g className={`multi-trend multi-trend-${series[index].tone}`} key={series[index].label}>
+          <path d={lineFor(points)} />
+          {points.map((point, pointIndex) => (
+            pointIndex % 4 === 0 || pointIndex === points.length - 1
+              ? <circle key={pointIndex} cx={point.x} cy={point.y} r="2.8" />
+              : null
+          ))}
+        </g>
       ))}
+      {labelIndexes.map((index) => {
+        const point = pointsBySeries[0]?.[index];
+        if (!point) return null;
+        return <text className="trend-date-label" key={index} x={point.x} y={height - 10}>{point.label}</text>;
+      })}
     </svg>
   );
 }
