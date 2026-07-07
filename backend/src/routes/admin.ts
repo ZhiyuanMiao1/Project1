@@ -66,13 +66,26 @@ const addLocalDays = (dateKey: string, days: number) => {
 const getCurrentMonthRange = () => {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const end = now;
   return { startDate: toLocalDateKey(start), endDate: toLocalDateKey(end) };
 };
 
 const getPreviousDateRange = (startDate: string, endDate: string) => {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
+  const now = new Date();
+  const isCurrentYearRange = start.getFullYear() === now.getFullYear()
+    && start.getMonth() === 0
+    && start.getDate() === 1
+    && endDate === toLocalDateKey(now);
+  if (isCurrentYearRange) {
+    const previousStart = new Date(start.getFullYear() - 1, 0, 1);
+    const previousEnd = new Date(end.getFullYear() - 1, end.getMonth(), end.getDate());
+    return {
+      previousStartDate: toLocalDateKey(previousStart),
+      previousEndDate: toLocalDateKey(previousEnd),
+    };
+  }
   const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
   const previousEndDate = addLocalDays(startDate, -1);
   const previousStartDate = addLocalDays(previousEndDate, -(days - 1));

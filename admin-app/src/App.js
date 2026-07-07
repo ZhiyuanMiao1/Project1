@@ -509,6 +509,7 @@ function Dashboard() {
     const gmvThisMonth = asNumber(orders.paidAmountCnyThisMonth ?? orders.paidAmountCny);
     const gmvLastMonth = asNumber(orders.paidAmountCnyLastMonth);
     const platformRevenue = gmvThisMonth * PLATFORM_COMMISSION_RATE;
+    const previousPlatformRevenue = gmvLastMonth * PLATFORM_COMMISSION_RATE;
     const mentorPayable = Math.max(gmvThisMonth - platformRevenue, 0);
     const completedThisMonth = asNumber(courses.completedCoursesThisMonth ?? courses.completedCourses);
     const completedLastMonth = asNumber(courses.completedCoursesLastMonth);
@@ -519,10 +520,28 @@ function Dashboard() {
     const gmvChange = gmvLastMonth > 0
       ? ((gmvThisMonth - gmvLastMonth) / gmvLastMonth) * 100
       : (gmvThisMonth > 0 ? 100 : 0);
+    const platformRevenueChange = previousPlatformRevenue > 0
+      ? ((platformRevenue - previousPlatformRevenue) / previousPlatformRevenue) * 100
+      : (platformRevenue > 0 ? 100 : 0);
     const completedChange = completedLastMonth > 0
       ? ((completedThisMonth - completedLastMonth) / completedLastMonth) * 100
       : (completedThisMonth > 0 ? 100 : 0);
     const formatDelta = (value) => `${value >= 0 ? '+' : ''}${Math.round(value)}%`;
+    const parsedStartDate = parseDateKey(startDate);
+    const parsedEndDate = parseDateKey(endDate);
+    const isSingleMonthRange = parsedStartDate && parsedEndDate
+      && parsedStartDate.getFullYear() === parsedEndDate.getFullYear()
+      && parsedStartDate.getMonth() === parsedEndDate.getMonth();
+    const now = new Date();
+    const isCurrentYearRange = parsedStartDate && endDate === toLocalDateKey(now)
+      && parsedStartDate.getFullYear() === now.getFullYear()
+      && parsedStartDate.getMonth() === 0
+      && parsedStartDate.getDate() === 1;
+    const platformRevenueComparisonLabel = isCurrentYearRange
+      ? '较去年'
+      : isSingleMonthRange
+        ? '较上月'
+        : '';
     const gmvSeries = buildTrendSeries(d.trends, 'gmvCny', Math.max(gmvThisMonth / 12, 280), startDate, endDate);
     const revenueSeries = buildTrendSeries(d.trends, 'platformRevenueCny', Math.max(platformRevenue / 12, 56), startDate, endDate);
     const completedSeries = buildTrendSeries(d.trends, 'completedCourses', Math.max(completedThisMonth / 10, 1), startDate, endDate);
@@ -540,7 +559,8 @@ function Dashboard() {
         {
           label: '平台收入',
           value: formatCurrencyCny(platformRevenue),
-          hint: `抽佣率 ${Math.round(PLATFORM_COMMISSION_RATE * 100)}%`,
+          hint: platformRevenueComparisonLabel,
+          delta: platformRevenueComparisonLabel ? formatDelta(platformRevenueChange) : '',
           tone: 'green',
           icon: faCoins,
         },
@@ -554,7 +574,7 @@ function Dashboard() {
         {
           label: '完成课时',
           value: completedThisMonth,
-          hint: `${completedLastMonth ? `较上月 ${formatDelta(completedChange)}` : '本月完成'}`,
+          hint: completedLastMonth ? `较上月 ${formatDelta(completedChange)}` : '',
           tone: 'slate',
           icon: faGraduationCap,
         },
@@ -1141,7 +1161,6 @@ function DateRangeHeader({ label, field, sort, onSort, startDate, endDate, onSta
         hasRange ? 'active' : '',
         isOpen ? 'open' : '',
       ].filter(Boolean).join(' ')}
-      onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
       onFocus={() => setIsOpen(true)}
     >
@@ -1275,8 +1294,12 @@ function DashboardDateRangeFilter({ className = '', startDate, endDate, onRangeC
     }
   }, [endDate, isOpen, startDate]);
 
-  const commitRange = (nextStartDate, nextEndDate) => {
+  const commitRange = (nextStartDate, nextEndDate, shouldClose = false) => {
     onRangeChange(nextStartDate, nextEndDate);
+    if (shouldClose) {
+      setIsOpen(false);
+      document.activeElement?.blur?.();
+    }
   };
 
   const selectDate = (value) => {
@@ -1295,16 +1318,15 @@ function DashboardDateRangeFilter({ className = '', startDate, endDate, onRangeC
     }
 
     setDraftEndDate(value);
-    commitRange(draftStartDate, value);
+    commitRange(draftStartDate, value, true);
   };
 
   const applyPresetRange = (range) => {
     setDraftStartDate(range.startDate);
     setDraftEndDate(range.endDate);
-    commitRange(range.startDate, range.endDate);
+    commitRange(range.startDate, range.endDate, true);
     const parsedStart = parseDateKey(range.startDate);
     if (parsedStart) setViewMonth(new Date(parsedStart.getFullYear(), parsedStart.getMonth(), 1));
-    setIsOpen(true);
   };
 
   return (

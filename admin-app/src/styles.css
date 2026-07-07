@@ -423,6 +423,25 @@ button.link-button {
   text-align: left;
 }
 
+.dashboard-date-filter .dashboard-date-filter-menu,
+.dashboard-date-filter:hover .dashboard-date-filter-menu,
+.dashboard-date-filter:focus-within .dashboard-date-filter-menu {
+  display: none;
+}
+
+.dashboard-date-filter.open .dashboard-date-filter-menu {
+  display: grid;
+}
+
+.dashboard-date-filter:hover::after,
+.dashboard-date-filter:focus-within::after {
+  display: none;
+}
+
+.dashboard-date-filter.open::after {
+  display: block;
+}
+
 .dashboard-stack {
   display: grid;
   gap: 24px;
@@ -478,12 +497,14 @@ button.link-button {
   align-items: center;
   gap: 8px;
   color: #4b5c76;
+  font-size: 14px;
   line-height: 1.45;
 }
 
 .dashboard-metric-value b,
 .supply-item b {
   color: #0aa366;
+  font-size: inherit;
   font-weight: 700;
 }
 
