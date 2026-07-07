@@ -537,7 +537,7 @@ function Dashboard() {
       && parsedStartDate.getFullYear() === now.getFullYear()
       && parsedStartDate.getMonth() === 0
       && parsedStartDate.getDate() === 1;
-    const platformRevenueComparisonLabel = isCurrentYearRange
+    const periodComparisonLabel = isCurrentYearRange
       ? '较去年'
       : isSingleMonthRange
         ? '较上月'
@@ -551,16 +551,16 @@ function Dashboard() {
         {
           label: 'GMV',
           value: formatCurrencyCny(gmvThisMonth),
-          hint: '较上月',
-          delta: formatDelta(gmvChange),
+          hint: periodComparisonLabel,
+          delta: periodComparisonLabel ? formatDelta(gmvChange) : '',
           tone: 'blue',
           icon: faWallet,
         },
         {
           label: '平台收入',
           value: formatCurrencyCny(platformRevenue),
-          hint: platformRevenueComparisonLabel,
-          delta: platformRevenueComparisonLabel ? formatDelta(platformRevenueChange) : '',
+          hint: periodComparisonLabel,
+          delta: periodComparisonLabel ? formatDelta(platformRevenueChange) : '',
           tone: 'green',
           icon: faCoins,
         },
@@ -572,7 +572,7 @@ function Dashboard() {
           icon: faUserTie,
         },
         {
-          label: '完成课时',
+          label: '完成课堂',
           value: completedThisMonth,
           hint: completedLastMonth ? `较上月 ${formatDelta(completedChange)}` : '',
           tone: 'slate',
@@ -603,7 +603,7 @@ function Dashboard() {
       trends: [
         { label: 'GMV', tone: 'blue', data: gmvSeries },
         { label: '平台收入', tone: 'green', data: revenueSeries },
-        { label: '完成课时', tone: 'purple', data: completedSeries },
+        { label: '完成课堂', tone: 'purple', data: completedSeries },
       ],
     };
   }, [data, endDate, startDate]);

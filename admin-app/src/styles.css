@@ -488,6 +488,7 @@ button.link-button {
 .dashboard-metric-value strong {
   color: #081226;
   font-size: 32px;
+  font-weight: 600;
   line-height: 1.15;
   word-break: break-word;
 }
