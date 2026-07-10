@@ -102,7 +102,9 @@ jobs:                                                                # 任务集
           set -euo pipefail
           : "${ESA_SITE_ID:?Missing GitHub secret ESA_SITE_ID}"
 
-          purge_content="$(python3 -c 'import json; print(json.dumps({"Files":["https://mentory.cc/","https://mentory.cc/index.html"]}, separators=(",",":")))')"
+          # React Router 的页面由同一个 index.html 响应；ESA 按 URL 缓存时，
+          # 只清理 / 会让 /student 等入口继续引用上一版的懒加载分包，进而白屏。
+          purge_content="$(python3 -c 'import json; print(json.dumps({"Files":["https://mentory.cc/","https://mentory.cc/index.html","https://mentory.cc/student","https://mentory.cc/student/course-request","https://mentory.cc/student/favorites","https://mentory.cc/student/recent-visits","https://mentory.cc/student/courses","https://mentory.cc/student/messages","https://mentory.cc/student/wallet","https://mentory.cc/student/settings","https://mentory.cc/student/help","https://mentory.cc/mentor","https://mentory.cc/mentor/courses","https://mentory.cc/mentor/messages","https://mentory.cc/mentor/settings","https://mentory.cc/mentor/help"]}, separators=(",",":")))')"
           aliyun esa PurgeCaches \
             --SiteId "$ESA_SITE_ID" \
             --Type file \
