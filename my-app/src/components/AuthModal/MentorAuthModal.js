@@ -68,7 +68,9 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       if (!anchorEl) return;
       const rect = anchorEl.getBoundingClientRect();
       const modalWidth = contentRef.current?.offsetWidth || 200;
+      const modalHeight = contentRef.current?.offsetHeight || 420;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       const minGap = 8;
       const alignEl = leftAlignRef?.current;
       const baseLeft = align === 'right'
@@ -78,7 +80,12 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       const maxLeft = viewportWidth - modalWidth - minGap;
       if (left > maxLeft) left = Math.max(minGap, maxLeft);
       if (left < minGap) left = minGap;
-      setPosition({ top: rect.bottom + 10, left });
+      const belowTop = rect.bottom + 10;
+      const aboveTop = rect.top - modalHeight - 10;
+      const top = modalHeight <= viewportHeight - belowTop || aboveTop < minGap
+        ? Math.min(belowTop, Math.max(minGap, viewportHeight - modalHeight - minGap))
+        : Math.max(minGap, aboveTop);
+      setPosition({ top, left });
     };
 
     updatePosition();

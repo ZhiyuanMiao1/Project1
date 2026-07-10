@@ -589,6 +589,11 @@
 }
 
 @media (max-width: 640px) {
+  .favorites-page .container {
+    margin-left: 0;
+    padding: 0 16px;
+  }
+
   .favorites-header {
     padding-top: 18px;
   }
@@ -599,5 +604,20 @@
 
   .favorites-hero p {
     font-size: 14px;
+  }
+
+  .favorites-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+  }
+
+  .favorites-card {
+    min-height: 350px;
+  }
+
+  .favorites-remove {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
   }
 }

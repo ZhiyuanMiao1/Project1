@@ -16,6 +16,9 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
   box-shadow: 0 28px 60px rgba(15, 23, 42, 0.24);
   padding: 22px;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 .lesson-hours-dialog-head {
@@ -176,4 +179,41 @@
 .lesson-hours-dialog-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .lesson-hours-dialog-overlay {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .lesson-hours-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 22px;
+  }
+
+  .lesson-hours-dialog-title {
+    font-size: 20px;
+  }
+
+  .lesson-hours-dialog-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .lesson-hours-dialog-label {
+    padding-top: 0;
+    font-size: 16px;
+  }
+
+  .lesson-hours-dialog-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lesson-hours-dialog-btn {
+    min-height: 44px;
+  }
 }

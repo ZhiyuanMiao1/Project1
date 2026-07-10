@@ -18,6 +18,8 @@
   border: 1px solid rgba(255, 255, 255, 0.55);
   overflow: hidden;
   animation: confirmModalPop 180ms ease-out both;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
 }
 
 @keyframes confirmModalPop {
@@ -92,4 +94,26 @@
 
 .confirm-modal-btn--confirm:hover {
   filter: brightness(1.03);
+}
+
+@media (max-width: 480px) {
+  .confirm-modal-overlay {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .confirm-modal {
+    width: 100%;
+    border-radius: 18px;
+  }
+
+  .confirm-modal-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .confirm-modal-btn {
+    min-height: 44px;
+  }
 }

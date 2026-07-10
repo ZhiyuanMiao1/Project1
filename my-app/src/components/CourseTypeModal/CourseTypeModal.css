@@ -21,9 +21,10 @@
     background: #fff; /* 背景色 */
     border-radius: 20px; /* 圆角边框 */
     padding: 10px; /* 内边距 */
-    width: 220px; /* 弹窗宽度 */
+    box-sizing: border-box;
+    width: min(240px, calc(100vw - 16px));
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影 */
-    max-height: 80%; /* 限制弹窗高度，防止超出屏幕 */
+    max-height: calc(100dvh - 16px); /* 限制弹窗高度，防止超出屏幕 */
     /* 位置由 JS 通过 style.top/left 控制 */
     overflow-y: auto; /* 内容超出时添加滚动条 */
     animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
@@ -74,6 +75,25 @@
   .course-type-button:hover {
     background-color: #f0f0f0; /* 鼠标悬停时的背景色 */
   }
+
+@media (max-width: 480px) {
+  .course-types-modal-content {
+    border-radius: 16px;
+    padding: 6px;
+  }
+
+  .course-type-button {
+    min-height: 48px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
+
+  .course-type-button::after {
+    left: 16px;
+    right: 16px;
+  }
+}
 
 @keyframes modalOverlayFade {
   0% {

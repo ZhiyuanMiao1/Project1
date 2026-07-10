@@ -1081,7 +1081,8 @@
 }
 
 .review-modal {
-  width: 510px;
+  width: min(510px, 100%);
+  box-sizing: border-box;
   max-height: 85vh;
   overflow: auto;
   background: #ffffff;
@@ -1161,6 +1162,10 @@
     justify-content: center;
   }
 
+  .mentor-attachments-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .mentor-detail-schedule-body {
     grid-template-columns: 1fr;
   }
@@ -1206,5 +1211,77 @@
     grid-template-columns: 1fr;
     margin-left: 0;
     margin-right: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .mentor-detail-header {
+    padding-top: 16px;
+  }
+
+  .mentor-detail-content {
+    padding-bottom: 36px;
+  }
+
+  .mentor-detail-top {
+    margin-top: 20px;
+    row-gap: 16px;
+  }
+
+  .mentor-detail-attachments {
+    padding: 12px 0 16px;
+  }
+
+  .mentor-detail-attachments-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mentor-attachments-list {
+    grid-template-columns: 1fr;
+  }
+
+  .mentor-attachment-card {
+    height: auto;
+    min-height: 96px;
+  }
+
+  .mentor-detail-schedule .calendar-card {
+    padding: 10px 8px 14px;
+  }
+
+  .mentor-detail-schedule .calendar-grid {
+    gap: 6px 2px;
+  }
+
+  .mentor-detail-schedule .date-cell {
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .mentor-detail-times-panel {
+    height: min(480px, 68vh);
+  }
+
+  .mentor-rating-categories {
+    grid-template-columns: 1fr;
+  }
+
+  .review-modal-overlay {
+    align-items: flex-end;
+    padding: 8px;
+  }
+
+  .review-modal {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    padding: 24px 18px calc(18px + env(safe-area-inset-bottom));
+    border-radius: 20px;
+  }
+
+  .mentor-reviews-more {
+    width: 100%;
+    min-width: 0;
   }
 }
