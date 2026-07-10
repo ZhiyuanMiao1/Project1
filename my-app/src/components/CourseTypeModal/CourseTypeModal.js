@@ -14,20 +14,13 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
       if (!anchorEl) return;
       const rect = anchorEl.getBoundingClientRect();
       const modalWidth = contentRef.current?.offsetWidth || 280;
-      const modalHeight = contentRef.current?.offsetHeight || 480;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       const minGap = 8;
       let left = rect.left;
       const maxLeft = viewportWidth - modalWidth - minGap;
       if (left > maxLeft) left = Math.max(minGap, maxLeft);
       if (left < minGap) left = minGap;
-      const belowTop = rect.bottom + 10;
-      const aboveTop = rect.top - modalHeight - 10;
-      const top = modalHeight <= viewportHeight - belowTop || aboveTop < minGap
-        ? Math.min(belowTop, Math.max(minGap, viewportHeight - modalHeight - minGap))
-        : Math.max(minGap, aboveTop);
-      setPosition({ top, left });
+      setPosition({ top: rect.bottom + 10, left });
     };
 
     updatePosition();

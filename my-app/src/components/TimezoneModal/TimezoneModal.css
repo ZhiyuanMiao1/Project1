@@ -21,10 +21,8 @@
     background: #fff; /* 弹窗的背景颜色设置为白色 */
     border-radius: 30px; /* 设置圆角，提升视觉美感 */
     padding: 25px; /* 添加内边距，使内容与边框保持距离 */
-    box-sizing: border-box;
-    width: min(420px, calc(100vw - 16px));
-    max-height: calc(100dvh - 16px);
-    overflow-y: auto;
+    width: 360px; /* 弹窗的固定宽度 */
+    height: 345px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 添加阴影，使弹窗看起来有立体感 */
     animation: modalContentPop 220ms ease-out both; /* 弹窗弹出动画 */
     pointer-events: auto; /* 覆盖父层设置，使弹窗仍可交互 */
@@ -38,9 +36,9 @@
   
   /* 外层容器样式 */
   .regions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
+    display: flex; /* 使用 flex 布局 */
+    flex-wrap: wrap; /* 允许换行 */
+    justify-content: center; /* 水平居中对齐 */
     row-gap: 10px; /* 按钮之间的间距 */
     margin-top: 20px; /* 添加顶部间距 */
   }
@@ -50,9 +48,8 @@
     display: flex; /* 使用 flex 布局 */
     flex-direction: column; /* 垂直排列内容 */
     justify-content: center; /* 垂直居中对齐 */
-    width: 100%;
-    min-width: 0;
-    height: auto;
+    width: 120px; /* 按钮固定宽度 */
+    height: 150px; /* 按钮固定高度 */
     padding: 5px; /* 内边距 */
     background-color: transparent; /* 按钮背景色 */
     border: none; /* 去掉按钮边框 */
@@ -63,9 +60,8 @@
   
   /* 按钮中的图片样式 */
   .regions button img {
-    width: min(82px, 100%);
-    aspect-ratio: 1;
-    height: auto;
+    width: 105px; /* 图片宽度 */
+    height: 105px; /* 图片高度 */
     align-self: center;
     border-radius: 16px;
     margin-top: -5px;
@@ -80,42 +76,12 @@
     color: #333; /* 文字颜色 */
     text-align: left; /* 设置文字左对齐 */
     margin-left: 5px;
-    align-self: stretch;
   }
 
   /* 鼠标悬停时按钮样式 */
   .regions button:hover {
     background-color: #f0f0f0; /* 改变背景颜色 */
   }
-
-@media (max-width: 480px) {
-  .modal-content {
-    padding: 18px 14px;
-    border-radius: 22px;
-  }
-
-  .modal-content h3 {
-    margin: 0 0 12px;
-  }
-
-  .regions {
-    margin-top: 0;
-    gap: 8px 6px;
-  }
-
-  .regions button {
-    padding: 4px;
-  }
-
-  .regions button img {
-    width: min(72px, 100%);
-  }
-
-  .regions button span {
-    margin-left: 2px;
-    font-size: 13px;
-  }
-}
 
 @keyframes modalOverlayFade {
   0% {
