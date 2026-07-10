@@ -49,11 +49,16 @@
 }
 
 .site-footer__column h2 {
-  margin: 0 0 -14px;
-  font-size: 12px;
+  margin: 0 0 -32px;
+  font-size: 18px !important;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.4 !important;
   color: #111827;
+}
+
+.site-footer__column h2 ~ * {
+  position: relative;
+  top: -14px;
 }
 
 .site-footer__column a,
