@@ -368,7 +368,7 @@ const en = {
   'listings.openRequestDetail': 'Open course request in a new tab: {name}',
   'footer.aria': 'Mentory footer',
   'footer.brandAria': 'Mentory',
-  'footer.description': 'Connect students and mentors with clearer, more reliable course support.',
+  'footer.description': 'Make learning go further.',
   'footer.support': 'Support',
   'footer.helpCenter': 'Help Center',
   'footer.contactUs': 'Contact us',

@@ -14,9 +14,12 @@ function SiteFooter({ mode = 'student' }) {
     <footer className="site-footer" aria-label={t('footer.aria', 'Mentory 页脚')}>
       <div className="site-footer__main">
         <section className="site-footer__brand" aria-label={t('footer.brandAria', 'Mentory')}>
-          <div className="site-footer__logo">Mentory</div>
+          <div className="site-footer__logo">
+            <img src="/Logo_standard-removebg.png" alt="" aria-hidden="true" />
+            <span>Mentory</span>
+          </div>
           <p className="site-footer__description">
-            {t('footer.description', '连接学生与导师，让课程支持更清晰、更可靠。')}
+            {t('footer.description', 'Make learning go further.')}
           </p>
         </section>
 

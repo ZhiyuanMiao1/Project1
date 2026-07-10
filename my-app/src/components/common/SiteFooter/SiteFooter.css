@@ -18,10 +18,20 @@
 }
 
 .site-footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 20px;
   font-weight: 700;
   line-height: 1.2;
   color: #111827;
+}
+
+.site-footer__logo img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: 0 0 24px;
 }
 
 .site-footer__description {
@@ -40,7 +50,7 @@
 
 .site-footer__column h2 {
   margin: 0 0 2px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
   color: #111827;
