@@ -37,8 +37,9 @@ jobs:                                                                # 任务集
             cd /opt/mentory/my-app                                   # 进入前端目录
             npm ci                                                   # 安装前端依赖
             npm run build                                            # 构建前端
-            sudo rm -rf /var/www/mentory/*                           # 清空旧静态文件
-            sudo cp -r build/* /var/www/mentory/                     # 覆盖新静态文件
+            sudo mkdir -p /var/www/mentory/static                    # 确保站点目录存在
+            sudo cp -r build/static/* /var/www/mentory/static/       # 先发布带哈希的分包，避免入口引用缺失资源
+            sudo cp -r build/* /var/www/mentory/                     # 再覆盖入口文件；保留旧分包供已打开页面使用
             sudo systemctl reload nginx                              # 重载 Nginx
             curl -I http://127.0.0.1/ | head -n 1                    # 简单检查首页返回
             echo "✅ Deploy finished"                                # 输出完成信息
@@ -119,9 +120,17 @@ jobs:                                                                # 任务集
           split -l 100 preload-urls.txt preload-batch-
           for batch in preload-batch-*; do
             batch_urls="$(cat "$batch")"
-            echo "Preloading static assets:"
-            printf '%s\n' "$batch_urls"
             batch_content="$(python3 -c 'import json, sys; print(json.dumps([line.strip() for line in open(sys.argv[1], encoding="utf-8") if line.strip()], separators=(",",":")))' "$batch")"
+            purge_batch_content="$(python3 -c 'import json, sys; print(json.dumps({"Files":[line.strip() for line in open(sys.argv[1], encoding="utf-8") if line.strip()]}, separators=(",",":")))' "$batch")"
+
+            echo "Purging static assets before preload:"
+            printf '%s\n' "$batch_urls"
+            aliyun esa PurgeCaches \
+              --SiteId "$ESA_SITE_ID" \
+              --Type file \
+              --Content "$purge_batch_content"
+
+            echo "Preloading static assets:"
             aliyun esa PreloadCaches \
               --SiteId "$ESA_SITE_ID" \
               --Content "$batch_content"
