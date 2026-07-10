@@ -1,5 +1,6 @@
 import React from 'react';
 import MentorListingCard from '../ListingCard/MentorListingCard';
+import SiteFooter from '../common/SiteFooter/SiteFooter';
 import './Listings.css';
 import { useI18n } from '../../i18n/language';
 
@@ -42,6 +43,7 @@ function MentorListings({ data, favoriteIds, onFavoriteChange }) {
               ))
             )}
       </div>
+      {!showSkeleton && <SiteFooter mode="mentor" />}
     </div>
   );
 }

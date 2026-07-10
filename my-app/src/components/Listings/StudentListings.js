@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import StudentListingCard from '../ListingCard/StudentListingCard';
+import SiteFooter from '../common/SiteFooter/SiteFooter';
 import './Listings.css';
 import { fetchFavoriteItems } from '../../api/favorites';
 import { fetchApprovedMentors } from '../../api/mentors';
@@ -592,6 +593,7 @@ function StudentListings() {
               />
             ))}
       </div>
+      {!showSkeleton && <SiteFooter mode="student" />}
     </div>
   );
 }
