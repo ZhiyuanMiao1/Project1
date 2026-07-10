@@ -49,6 +49,7 @@
     font-size: 16px; /* 文字大小 */
     color: #333; /* 文字颜色 */
     cursor: pointer; /* 鼠标悬停时显示手型 */
+    touch-action: manipulation; /* 避免触屏双击缩放延迟 */
     white-space: nowrap;
     transition: background-color 0.2s ease; /* 背景色变化动画 */
     position: relative; /* 使伪元素定位有效 */

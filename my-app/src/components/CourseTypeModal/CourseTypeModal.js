@@ -61,27 +61,28 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
         <div className="course-types">
           {mode === 'studentFeatures' ? (
             <>
-              <button className="course-type-button" onClick={() => handleCourseTypeSelect('评分高')}>
+              <button type="button" className="course-type-button" onClick={() => handleCourseTypeSelect('评分高')}>
                 {t('mentorFilter.highRating', '评分高')}
                 <i className="fas fa-star"></i>
               </button>
-              <button className="course-type-button" onClick={() => handleCourseTypeSelect('经验丰富')}>
+              <button type="button" className="course-type-button" onClick={() => handleCourseTypeSelect('经验丰富')}>
                 {t('mentorFilter.experienced', '经验丰富')}
                 <i className="fas fa-award"></i>
               </button>
-              <button className="course-type-button" onClick={() => handleCourseTypeSelect('快速响应')}>
+              <button type="button" className="course-type-button" onClick={() => handleCourseTypeSelect('快速响应')}>
                 {t('mentorFilter.fastResponse', '快速响应')}
                 <i className="fas fa-bolt"></i>
               </button>
-              <button className="course-type-button" onClick={() => handleCourseTypeSelect('双语授课')}>
+              <button type="button" className="course-type-button" onClick={() => handleCourseTypeSelect('双语授课')}>
                 {t('mentorFilter.bilingualTeaching', '双语授课')}
                 <i className="fas fa-language"></i>
               </button>
-              <button className="course-type-button" onClick={() => handleCourseTypeSelect('QS前100')}>
+              <button type="button" className="course-type-button" onClick={() => handleCourseTypeSelect('QS前100')}>
                 {t('mentorFilter.qsTop100', 'QS前100')}
                 <i className="fas fa-university"></i>
               </button>
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('')}
                 aria-label={t('mentorFilter.clearSelection', '清空选择')}
@@ -94,6 +95,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
             <>
               {/* 选课指导 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('course-selection')}
               >
@@ -103,6 +105,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 课前预习 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('pre-study')}
               >
@@ -112,6 +115,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 作业项目 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('assignment-project')}
               >
@@ -121,6 +125,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 期末复习 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('final-review')}
               >
@@ -130,6 +135,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 毕业论文 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('in-class-support')}
               >
@@ -139,6 +145,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 其它类型 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('others')}
               >
@@ -148,6 +155,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
               {/* 清空当前选择 */}
               <button
+                type="button"
                 className="course-type-button"
                 onClick={() => handleCourseTypeSelect('')}
                 aria-label={t('courseType.clearSelection', '清空课程类型选择')}
