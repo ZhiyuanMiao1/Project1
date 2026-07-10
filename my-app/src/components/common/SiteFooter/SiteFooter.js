@@ -30,13 +30,12 @@ function SiteFooter({ mode = 'student' }) {
           <span className="site-footer__muted">{supportEmail}</span>
         </nav>
 
-        <nav className="site-footer__column" aria-label={t('footer.users', '用户')}>
-          <h2>{t('footer.users', '用户')}</h2>
-          <Link to="/student">{t('footer.studentHome', '学生主页')}</Link>
-          <Link to="/mentor">{t('footer.mentorHome', '导师主页')}</Link>
-          <Link to={`${basePath}/courses`}>{t('footer.courses', '课程')}</Link>
-          <Link to={`${basePath}/messages`}>{t('footer.messages', '消息')}</Link>
-        </nav>
+        <section className="site-footer__column" aria-label={t('footer.about', '关于我们')}>
+          <h2>{t('footer.about', '关于我们')}</h2>
+          <span>{t('footer.introduction', '介绍')}</span>
+          <span>{t('footer.mentorOpportunities', '导师工作机会')}</span>
+          <span>{t('footer.businessCooperation', '商务合作')}</span>
+        </section>
 
         <section className="site-footer__column" aria-label={t('footer.rules', '规则')}>
           <h2>{t('footer.rules', '规则')}</h2>

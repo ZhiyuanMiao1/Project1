@@ -49,10 +49,10 @@
 }
 
 .site-footer__column h2 {
-  margin: 0 0 2px;
+  margin: 0 0 -14px;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1;
   color: #111827;
 }
 
