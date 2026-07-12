@@ -2,12 +2,13 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './StartDateModal.css';
 import { useI18n } from '../../i18n/language';
 
-const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
+const StartDateModal = ({ onClose, onSelect, anchorRef, presentation = 'anchored' }) => {
   const { t } = useI18n();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useLayoutEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const updatePosition = () => {
       const anchorEl = anchorRef?.current;
       if (!anchorEl) return;
@@ -36,7 +37,7 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, presentation]);
   const handleStartDateSelect = (dateOption) => {
     onSelect(dateOption); // 设置选中的首课日期选项
     onClose(); // 关闭弹窗
@@ -44,6 +45,7 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
 
   // 文档级监听：点击弹窗外关闭（使用 click 冒泡阶段，避免按下瞬间关闭）
   useEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const onDocClick = (e) => {
       const panel = contentRef.current;
       const anchorEl = anchorRef?.current;
@@ -54,16 +56,40 @@ const StartDateModal = ({ onClose, onSelect, anchorRef }) => {
     };
     document.addEventListener('click', onDocClick, false);
     return () => document.removeEventListener('click', onDocClick, false);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, presentation]);
+
+  useEffect(() => {
+    if (presentation !== 'sheet') return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose, presentation]);
 
   return (
-    <div className="start-date-modal-overlay">
+    <div
+      className={`start-date-modal-overlay ${presentation === 'sheet' ? 'is-sheet' : ''}`}
+      onMouseDown={presentation === 'sheet' ? onClose : undefined}
+    >
       <div
-        className="start-date-modal-content"
+        className={`start-date-modal-content ${presentation === 'sheet' ? 'mobile-option-sheet' : ''}`}
         ref={contentRef}
-        style={{ position: 'fixed', top: position.top, left: position.left }}
+        style={presentation === 'sheet' ? undefined : { position: 'fixed', top: position.top, left: position.left }}
+        role="dialog"
+        aria-modal={presentation === 'sheet' ? 'true' : undefined}
+        aria-label={t('nav.firstLessonDate', '首课日期')}
+        onMouseDown={(event) => event.stopPropagation()}
         // 交互由文档级监听控制
       >
+        <div className="mobile-option-sheet__handle" aria-hidden="true" />
+        <div className="mobile-option-sheet__header">
+          <h3>{t('nav.firstLessonDate', '首课日期')}</h3>
+          <button type="button" onClick={onClose} aria-label={t('common.close', '关闭')}>×</button>
+        </div>
         <div className="start-date-options">
           <button
             className="start-date-option-button"

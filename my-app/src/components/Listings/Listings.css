@@ -122,4 +122,68 @@
     padding: 16px 12px 14px;
   }
 }
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .student-home .listings.container,
+  .mentor-home .listings.container {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .student-home .listing-grid,
+  .mentor-home .listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
+@media (max-width: 599px) {
+  .student-home .listings.container,
+  .mentor-home .listings.container {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 12px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .student-home .listing-grid,
+  .mentor-home .listing-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .student-home .listing-empty,
+  .mentor-home .listing-empty {
+    min-height: 28vh;
+    padding: 24px 0;
+    font-size: 18px;
+  }
+
+  .student-home .sk-card,
+  .mentor-home .sk-card {
+    min-height: 176px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .student-home .sk-line,
+  .mentor-home .sk-line { margin: 8px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-home .listing-card,
+  .mentor-home .listing-card,
+  .student-home .reveal,
+  .mentor-home .reveal {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
   

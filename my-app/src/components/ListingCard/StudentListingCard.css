@@ -281,3 +281,81 @@
     height: 120px;
   }
 }
+
+@media (max-width: 599px) {
+  .student-home .listing-card {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    grid-template-areas:
+      "avatar name"
+      "avatar rating"
+      "timezone timezone"
+      "courses courses";
+    column-gap: 12px;
+    row-gap: 6px;
+    height: auto;
+    min-height: 0;
+    padding: 14px;
+    border-radius: 16px;
+    overflow: visible;
+  }
+
+  .student-home .listing-avatar {
+    grid-area: avatar;
+    width: 72px;
+    height: 72px;
+    margin: 0;
+  }
+
+  .student-home .listing-name {
+    grid-area: name;
+    align-self: end;
+    min-width: 0;
+    margin: 0;
+    padding-right: 30px;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .student-home .listing-tags { gap: 4px; }
+  .student-home .listing-tag {
+    max-width: 100%;
+    padding: 3px 6px;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
+  .student-home .listing-rating {
+    grid-area: rating;
+    align-self: start;
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .student-home .listing-timezone-languages {
+    grid-area: timezone;
+    margin: 4px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .student-home .listing-courses {
+    grid-area: courses;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .student-home .favorite-icon {
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .student-home .favorite-icon svg { width: 22px; height: 22px; }
+  .student-home .gender-badge { top: 8px; left: 8px; font-size: 17px; }
+}

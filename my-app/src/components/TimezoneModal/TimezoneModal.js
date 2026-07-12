@@ -8,13 +8,14 @@ import regionJpKrImage from '../../assets/regions/region-jp-kr.png';
 import regionChinaImage from '../../assets/regions/region-china.png';
 import { useI18n } from '../../i18n/language';
 
-const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
+const TimezoneModal = ({ onClose, onSelect, anchorRef, presentation = 'anchored' }) => {
   const { t } = useI18n();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   // 根据触发元素定位弹窗：其下方 10px
   useLayoutEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const updatePosition = () => {
       const anchorEl = anchorRef?.current;
       if (!anchorEl) return;
@@ -39,7 +40,7 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, presentation]);
 
   const handleRegionSelect = (region) => {
     onSelect(region);
@@ -57,6 +58,7 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
 
   // 点击弹窗外部时关闭：在 click 冒泡阶段处理
   useEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const handleDocumentClick = (e) => {
       const panel = contentRef.current;
       const anchorEl = anchorRef?.current;
@@ -67,16 +69,40 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef }) => {
     };
     document.addEventListener('click', handleDocumentClick, false);
     return () => document.removeEventListener('click', handleDocumentClick, false);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, presentation]);
+
+  useEffect(() => {
+    if (presentation !== 'sheet') return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose, presentation]);
 
   return (
-    <div className="timezone-modal-overlay">
+    <div
+      className={`timezone-modal-overlay ${presentation === 'sheet' ? 'is-sheet' : ''}`}
+      onMouseDown={presentation === 'sheet' ? onClose : undefined}
+    >
       <div
-        className="modal-content"
+        className={`modal-content ${presentation === 'sheet' ? 'mobile-option-sheet' : ''}`}
         ref={contentRef}
-        style={{ position: 'fixed', top: position.top, left: position.left }}
+        style={presentation === 'sheet' ? undefined : { position: 'fixed', top: position.top, left: position.left }}
+        role="dialog"
+        aria-modal={presentation === 'sheet' ? 'true' : undefined}
+        aria-label={t('timezoneModal.title', '按地区搜索')}
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <h3>{t('timezoneModal.title', '按地区搜索')}</h3>
+        <div className="mobile-option-sheet__handle" aria-hidden="true" />
+        <div className="mobile-option-sheet__header">
+          <h3>{t('timezoneModal.title', '按地区搜索')}</h3>
+          <button type="button" onClick={onClose} aria-label={t('common.close', '关闭')}>×</button>
+        </div>
+        <h3 className="anchored-modal-title">{t('timezoneModal.title', '按地区搜索')}</h3>
         <div className="regions">
           {regionOptions.map((region) => (
             <button key={region.value} onClick={() => handleRegionSelect(region.value)}>

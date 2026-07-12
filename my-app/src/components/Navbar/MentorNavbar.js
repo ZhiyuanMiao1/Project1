@@ -18,6 +18,8 @@ import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
 import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
+import useMediaQuery from '../../hooks/useMediaQuery';
+import { MobileHomeFilters } from './MobileHomeFilters';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
 const START_DATE_LABELS = {
@@ -55,6 +57,7 @@ function MentorNavbar() {
   const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate(); // 获取 navigate 函数
   const location = useLocation(); // 获取当前路径
+  const isPhone = useMediaQuery('(max-width: 599px)');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 无权限（审核中/非导师）
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
@@ -197,7 +200,7 @@ function MentorNavbar() {
   };
   
   return (
-    <header className="navbar">
+    <header className="navbar navbar--mentor">
       {/* 第一行：LOGO + Students/Mentor + 右侧菜单 */}
       <div className="navbar-top container">
         <div className="navbar-left">
@@ -264,6 +267,60 @@ function MentorNavbar() {
           </span>
         </div>
       </div>
+
+      <MobileHomeFilters
+        ariaLabel={t('nav.homeFilters', '学生需求筛选')}
+        filters={[
+          {
+            key: 'timezone',
+            label: t('nav.timeZone', '时区'),
+            value: selectedRegion,
+            buttonRef: timezoneRef,
+            expanded: showTimezoneModal,
+            onOpen: () => {
+              setShowTimezoneModal(true);
+              setPendingFilter('timezone');
+            },
+            onClear: (event) => {
+              event.stopPropagation();
+              setSelectedRegion('');
+              applySearch({ region: '' });
+            },
+          },
+          {
+            key: 'courseType',
+            label: t('nav.courseType', '课程类型'),
+            value: selectedCourseType ? getCourseTypeLabel(selectedCourseType, courseTypeToCnLabel(selectedCourseType)) : '',
+            buttonRef: courseTypeRef,
+            expanded: showCourseTypeModal,
+            onOpen: () => {
+              setShowCourseTypeModal(true);
+              setPendingFilter('courseType');
+            },
+            onClear: (event) => {
+              event.stopPropagation();
+              setSelectedCourseType('');
+              applySearch({ courseType: '' });
+            },
+          },
+          {
+            key: 'startDate',
+            label: t('nav.firstLessonDate', '首课日期'),
+            value: (isEnglish ? START_DATE_EN_LABELS : START_DATE_LABELS)[selectedStartDate] || '',
+            buttonRef: startDateRef,
+            expanded: showStartDateModal,
+            onOpen: () => {
+              setShowStartDateModal(true);
+              setPendingFilter('startDate');
+            },
+            onClear: (event) => {
+              event.stopPropagation();
+              setSelectedStartDate('');
+              applySearch({ startDate: '' });
+            },
+          },
+        ]}
+      />
 
       {/* 第二行：搜索框 */}
       <div className="navbar-bottom container">
@@ -334,8 +391,13 @@ function MentorNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(region) => setSelectedRegion(region || '')}
+          onSelect={(region) => {
+            const next = region || '';
+            setSelectedRegion(next);
+            if (isPhone) applySearch({ region: next });
+          }}
           anchorRef={timezoneRef}
+          presentation={isPhone ? 'sheet' : 'anchored'}
         />
       )}
 
@@ -349,8 +411,13 @@ function MentorNavbar() {
             }
           }}
           // 允许从弹窗传回 null/undefined 表示清空
-          onSelect={(courseType) => setSelectedCourseType(courseType || '')}
+          onSelect={(courseType) => {
+            const next = courseType || '';
+            setSelectedCourseType(next);
+            if (isPhone) applySearch({ courseType: next });
+          }}
           anchorRef={courseTypeRef}
+          presentation={isPhone ? 'sheet' : 'anchored'}
         />
       )}
 
@@ -363,8 +430,13 @@ function MentorNavbar() {
               setIsSearchBarActive(false);
             }
           }}
-          onSelect={(startDate) => setSelectedStartDate(startDate)}
+          onSelect={(startDate) => {
+            const next = startDate || '';
+            setSelectedStartDate(next);
+            if (isPhone) applySearch({ startDate: next });
+          }}
           anchorRef={startDateRef}
+          presentation={isPhone ? 'sheet' : 'anchored'}
         />
       )}
 

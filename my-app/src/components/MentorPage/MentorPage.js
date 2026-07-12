@@ -355,7 +355,7 @@ function MentorPage() {
   }, [cards, appliedRegion, appliedCourseType, appliedStartDate, appliedCategoryId]);
 
   return (
-    <div className="app">
+    <div className="app mentor-home">
       <MentorNavbar />
       <CategoryFilters eventName={MENTOR_LISTINGS_CATEGORY_EVENT} />
 

@@ -15,6 +15,8 @@ import useCourseAlertSummary from '../../hooks/useCourseAlertSummary';
 import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
 import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
+import useMediaQuery from '../../hooks/useMediaQuery';
+import { MobileHomeFilters, MobileSearchSheet } from './MobileHomeFilters';
 
 const STUDENT_LISTINGS_SEARCH_EVENT = 'student:listings-search';
 const loadTimezoneModal = () => import('../TimezoneModal/TimezoneModal');
@@ -115,12 +117,14 @@ function StudentNavbar() {
   const [isMentorRegistered, setIsMentorRegistered] = useState(false);
   const [showCourseRequestDraftModal, setShowCourseRequestDraftModal] = useState(false);
   const [checkingCourseRequestDrafts, setCheckingCourseRequestDrafts] = useState(false);
+  const [showMobileExactSearch, setShowMobileExactSearch] = useState(false);
   // 精确搜索展开（覆盖左侧筛选）状态
   const [isExactExpanded, setIsExactExpanded] = useState(false);
   // 延后切换激活项，避免按下鼠标到弹窗出现之间的闪烁
   const [pendingFilter, setPendingFilter] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const isPhone = useMediaQuery('(max-width: 599px)');
 
   const isStudentActive = location.pathname.startsWith('/student');
   const isMentorActive = location.pathname.startsWith('/mentor');
@@ -129,6 +133,10 @@ function StudentNavbar() {
   const { totalUnreadCount: messageUnreadCount } = useMessageUnreadSummary(isLoggedIn);
   const { newCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'student' });
   const totalBadgeCount = messageUnreadCount + newCourseCount;
+
+  useEffect(() => {
+    if (!isPhone) setShowMobileExactSearch(false);
+  }, [isPhone]);
 
   // 初始化登录状态与监听登录变化
   useEffect(() => {
@@ -333,7 +341,7 @@ function StudentNavbar() {
   };
 
   return (
-    <header className="navbar">
+    <header className="navbar navbar--student">
       {/* 顶部双层导航 */}
       <div className="navbar-top container">
         <div className="navbar-left">
@@ -404,6 +412,58 @@ function StudentNavbar() {
           </span>
         </div>
       </div>
+
+      <MobileHomeFilters
+        ariaLabel={t('nav.homeFilters', '导师筛选')}
+        filters={[
+          {
+            key: 'timezone',
+            label: t('nav.timeZone', '时区'),
+            value: selectedRegion,
+            buttonRef: timezoneRef,
+            expanded: showTimezoneModal,
+            onOpen: () => {
+              preloadLazy(loadTimezoneModal);
+              setShowTimezoneModal(true);
+              setPendingFilter('timezone');
+            },
+            onClear: (event) => {
+              event.stopPropagation();
+              setSelectedRegion('');
+              applySearch({ region: '' });
+            },
+          },
+          {
+            key: 'courseType',
+            label: t('nav.mentorSpecialty', '导师特色'),
+            value: getMentorFeatureLabel(selectedCourseType),
+            buttonRef: courseTypeRef,
+            expanded: showCourseTypeModal,
+            onOpen: () => {
+              preloadLazy(loadCourseTypeModal);
+              setShowCourseTypeModal(true);
+              setPendingFilter('courseType');
+            },
+            onClear: (event) => {
+              event.stopPropagation();
+              setSelectedCourseType('');
+              applySearch({ courseType: '' });
+            },
+          },
+          {
+            key: 'exactSearch',
+            label: t('nav.exactSearch', '精确搜索'),
+            value: exactSearch,
+            expanded: showMobileExactSearch,
+            onOpen: () => setShowMobileExactSearch(true),
+            onClear: (event) => {
+              event.stopPropagation();
+              setExactSearch('');
+              applySearch({ exactSearch: '' });
+            },
+          },
+        ]}
+      />
 
       {/* 搜索栏 */}
       <div className="navbar-bottom container">
@@ -508,8 +568,13 @@ function StudentNavbar() {
                 setIsSearchBarActive(false);
               }
             }}
-            onSelect={(region) => setSelectedRegion(region || '')}
+            onSelect={(region) => {
+              const next = region || '';
+              setSelectedRegion(next);
+              if (isPhone) applySearch({ region: next });
+            }}
             anchorRef={timezoneRef}
+            presentation={isPhone ? 'sheet' : 'anchored'}
           />
         </Suspense>
       )}
@@ -533,10 +598,13 @@ function StudentNavbar() {
               }
             }}
             onSelect={(courseType) => {
-              setSelectedCourseType(courseType || '');
+              const next = courseType || '';
+              setSelectedCourseType(next);
+              if (isPhone) applySearch({ courseType: next });
             }}
             anchorRef={courseTypeRef}
             mode="studentFeatures"
+            presentation={isPhone ? 'sheet' : 'anchored'}
           />
         </Suspense>
       )}
@@ -582,6 +650,20 @@ function StudentNavbar() {
           />
         </Suspense>
       )}
+
+      <MobileSearchSheet
+        open={showMobileExactSearch}
+        title={t('nav.exactSearch', '精确搜索')}
+        value={exactSearch}
+        placeholder={t('nav.exactSearchPlaceholder', '输入导师的MentorID或姓名')}
+        onChange={setExactSearch}
+        onClose={() => setShowMobileExactSearch(false)}
+        searchLabel={t('common.search', '搜索')}
+        onSubmit={() => {
+          applySearch({ exactSearch });
+          setShowMobileExactSearch(false);
+        }}
+      />
     </header>
   );
 }

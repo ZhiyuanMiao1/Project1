@@ -78,6 +78,11 @@
     margin-left: 5px;
   }
 
+  @media (min-width: 600px) {
+    .mobile-option-sheet__handle,
+    .mobile-option-sheet__header { display: none; }
+  }
+
   /* 鼠标悬停时按钮样式 */
   .regions button:hover {
     background-color: #f0f0f0; /* 改变背景颜色 */

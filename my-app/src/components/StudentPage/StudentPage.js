@@ -43,7 +43,7 @@ function StudentPage() {
   }, []);
 
   return (
-    <div className="app">
+    <div className="app student-home">
       {/* 顶部双层导航 */}
       <StudentNavbar />
       

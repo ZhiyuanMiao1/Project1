@@ -3,12 +3,13 @@ import './CourseTypeModal.css';
 import { COURSE_TYPE_ID_TO_LABEL } from '../../constants/courseMappings';
 import { useI18n } from '../../i18n/language';
 
-const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) => {
+const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType', presentation = 'anchored' }) => {
   const { getCourseTypeLabel, t } = useI18n();
   const contentRef = useRef(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useLayoutEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const updatePosition = () => {
       const anchorEl = anchorRef?.current;
       if (!anchorEl) return;
@@ -30,7 +31,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [anchorRef]);
+  }, [anchorRef, presentation]);
   const handleCourseTypeSelect = (courseType) => {
     onSelect(courseType); // 设置选中课程类型
     onClose(); // 关闭弹窗
@@ -38,6 +39,7 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
 
   // 文档级监听：点击弹窗外关闭（使用 click 冒泡阶段，避免按下瞬间关闭）
   useEffect(() => {
+    if (presentation === 'sheet') return undefined;
     const onDocClick = (e) => {
       const panel = contentRef.current;
       const anchorEl = anchorRef?.current;
@@ -48,16 +50,40 @@ const CourseTypeModal = ({ onClose, onSelect, anchorRef, mode = 'courseType' }) 
     };
     document.addEventListener('click', onDocClick, false);
     return () => document.removeEventListener('click', onDocClick, false);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, presentation]);
+
+  useEffect(() => {
+    if (presentation !== 'sheet') return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose, presentation]);
 
   return (
-    <div className="course-type-modal-overlay">
+    <div
+      className={`course-type-modal-overlay ${presentation === 'sheet' ? 'is-sheet' : ''}`}
+      onMouseDown={presentation === 'sheet' ? onClose : undefined}
+    >
       <div
-        className="course-types-modal-content"
+        className={`course-types-modal-content ${presentation === 'sheet' ? 'mobile-option-sheet' : ''}`}
         ref={contentRef}
-        style={{ position: 'fixed', top: position.top, left: position.left }}
+        style={presentation === 'sheet' ? undefined : { position: 'fixed', top: position.top, left: position.left }}
+        role="dialog"
+        aria-modal={presentation === 'sheet' ? 'true' : undefined}
+        aria-label={mode === 'studentFeatures' ? t('nav.mentorSpecialty', '导师特色') : t('nav.courseType', '课程类型')}
+        onMouseDown={(event) => event.stopPropagation()}
         // 交互由文档级监听控制
       >
+        <div className="mobile-option-sheet__handle" aria-hidden="true" />
+        <div className="mobile-option-sheet__header">
+          <h3>{mode === 'studentFeatures' ? t('nav.mentorSpecialty', '导师特色') : t('nav.courseType', '课程类型')}</h3>
+          <button type="button" onClick={onClose} aria-label={t('common.close', '关闭')}>×</button>
+        </div>
         <div className="course-types">
           {mode === 'studentFeatures' ? (
             <>
