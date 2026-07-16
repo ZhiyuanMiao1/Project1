@@ -348,29 +348,37 @@
 
   .timezone-modal-overlay.is-sheet .regions {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-top: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
   }
 
   .timezone-modal-overlay.is-sheet .regions button {
     width: 100%;
     height: auto;
-    min-height: 96px;
-    padding: 8px;
-    border: 1px solid #e5e7eb;
+    min-height: 98px;
+    padding: 6px 2px;
+    gap: 4px;
+    border: 0;
+    border-radius: 14px;
   }
 
   .timezone-modal-overlay.is-sheet .regions button img {
     width: 64px;
     height: 64px;
-    margin: 0 auto 4px;
+    margin: 0 auto;
   }
 
   .timezone-modal-overlay.is-sheet .regions button span {
     margin: 0;
     text-align: center;
     font-size: 13px;
+    line-height: 18px;
+  }
+
+  .timezone-modal-overlay.is-sheet .regions button:active {
+    background: #f3f4f6;
+    transform: scale(.98);
   }
 
   .course-type-modal-overlay.is-sheet .course-type-button,
