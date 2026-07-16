@@ -91,7 +91,7 @@ describe('MobileHomeFilters', () => {
     });
 
     expect(document.body.style.overflow).toBe('hidden');
-    act(() => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    act(() => document.querySelector('.mobile-search-sheet form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     expect(onSubmit).toHaveBeenCalledTimes(1);
 
     act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));

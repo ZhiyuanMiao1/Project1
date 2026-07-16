@@ -194,7 +194,7 @@
   }
 
   .navbar--student .mobile-filter-chip.is-selected {
-    background: #f5f6f7;
+    background: #fff;
   }
 
   .navbar--student .mobile-filter-chip__label {
@@ -205,7 +205,7 @@
   }
 
   .navbar--student .mobile-filter-chip:active {
-    background: #f5f6f7;
+    background: #f8f8f8;
   }
 
   .navbar--student .mobile-filter-chip__value {
@@ -216,6 +216,23 @@
   .navbar--student .mobile-filter-chip__clear {
     width: 30px;
     flex: 0 0 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .navbar--student .mobile-filter-chip__clear svg {
+    display: block;
+    width: 13px;
+    height: 13px;
+  }
+
+  .navbar--student .mobile-filter-chip__clear path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.35;
+    stroke-linecap: round;
   }
 
   .mobile-home-filters__scroller::-webkit-scrollbar { display: none; }
@@ -280,10 +297,12 @@
   .mobile-sheet-overlay {
     position: fixed;
     top: var(--mobile-viewport-top, 0px);
-    right: 0;
+    right: auto;
     bottom: auto;
-    left: 0;
+    left: var(--mobile-viewport-left, 0px);
+    width: var(--mobile-viewport-width, 100vw);
     height: var(--mobile-viewport-height, 100dvh);
+    box-sizing: border-box;
     z-index: 1400;
     display: flex;
     align-items: flex-end;

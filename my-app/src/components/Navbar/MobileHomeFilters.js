@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './MobileHomeFilters.css';
 
 export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChevron = true, hideLabelWhenSelected = false }) {
@@ -29,7 +30,9 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChe
                   onClick={filter.onClear}
                   aria-label={filter.clearLabel || `清除${filter.label}`}
                 >
-                  ×
+                  <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
                 </button>
               ) : null}
             </div>
@@ -53,13 +56,24 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
     const syncVisualViewport = () => {
       const overlay = overlayRef.current;
       const viewport = window.visualViewport;
-      if (!overlay || !viewport) return;
-      overlay.style.setProperty('--mobile-viewport-top', `${viewport.offsetTop}px`);
-      overlay.style.setProperty('--mobile-viewport-height', `${viewport.height}px`);
+      if (!overlay) return;
+      const viewportTop = viewport?.offsetTop || 0;
+      const viewportLeft = viewport?.offsetLeft || 0;
+      const viewportRight = viewport ? viewportLeft + viewport.width : window.innerWidth;
+      const viewportBottom = viewport ? viewportTop + viewport.height : window.innerHeight;
+      const keyboardRect = navigator.virtualKeyboard?.boundingRect;
+      const keyboardTop = keyboardRect?.height > 0 ? keyboardRect.top : Number.POSITIVE_INFINITY;
+      const visibleBottom = Math.min(viewportBottom, keyboardTop);
+      overlay.style.setProperty('--mobile-viewport-top', `${viewportTop}px`);
+      overlay.style.setProperty('--mobile-viewport-left', `${viewportLeft}px`);
+      overlay.style.setProperty('--mobile-viewport-width', `${Math.max(0, viewportRight - viewportLeft)}px`);
+      overlay.style.setProperty('--mobile-viewport-height', `${Math.max(0, visibleBottom - viewportTop)}px`);
     };
     syncVisualViewport();
+    window.addEventListener('resize', syncVisualViewport);
     window.visualViewport?.addEventListener('resize', syncVisualViewport);
     window.visualViewport?.addEventListener('scroll', syncVisualViewport);
+    navigator.virtualKeyboard?.addEventListener?.('geometrychange', syncVisualViewport);
     const timer = window.setTimeout(() => inputRef.current?.focus(), 60);
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onClose();
@@ -69,14 +83,16 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
       window.clearTimeout(timer);
       document.body.style.overflow = previousOverflow;
       document.documentElement.style.overflow = previousHtmlOverflow;
+      window.removeEventListener('resize', syncVisualViewport);
       window.visualViewport?.removeEventListener('resize', syncVisualViewport);
       window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
+      navigator.virtualKeyboard?.removeEventListener?.('geometrychange', syncVisualViewport);
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  const sheet = (
     <div ref={overlayRef} className="mobile-sheet-overlay" onMouseDown={onClose}>
       <section
         className="mobile-sheet mobile-search-sheet"
@@ -108,4 +124,5 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
       </section>
     </div>
   );
+  return createPortal(sheet, document.body);
 }
