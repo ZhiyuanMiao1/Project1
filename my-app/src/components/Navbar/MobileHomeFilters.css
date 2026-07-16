@@ -199,6 +199,7 @@
 
   .navbar--student .mobile-filter-chip__label {
     font-size: 14px;
+    font-weight: 500;
     line-height: 20px;
     letter-spacing: -.01em;
   }
@@ -278,7 +279,11 @@
 
   .mobile-sheet-overlay {
     position: fixed;
-    inset: 0;
+    top: var(--mobile-viewport-top, 0px);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    height: var(--mobile-viewport-height, 100dvh);
     z-index: 1400;
     display: flex;
     align-items: flex-end;
@@ -335,7 +340,11 @@
     font-size: 16px;
     outline: none;
   }
-  .mobile-search-sheet__form input:focus { border-color: #111; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
+  .mobile-search-sheet__form input:focus {
+    border-color: #111;
+    outline: none;
+    box-shadow: none;
+  }
   .mobile-search-sheet__form button {
     min-width: 72px;
     height: 48px;

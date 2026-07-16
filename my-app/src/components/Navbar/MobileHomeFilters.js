@@ -42,11 +42,24 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChe
 
 export function MobileSearchSheet({ open, title, value, placeholder, onChange, onClose, onSubmit, searchLabel = '搜索' }) {
   const inputRef = useRef(null);
+  const overlayRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
     const previousOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    const syncVisualViewport = () => {
+      const overlay = overlayRef.current;
+      const viewport = window.visualViewport;
+      if (!overlay || !viewport) return;
+      overlay.style.setProperty('--mobile-viewport-top', `${viewport.offsetTop}px`);
+      overlay.style.setProperty('--mobile-viewport-height', `${viewport.height}px`);
+    };
+    syncVisualViewport();
+    window.visualViewport?.addEventListener('resize', syncVisualViewport);
+    window.visualViewport?.addEventListener('scroll', syncVisualViewport);
     const timer = window.setTimeout(() => inputRef.current?.focus(), 60);
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onClose();
@@ -55,13 +68,16 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
     return () => {
       window.clearTimeout(timer);
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      window.visualViewport?.removeEventListener('resize', syncVisualViewport);
+      window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [open, onClose]);
 
   if (!open) return null;
   return (
-    <div className="mobile-sheet-overlay" onMouseDown={onClose}>
+    <div ref={overlayRef} className="mobile-sheet-overlay" onMouseDown={onClose}>
       <section
         className="mobile-sheet mobile-search-sheet"
         role="dialog"
