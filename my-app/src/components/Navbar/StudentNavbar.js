@@ -416,6 +416,7 @@ function StudentNavbar() {
       <MobileHomeFilters
         ariaLabel={t('nav.homeFilters', '导师筛选')}
         showChevron={false}
+        hideLabelWhenSelected
         filters={[
           {
             key: 'timezone',

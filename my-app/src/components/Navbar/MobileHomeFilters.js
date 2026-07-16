@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import './MobileHomeFilters.css';
 
-export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChevron = true }) {
+export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChevron = true, hideLabelWhenSelected = false }) {
   return (
     <div className="mobile-home-filters" aria-label={ariaLabel}>
       <div className="mobile-home-filters__scroller">
@@ -16,7 +16,9 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChe
                 onClick={filter.onOpen}
                 aria-expanded={Boolean(filter.expanded)}
               >
-                <span className="mobile-filter-chip__label">{filter.label}</span>
+                {!hasValue || !hideLabelWhenSelected ? (
+                  <span className="mobile-filter-chip__label">{filter.label}</span>
+                ) : null}
                 {hasValue ? <span className="mobile-filter-chip__value">{filter.value}</span> : null}
                 {showChevron ? <span className="mobile-filter-chip__chevron" aria-hidden="true">⌄</span> : null}
               </button>

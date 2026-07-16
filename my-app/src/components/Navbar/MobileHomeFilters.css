@@ -158,6 +158,65 @@
     overscroll-behavior-x: contain;
   }
 
+  .navbar--student .mobile-home-filters__scroller {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    margin: 0 16px 2px;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid #e1e3e6;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(17, 24, 39, .04);
+  }
+
+  .navbar--student .mobile-filter-chip__open {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+    justify-content: center;
+    font-family: inherit;
+  }
+
+  .navbar--student .mobile-filter-chip {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
+  }
+
+  .navbar--student .mobile-filter-chip + .mobile-filter-chip {
+    border-left: 1px solid #e1e3e6;
+  }
+
+  .navbar--student .mobile-filter-chip.is-selected {
+    background: #f5f6f7;
+  }
+
+  .navbar--student .mobile-filter-chip__label {
+    font-size: 14px;
+    line-height: 20px;
+    letter-spacing: -.01em;
+  }
+
+  .navbar--student .mobile-filter-chip:active {
+    background: #f5f6f7;
+  }
+
+  .navbar--student .mobile-filter-chip__value {
+    min-width: 0;
+    max-width: 48px;
+  }
+
+  .navbar--student .mobile-filter-chip__clear {
+    width: 30px;
+    flex: 0 0 30px;
+  }
+
   .mobile-home-filters__scroller::-webkit-scrollbar { display: none; }
 
   .mobile-filter-chip {

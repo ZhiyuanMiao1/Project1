@@ -59,6 +59,20 @@ describe('MobileHomeFilters', () => {
     expect(container.querySelector('.mobile-filter-chip__chevron')).toBeNull();
   });
 
+  test('shows only the selected value when requested', () => {
+    act(() => {
+      root.render(
+        <MobileHomeFilters
+          hideLabelWhenSelected
+          filters={[{ key: 'timezone', label: '时区', value: '欧洲', onOpen: jest.fn(), onClear: jest.fn() }]}
+        />
+      );
+    });
+
+    expect(container.querySelector('.mobile-filter-chip__label')).toBeNull();
+    expect(container.querySelector('.mobile-filter-chip__value').textContent).toBe('欧洲');
+  });
+
   test('submits exact search and restores body scrolling when closed', () => {
     const onSubmit = jest.fn();
     const onClose = jest.fn();
