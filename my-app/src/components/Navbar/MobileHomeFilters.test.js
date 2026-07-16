@@ -46,6 +46,19 @@ describe('MobileHomeFilters', () => {
     expect(container.querySelector('.mobile-filter-chip').classList.contains('is-selected')).toBe(true);
   });
 
+  test('can hide filter chevrons', () => {
+    act(() => {
+      root.render(
+        <MobileHomeFilters
+          showChevron={false}
+          filters={[{ key: 'timezone', label: '时区', value: '', onOpen: jest.fn() }]}
+        />
+      );
+    });
+
+    expect(container.querySelector('.mobile-filter-chip__chevron')).toBeNull();
+  });
+
   test('submits exact search and restores body scrolling when closed', () => {
     const onSubmit = jest.fn();
     const onClose = jest.fn();

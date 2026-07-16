@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import './MobileHomeFilters.css';
 
-export function MobileHomeFilters({ filters, ariaLabel = '主页筛选' }) {
+export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChevron = true }) {
   return (
     <div className="mobile-home-filters" aria-label={ariaLabel}>
       <div className="mobile-home-filters__scroller">
@@ -18,7 +18,7 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选' }) {
               >
                 <span className="mobile-filter-chip__label">{filter.label}</span>
                 {hasValue ? <span className="mobile-filter-chip__value">{filter.value}</span> : null}
-                <span className="mobile-filter-chip__chevron" aria-hidden="true">⌄</span>
+                {showChevron ? <span className="mobile-filter-chip__chevron" aria-hidden="true">⌄</span> : null}
               </button>
               {hasValue ? (
                 <button
