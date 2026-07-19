@@ -312,11 +312,28 @@
     width: var(--mobile-viewport-width, 100vw);
     height: var(--mobile-viewport-height, 100dvh);
     box-sizing: border-box;
+    overflow: visible;
     z-index: 1400;
     display: flex;
     align-items: flex-end;
     background: rgba(0, 0, 0, 0.32);
     animation: mobile-sheet-fade 180ms ease-out;
+  }
+
+  /*
+   * iOS Safari places its translucent form toolbar (domain + previous/next)
+   * below the visual viewport. Keep a white surface behind that browser UI so
+   * the page cannot show through the strip between this sheet and the keyboard.
+   */
+  .mobile-sheet-overlay::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: #fff;
+    pointer-events: none;
   }
 
   .mobile-sheet {
