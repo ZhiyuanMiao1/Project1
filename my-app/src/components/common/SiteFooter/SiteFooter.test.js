@@ -56,6 +56,7 @@ describe('SiteFooter', () => {
     act(() => supportButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(supportButton.getAttribute('aria-expanded')).toBe('true');
     expect(supportContent.hidden).toBe(false);
+    expect(container.querySelector('.site-footer__contact-row').textContent).toBe('联系我们contact@mentory.cc');
 
     act(() => aboutButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(supportButton.getAttribute('aria-expanded')).toBe('false');

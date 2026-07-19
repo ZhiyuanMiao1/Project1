@@ -67,8 +67,10 @@ function SiteFooter({ mode = 'student' }) {
           onToggle={toggleSection}
         >
           <Link to={`${basePath}/help`}>{t('footer.helpCenter', '帮助中心')}</Link>
-          <a href={`mailto:${supportEmail}`}>{t('footer.contactUs', '联系我们')}</a>
-          <span className="site-footer__muted">{supportEmail}</span>
+          <div className="site-footer__contact-row">
+            <a href={`mailto:${supportEmail}`}>{t('footer.contactUs', '联系我们')}</a>
+            <span className="site-footer__muted">{supportEmail}</span>
+          </div>
         </FooterColumn>
 
         <FooterColumn

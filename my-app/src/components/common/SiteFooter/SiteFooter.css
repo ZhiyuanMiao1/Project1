@@ -96,6 +96,17 @@
   color: #9ca3af !important;
 }
 
+.site-footer__contact-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.site-footer__contact-row .site-footer__muted {
+  white-space: nowrap;
+}
+
 .site-footer__bottom {
   display: flex;
   flex-wrap: wrap;
@@ -184,7 +195,8 @@
   }
 
   .site-footer__column-content > a,
-  .site-footer__column-content > span {
+  .site-footer__column-content > span,
+  .site-footer__contact-row {
     min-height: 36px;
     display: flex;
     align-items: center;
