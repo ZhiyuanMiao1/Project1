@@ -270,6 +270,8 @@ function MentorNavbar() {
 
       <MobileHomeFilters
         ariaLabel={t('nav.homeFilters', '学生需求筛选')}
+        showChevron={false}
+        hideLabelWhenSelected
         filters={[
           {
             key: 'timezone',

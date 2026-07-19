@@ -158,7 +158,8 @@
     overscroll-behavior-x: contain;
   }
 
-  .navbar--student .mobile-home-filters__scroller {
+  .navbar--student .mobile-home-filters__scroller,
+  .navbar--mentor .mobile-home-filters__scroller {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0;
@@ -171,7 +172,8 @@
     box-shadow: 0 1px 3px rgba(17, 24, 39, .04);
   }
 
-  .navbar--student .mobile-filter-chip__open {
+  .navbar--student .mobile-filter-chip__open,
+  .navbar--mentor .mobile-filter-chip__open {
     width: 100%;
     min-width: 0;
     padding-inline: 8px;
@@ -179,7 +181,8 @@
     font-family: inherit;
   }
 
-  .navbar--student .mobile-filter-chip {
+  .navbar--student .mobile-filter-chip,
+  .navbar--mentor .mobile-filter-chip {
     width: 100%;
     min-width: 0;
     max-width: none;
@@ -189,26 +192,31 @@
     transition: background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
   }
 
-  .navbar--student .mobile-filter-chip + .mobile-filter-chip {
+  .navbar--student .mobile-filter-chip + .mobile-filter-chip,
+  .navbar--mentor .mobile-filter-chip + .mobile-filter-chip {
     border-left: 1px solid #e1e3e6;
   }
 
-  .navbar--student .mobile-filter-chip.is-selected {
+  .navbar--student .mobile-filter-chip.is-selected,
+  .navbar--mentor .mobile-filter-chip.is-selected {
     background: #fff;
   }
 
-  .navbar--student .mobile-filter-chip__label {
+  .navbar--student .mobile-filter-chip__label,
+  .navbar--mentor .mobile-filter-chip__label {
     font-size: 14px;
     font-weight: 500;
     line-height: 20px;
     letter-spacing: -.01em;
   }
 
-  .navbar--student .mobile-filter-chip:active {
+  .navbar--student .mobile-filter-chip:active,
+  .navbar--mentor .mobile-filter-chip:active {
     background: #f8f8f8;
   }
 
-  .navbar--student .mobile-filter-chip__value {
+  .navbar--student .mobile-filter-chip__value,
+  .navbar--mentor .mobile-filter-chip__value {
     min-width: 0;
     max-width: 100%;
     color: #111;
@@ -217,11 +225,13 @@
     line-height: 20px;
   }
 
-  .navbar--student .mobile-filter-chip.is-selected .mobile-filter-chip__open {
+  .navbar--student .mobile-filter-chip.is-selected .mobile-filter-chip__open,
+  .navbar--mentor .mobile-filter-chip.is-selected .mobile-filter-chip__open {
     padding-inline: 6px;
   }
 
-  .navbar--student .mobile-filter-chip__clear {
+  .navbar--student .mobile-filter-chip__clear,
+  .navbar--mentor .mobile-filter-chip__clear {
     width: 30px;
     flex: 0 0 30px;
     display: inline-flex;
@@ -231,13 +241,15 @@
     line-height: 1;
   }
 
-  .navbar--student .mobile-filter-chip__clear svg {
+  .navbar--student .mobile-filter-chip__clear svg,
+  .navbar--mentor .mobile-filter-chip__clear svg {
     display: block;
     width: 13px;
     height: 13px;
   }
 
-  .navbar--student .mobile-filter-chip__clear path {
+  .navbar--student .mobile-filter-chip__clear path,
+  .navbar--mentor .mobile-filter-chip__clear path {
     fill: none;
     stroke: currentColor;
     stroke-width: 1.35;
