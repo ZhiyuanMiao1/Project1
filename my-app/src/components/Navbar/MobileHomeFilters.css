@@ -210,7 +210,15 @@
 
   .navbar--student .mobile-filter-chip__value {
     min-width: 0;
-    max-width: 48px;
+    max-width: 100%;
+    color: #111;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+  }
+
+  .navbar--student .mobile-filter-chip.is-selected .mobile-filter-chip__open {
+    padding-inline: 6px;
   }
 
   .navbar--student .mobile-filter-chip__clear {
@@ -219,6 +227,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    border-left: 0;
     line-height: 1;
   }
 
