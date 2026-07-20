@@ -100,7 +100,6 @@ function SiteFooter({ mode = 'student' }) {
 
       <div className="site-footer__bottom">
         <span>{t('footer.copyright', '© 2026 Mentory')}</span>
-        <span>{t('footer.compliancePending', '备案与许可证信息待补充')}</span>
       </div>
     </footer>
   );

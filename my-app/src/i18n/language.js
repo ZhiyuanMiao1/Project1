@@ -381,7 +381,6 @@ const en = {
   'footer.terms': 'Terms of Service',
   'footer.refundRules': 'Refund / cancellation rules',
   'footer.copyright': '© 2026 Mentory',
-  'footer.compliancePending': 'Filing and license information pending',
   'listings.favorite': 'Favorite',
   'listings.unfavorite': 'Remove favorite',
   'listings.reviews': '{count} reviews',
