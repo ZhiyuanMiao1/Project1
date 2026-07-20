@@ -129,6 +129,7 @@
   align-items: flex-start;
   gap: 18px;
   width: 100%;
+  min-width: 0;
   text-align: left;
   position: relative;
 }
@@ -475,51 +476,188 @@
   filter: brightness(1.04);
 }
 
-@media (max-width: 600px) {
+@media (min-width: 600px) and (max-width: 899px) {
   .course-onboarding-overlay {
-    padding: 14px;
+    padding: 24px;
+  }
+
+  .course-onboarding-modal {
+    width: min(680px, calc(100vw - 48px));
+    height: min(84dvh, 760px);
+  }
+
+  .course-onboarding-close {
+    width: 44px;
+    height: 44px;
   }
 
   .course-onboarding-header {
-    padding: 34px 18px 0;
-  }
-
-  .course-onboarding-body {
-    margin-bottom: 18px;
-  }
-
-  .course-onboarding-body::before {
-    height: 14px;
+    padding: 38px 32px 0;
   }
 
   .course-onboarding-content {
-    padding: 0 18px 16px;
+    padding: 0 32px 18px;
+  }
+
+  .course-onboarding-footer {
+    min-height: 180px;
+    padding: 10px 32px 24px;
+  }
+
+  .course-onboarding-course-main {
+    padding-right: 210px;
+  }
+}
+
+@media (max-width: 599px) {
+  .course-onboarding-overlay {
+    align-items: flex-end;
+    padding: 12px 0 0;
+  }
+
+  .course-onboarding-modal {
+    width: 100%;
+    height: min(760px, calc(100dvh - 12px));
+    max-height: calc(100dvh - 12px);
+    border-radius: 24px 24px 0 0;
+  }
+
+  .course-onboarding-close {
+    top: 10px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .course-onboarding-header {
+    padding: 26px 64px 0 20px;
+  }
+
+  .course-onboarding-body {
+    min-height: 0;
+    margin-bottom: 0;
+    overscroll-behavior: contain;
+  }
+
+  .course-onboarding-body::before {
+    height: 16px;
+  }
+
+  .course-onboarding-content {
+    padding: 0 16px 16px;
   }
 
   .course-onboarding-title {
     font-size: 22px;
+    line-height: 1.2;
   }
 
   .course-onboarding-footer {
-    padding: 8px 18px 16px;
-    min-height: 200px;
+    min-height: 0;
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
   }
 
   .course-onboarding-card {
-    padding: 14px 18px 14px 14px;
+    padding: 12px;
     border-radius: 16px;
+  }
+
+  .course-onboarding-course-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    max-width: 100%;
+  }
+
+  .course-onboarding-course-main {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 60px;
+    padding: 0;
+  }
+
+  .course-onboarding-course-left {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .course-onboarding-course-info {
+    flex: 1 1 auto;
+  }
+
+  .course-onboarding-course-title-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
   }
 
   .course-onboarding-course-title-text {
     font-size: 16px;
   }
 
+  .course-onboarding-course-status-badge {
+    align-self: flex-start;
+    margin-top: 5px;
+  }
+
   .course-onboarding-course-type-row {
-    padding-left: 12px;
-    transform: translateY(-3px);
+    padding-left: 8px;
+    margin-top: 0;
+    transform: none;
+  }
+
+  .course-onboarding-course-meta {
+    position: static;
+    transform: none;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+    pointer-events: auto;
+  }
+
+  .course-onboarding-course-created {
+    min-width: 0;
+    overflow: hidden;
+    color: rgba(15, 23, 42, 0.58);
+    font-size: 12px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+  }
+
+  .course-onboarding-course-delete {
+    width: 44px;
+    height: 44px;
+  }
+
+  .course-onboarding-section-title {
+    margin-bottom: 10px;
+    font-size: 18px;
+  }
+
+  .course-onboarding-action-list {
+    border-radius: 16px;
   }
 
   .course-onboarding-action-row {
-    padding: 16px 14px;
+    min-height: 60px;
+    padding: 8px 12px;
+  }
+
+  .course-onboarding-action-left {
+    gap: 10px;
+  }
+
+  .course-onboarding-confirm {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 16px;
   }
 }

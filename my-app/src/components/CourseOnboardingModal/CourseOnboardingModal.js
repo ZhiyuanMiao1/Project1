@@ -354,7 +354,7 @@ function CourseOnboardingModal({
                       </div>
                     </button>
 
-                    <div className="course-onboarding-course-meta" aria-hidden="true">
+                    <div className="course-onboarding-course-meta">
                       <span className="course-onboarding-course-created">
                         {t('courseOnboarding.createdAt', `创建于${item.createdLabel || createdDateLabel}`, { date: item.createdLabel || createdDateLabel })}
                       </span>
