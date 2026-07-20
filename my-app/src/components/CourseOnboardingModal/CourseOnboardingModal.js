@@ -32,6 +32,7 @@ function CourseOnboardingModal({
   const [draftCards, setDraftCards] = useState([]);
   const [draftLoading, setDraftLoading] = useState(true);
   const [deletingIds, setDeletingIds] = useState(() => new Set());
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useLayoutEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -191,8 +192,8 @@ function CourseOnboardingModal({
 
   const deleteDraft = async (requestId) => {
     const id = Number(requestId);
-    if (!Number.isFinite(id) || id < 1) return;
-    if (deletingIds.has(id)) return;
+    if (!Number.isFinite(id) || id < 1) return false;
+    if (deletingIds.has(id)) return false;
 
     const deletingIndex = courseCards.findIndex((c) => Number(c?.requestId) === id);
 
@@ -212,9 +213,11 @@ function CourseOnboardingModal({
         if (prev > deletingIndex) return prev - 1;
         return prev;
       });
+      return true;
     } catch (err) {
       const msg = err?.response?.data?.error || err?.message || t('courseOnboarding.deleteFailed', '删除失败，请稍后再试');
       alert(msg);
+      return false;
     } finally {
       setDeletingIds((prev) => {
         const next = new Set(prev);
@@ -222,6 +225,13 @@ function CourseOnboardingModal({
         return next;
       });
     }
+  };
+
+  const confirmDelete = async () => {
+    const requestId = Number(pendingDelete?.requestId);
+    if (!Number.isFinite(requestId) || requestId < 1) return;
+    const deleted = await deleteDraft(requestId);
+    if (deleted) setPendingDelete(null);
   };
 
   const focusCourseAt = (index) => {
@@ -368,7 +378,7 @@ function CourseOnboardingModal({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            deleteDraft(item.requestId);
+                            setPendingDelete(item);
                           }}
                         >
                           <FiTrash2 aria-hidden="true" />
@@ -414,6 +424,57 @@ function CourseOnboardingModal({
             </Button>
           ) : null}
         </div>
+
+        {pendingDelete ? (
+          <div
+            className="course-onboarding-delete-confirm-overlay"
+            role="presentation"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget && !deletingIds.has(Number(pendingDelete.requestId))) {
+                setPendingDelete(null);
+              }
+            }}
+          >
+            <div
+              className="course-onboarding-delete-confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="course-onboarding-delete-confirm-title"
+              aria-describedby="course-onboarding-delete-confirm-description"
+            >
+              <h3 id="course-onboarding-delete-confirm-title">
+                {pendingDelete.status === 'draft'
+                  ? t('courseOnboarding.confirmDeleteDraftTitle', '删除课程草稿？')
+                  : t('courseOnboarding.confirmDeleteSubmittedTitle', '删除课程需求？')}
+              </h3>
+              <p id="course-onboarding-delete-confirm-description">
+                {pendingDelete.status === 'draft'
+                  ? t('courseOnboarding.confirmDeleteDraftDescription', '删除后无法恢复')
+                  : t('courseOnboarding.confirmDeleteSubmittedDescription', '删除后将不再展示给导师，且无法恢复')}
+              </p>
+              <div className="course-onboarding-delete-confirm-actions">
+                <button
+                  type="button"
+                  className="course-onboarding-delete-confirm-cancel"
+                  disabled={deletingIds.has(Number(pendingDelete.requestId))}
+                  onClick={() => setPendingDelete(null)}
+                >
+                  {t('common.cancel', '取消')}
+                </button>
+                <button
+                  type="button"
+                  className="course-onboarding-delete-confirm-submit"
+                  disabled={deletingIds.has(Number(pendingDelete.requestId))}
+                  onClick={confirmDelete}
+                >
+                  {deletingIds.has(Number(pendingDelete.requestId))
+                    ? t('common.deleting', '删除中…')
+                    : t('courseOnboarding.delete', '删除')}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
