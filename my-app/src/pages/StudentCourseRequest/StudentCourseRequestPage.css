@@ -1440,7 +1440,7 @@
   }
 
   .course-request-page .details-layout .step-intro {
-    gap: 6px;
+    gap: 8px;
   }
 
   .course-request-page .details-layout .step-content h1,
@@ -1456,7 +1456,7 @@
   }
 
   .course-request-page .details-right-panel .step-field-stack {
-    gap: 14px;
+    gap: 18px;
   }
 
   .course-request-page .details-right-panel .step-field-group {
