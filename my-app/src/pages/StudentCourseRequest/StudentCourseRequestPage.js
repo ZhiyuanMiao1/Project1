@@ -129,6 +129,11 @@ function StudentCourseRequestPage() {
     };
   });
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isMobileFlow, setIsMobileFlow] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches
+  ));
+  const [mobileIntroStepIndex, setMobileIntroStepIndex] = useState(null);
+  const skipNextMobileIntroRef = useRef(false);
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isDirectionSelection, setIsDirectionSelection] = useState(false);
@@ -168,6 +173,30 @@ function StudentCourseRequestPage() {
 
   // Stable mock profile for preview (when student info is missing)
   const mockStudent = useMemo(() => generateMockStudentProfile(), []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 899px)');
+    const syncMobileFlow = (event) => setIsMobileFlow(event.matches);
+    setIsMobileFlow(mediaQuery.matches);
+    mediaQuery.addEventListener('change', syncMobileFlow);
+    return () => mediaQuery.removeEventListener('change', syncMobileFlow);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileFlow || currentStepIndex === 0) {
+      skipNextMobileIntroRef.current = false;
+      setMobileIntroStepIndex(null);
+      return;
+    }
+
+    if (skipNextMobileIntroRef.current) {
+      skipNextMobileIntroRef.current = false;
+      setMobileIntroStepIndex(null);
+      return;
+    }
+
+    setMobileIntroStepIndex(currentStepIndex);
+  }, [currentStepIndex, isMobileFlow]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -776,6 +805,12 @@ function StudentCourseRequestPage() {
   const isUploadStep = currentStep.id === 'upload';
 
   const isDirectionSelectionStage = isDirectionStep && isDirectionSelection;
+  const isMobileStepIntro = isMobileFlow
+    && currentStepIndex > 0
+    && mobileIntroStepIndex === currentStepIndex;
+  const isMobileStepBody = isMobileFlow
+    && currentStepIndex > 0
+    && !isMobileStepIntro;
 
   const flushAvailabilitySave = useCallback(() => {
     if (!isLoggedIn) return;
@@ -1092,6 +1127,10 @@ function StudentCourseRequestPage() {
 
   const handleNext = () => {
     if (requestBusy) return;
+    if (isMobileStepIntro) {
+      startPageTransition(() => setMobileIntroStepIndex(null));
+      return;
+    }
     if (currentStepIndex === STEPS.length - 1) {
       submitRequest();
       return;
@@ -1130,6 +1169,21 @@ function StudentCourseRequestPage() {
 
   const handleBack = () => {
     startPageTransition(() => {
+      if (isMobileStepBody) {
+        setMobileIntroStepIndex(currentStepIndex);
+        return;
+      }
+
+      if (isMobileStepIntro) {
+        skipNextMobileIntroRef.current = true;
+        if (currentStep.id === 'details') {
+          setIsDirectionSelection(true);
+          setIsCourseTypeSelection(true);
+        }
+        setCurrentStepIndex((index) => Math.max(index - 1, 0));
+        return;
+      }
+
       if (currentStep.id === 'direction' && isDirectionSelection && isCourseTypeSelection) {
         setIsCourseTypeSelection(false);
         return;
@@ -1161,11 +1215,13 @@ function StudentCourseRequestPage() {
 
   const stepLayoutClassName = [
     'step-layout',
-    isDirectionStep && !isDirectionSelectionStage ? 'direction-intro-layout' : '',
+    (isDirectionStep && !isDirectionSelectionStage) || isMobileStepIntro ? 'direction-intro-layout' : '',
+    isMobileStepIntro ? 'mobile-step-intro-layout' : '',
+    isMobileStepBody ? 'mobile-step-body-layout' : '',
     isDirectionSelectionStage ? 'direction-selection-layout' : '',
-    isDetailsStep ? 'details-layout' : '',
-    isScheduleStep ? 'schedule-layout' : '',
-    isUploadStep ? 'contact-preview-layout' : '',
+    isDetailsStep && !isMobileStepIntro ? 'details-layout' : '',
+    isScheduleStep && !isMobileStepIntro ? 'schedule-layout' : '',
+    isUploadStep && !isMobileStepIntro ? 'contact-preview-layout' : '',
     transitionClassName,
   ]
     .filter(Boolean)
@@ -1191,7 +1247,7 @@ function StudentCourseRequestPage() {
 
   const stepContentClassName = [
     'step-content',
-    (isDirectionStep || isDetailsStep) ? 'direction-layout' : '',
+    (isDirectionStep || isDetailsStep || isMobileStepIntro) ? 'direction-layout' : '',
     isDirectionSelectionStage ? 'direction-selection' : '',
     isScheduleStep ? 'schedule-content' : '',
   ]
@@ -1201,11 +1257,20 @@ function StudentCourseRequestPage() {
   const stepFooterClassName = [
     'step-footer',
     isDirectionStep && !isDirectionSelectionStage ? 'direction-intro-footer' : '',
+    isMobileStepIntro ? 'mobile-step-intro-footer' : '',
     transitionClassName,
   ].filter(Boolean).join(' ');
 
   const units = currentStepIndex === 0 ? (isDirectionSelection ? (isCourseTypeSelection ? 1 : 0.5) : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
+  const mobileCurrentSegmentProgress = currentStepIndex === 0
+    ? (isDirectionSelection ? (isCourseTypeSelection ? 100 : 60) : 25)
+    : (isMobileStepIntro ? 45 : 100);
+  const mobileProgressSegments = STEPS.map((_, index) => {
+    if (index < currentStepIndex) return 100;
+    if (index > currentStepIndex) return 0;
+    return mobileCurrentSegmentProgress;
+  });
   //const progress = ((currentStepIndex + 1) / STEPS.length) * 100;
 
   // ---- Data for contact-step preview card ----
@@ -1539,7 +1604,7 @@ function StudentCourseRequestPage() {
           </header>
 
           <section className={stepLayoutClassName}>
-            {isUploadStep && !isDirectionSelectionStage && (
+            {isUploadStep && !isDirectionSelectionStage && !isMobileStepIntro && (
               <div
                 ref={previewRef}
                 className="contact-preview-floating"
@@ -1592,29 +1657,46 @@ function StudentCourseRequestPage() {
               </div>
             )}
             <div className={stepContentClassName}>
-              <div className="step-intro">
-                {!isDirectionSelectionStage && (
-                  <React.Fragment>
-                    <span className="step-label">{currentStepCopy.label}</span>
-                    <h1>{currentStepCopy.title}</h1>
-                  </React.Fragment>
-                )}
-                <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
-                  {isDirectionSelectionStage
-                    ? (isCourseTypeSelection ? t('courseRequest.courseTypeQuestion', '请选择你的课程类型') : t('courseRequest.directionQuestion', '以下哪一项最准确描述了你希望提升的课程？'))
-                    : currentStepCopy.description}
-                </p>
-              </div>
+              {!isMobileStepBody && (
+                <div className="step-intro">
+                  {!isDirectionSelectionStage && (
+                    <React.Fragment>
+                      <span className="step-label">{currentStepCopy.label}</span>
+                      <h1>{currentStepCopy.title}</h1>
+                    </React.Fragment>
+                  )}
+                  <p className={`step-description ${isDirectionSelectionStage ? 'direction-question' : ''}`}>
+                    {isDirectionSelectionStage
+                      ? (isCourseTypeSelection ? t('courseRequest.courseTypeQuestion', '请选择你的课程类型') : t('courseRequest.directionQuestion', '以下哪一项最准确描述了你希望提升的课程？'))
+                      : currentStepCopy.description}
+                  </p>
+                </div>
+              )}
 
-              {isDirectionStep ? (
-                isDirectionSelectionStage ? renderStepContent() : null
-              ) : (
-                isDetailsStep ? null : <div className="step-fields">{renderStepContent()}</div>
+              {!isMobileStepIntro && (
+                isDirectionStep ? (
+                  isDirectionSelectionStage ? renderStepContent() : null
+                ) : (
+                  isDetailsStep ? null : <div className="step-fields">{renderStepContent()}</div>
+                )
               )}
             </div>
 
             {!isDirectionSelectionStage && (
-              isDetailsStep ? (
+              isMobileStepIntro ? (
+                <div className="step-illustration" aria-label={t('courseRequest.illustrationAria', '插图预留区域')}>
+                  <div className="illustration-frame">
+                    <Suspense fallback={<div />}>
+                      <DotLottiePlayer
+                        src="/illustrations/Morphing.lottie"
+                        autoplay
+                        loop
+                        style={{ width: '100%', height: '100%', background: 'transparent' }}
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              ) : isDetailsStep ? (
                 <div className="details-right-panel">
                   {renderStepContent()}
                 </div>
@@ -1688,7 +1770,7 @@ function StudentCourseRequestPage() {
           </section>
 
           <>
-            {isUploadStep && !isDirectionSelectionStage && (
+            {isUploadStep && !isDirectionSelectionStage && !isMobileStepIntro && (
               <div className="contact-preview-floating" aria-label={t('courseRequest.previewAria', '导师页卡片预览')}>
                 <div className="student-preview-card">
                   <div className="card-fav"><FaHeart /></div>
@@ -1739,9 +1821,27 @@ function StudentCourseRequestPage() {
             <footer className={stepFooterClassName}>
               <div className="step-footer-shell">
                 <div className="step-progress">
-                  <div className="progress-track">
-                    <div className="progress-bar" style={{ width: `${progress}%` }} />
-                  </div>
+                  {isMobileFlow ? (
+                    <div
+                      className="progress-track progress-track-segmented"
+                      role="progressbar"
+                      aria-label={t('courseRequest.progressAria', '课程需求填写进度')}
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-valuenow={Math.round(((currentStepIndex + (mobileCurrentSegmentProgress / 100)) / STEPS.length) * 100)}
+                      style={{ gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))` }}
+                    >
+                      {mobileProgressSegments.map((segmentProgress, index) => (
+                        <span className="progress-segment" key={STEPS[index].id}>
+                          <span className="progress-segment__fill" style={{ width: `${segmentProgress}%` }} />
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="progress-track">
+                      <div className="progress-bar" style={{ width: `${progress}%` }} />
+                    </div>
+                  )}
                 </div>
   
                 <div className="step-actions">
@@ -1754,7 +1854,9 @@ function StudentCourseRequestPage() {
                     onClick={handleNext}
                     disabled={transitionStage !== 'idle' || requestBusy}
                   >
-                    {currentStepIndex === STEPS.length - 1 ? t('courseRequest.submit', '提交需求') : t('courseRequest.next', '下一步')}
+                    {currentStepIndex === STEPS.length - 1 && !isMobileStepIntro
+                      ? t('courseRequest.submit', '提交需求')
+                      : t('courseRequest.next', '下一步')}
                   </button>
                 </div>
               </div>

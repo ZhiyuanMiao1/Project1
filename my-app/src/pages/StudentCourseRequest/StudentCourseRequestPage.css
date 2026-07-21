@@ -1171,6 +1171,14 @@
     gap: 20px;
   }
 
+  .course-request-page .mobile-step-body-layout.details-layout {
+    gap: 0;
+  }
+
+  .course-request-page .mobile-step-body-layout.details-layout .step-content {
+    display: none;
+  }
+
   .course-request-page .details-layout .step-content.direction-layout {
     gap: 0;
     padding: 0;
@@ -1366,6 +1374,30 @@
     max-width: 720px;
     padding: 0 24px;
     gap: 14px;
+  }
+
+  .course-request-page .progress-track-segmented {
+    display: grid;
+    gap: 6px;
+    overflow: visible;
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .course-request-page .progress-segment {
+    position: relative;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e5e7eb;
+  }
+
+  .course-request-page .progress-segment__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: #000000;
+    transition: width 300ms ease;
   }
 
   .course-request-page .step-actions {
