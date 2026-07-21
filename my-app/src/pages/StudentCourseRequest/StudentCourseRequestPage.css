@@ -1108,82 +1108,429 @@
   }
 }
 
-@media (max-width: 1024px) {
-  .request-flow {
-    padding: 40px 24px 160px;
+/* Mobile/tablet flow. Desktop (>= 900px) deliberately keeps the original layout. */
+@media (max-width: 899px) {
+  .course-request-page {
+    min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: visible;
+    scrollbar-gutter: auto;
   }
 
-  .step-layout {
-    grid-template-columns: 1fr;
+  .course-request-page .request-flow {
+    padding: 24px 0 calc(132px + env(safe-area-inset-bottom));
+  }
+
+  .course-request-page .request-shell {
+    max-width: 720px;
+    padding: 0 24px;
+  }
+
+  .course-request-page .step-header {
+    margin-bottom: 24px;
+  }
+
+  .course-request-page .step-header .ghost-button {
+    border-color: #d1d5db;
+    background: #ffffff;
+    color: #374151;
+  }
+
+  .course-request-page .step-layout {
+    display: flex;
+    flex-direction: column;
     gap: 32px;
     min-height: auto;
+    margin-bottom: 0;
   }
 
-  .step-illustration {
-    order: -1;
+  .course-request-page .step-content,
+  .course-request-page .step-content.schedule-content,
+  .course-request-page .details-right-panel,
+  .course-request-page .schedule-right-panel {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    align-self: stretch;
   }
 
-  .illustration-frame {
-    padding-top: 45%;
-  }
-}
-
-@media (max-width: 600px) {
-  .course-request-page .step-footer {
-    padding: 12px 0 20px;
-  }
-
-  .step-footer-shell {
-    padding: 0 16px;
+  .course-request-page .step-content.direction-layout,
+  .course-request-page .step-content.direction-layout:not(.direction-selection) {
+    order: 0;
+    align-self: stretch;
+    justify-content: flex-start;
+    gap: 28px;
+    padding: 0;
   }
 
-  .step-content.direction-selection {
-    padding: 48px 0;
-    gap: 36px;
+  .course-request-page .step-content.direction-selection {
+    padding: 8px 0 16px;
   }
 
-  .direction-grid {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-  }
-
-  .step-header {
+  .course-request-page .direction-intro-layout {
+    display: flex;
     flex-direction: column;
-    gap: 16px;
+    align-items: stretch;
+    min-height: 0;
+    padding: 0;
+    gap: 28px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: #ffffff;
+    box-shadow: none;
+  }
+
+  .course-request-page .direction-intro-layout .step-content.direction-layout {
+    order: 1;
+    max-width: 680px;
+    gap: 0;
+  }
+
+  .course-request-page .direction-intro-layout .step-intro {
     align-items: flex-start;
   }
 
-  .step-header-actions {
+  .course-request-page .direction-intro-layout .step-label {
+    width: max-content;
+    margin: 0 0 14px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #4b5563;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+
+  .course-request-page .direction-intro-layout .step-content h1 {
+    margin: 0 0 14px;
+    font-size: clamp(32px, 4.6vw, 38px);
+    line-height: 1.15;
+    letter-spacing: -0.035em;
+  }
+
+  .course-request-page .direction-intro-layout .step-description {
+    max-width: 440px;
+    margin: 0;
+    color: #526071;
+    font-size: 16px;
+    line-height: 1.75;
+  }
+
+  .course-request-page .direction-intro-layout .step-illustration {
+    order: 0;
+    min-width: 0;
+  }
+
+  .course-request-page .direction-intro-layout .illustration-frame {
     width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    height: clamp(300px, 42dvh, 420px);
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
-  .step-content h1 {
-    font-size: 30px;
+  .course-request-page .direction-intro-layout .dotlottie-container {
+    transform: none;
   }
 
-  .inline-fields {
-    grid-template-columns: 1fr;
-  }
-
-  .step-footer-shell {
-    gap: 18px;
-  }
-
-  .step-actions {
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .step-actions .ghost-button,
-  .step-actions .primary-button {
+  .course-request-page .step-illustration {
+    order: 1;
     width: 100%;
+    align-self: stretch;
+  }
+
+  .course-request-page .illustration-frame {
+    width: min(100%, 520px);
+    height: clamp(220px, 34dvh, 320px);
+    margin: 0 auto;
+    padding-top: 0;
+  }
+
+  .course-request-page .step-layout.contact-preview-layout .step-content {
+    min-height: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .course-request-page .step-layout.contact-preview-layout .contact-preview-floating {
+    position: static !important;
+    grid-column: auto;
+    order: 1;
+    width: min(100%, 520px);
+    margin: 0 auto;
+    transform: none !important;
+  }
+
+  .course-request-page .step-footer {
+    padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .course-request-page .step-footer-shell {
+    max-width: 720px;
+    padding: 0 24px;
+    gap: 14px;
+  }
+
+  .course-request-page .step-actions {
+    gap: 14px;
+  }
+
+  .course-request-page .step-actions .ghost-button,
+  .course-request-page .step-actions .primary-button {
+    min-height: 48px;
     text-align: center;
   }
 
-  .completion-card {
+  .course-request-page .step-actions .ghost-button {
+    flex: 0 0 auto;
+    min-width: 44px;
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #111827;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .course-request-page .step-actions .primary-button {
+    flex: 0 0 135px;
+    min-height: 52px;
+  }
+
+  .course-request-page .step-actions .primary-button {
+    border-radius: 16px;
+  }
+
+  .course-request-page .direction-intro-footer .step-actions {
+    justify-content: flex-end;
+  }
+
+  .course-request-page .direction-intro-footer .step-actions .ghost-button {
+    display: none;
+  }
+
+  .course-request-page .direction-intro-footer .step-actions .primary-button {
+    flex: 0 0 135px;
+    min-height: 52px;
+  }
+
+  .course-request-page .completion-content {
+    min-height: 100dvh;
+    padding: 48px 24px;
+  }
+
+  .course-request-page .completion-card {
+    width: min(100%, 520px);
     padding: 40px 32px;
+  }
+}
+
+@media (max-width: 599px) {
+  .course-request-page .request-flow {
+    padding-top: 20px;
+  }
+
+  .course-request-page .request-shell,
+  .course-request-page .step-footer-shell {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .course-request-page .step-header {
+    flex-direction: row;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .course-request-page .step-header-actions {
+    width: auto;
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  .course-request-page .step-header .ghost-button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border-color: #d1d5db;
+    background: #ffffff;
+    color: #4b5563;
+  }
+
+  .course-request-page .step-content h1,
+  .course-request-page .step-content.direction-layout h1 {
+    font-size: 30px;
+    line-height: 1.18;
+  }
+
+  .course-request-page .step-content.direction-layout .step-description,
+  .course-request-page .step-description {
+    margin-bottom: 0;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .course-request-page .step-description.direction-question,
+  .course-request-page .step-content.direction-layout .step-description.direction-question {
+    font-size: 24px;
+    line-height: 1.45;
+  }
+
+  .course-request-page .step-layout {
+    gap: 24px;
+  }
+
+  .course-request-page .direction-intro-layout {
+    min-height: 0;
+    padding: 0;
+    gap: 22px;
+  }
+
+  .course-request-page .direction-intro-layout .step-content.direction-layout {
+    flex: 0 0 auto;
+  }
+
+  .course-request-page .direction-intro-layout .step-intro {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .course-request-page .direction-intro-layout .step-label {
+    margin-bottom: 12px;
+  }
+
+  .course-request-page .direction-intro-layout .step-content h1,
+  .course-request-page .direction-intro-layout .step-content.direction-layout h1 {
+    margin-bottom: 12px;
+    font-size: clamp(27px, 8vw, 32px);
+    line-height: 1.16;
+  }
+
+  .course-request-page .direction-intro-layout .step-description,
+  .course-request-page .direction-intro-layout .step-content.direction-layout .step-description {
+    max-width: 380px;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .course-request-page .direction-intro-layout .step-illustration {
+    order: 0;
+    flex: 0 0 auto;
+    min-height: auto;
+  }
+
+  .course-request-page .direction-intro-layout .illustration-frame {
+    width: 100%;
+    height: clamp(240px, 38dvh, 330px);
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .course-request-page .direction-intro-layout .dotlottie-container {
+    transform: none;
+  }
+
+  .course-request-page .step-actions {
+    gap: 10px;
+  }
+
+  .course-request-page .step-actions .ghost-button {
+    flex: 0 0 auto;
+  }
+
+  .course-request-page .illustration-frame {
+    height: clamp(176px, 27dvh, 230px);
+  }
+
+  .course-request-page .two-col-grid,
+  .course-request-page .inline-fields,
+  .course-request-page .schedule-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .course-request-page .direction-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .course-request-page .direction-card {
+    min-height: 88px;
+    gap: 8px;
+    padding: 14px 8px;
+    border-radius: 16px;
+  }
+
+  .course-request-page .direction-card.active {
+    padding: calc(14px - 1.5px) calc(8px - 1.5px);
+  }
+
+  .course-request-page .direction-card__icon {
+    font-size: 24px;
+  }
+
+  .course-request-page .direction-card__title {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .course-request-page .step-layout.page-transition-enter .direction-card {
+    animation-delay: 90ms;
+  }
+
+  .course-request-page .schedule-times-panel {
+    height: auto;
+    max-height: 440px;
+    padding-top: 16px;
+    padding-left: 0;
+    border-top: 1px solid #e5e7eb;
+    border-left: 0;
+  }
+
+  .course-request-page .times-list {
+    height: min(42dvh, 360px);
+  }
+
+  .course-request-page .time-slot {
+    width: calc(100% - 4px);
+    min-height: 44px;
+  }
+
+  .course-request-page .completion-card {
+    padding: 36px 24px;
+  }
+}
+
+@media (max-width: 359px) {
+  .course-request-page .direction-intro-layout {
+    min-height: 0;
+    padding: 0;
+    gap: 18px;
+  }
+
+  .course-request-page .direction-intro-layout .step-content h1,
+  .course-request-page .direction-intro-layout .step-content.direction-layout h1 {
+    font-size: 26px;
+  }
+
+  .course-request-page .direction-intro-layout .step-description,
+  .course-request-page .direction-intro-layout .step-content.direction-layout .step-description {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .course-request-page .direction-intro-layout .illustration-frame {
+    height: clamp(220px, 36dvh, 270px);
+    min-height: 0;
+    max-height: none;
   }
 }
 
@@ -1249,7 +1596,7 @@
 }
 
 /* 仅“上传/预览”这一步（contact-preview-layout）生效，桌面端 */
-@media (min-width: 1025px) {
+@media (min-width: 900px) {
   /* 让 section 作为定位容器 */
   .step-layout.contact-preview-layout { position: relative; }
 

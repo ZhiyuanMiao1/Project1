@@ -1161,6 +1161,7 @@ function StudentCourseRequestPage() {
 
   const stepLayoutClassName = [
     'step-layout',
+    isDirectionStep && !isDirectionSelectionStage ? 'direction-intro-layout' : '',
     isDirectionSelectionStage ? 'direction-selection-layout' : '',
     isUploadStep ? 'contact-preview-layout' : '',
     transitionClassName,
@@ -1195,7 +1196,11 @@ function StudentCourseRequestPage() {
     .filter(Boolean)
     .join(' ');
 
-  const stepFooterClassName = ['step-footer', transitionClassName].filter(Boolean).join(' ');
+  const stepFooterClassName = [
+    'step-footer',
+    isDirectionStep && !isDirectionSelectionStage ? 'direction-intro-footer' : '',
+    transitionClassName,
+  ].filter(Boolean).join(' ');
 
   const units = currentStepIndex === 0 ? (isDirectionSelection ? (isCourseTypeSelection ? 1 : 0.5) : 0) : currentStepIndex + 1;
   const progress = (units / STEPS.length) * 100;
