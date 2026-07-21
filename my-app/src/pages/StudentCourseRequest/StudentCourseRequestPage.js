@@ -1163,6 +1163,7 @@ function StudentCourseRequestPage() {
     'step-layout',
     isDirectionStep && !isDirectionSelectionStage ? 'direction-intro-layout' : '',
     isDirectionSelectionStage ? 'direction-selection-layout' : '',
+    isDetailsStep ? 'details-layout' : '',
     isUploadStep ? 'contact-preview-layout' : '',
     transitionClassName,
   ]

@@ -1167,6 +1167,53 @@
     padding: 8px 0 16px;
   }
 
+  .course-request-page .details-layout {
+    gap: 20px;
+  }
+
+  .course-request-page .details-layout .step-content.direction-layout {
+    gap: 0;
+    padding: 0;
+  }
+
+  .course-request-page .details-layout .step-intro {
+    gap: 8px;
+  }
+
+  .course-request-page .details-layout .step-label {
+    margin-bottom: 0;
+  }
+
+  .course-request-page .details-layout .step-content h1 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.18;
+  }
+
+  .course-request-page .details-layout .step-description {
+    margin: 0;
+    line-height: 1.55;
+  }
+
+  .course-request-page .details-right-panel .step-field-stack {
+    gap: 18px;
+  }
+
+  .course-request-page .details-right-panel .step-field-group {
+    gap: 8px;
+  }
+
+  .course-request-page .details-right-panel .field-label {
+    font-size: 17px;
+  }
+
+  .course-request-page .details-right-panel textarea,
+  .course-request-page .details-right-panel #milestone {
+    height: 96px;
+    min-height: 96px;
+    resize: none;
+  }
+
   .course-request-page .direction-intro-layout {
     display: flex;
     flex-direction: column;
@@ -1383,6 +1430,54 @@
     line-height: 1.45;
   }
 
+  .course-request-page .details-layout {
+    gap: 16px;
+  }
+
+  .course-request-page .details-layout .step-label {
+    margin-bottom: 0;
+    font-size: 12px;
+  }
+
+  .course-request-page .details-layout .step-intro {
+    gap: 6px;
+  }
+
+  .course-request-page .details-layout .step-content h1,
+  .course-request-page .details-layout .step-content.direction-layout h1 {
+    margin-bottom: 0;
+    font-size: 28px;
+  }
+
+  .course-request-page .details-layout .step-description,
+  .course-request-page .details-layout .step-content.direction-layout .step-description {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .course-request-page .details-right-panel .step-field-stack {
+    gap: 14px;
+  }
+
+  .course-request-page .details-right-panel .step-field-group {
+    gap: 6px;
+  }
+
+  .course-request-page .details-right-panel .field-label {
+    font-size: 16px;
+  }
+
+  .course-request-page .details-right-panel textarea,
+  .course-request-page .details-right-panel #milestone {
+    height: 84px;
+    min-height: 84px;
+  }
+
+  .course-request-page .details-right-panel #courseFocus {
+    height: 108px;
+    min-height: 108px;
+  }
+
   .course-request-page .step-layout {
     gap: 24px;
   }
@@ -1510,6 +1605,21 @@
 }
 
 @media (max-width: 359px) {
+  .course-request-page .request-flow {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .course-request-page .details-right-panel textarea,
+  .course-request-page .details-right-panel #milestone {
+    height: 80px;
+    min-height: 80px;
+  }
+
+  .course-request-page .details-right-panel #courseFocus {
+    height: 92px;
+    min-height: 92px;
+  }
+
   .course-request-page .direction-intro-layout {
     min-height: 0;
     padding: 0;
