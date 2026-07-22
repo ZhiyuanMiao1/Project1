@@ -86,6 +86,7 @@ function WheelColumn({ label, options, value, onChange }) {
             }
           }}
         >
+          <div className="wheel-picker__spacer" aria-hidden />
           {options.map((option) => {
             const isSelected = option.value === value;
             return (
@@ -106,6 +107,7 @@ function WheelColumn({ label, options, value, onChange }) {
               </button>
             );
           })}
+          <div className="wheel-picker__spacer" aria-hidden />
         </div>
       </div>
     </div>
