@@ -236,19 +236,42 @@
 }
 
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .recent-page .container {
     margin-left: 48px;
   }
 
   .recent-hero {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 18px;
   }
 
-  .recent-edit {
-    align-self: flex-start;
+  .recent-hero-left {
+    display: contents;
+  }
+
+  .recent-back {
+    grid-column: 1;
+    grid-row: 1;
+    width: 44px;
+    height: 44px;
+    margin-left: -12px;
+  }
+
+  .recent-hero-text {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .recent-hero-edit {
+    grid-column: 2;
+    grid-row: 1;
+    min-height: 44px;
+    justify-self: end;
+    align-self: center;
   }
 }
 
