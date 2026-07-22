@@ -1179,6 +1179,10 @@
     display: none;
   }
 
+  .course-request-page .mobile-step-body-layout.details-layout .details-right-panel .step-field-stack {
+    gap: 24px;
+  }
+
   .course-request-page .details-layout .step-content.direction-layout {
     gap: 0;
     padding: 0;
