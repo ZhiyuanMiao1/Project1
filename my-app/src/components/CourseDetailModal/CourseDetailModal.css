@@ -264,15 +264,53 @@
 }
 
 @media (max-width: 720px) {
+  .course-detail-modal__overlay {
+    padding: 16px;
+  }
+
   .course-detail-modal__card {
-    padding: 24px 18px 18px;
+    box-sizing: border-box;
+    width: min(100%, 420px);
+    max-height: calc(100dvh - 32px);
+    min-height: 0;
+    padding: 22px 18px 18px;
+    overflow-y: auto;
   }
 
-  .course-detail-modal__meta-grid {
-    grid-template-columns: 1fr;
+  .course-detail-modal__mentor {
+    gap: 14px;
+    margin-bottom: 16px;
   }
 
-  .course-detail-action-row {
-    grid-template-columns: 1fr;
+  .course-detail-modal__avatar {
+    width: 76px;
+    height: 76px;
+  }
+
+  .course-detail-modal__body {
+    padding-top: 8px;
+    gap: 10px;
+  }
+
+  .course-detail-modal__title {
+    margin-bottom: 8px;
+    font-size: 20px;
+  }
+
+  .course-detail-modal__meta-grid,
+  .course-detail-modal__meta-grid--with-time {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+    row-gap: 4px;
+  }
+
+  .course-detail-modal__meta-chip {
+    min-height: 28px;
+    justify-content: center;
+  }
+
+  .course-detail-modal__actions {
+    margin-top: 4px;
+    padding-top: 14px;
   }
 }

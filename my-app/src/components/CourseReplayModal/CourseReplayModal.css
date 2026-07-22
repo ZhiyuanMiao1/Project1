@@ -184,24 +184,75 @@
 
 @media (max-width: 560px) {
   .course-replay-modal__overlay {
-    padding: 14px;
+    padding: 16px;
   }
 
   .course-replay-modal__card {
-    padding: 22px 18px 18px;
+    box-sizing: border-box;
+    width: 100%;
+    max-height: calc(100dvh - 32px);
+    padding: 20px 16px 16px;
+  }
+
+  .course-replay-modal__close {
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .course-replay-modal__head {
+    padding-right: 42px;
+    margin-bottom: 14px;
+  }
+
+  .course-replay-modal__title {
+    font-size: 22px;
+  }
+
+  .course-replay-modal__subtitle {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+
+  .course-replay-modal__list {
+    min-height: 0;
+    gap: 8px;
+    padding-right: 1px;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 
   .course-replay-modal__item {
-    grid-template-columns: 36px minmax(0, 1fr);
+    box-sizing: border-box;
+    grid-template-columns: 28px minmax(0, 1fr) 68px;
+    gap: 8px;
+    min-height: 64px;
+    padding: 10px 8px;
+    border-radius: 12px;
   }
 
   .course-replay-modal__file-icon {
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 44px;
+  }
+
+  .course-replay-modal__file-name {
+    font-size: 13px;
+  }
+
+  .course-replay-modal__file-meta {
+    gap: 5px;
+    font-size: 11px;
   }
 
   .course-replay-modal__play {
-    grid-column: 1 / -1;
-    width: 100%;
+    width: 68px;
+    min-width: 68px;
+    height: 44px;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    white-space: nowrap;
   }
 }

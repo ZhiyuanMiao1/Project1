@@ -370,6 +370,12 @@
   }
 }
 
+@media (max-width: 899px) {
+  .course-card {
+    box-sizing: border-box;
+  }
+}
+
 @media (max-width: 720px) {
   .courses-page .container {
     margin-left: 0;
@@ -397,8 +403,79 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 599px) {
+  .courses-hero {
+    margin: 22px 0 14px;
+  }
+
+  .courses-timeline {
+    gap: 26px;
+  }
+
+  .year-content {
+    gap: 18px;
+    margin-top: 10px;
+  }
+
+  .month-row {
+    display: block;
+  }
+
+  .month-marker {
+    margin-bottom: 6px;
+  }
+
   .month-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding-bottom: 2px;
+  }
+
+  .course-card {
+    min-width: 0;
+    min-height: 108px;
+    padding: 10px 4px 10px 20px;
+  }
+
+  .course-status {
+    left: 1px;
+    top: 17px;
+  }
+
+  .course-head {
+    gap: 4px;
+  }
+
+  .course-title-icon {
+    width: 30px;
+    height: 34px;
+  }
+
+  .course-title {
+    font-size: 18px;
+  }
+
+  .course-type-row {
+    margin-top: -3px;
+  }
+
+  .course-pill {
+    max-width: 100%;
+    padding: 4px 0;
+    gap: 5px;
+    font-size: 12px;
+  }
+
+  .course-pill > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .course-meta {
+    margin-top: 3px;
+    padding-left: 0;
+    gap: 4px;
+    font-size: 11px;
+    white-space: nowrap;
   }
 }

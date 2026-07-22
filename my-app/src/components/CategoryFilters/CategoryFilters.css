@@ -222,8 +222,6 @@
     scroll-snap-align: start;
   }
 
-  .student-home .category-item.selected,
-  .mentor-home .category-item.selected { background: #f3f4f6; }
   .student-home .category-item .category-icon,
   .mentor-home .category-item .category-icon { font-size: 19px; margin-bottom: 3px; }
   .student-home .category-item .category-text,
