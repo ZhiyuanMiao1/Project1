@@ -588,14 +588,42 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 899px) {
+  .favorites-page {
+    min-height: 100dvh;
+  }
+
   .favorites-page .container {
     margin-left: 0;
-    padding: 0 16px;
+    padding: 0 24px;
   }
 
   .favorites-header {
     padding-top: 18px;
+  }
+
+  .favorites-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: auto;
+  }
+
+  .favorites-card {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .favorites-remove {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 599px) {
+  .favorites-page .container {
+    padding: 0 16px;
   }
 
   .favorites-hero h1 {
@@ -607,17 +635,72 @@
   }
 
   .favorites-grid {
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
+    gap: 12px;
+    padding-bottom: 28px;
   }
 
   .favorites-card {
-    min-height: 350px;
+    border-radius: 12px;
+  }
+
+  .favorites-card-body {
+    min-height: 58px;
+    padding: 9px 10px 11px;
+  }
+
+  .favorites-card-title h3 {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .favorites-meta {
+    font-size: 12px;
+  }
+
+  .cover-grid {
+    gap: 4px;
   }
 
   .favorites-remove {
-    opacity: 1;
-    transform: none;
-    pointer-events: auto;
+    top: 6px;
+    left: 6px;
+  }
+
+  .favorites-card--create {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 14px 10px;
+    gap: 8px;
+  }
+
+  .favorites-card--create h3 {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+
+  .favorites-card--create .favorites-desc {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .create-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+  }
+
+  .create-btn {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 8px;
+  }
+
+  .favorites-card--skeleton-create {
+    padding: 14px 10px;
   }
 }
