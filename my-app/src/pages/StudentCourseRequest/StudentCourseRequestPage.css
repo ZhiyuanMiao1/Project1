@@ -1180,7 +1180,8 @@
   }
 
   .course-request-page .mobile-step-body-layout.details-layout .details-right-panel .step-field-stack {
-    gap: 24px;
+    padding-top: 24px;
+    gap: 28px;
   }
 
   .course-request-page .details-layout .step-content.direction-layout {
