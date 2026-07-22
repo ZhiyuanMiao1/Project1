@@ -1361,6 +1361,10 @@
     padding-top: 0;
   }
 
+  .course-request-page .contact-preview-layout .upload-area {
+    padding: 36px 24px;
+  }
+
   .course-request-page .step-layout.contact-preview-layout .contact-preview-floating {
     position: static !important;
     grid-column: auto;
