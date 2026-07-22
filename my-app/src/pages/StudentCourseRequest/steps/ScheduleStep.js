@@ -81,6 +81,7 @@ const subtractAvailabilityBlocks = (base, remove) => {
 };
 
 function ScheduleStepContent({
+  isMobile = false,
   availability,
   onAvailabilityChange,
   orderedTimeZoneOptions,
@@ -100,8 +101,12 @@ function ScheduleStepContent({
   const { t } = useI18n();
 
   return (
-    <div className="step-field-stack">
-      <label className="field-label" htmlFor="availability">{t('courseRequest.schedule.chooseTime', '选择授课时间')}</label>
+    <div className={`step-field-stack ${isMobile ? 'mobile-schedule-timezone' : ''}`}>
+      <label className="field-label" htmlFor="availability">
+        {isMobile
+          ? t('courseRequest.schedule.mobile.timeZone', '所在时区')
+          : t('courseRequest.schedule.chooseTime', '选择授课时间')}
+      </label>
       <TimeZoneSelect
         id="availability"
         value={availability}

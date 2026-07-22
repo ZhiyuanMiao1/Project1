@@ -13,6 +13,7 @@ import DirectionStep from './steps/DirectionStep';
 import DetailsStep from './steps/DetailsStep';
 import UploadStep from './steps/UploadStep';
 import { ScheduleStepContent, ScheduleStepSidebar } from './steps/ScheduleStep';
+import MobileScheduleEditor from './steps/MobileScheduleEditor';
 import { INITIAL_FORM_STATE, PAGE_TRANSITION_DURATION, PREVIEW_FREEZE_OFFSET, STEPS, generateMockStudentProfile } from './steps/pageConstants';
 import {
   DEFAULT_TIME_ZONE,
@@ -1483,6 +1484,7 @@ function StudentCourseRequestPage() {
       case 'schedule': {
         return (
           <ScheduleStepContent
+            isMobile={isMobileFlow}
             availability={formData.availability}
             onAvailabilityChange={(e) => {
               hasEditedAvailabilityRef.current = true;
@@ -1702,7 +1704,23 @@ function StudentCourseRequestPage() {
                 </div>
               ) : isScheduleStep ? (
                 <div className="schedule-right-panel">
-                  <ScheduleStepSidebar
+                  {isMobileFlow ? (
+                    <MobileScheduleEditor
+                      daySelections={daySelections}
+                      setDaySelections={(updater) => {
+                        hasEditedAvailabilityRef.current = true;
+                        setDaySelections(updater);
+                      }}
+                      sessionDurationHours={formData.sessionDurationHours}
+                      onSessionDurationChange={(nextDuration) => {
+                        hasEditedAvailabilityRef.current = true;
+                        setFormData((previous) => ({ ...previous, sessionDurationHours: nextDuration }));
+                      }}
+                      zonedTodayKey={zonedTodayKey}
+                      zonedNowMinutes={zonedNowMinutes}
+                    />
+                  ) : (
+                    <ScheduleStepSidebar
                     monthLabel={monthLabel}
                     monthSlideKey={monthSlideKey}
                     monthSlideDir={monthSlideDir}
@@ -1750,7 +1768,8 @@ function StudentCourseRequestPage() {
                     selectedTimeZone={selectedTimeZone}
                     zonedTodayKey={zonedTodayKey}
                     zonedNowMinutes={zonedNowMinutes}
-                  />
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="step-illustration" aria-label={t('courseRequest.illustrationAria', '插图预留区域')}>
