@@ -1712,10 +1712,6 @@ function StudentCourseRequestPage() {
                         setDaySelections(updater);
                       }}
                       sessionDurationHours={formData.sessionDurationHours}
-                      onSessionDurationChange={(nextDuration) => {
-                        hasEditedAvailabilityRef.current = true;
-                        setFormData((previous) => ({ ...previous, sessionDurationHours: nextDuration }));
-                      }}
                       zonedTodayKey={zonedTodayKey}
                       zonedNowMinutes={zonedNowMinutes}
                     />

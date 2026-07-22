@@ -2009,7 +2009,9 @@
     min-height: 48px;
     padding: 10px 14px;
     border-radius: 14px;
+    color: #111827;
     font-size: 14px;
+    -webkit-text-fill-color: #111827;
   }
 
   .course-request-page .mobile-schedule-timezone .mx-select__popover {
@@ -2023,59 +2025,10 @@
     min-width: 0;
   }
 
-  .course-request-page .mobile-schedule-setting {
-    width: 100%;
-    min-height: 58px;
-    padding: 10px 14px;
-    border: 1px solid #e1e4e8;
-    border-radius: 16px;
-    background: #ffffff;
-    color: #111827;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    text-align: left;
-  }
-
-  .course-request-page .mobile-schedule-setting > span:first-child {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .course-request-page .mobile-schedule-setting__label {
-    font-size: 15px;
-    font-weight: 700;
-  }
-
-  .course-request-page .mobile-schedule-setting__hint {
-    overflow: hidden;
-    color: #6b7280;
-    font-size: 11px;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .course-request-page .mobile-schedule-setting__value {
-    display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  .course-request-page .mobile-schedule-setting__value svg {
-    color: #9ca3af;
-    font-size: 11px;
-  }
-
   .course-request-page .mobile-availability-section {
     display: flex;
     min-height: 0;
+    margin-top: 8px;
     flex-direction: column;
     gap: 9px;
   }
@@ -2106,7 +2059,7 @@
     min-height: 44px;
     padding: 8px 12px;
     border: 1px solid #111827;
-    border-radius: 999px;
+    border-radius: 14px;
     background: #ffffff;
     color: #111827;
     display: inline-flex;
@@ -2136,7 +2089,7 @@
   }
 
   .course-request-page .mobile-availability-list.is-empty {
-    min-height: 88px;
+    min-height: 72px;
     padding-right: 0;
     overflow: hidden;
   }
@@ -2214,27 +2167,22 @@
   }
 
   .course-request-page .mobile-availability-empty {
-    min-height: 88px;
+    min-height: 72px;
     padding: 14px 16px;
     border: 1px dashed #d6dae0;
     border-radius: 16px;
-    background: #fafafa;
+    background: #ffffff;
     color: #6b7280;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    gap: 4px;
   }
 
   .course-request-page .mobile-availability-empty strong {
     color: #374151;
     font-size: 13px;
-  }
-
-  .course-request-page .mobile-availability-empty span {
-    font-size: 11px;
-    line-height: 1.45;
+    font-weight: 500;
   }
 
   .wheel-sheet-backdrop {
@@ -2418,12 +2366,6 @@
 @media (max-width: 359px) {
   .course-request-page .mobile-schedule-editor {
     gap: 10px;
-  }
-
-  .course-request-page .mobile-schedule-setting {
-    min-height: 52px;
-    padding-top: 7px;
-    padding-bottom: 7px;
   }
 
   .course-request-page .mobile-availability-list {

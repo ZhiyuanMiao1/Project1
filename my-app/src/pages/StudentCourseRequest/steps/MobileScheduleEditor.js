@@ -17,20 +17,6 @@ const formatBoundaryTime = (boundaryIndex) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
-const formatDurationLabel = (value, language) => {
-  const totalMinutes = Math.round(Number(value) * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (language === 'en') {
-    if (!hours) return `${minutes} min`;
-    if (!minutes) return `${hours} hr${hours === 1 ? '' : 's'}`;
-    return `${hours} hr ${minutes} min`;
-  }
-  if (!hours) return `${minutes} 分钟`;
-  if (!minutes) return `${hours} 小时`;
-  return `${hours} 小时 ${minutes} 分钟`;
-};
-
 const removeExactBlock = (blocks, start, end) => {
   let removed = false;
   return (Array.isArray(blocks) ? blocks : []).filter((block) => {
@@ -46,7 +32,6 @@ function MobileScheduleEditor({
   daySelections,
   setDaySelections,
   sessionDurationHours,
-  onSessionDurationChange,
   zonedTodayKey,
   zonedNowMinutes,
 }) {
@@ -56,7 +41,6 @@ function MobileScheduleEditor({
   const [draftDate, setDraftDate] = useState(zonedTodayKey);
   const [draftStart, setDraftStart] = useState(36);
   const [draftEnd, setDraftEnd] = useState(44);
-  const [draftDuration, setDraftDuration] = useState(sessionDurationHours);
 
   const locale = language === 'en' ? 'en-US' : 'zh-CN';
   const safeTodayKey = zonedTodayKey || (() => {
@@ -104,11 +88,6 @@ function MobileScheduleEditor({
       disabled: boundary <= draftStart,
     };
   }), [draftStart]);
-
-  const durationOptions = useMemo(() => Array.from({ length: 40 }, (_, index) => {
-    const value = (index + 1) * 0.25;
-    return { value, label: formatDurationLabel(value, language) };
-  }), [language]);
 
   const groups = useMemo(() => Object.entries(daySelections || {})
     .filter(([, blocks]) => Array.isArray(blocks) && blocks.length)
@@ -166,11 +145,6 @@ function MobileScheduleEditor({
     setActiveSheet('availability');
   };
 
-  const openDurationSheet = () => {
-    setDraftDuration(sessionDurationHours);
-    setActiveSheet('duration');
-  };
-
   const saveAvailability = () => {
     if (!draftDate || draftEnd <= draftStart) return;
     const nextBlock = { start: draftStart, end: draftEnd - 1 };
@@ -195,11 +169,6 @@ function MobileScheduleEditor({
       else delete next[date];
       return next;
     });
-  };
-
-  const confirmDuration = () => {
-    onSessionDurationChange(draftDuration);
-    closeSheet();
   };
 
   const availabilityColumns = [
@@ -231,17 +200,6 @@ function MobileScheduleEditor({
 
   return (
     <div className="mobile-schedule-editor">
-      <button type="button" className="mobile-schedule-setting" onClick={openDurationSheet}>
-        <span>
-          <span className="mobile-schedule-setting__label">{t('courseRequest.schedule.mobile.sessionDuration', '单次课程时长')}</span>
-          <span className="mobile-schedule-setting__hint">{t('courseRequest.schedule.mobile.sessionDurationHint', '导师会按此时长安排每节课')}</span>
-        </span>
-        <span className="mobile-schedule-setting__value">
-          {formatDurationLabel(sessionDurationHours, language)}
-          <FaChevronRight aria-hidden />
-        </span>
-      </button>
-
       <section className="mobile-availability-section" aria-labelledby="mobile-availability-title">
         <div className="mobile-availability-header">
           <div>
@@ -285,7 +243,6 @@ function MobileScheduleEditor({
           )) : (
             <div className="mobile-availability-empty">
               <strong>{t('courseRequest.schedule.mobile.emptyTitle', '还没有添加可授课时间')}</strong>
-              <span>{t('courseRequest.schedule.mobile.emptyHint', '添加几个方便上课的时间，匹配会更准确')}</span>
             </div>
           )}
         </div>
@@ -303,22 +260,6 @@ function MobileScheduleEditor({
         cancelLabel={t('common.cancel', '取消')}
         confirmLabel={t('common.done', '完成')}
       />
-
-      <WheelPickerSheet
-        open={activeSheet === 'duration'}
-        title={t('courseRequest.schedule.mobile.chooseDuration', '选择单次课程时长')}
-        columns={[{
-          id: 'duration',
-          label: t('courseRequest.schedule.mobile.duration', '课程时长'),
-          options: durationOptions,
-          value: draftDuration,
-          onChange: setDraftDuration,
-        }]}
-        onCancel={closeSheet}
-        onConfirm={confirmDuration}
-        cancelLabel={t('common.cancel', '取消')}
-        confirmLabel={t('common.done', '完成')}
-      />
     </div>
   );
 }
@@ -328,6 +269,5 @@ export {
   SLOT_COUNT,
   SLOT_MINUTES,
   formatBoundaryTime,
-  formatDurationLabel,
 };
 export default MobileScheduleEditor;
