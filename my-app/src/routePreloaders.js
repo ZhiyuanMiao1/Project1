@@ -4,7 +4,6 @@ export const loadMentorProfileEditorPage = () => import('./pages/MentorProfileEd
 export const loadFavoritesPage = () => import('./pages/Favorites/FavoritesPage');
 export const loadFavoriteCollectionPage = () => import('./pages/Favorites/FavoriteCollectionPage');
 export const loadCoursesPage = () => import('./pages/Courses/CoursesPage');
-export const loadMentorCoursesPage = () => import('./pages/Courses/MentorCoursesPage');
 export const loadMessagesPage = () => import('./pages/Messages/MessagesPage');
 export const loadRecentVisitsPage = () => import('./pages/RecentVisits/RecentVisitsPage');
 export const loadAccountSettingsPage = () => import('./pages/AccountSettings/AccountSettingsPage');
@@ -21,7 +20,7 @@ const ROUTE_LOADERS = {
   studentFavorites: loadFavoritesPage,
   favoriteCollection: loadFavoriteCollectionPage,
   studentCourses: loadCoursesPage,
-  mentorCourses: loadMentorCoursesPage,
+  mentorCourses: loadCoursesPage,
   messages: loadMessagesPage,
   recentVisits: loadRecentVisitsPage,
   accountSettings: loadAccountSettingsPage,

@@ -21,7 +21,6 @@ import {
   loadFavoriteCollectionPage,
   loadFavoritesPage,
   loadHelpCenterPage,
-  loadMentorCoursesPage,
   loadMentorDetailPage,
   loadMentorPage,
   loadMentorProfileEditorPage,
@@ -39,7 +38,6 @@ const LazyMentorProfileEditorPage = lazy(loadMentorProfileEditorPage);
 const LazyFavoritesPage = lazy(loadFavoritesPage);
 const LazyFavoriteCollectionPage = lazy(loadFavoriteCollectionPage);
 const LazyCoursesPage = lazy(loadCoursesPage);
-const LazyMentorCoursesPage = lazy(loadMentorCoursesPage);
 const LazyMessagesPage = lazy(loadMessagesPage);
 const LazyRecentVisitsPage = lazy(loadRecentVisitsPage);
 const LazyAccountSettingsPage = lazy(loadAccountSettingsPage);
@@ -337,7 +335,7 @@ function App() {
           <Route path="/mentor/profile-editor" element={withRouteSuspense(<LazyMentorProfileEditorPage />)} />
 
           {/* 导师课程时间轴页 */}
-          <Route path="/mentor/courses" element={withRouteSuspense(<LazyMentorCoursesPage />)} />
+          <Route path="/mentor/courses" element={withRouteSuspense(<LazyCoursesPage entryRole="mentor" />)} />
           <Route path="/mentor/requests/:requestId" element={withRouteSuspense(<LazyCourseRequestDetailPage />)} />
           <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
           <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />

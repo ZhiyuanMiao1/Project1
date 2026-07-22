@@ -6,6 +6,7 @@ import Button from '../../components/common/Button/Button';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import CourseReplayModal from '../../components/CourseReplayModal/CourseReplayModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
@@ -342,9 +343,10 @@ const getReviewSuccessCopy = (message, t = (_key, fallback) => fallback) => {
   };
 };
 
-function CoursesPage() {
+function CoursesPage({ entryRole = 'student' }) {
   const { t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const navigate = useNavigate();
+  const isMentorEntry = entryRole === 'mentor';
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [activeCourse, setActiveCourse] = useState(null);
@@ -915,7 +917,7 @@ function CoursesPage() {
     <div className="courses-page">
       <div className="container">
         <header className="courses-header">
-          <BrandMark className="nav-logo-text" to="/student" />
+          <BrandMark className="nav-logo-text" to={isMentorEntry ? '/mentor' : '/student'} />
           <button
             type="button"
             className="icon-circle courses-menu nav-menu-trigger"
@@ -944,17 +946,30 @@ function CoursesPage() {
       </div>
 
       {showStudentAuth ? (
-        <StudentAuthModal
-          onClose={() => setShowStudentAuth(false)}
-          anchorRef={menuAnchorRef}
-          leftAlignRef={menuAnchorRef}
-          forceLogin={false}
-          isLoggedIn={isLoggedIn}
-          unreadCount={messageUnreadCount}
-          courseCount={totalCourseCount}
-          align="right"
-          alignOffset={23}
-        />
+        isMentorEntry ? (
+          <MentorAuthModal
+            onClose={() => setShowStudentAuth(false)}
+            anchorRef={menuAnchorRef}
+            leftAlignRef={menuAnchorRef}
+            forceLogin={false}
+            unreadCount={messageUnreadCount}
+            courseCount={totalCourseCount}
+            align="right"
+            alignOffset={23}
+          />
+        ) : (
+          <StudentAuthModal
+            onClose={() => setShowStudentAuth(false)}
+            anchorRef={menuAnchorRef}
+            leftAlignRef={menuAnchorRef}
+            forceLogin={false}
+            isLoggedIn={isLoggedIn}
+            unreadCount={messageUnreadCount}
+            courseCount={totalCourseCount}
+            align="right"
+            alignOffset={23}
+          />
+        )
       ) : null}
 
       {activeCourse ? (() => {
