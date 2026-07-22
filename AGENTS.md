@@ -51,6 +51,7 @@ from `admin-app`.
 - Reuse data fetching, state, and business logic across layout tiers. Create separate `Desktop*` and `Mobile*` presentational components only when their DOM structure or interaction model differs materially.
 - Scope page styles under a page-root class. Avoid generic, unscoped selectors (for example `.header`, `.card`, `.content`, or global element selectors) that can affect unrelated pages.
 - Avoid fixed widths for primary mobile containers. Use flexible layouts, `width: 100%`, `max-width`, and `min-width: 0` where necessary to prevent overflow.
+- When browser-testing mobile UI, prioritize representative iPhone CSS viewports: start with `390×844`, then check the compact `375×667` and large `430×932` sizes when relevant. These are testing priorities only; continue to implement responsive behavior by viewport tiers and never add iPhone-model-specific CSS or user-agent checks.
 - Check UI changes at `320`, `360`, `390`, `430`, `768`, and `1024` CSS pixels. The layout must not cause page-level horizontal scrolling at any phone width.
 - For every `my-app` UI change, also verify the `900px` desktop boundary. Check for page-level horizontal scrolling, clipped menus, obscured fixed actions, and any desktop regression at `>= 900px`.
 - In the final handoff for `my-app` UI changes, state the breakpoints checked and whether desktop behavior was intentionally changed.
