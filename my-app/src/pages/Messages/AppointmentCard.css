@@ -1,9 +1,10 @@
 /* Appointment/schedule card styles extracted from MessagesPage.css */
 .schedule-row {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 52px minmax(0, 1fr);
   align-items: flex-start;
   gap: 10px;
+  min-width: 0;
 }
 
 .schedule-row.is-outgoing {
@@ -30,6 +31,7 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
   width: 360px;
   max-width: 100%;
+  min-width: 0;
   height: auto;
   min-height: 210px;
   margin-left: -8px;
@@ -749,5 +751,46 @@
   width: 48px;
   height: 48px;
   font-size: 16px;
+}
+
+@media (max-width: 899.98px) {
+  .schedule-row.is-outgoing {
+    margin-right: 0;
+  }
+
+  .schedule-card {
+    width: 320px;
+    min-height: 178px;
+    padding: 12px 14px 5px;
+    border-radius: 16px;
+    gap: 8px;
+  }
+
+  .schedule-card-top {
+    gap: 4px;
+  }
+
+  .schedule-card-title {
+    margin-top: 2px;
+    font-size: 14px;
+  }
+
+  .schedule-time-row,
+  .schedule-link-row,
+  .schedule-link {
+    font-size: 13px;
+  }
+
+  .schedule-card-bottom {
+    margin-top: 2px;
+    gap: 6px;
+    padding-bottom: 6px;
+  }
+
+  .schedule-btn.merged,
+  .schedule-btn.status-btn {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
 }
 

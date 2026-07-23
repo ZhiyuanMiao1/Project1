@@ -70,8 +70,10 @@
 .messages-shell {
   display: grid;
   grid-template-columns: 340px 1px 1fr;
+  width: 100%;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   overflow: visible;
 }
 
@@ -278,6 +280,7 @@
 .message-viewport-item {
   display: block;
   width: 100%;
+  min-width: 0;
 }
 
 .message-viewport-item--decision {
@@ -403,6 +406,8 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .message-detail-head {
@@ -412,6 +417,10 @@
   gap: 12px;
   border-bottom: 1px solid #e2e8f0;
   padding: 8px 0 12px;
+}
+
+.message-detail-back {
+  display: none;
 }
 
 .message-detail-identity {
@@ -450,6 +459,7 @@
   padding-right: 6px;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge legacy */
@@ -537,23 +547,25 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 899.98px) {
   .messages-page {
-    height: auto;
-    overflow: visible;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .messages-page .container {
     margin-left: 48px;
-    height: auto;
-    min-height: auto;
-    overflow: visible;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .messages-shell {
     grid-template-columns: 1fr;
-    flex: unset;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .messages-divider {
@@ -561,13 +573,74 @@
   }
 
   .messages-detail-pane {
-    order: -1;
+    display: none;
   }
 
-  .messages-list,
-  .message-detail-body {
-    overflow: visible;
+  .messages-list-pane {
+    height: 100%;
   }
+
+  .messages-list {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .messages-page:not(.is-mobile-detail-open) .message-item.is-active {
+    background: transparent;
+  }
+
+  .messages-page.is-mobile-detail-open .messages-header,
+  .messages-page.is-mobile-detail-open .messages-hero {
+    display: none;
+  }
+
+  .messages-page.is-mobile-detail-open .messages-list-pane {
+    display: none;
+  }
+
+  .messages-page.is-mobile-detail-open .messages-detail-pane {
+    display: flex;
+    height: 100%;
+    padding: 0 20px 20px;
+    gap: 0;
+  }
+
+  .messages-page.is-mobile-detail-open .message-detail-head {
+    min-height: 72px;
+    padding: max(10px, env(safe-area-inset-top)) 0 10px;
+    flex-shrink: 0;
+  }
+
+  .message-detail-back {
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-left: -10px;
+    cursor: pointer;
+  }
+
+  .message-detail-back:hover {
+    background: #f1f5f9;
+  }
+
+  .message-detail-back svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .message-detail-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 0 max(20px, env(safe-area-inset-bottom));
+  }
+
 }
 
 @media (max-width: 640px) {
@@ -580,8 +653,77 @@
     font-size: 26px;
   }
 
+  .messages-header {
+    padding-top: max(18px, env(safe-area-inset-top));
+  }
+
+  .messages-hero {
+    margin: 18px 0 10px;
+  }
+
+  .messages-list-pane {
+    padding: 4px 0 16px;
+  }
+
   .message-item {
-    padding: 12px;
+    min-height: 78px;
+    padding: 12px 8px;
+    border-radius: 16px;
+  }
+
+  .message-item-shell {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .message-avatar {
+    width: 56px;
+    height: 56px;
+  }
+
+  .message-content {
+    min-width: 0;
+  }
+
+  .message-name,
+  .message-subject {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .message-name {
+    font-size: 17px;
+  }
+
+  .message-subject {
+    font-size: 14px;
+  }
+
+  .message-meta-col {
+    min-width: 52px;
+  }
+
+  .message-time {
+    font-size: 13px;
+  }
+
+  .messages-page.is-mobile-detail-open .container {
+    padding: 0;
+  }
+
+  .messages-page.is-mobile-detail-open .messages-detail-pane {
+    padding: 0 16px;
+  }
+
+  .messages-page.is-mobile-detail-open .message-detail-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .messages-page.is-mobile-detail-open .message-detail-name {
+    font-size: 17px;
   }
 
   .messages-shell {

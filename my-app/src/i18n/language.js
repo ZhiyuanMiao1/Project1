@@ -790,6 +790,7 @@ const en = {
   'messages.unstarFailed': 'Failed to unstar. Please try again later.',
   'messages.archiveFailed': 'Failed to archive conversation. Please try again later.',
   'messages.shellAria': 'Messages list and details',
+  'messages.backToConversations': 'Back to conversations',
   'messages.recent': 'Recent',
   'messages.conversations': 'Conversations',
   'messages.conversationCount': '{count} conversations',

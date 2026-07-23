@@ -436,6 +436,7 @@ function MessagesPage() {
   const scheduledReadIdsRef = useRef(new Set());
   const readFlushTimerRef = useRef(null);
   const appliedNavigationThreadRef = useRef('');
+  const openedMobileNavigationRef = useRef('');
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [showMentorAuth, setShowMentorAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -700,6 +701,7 @@ function MessagesPage() {
   }, [applyThreadsPayload, isLoggedIn, t]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [openMoreId, setOpenMoreId] = useState(null);
 
   useEffect(() => {
@@ -723,6 +725,18 @@ function MessagesPage() {
       appliedNavigationThreadRef.current = navigationKey;
       return targetThread.id;
     });
+  }, [location?.key, location?.state?.animateKey, location?.state?.threadId, threads]);
+
+  useEffect(() => {
+    const targetThreadId = String(location?.state?.threadId || '').trim();
+    if (!targetThreadId) return;
+
+    const navigationKey = `${location?.key || 'initial'}:${targetThreadId}:${location?.state?.animateKey || ''}`;
+    if (openedMobileNavigationRef.current === navigationKey) return;
+    if (!threads.some((thread) => String(thread?.id) === targetThreadId)) return;
+
+    openedMobileNavigationRef.current = navigationKey;
+    setMobileDetailOpen(true);
   }, [location?.key, location?.state?.animateKey, location?.state?.threadId, threads]);
 
   useEffect(() => {
@@ -1603,7 +1617,7 @@ function MessagesPage() {
   ]);
 
   return (
-    <div className="messages-page">
+    <div className={`messages-page ${mobileDetailOpen && activeThread ? 'is-mobile-detail-open' : ''}`}>
       <div className="container">
         <header className="messages-header">
           <BrandMark className="nav-logo-text" to={homeHref} />
@@ -1691,6 +1705,7 @@ function MessagesPage() {
                         onClick={() => {
                           setActiveId(thread.id);
                           setOpenMoreId(null);
+                          setMobileDetailOpen(true);
                         }}
                         aria-pressed={isActive}
                       >
@@ -1810,6 +1825,17 @@ function MessagesPage() {
             {hasThreads ? (activeThread ? (
               <>
                 <div className="message-detail-head">
+                  <button
+                    type="button"
+                    className="message-detail-back"
+                    aria-label={t('messages.backToConversations', '返回会话列表')}
+                    onClick={() => {
+                      setMobileDetailOpen(false);
+                      setOpenScheduleMessageMenuId(null);
+                    }}
+                  >
+                    <FiChevronLeft aria-hidden="true" />
+                  </button>
                   <div className="message-detail-identity">
                     <div className="message-detail-avatar" aria-hidden="true">
                       <img
