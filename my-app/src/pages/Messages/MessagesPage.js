@@ -431,7 +431,11 @@ function MessagesPage() {
   const entryAnimatedThreadRef = useRef(null);
   const rescheduleScrollRef = useRef(null);
   const rescheduleResizeRef = useRef(null);
-  const timelineAutoScrollMetaRef = useRef({ threadId: null, length: 0 });
+  const timelineAutoScrollMetaRef = useRef({
+    threadId: null,
+    length: 0,
+    mobileDetailOpen: false,
+  });
   const pendingReadItemsRef = useRef(new Map());
   const scheduledReadIdsRef = useRef(new Set());
   const readFlushTimerRef = useRef(null);
@@ -912,13 +916,28 @@ function MessagesPage() {
       && previous.threadId === currentThreadId
       && currentLength > previous.length
     );
-    timelineAutoScrollMetaRef.current = { threadId: currentThreadId, length: currentLength };
+    const mobileDetailJustOpened = Boolean(mobileDetailOpen && !previous.mobileDetailOpen);
+    timelineAutoScrollMetaRef.current = {
+      threadId: currentThreadId,
+      length: currentLength,
+      mobileDetailOpen,
+    };
 
     const scrollEl = messageBodyScrollRef.current;
     if (!scrollEl) return;
-    if (!threadSwitched && !appendedInSameThread) return;
-    scrollEl.scrollTop = scrollEl.scrollHeight;
-  }, [activeThread?.id, timelineItems.length]);
+    const detailIsVisible = scrollEl.getClientRects().length > 0
+      && scrollEl.clientWidth > 0
+      && scrollEl.clientHeight > 0;
+    if (!detailIsVisible) return;
+    if (!threadSwitched && !appendedInSameThread && !mobileDetailJustOpened) return;
+
+    const scrollToBottom = () => {
+      scrollEl.scrollTop = scrollEl.scrollHeight;
+    };
+    scrollToBottom();
+    const animationFrameId = window.requestAnimationFrame(scrollToBottom);
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [activeThread?.id, mobileDetailOpen, timelineItems.length]);
 
   useEffect(() => {
     setActionError('');
