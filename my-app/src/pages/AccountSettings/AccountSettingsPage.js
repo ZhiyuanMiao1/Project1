@@ -715,15 +715,21 @@ function AccountSettingsPage({ mode = 'student' }) {
     mentorAvatarUploadSeqRef.current += 1;
   }, []);
 
-  const saveAccountProfilePatch = async (patch) => {
-    if (savingAccountProfile) return;
+  const saveAccountProfilePatch = async (
+    patch,
+    { successMessage = t('common.saved', '已保存') } = {}
+  ) => {
+    if (savingAccountProfile) return false;
     setSavingAccountProfile(true);
     try {
       await api.put('/api/account/profile', patch);
       setAccountProfile((prev) => ({ ...prev, ...patch }));
+      showToast(successMessage, 'success');
+      return true;
     } catch (e) {
       const msg = e?.response?.data?.error || t('common.saveFailed', '保存失败，请稍后再试');
-      alert(msg);
+      showToast(msg, 'error');
+      return false;
     } finally {
       setSavingAccountProfile(false);
     }

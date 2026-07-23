@@ -321,14 +321,17 @@ function ProfileSection({
             type="button"
             className="settings-action"
             disabled={savingAccountProfile}
-            onClick={() => {
+            onClick={async () => {
               if (!editingDegree) {
                 setEditingDegree(true);
                 setDegreeDraft(accountProfile.degree || '');
                 return;
               }
-              onSaveAccountProfilePatch({ degree: degreeDraft || '' });
-              setEditingDegree(false);
+              const ok = await onSaveAccountProfilePatch(
+                { degree: degreeDraft || '' },
+                { successMessage: t('profile.degreeSaved', '学历已保存') }
+              );
+              if (ok) setEditingDegree(false);
             }}
           >
             {editingDegree ? t('common.save', '保存') : t('common.edit', '编辑')}
@@ -358,14 +361,17 @@ function ProfileSection({
             type="button"
             className="settings-action"
             disabled={savingAccountProfile}
-            onClick={() => {
+            onClick={async () => {
               if (!editingSchool) {
                 setEditingSchool(true);
                 setSchoolDraft(accountProfile.school || '');
                 return;
               }
-              onSaveAccountProfilePatch({ school: schoolDraft || '' });
-              setEditingSchool(false);
+              const ok = await onSaveAccountProfilePatch(
+                { school: schoolDraft || '' },
+                { successMessage: t('profile.schoolSaved', '学校已保存') }
+              );
+              if (ok) setEditingSchool(false);
             }}
           >
             {editingSchool ? t('common.save', '保存') : t('common.edit', '编辑')}
