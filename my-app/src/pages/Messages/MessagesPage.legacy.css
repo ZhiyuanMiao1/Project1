@@ -1138,6 +1138,44 @@ body.reschedule-resizing * {
   }
 }
 
+@media (max-width: 899.98px) {
+  .reschedule-overlay {
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .reschedule-drawer {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .reschedule-header {
+    flex: 0 0 auto;
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  .reschedule-timeline {
+    overflow: hidden;
+  }
+
+  .reschedule-timeline-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .reschedule-footer {
+    position: relative;
+    flex: 0 0 auto;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .reschedule-send-btn {
+    min-height: 48px;
+  }
+}
+
 @media (max-width: 640px) {
   .reschedule-drawer {
     width: 100vw;
