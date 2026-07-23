@@ -130,7 +130,7 @@
   color: var(--mx-rating-yellow);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 899px) {
   .settings-student-reviews {
     margin-top: 28px;
   }
@@ -139,4 +139,3 @@
     margin-bottom: 22px;
   }
 }
-

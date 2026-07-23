@@ -135,6 +135,9 @@
   border: none;
   border-radius: 14px;
   background: transparent;
+  color: #0f172a;
+  -webkit-appearance: none;
+  appearance: none;
   text-align: left;
   padding: 12px 12px 10px;
   display: block;
@@ -216,9 +219,18 @@
 }
 
 .message-name {
+  color: #000000;
+  -webkit-text-fill-color: #000000;
   font-weight: 500;
   font-size: 15px;
   letter-spacing: -0.01em;
+}
+
+.message-name a,
+.message-name a[x-apple-data-detectors] {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  text-decoration: none !important;
 }
 
 .message-time {

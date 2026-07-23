@@ -3,6 +3,8 @@ import {
   FiAward,
   FiBell,
   FiBookOpen,
+  FiChevronLeft,
+  FiChevronRight,
   FiCreditCard,
   FiGlobe,
   FiShield,
@@ -149,6 +151,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
+  const settingsShellRef = useRef(null);
   const toastTimerRef = useRef(null);
   const studentAvatarInputRef = useRef(null);
   const mentorAvatarInputRef = useRef(null);
@@ -191,6 +194,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
 
   const [activeSectionId, setActiveSectionId] = useState(SETTINGS_SECTIONS[0]?.id || 'profile');
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState('idle'); // idle | loading | loaded | error
   const [availability, setAvailability] = useState(() => {
     let timeZone = 'Asia/Shanghai';
@@ -831,8 +835,26 @@ function AccountSettingsPage({ mode = 'student' }) {
     setShowStudentAuth((prev) => !prev);
   };
 
+  const scrollSettingsIntoView = () => {
+    if (typeof window === 'undefined' || !window.matchMedia('(max-width: 899px)').matches) return;
+    window.requestAnimationFrame(() => {
+      settingsShellRef.current?.scrollIntoView({ block: 'start' });
+    });
+  };
+
+  const openSettingsSection = (sectionId) => {
+    setActiveSectionId(sectionId);
+    setMobileDetailOpen(true);
+    scrollSettingsIntoView();
+  };
+
+  const closeMobileDetail = () => {
+    setMobileDetailOpen(false);
+    scrollSettingsIntoView();
+  };
+
   return (
-    <div className="settings-page">
+    <div className={`settings-page ${mobileDetailOpen ? 'settings-page--mobile-detail' : ''}`}>
       {toast && (
         <div
           key={toast.id}
@@ -879,7 +901,11 @@ function AccountSettingsPage({ mode = 'student' }) {
           <h1>{t('settings.title', '设置与数据')}</h1>
         </section>
 
-        <section className="settings-shell" aria-label={t('settings.aria', '设置与数据')}>
+        <section
+          ref={settingsShellRef}
+          className={`settings-shell ${mobileDetailOpen ? 'is-mobile-detail' : 'is-mobile-index'}`}
+          aria-label={t('settings.aria', '设置与数据')}
+        >
           <div className="settings-nav-pane">
             <nav className="settings-nav" aria-label={t('settings.options', '设置选项')}>
               {settingsSections.map((section) => {
@@ -891,13 +917,16 @@ function AccountSettingsPage({ mode = 'student' }) {
                     type="button"
                     className={`settings-nav-item ${isActive ? 'is-active' : ''}`}
                     aria-current={isActive ? 'page' : undefined}
-                    onClick={() => setActiveSectionId(section.id)}
+                    onClick={() => openSettingsSection(section.id)}
                   >
                     <span className="settings-nav-icon" aria-hidden="true">
                       <Icon size={22} />
                     </span>
                     <span className="settings-nav-text">
                       <span className="settings-nav-label">{section.label}</span>
+                    </span>
+                    <span className="settings-nav-chevron" aria-hidden="true">
+                      <FiChevronRight size={22} />
                     </span>
                   </button>
                 );
@@ -909,6 +938,14 @@ function AccountSettingsPage({ mode = 'student' }) {
 
           <div className="settings-detail-pane">
             <div className="settings-detail-head">
+              <button
+                type="button"
+                className="settings-mobile-back"
+                aria-label={t('settings.backToOptions', '返回设置目录')}
+                onClick={closeMobileDetail}
+              >
+                <FiChevronLeft size={24} aria-hidden="true" />
+              </button>
               <div className="settings-detail-title">{activeSection?.label || t('settings.title', '设置与数据')}</div>
             </div>
 
