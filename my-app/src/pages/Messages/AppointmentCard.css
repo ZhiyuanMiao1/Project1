@@ -789,8 +789,13 @@
 
   .schedule-btn.merged,
   .schedule-btn.status-btn {
+    font-size: 14px;
     padding-top: 10px;
     padding-bottom: 10px;
+  }
+
+  .schedule-actions .schedule-btn {
+    font-size: 14px;
   }
 }
 
