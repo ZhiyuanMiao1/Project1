@@ -1019,6 +1019,10 @@ function MessagesPage() {
 
     const scrollRoot = messageBodyScrollRef.current;
     if (!scrollRoot) return undefined;
+    const detailIsVisible = scrollRoot.getClientRects().length > 0
+      && scrollRoot.clientWidth > 0
+      && scrollRoot.clientHeight > 0;
+    if (!detailIsVisible) return undefined;
 
     const unreadTargets = Array.from(
       scrollRoot.querySelectorAll('[data-message-id][data-unread="true"]')
@@ -1056,34 +1060,7 @@ function MessagesPage() {
     unreadTargets.forEach((target) => observer.observe(target));
 
     return () => observer.disconnect();
-  }, [activeThread?.id, isLoggedIn, queueVisibleMessageRead, timelineItems]);
-
-  useEffect(() => {
-    if (!isLoggedIn || !activeThread?.id) return;
-
-    const unreadIds = [];
-    const maybeQueueCard = (card) => {
-      if (!card || typeof card !== 'object') return;
-      if (card?.direction !== 'incoming' || card?.isRead) return;
-      const messageId = String(card?.id || '').trim();
-      if (!messageId) return;
-      unreadIds.push(messageId);
-    };
-    const maybeQueueDecision = (decision) => {
-      if (!decision || typeof decision !== 'object') return;
-      if (decision?.isByMe || decision?.isRead) return;
-      const messageId = String(decision?.id || '').trim();
-      if (!messageId || messageId === 'latest-decision') return;
-      unreadIds.push(messageId);
-    };
-    maybeQueueCard(activeThread?.schedule);
-    if (Array.isArray(activeThread?.scheduleHistory)) activeThread.scheduleHistory.forEach(maybeQueueCard);
-    if (Array.isArray(activeThread?.decisionMessages)) activeThread.decisionMessages.forEach(maybeQueueDecision);
-
-    unreadIds.forEach((messageId) => {
-      queueVisibleMessageRead(messageId, String(activeThread.id));
-    });
-  }, [activeThread, isLoggedIn, queueVisibleMessageRead]);
+  }, [activeThread?.id, isLoggedIn, mobileDetailOpen, queueVisibleMessageRead, timelineItems]);
 
   const persistAppointmentDecision = async (appointmentId, status) => {
     if (!appointmentId || !status) return false;
