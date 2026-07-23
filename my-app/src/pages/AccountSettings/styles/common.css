@@ -186,6 +186,8 @@
   position: fixed;
   top: 72px;
   right: 24px;
+  box-sizing: border-box;
+  max-width: min(320px, calc(100vw - 32px));
   z-index: 4000;
   pointer-events: none;
   background: #ffffff;
@@ -239,9 +241,38 @@
 
 @media (max-width: 640px) {
   .settings-toast {
-    left: 16px;
+    left: auto;
     right: 16px;
     top: 72px;
+  }
+}
+
+@media (max-width: 899px) {
+  .settings-security-password-row.settings-row--overlay {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .settings-security-password-row .settings-password-fields {
+    width: 100%;
+  }
+
+  .settings-security-password-row .settings-password-input {
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .settings-security-password-row .settings-row-actions {
+    align-self: flex-end;
+    min-height: 44px;
+    gap: 20px;
+  }
+
+  .settings-security-password-row .settings-row-actions .settings-action {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 }
 

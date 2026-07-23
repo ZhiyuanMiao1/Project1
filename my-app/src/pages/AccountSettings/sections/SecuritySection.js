@@ -63,7 +63,7 @@ function SecuritySection({ isLoggedIn, onShowToast }) {
 
   return (
     <>
-      <div className={`settings-row ${editingPassword ? 'settings-row--overlay' : ''}`}>
+      <div className={`settings-row settings-security-password-row ${editingPassword ? 'settings-row--overlay' : ''}`}>
         <div className="settings-row-main">
           <div className="settings-row-title">{t('security.password', '登录密码')}</div>
           <div className={`settings-row-value ${editingPassword ? 'settings-row-value--interactive' : ''}`}>

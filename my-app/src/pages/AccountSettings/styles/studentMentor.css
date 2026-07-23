@@ -235,44 +235,113 @@
   color: #0f172a;
 }
 
+@media (min-width: 900px) and (max-width: 959px) {
+  .settings-student-card,
+  .settings-mentor-card {
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 899px) {
   .settings-student-card,
   .settings-mentor-card {
     box-sizing: border-box;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     max-width: 100%;
-    padding: 22px 20px;
-    gap: 18px;
+    padding: 16px 12px;
+    gap: 8px;
   }
 
   .settings-student-avatar-wrap,
   .settings-mentor-avatar-wrap {
-    width: 120px;
-    height: 120px;
-    flex-basis: 120px;
+    width: 96px;
+    height: 96px;
+    flex-basis: 96px;
   }
 
   .settings-student-avatar-camera,
   .settings-mentor-avatar-camera {
-    transform: translate(-50%, -50%) rotate(48deg) translateX(60px) rotate(-48deg);
+    width: 24px;
+    height: 24px;
+    transform: translate(-50%, -50%) rotate(48deg) translateX(48px) rotate(-48deg);
   }
 
   .settings-student-avatar-initial,
   .settings-mentor-avatar-initial {
-    font-size: 48px;
+    font-size: 40px;
   }
 
   .settings-student-name,
   .settings-mentor-name {
-    font-size: 34px;
+    font-size: 30px;
+  }
+
+  .settings-student-subtitle,
+  .settings-mentor-subtitle {
+    max-width: 100%;
+    font-size: 12px;
   }
 
   .settings-student-metrics,
   .settings-mentor-metrics {
-    border-left: none;
-    padding-left: 0;
-    border-top: 1px solid #eef2f7;
-    padding-top: 14px;
+    border-top: none;
+    border-left: 1px solid #eef2f7;
+    padding-top: 0;
+    padding-left: 10px;
+  }
+
+  .settings-student-metric,
+  .settings-mentor-metric {
+    padding: 10px 0;
+  }
+
+  .settings-student-metric-label,
+  .settings-mentor-metric-label {
+    font-size: 13px;
+  }
+
+  .settings-student-metric-value,
+  .settings-mentor-metric-value {
+    margin-top: 4px;
+    gap: 4px;
+    font-size: 20px;
+  }
+
+  .settings-student-metric-unit,
+  .settings-mentor-metric-unit {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 359px) {
+  .settings-student-card,
+  .settings-mentor-card {
+    padding: 14px 10px;
+    gap: 6px;
+  }
+
+  .settings-student-avatar-wrap,
+  .settings-mentor-avatar-wrap {
+    width: 84px;
+    height: 84px;
+    flex-basis: 84px;
+  }
+
+  .settings-student-avatar-camera,
+  .settings-mentor-avatar-camera {
+    transform: translate(-50%, -50%) rotate(48deg) translateX(42px) rotate(-48deg);
+  }
+
+  .settings-student-name,
+  .settings-mentor-name {
+    font-size: 27px;
+  }
+
+  .settings-student-metrics,
+  .settings-mentor-metrics {
+    padding-left: 8px;
   }
 }
 
