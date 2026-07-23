@@ -19,6 +19,7 @@ import useMessageUnreadSummary from '../../hooks/useMessageUnreadSummary';
 import { useI18n } from '../../i18n/language';
 import { createRouteIntentProps, preloadRoute } from '../../routePreloaders';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import { getTimezoneRegionLabel } from '../../utils/timezoneRegion';
 import { MobileHomeFilters } from './MobileHomeFilters';
 
 const MENTOR_LISTINGS_SEARCH_EVENT = 'mentor:listings-search';
@@ -55,6 +56,7 @@ function MentorNavbar() {
   const [forceLogin, setForceLogin] = useState(false); // 是否强制直接打开登录
   // 延后切换激活项，避免点击到弹窗出现之间的白->灰闪烁
   const [pendingFilter, setPendingFilter] = useState('');
+  const selectedRegionLabel = getTimezoneRegionLabel(selectedRegion, t);
   const navigate = useNavigate(); // 获取 navigate 函数
   const location = useLocation(); // 获取当前路径
   const isPhone = useMediaQuery('(max-width: 599px)');
@@ -276,7 +278,7 @@ function MentorNavbar() {
           {
             key: 'timezone',
             label: t('nav.timeZone', '时区'),
-            value: selectedRegion,
+            value: selectedRegionLabel,
             buttonRef: timezoneRef,
             expanded: showTimezoneModal,
             onOpen: () => {
@@ -340,7 +342,7 @@ function MentorNavbar() {
               <input
                 type="text"
                 placeholder={t('nav.chooseStudentTimeZone', '选择学生时区')}
-                value={selectedRegion}
+                value={selectedRegionLabel}
                 readOnly
               />
             </div>

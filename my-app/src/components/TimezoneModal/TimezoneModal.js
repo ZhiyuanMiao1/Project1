@@ -7,6 +7,7 @@ import regionOceaniaImage from '../../assets/regions/region-oceania.png';
 import regionJpKrImage from '../../assets/regions/region-jp-kr.png';
 import regionChinaImage from '../../assets/regions/region-china.png';
 import { useI18n } from '../../i18n/language';
+import { getTimezoneRegionLabel } from '../../utils/timezoneRegion';
 
 const TimezoneModal = ({ onClose, onSelect, anchorRef, presentation = 'anchored' }) => {
   const { t } = useI18n();
@@ -48,13 +49,16 @@ const TimezoneModal = ({ onClose, onSelect, anchorRef, presentation = 'anchored'
   };
 
   const regionOptions = [
-    { value: '随便看看', label: t('timezoneModal.random', '随便看看'), image: regionRandomImage },
-    { value: '欧洲', label: t('timezoneModal.europe', '欧洲'), image: regionEuropeImage },
-    { value: '北美', label: t('timezoneModal.northAmerica', '北美'), image: regionNorthAmericaImage },
-    { value: '澳洲', label: t('timezoneModal.oceania', '澳洲'), image: regionOceaniaImage },
-    { value: '日韩', label: t('timezoneModal.japanKorea', '日韩'), image: regionJpKrImage },
-    { value: '中国', label: t('timezoneModal.china', '中国'), image: regionChinaImage },
-  ];
+    { value: '随便看看', image: regionRandomImage },
+    { value: '欧洲', image: regionEuropeImage },
+    { value: '北美', image: regionNorthAmericaImage },
+    { value: '澳洲', image: regionOceaniaImage },
+    { value: '日韩', image: regionJpKrImage },
+    { value: '中国', image: regionChinaImage },
+  ].map((region) => ({
+    ...region,
+    label: getTimezoneRegionLabel(region.value, t),
+  }));
 
   // 点击弹窗外部时关闭：在 click 冒泡阶段处理
   useEffect(() => {
