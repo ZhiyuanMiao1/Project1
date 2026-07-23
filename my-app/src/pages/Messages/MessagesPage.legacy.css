@@ -653,6 +653,28 @@
     padding: 16px 0 max(20px, env(safe-area-inset-bottom));
   }
 
+  .message-more-menu {
+    top: 10px;
+    right: 0;
+    min-width: 164px;
+    padding: 8px;
+    border-radius: 14px;
+    gap: 4px;
+  }
+
+  .message-more-item {
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    gap: 12px;
+    font-size: 15px;
+  }
+
+  .message-more-icon {
+    width: 22px;
+    height: 22px;
+  }
+
 }
 
 @media (max-width: 640px) {
