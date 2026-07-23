@@ -3,6 +3,7 @@ import { FaChevronRight, FaPlus, FaTrashAlt } from 'react-icons/fa';
 import { useI18n } from '../../../i18n/language';
 import { addDaysToKey, keyToDate, mergeBlocksList } from './timezoneUtils';
 import WheelPickerSheet from './WheelPickerSheet';
+import './MobileScheduleEditor.css';
 
 const SLOT_MINUTES = 15;
 const SLOT_COUNT = 96;
@@ -34,6 +35,7 @@ function MobileScheduleEditor({
   sessionDurationHours,
   zonedTodayKey,
   zonedNowMinutes,
+  hideTitle = false,
 }) {
   const { language, t } = useI18n();
   const [activeSheet, setActiveSheet] = useState(null);
@@ -200,10 +202,16 @@ function MobileScheduleEditor({
 
   return (
     <div className="mobile-schedule-editor">
-      <section className="mobile-availability-section" aria-labelledby="mobile-availability-title">
+      <section
+        className="mobile-availability-section"
+        aria-label={hideTitle ? t('courseRequest.schedule.mobile.availability', '可授课时间') : undefined}
+        aria-labelledby={hideTitle ? undefined : 'mobile-availability-title'}
+      >
         <div className="mobile-availability-header">
           <div>
-            <h2 id="mobile-availability-title">{t('courseRequest.schedule.mobile.availability', '可授课时间')}</h2>
+            {!hideTitle && (
+              <h2 id="mobile-availability-title">{t('courseRequest.schedule.mobile.availability', '可授课时间')}</h2>
+            )}
             <p>{t('courseRequest.schedule.mobile.availabilityHint', '可添加多个日期和时间段')}</p>
           </div>
           <button type="button" className="mobile-availability-add" onClick={openAddSheet}>

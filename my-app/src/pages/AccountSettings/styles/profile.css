@@ -48,6 +48,38 @@
   width: 100%;
 }
 
+@media (max-width: 899px) {
+  .settings-availability--mobile {
+    gap: 16px;
+    padding-top: 4px;
+  }
+
+  .settings-availability--mobile .mobile-availability-section {
+    margin-top: 0;
+  }
+
+  .settings-availability--mobile .mobile-availability-header {
+    align-items: center;
+  }
+
+  .settings-availability--mobile .mobile-availability-header p {
+    margin-top: 0;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .settings-availability--mobile .settings-availability-actions {
+    padding-right: 2px;
+  }
+
+  .settings-availability--mobile .settings-availability-save {
+    min-height: 44px;
+    padding-right: 20px;
+    padding-left: 20px;
+    border-radius: 12px;
+  }
+}
+
 @media (max-width: 960px) {
   .settings-availability .schedule-sidebar {
     grid-template-columns: 1fr;
@@ -63,4 +95,3 @@
     width: 100%;
   }
 }
-

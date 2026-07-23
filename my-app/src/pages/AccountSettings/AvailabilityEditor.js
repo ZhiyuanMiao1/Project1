@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ScheduleTimesPanel from '../StudentCourseRequest/steps/ScheduleTimesPanel';
+import MobileScheduleEditor from '../StudentCourseRequest/steps/MobileScheduleEditor';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } from '../StudentCourseRequest/steps/timezoneUtils';
 import { buildAvailabilityDaySet, mergeAvailabilityBlocks, normalizeBlockMap } from '../../utils/availabilityBusy';
 import { useI18n } from '../../i18n/language';
+import useMediaQuery from '../../hooks/useMediaQuery';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;
@@ -134,6 +136,7 @@ function AvailabilityEditor({
   onSave,
 }) {
   const { language, t } = useI18n();
+  const isMobileLayout = useMediaQuery('(max-width: 899px)');
   const timesListRef = useRef(null);
   const [selectedDate, setSelectedDate] = useState(() => toNoonDate(new Date()));
   const [viewMonth, setViewMonth] = useState(() => {
@@ -363,12 +366,53 @@ function AvailabilityEditor({
     });
   }, [multiDayCommonBlocks, normalizeAvailability, onChange, selectedKey, selectedKeys]);
 
+  const setMobileDaySelections = useCallback((updater) => {
+    onChange((prev) => {
+      const prevSafe = normalizeAvailability(prev);
+      const nextDaySelections = typeof updater === 'function'
+        ? updater(prevSafe.daySelections || {})
+        : updater;
+      return {
+        ...prevSafe,
+        daySelections: nextDaySelections && typeof nextDaySelections === 'object'
+          ? nextDaySelections
+          : {},
+      };
+    });
+  }, [normalizeAvailability, onChange]);
+
   if (loading) {
     return <div className="settings-availability-hint"><LoadingText text={t('common.loading', '加载中...')} /></div>;
   }
 
   if (disabled) {
     return <div className="settings-availability-hint">{t('profile.availabilityEditor.loginHint', '请先登录后设置空余时间')}</div>;
+  }
+
+  if (isMobileLayout) {
+    return (
+      <div className="settings-availability settings-availability--mobile">
+        <MobileScheduleEditor
+          daySelections={safeValue.daySelections}
+          setDaySelections={setMobileDaySelections}
+          sessionDurationHours={safeValue.sessionDurationHours}
+          zonedTodayKey={todayKey}
+          zonedNowMinutes={(nowParts.hour * 60) + nowParts.minute}
+          hideTitle
+        />
+
+        <div className="settings-availability-actions">
+          <button
+            type="button"
+            className="settings-availability-save"
+            disabled={saving}
+            onClick={() => onSave(safeValue)}
+          >
+            {saving ? <LoadingText text={t('common.saving', '保存中...')} /> : t('common.save', '保存')}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
