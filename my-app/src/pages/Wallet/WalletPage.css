@@ -978,10 +978,20 @@ paypal-mark.wallet-paypal-primary-mark:defined {
 
   .wallet-derived-value {
     margin-top: 10px;
+    width: 100%;
+    min-width: 0;
   }
 
   .wallet-derived-row {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) max-content;
     column-gap: 10px;
+  }
+
+  .wallet-derived-right {
+    justify-self: end;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
 
   .wallet-derived-total {
