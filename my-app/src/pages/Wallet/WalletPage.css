@@ -681,3 +681,378 @@ paypal-mark.wallet-paypal-primary-mark:defined {
     grid-template-columns: 1fr;
   }
 }
+
+/* Tablet / large-phone layout. Desktop styles at >= 900px remain untouched. */
+@media (min-width: 600px) and (max-width: 899px) {
+  .wallet-page .container {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .wallet-header {
+    padding: 20px 0 10px;
+  }
+
+  .wallet-hero {
+    margin: 22px 0 18px;
+  }
+
+  .wallet-balance-card {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: end;
+    gap: 32px;
+    padding: 8px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .wallet-balance-amount {
+    font-size: 64px;
+  }
+
+  .wallet-balance-unit {
+    font-size: 34px;
+  }
+
+  .wallet-stat-grid {
+    margin-top: 0;
+  }
+
+  .wallet-topup-card {
+    padding: 0;
+  }
+
+  .wallet-method-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .wallet-method-alipay-icon,
+  .wallet-method-wechat-icon {
+    width: min(130px, 100%);
+  }
+
+  .wallet-hours-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .wallet-hours-row .wallet-quick-pill {
+    width: 44px;
+    height: 44px;
+  }
+
+  .wallet-hours-input {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 200px;
+    max-width: 34%;
+  }
+
+  .wallet-panel-muted {
+    margin-right: 0;
+    margin-left: 0;
+  }
+}
+
+/* Phone layout. */
+@media (max-width: 599px) {
+  .wallet-page {
+    min-height: 100dvh;
+  }
+
+  .wallet-page .container {
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .wallet-header {
+    padding: 14px 0 8px;
+  }
+
+  .wallet-menu {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    margin-left: 0;
+    border-radius: 12px;
+    background: transparent;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-hero {
+    margin: 20px 0 20px;
+  }
+
+  .wallet-hero h1 {
+    margin-bottom: 0;
+    font-size: 30px;
+    line-height: 1.15;
+  }
+
+  .wallet-layout {
+    gap: 32px;
+  }
+
+  .wallet-balance-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .wallet-balance-card .wallet-panel-eyebrow {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(17, 17, 17, 0.58);
+  }
+
+  .wallet-balance-amount {
+    margin-top: 10px;
+    font-size: 56px;
+    line-height: 0.98;
+  }
+
+  .wallet-balance-unit {
+    margin-left: 6px;
+    font-size: 27px;
+  }
+
+  .wallet-stat-grid {
+    margin-top: 30px;
+    gap: 24px;
+  }
+
+  .wallet-stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(17, 17, 17, 0.5);
+  }
+
+  .wallet-stat-value {
+    margin-top: 6px;
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wallet-refund-trigger {
+    width: auto;
+    min-height: 44px;
+    margin: 6px 0 -8px -8px;
+    padding: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: rgba(17, 17, 17, 0.68);
+    font-size: 13px;
+    font-weight: 600;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-text-fill-color: rgba(17, 17, 17, 0.68);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-refund-trigger:hover {
+    border-color: transparent;
+    background: rgba(17, 17, 17, 0.04);
+    transform: none;
+  }
+
+  .wallet-refund-trigger:active,
+  .wallet-menu:active {
+    background: rgba(17, 17, 17, 0.06);
+  }
+
+  .wallet-topup-card {
+    padding: 0;
+  }
+
+  .wallet-panel-title {
+    margin-bottom: 0;
+    font-size: 20px;
+  }
+
+  .wallet-method-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .wallet-method-card {
+    min-width: 0;
+    min-height: 64px;
+    gap: 4px;
+    padding: 6px 4px;
+    border-radius: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-method-card--paypal {
+    gap: 4px;
+  }
+
+  .wallet-method-icon--paypal {
+    width: 26px;
+    height: 36px;
+  }
+
+  .wallet-method-paypal-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .wallet-method-title--paypal {
+    font-size: 15px;
+  }
+
+  .wallet-method-icon--alipay,
+  .wallet-method-icon--wechat {
+    width: 100%;
+    height: 42px;
+    min-width: 0;
+  }
+
+  .wallet-method-alipay-icon,
+  .wallet-method-wechat-icon {
+    width: min(86px, 92%);
+    height: 42px;
+  }
+
+  .wallet-topup-form {
+    margin-top: 22px;
+  }
+
+  .wallet-input-label {
+    margin-bottom: 10px;
+  }
+
+  .wallet-hours-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .wallet-hours-row .wallet-quick-amount {
+    width: auto;
+    min-width: 0;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    display: flex;
+    gap: 12px;
+  }
+
+  .wallet-hours-row .wallet-quick-pill {
+    width: 44px;
+    height: 44px;
+    appearance: none;
+    -webkit-appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-hours-input {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: none;
+    flex: 0 0 auto;
+    min-height: 48px;
+    margin-left: 0;
+  }
+
+  .wallet-derived-amount {
+    margin-top: 20px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .wallet-derived-value {
+    margin-top: 10px;
+  }
+
+  .wallet-derived-row {
+    column-gap: 10px;
+  }
+
+  .wallet-derived-total {
+    margin-top: 16px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .wallet-primary {
+    min-height: 52px;
+    margin-top: 16px;
+  }
+
+  .wallet-paypal {
+    margin-top: 16px;
+  }
+
+  .wallet-paypal-primary {
+    min-height: 52px;
+  }
+
+  .wallet-empty,
+  .wallet-notice {
+    font-size: 12px;
+  }
+
+  .wallet-panel-muted {
+    margin: 0 0 calc(28px + env(safe-area-inset-bottom));
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .wallet-panel-muted .wallet-panel-title {
+    font-size: 15px;
+  }
+
+  .wallet-tip-list {
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 359px) {
+  .wallet-balance-amount {
+    font-size: 52px;
+  }
+
+  .wallet-balance-unit {
+    font-size: 27px;
+  }
+
+  .wallet-method-card {
+    min-height: 60px;
+  }
+
+  .wallet-method-icon--paypal {
+    display: none;
+  }
+
+  .wallet-method-alipay-icon,
+  .wallet-method-wechat-icon {
+    width: min(74px, 94%);
+  }
+
+}
+
+@media (max-width: 899px) {
+  .wallet-empty {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+}

@@ -25,6 +25,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
   const titleId = useId();
   const dialogRef = useRef(null);
   const quoteTimerRef = useRef(null);
+  const quoteRequestRef = useRef(0);
   const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -127,6 +128,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
 
   useEffect(() => {
     window.clearTimeout(quoteTimerRef.current);
+    const requestId = ++quoteRequestRef.current;
     setQuote(null);
     setConfirming(false);
     const parsedHours = Number(hours);
@@ -138,21 +140,24 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
       || parsedHours > Number(selectedOrder.availableHours)
       || Math.abs(parsedHours * 4 - Math.round(parsedHours * 4)) > 0.000001
     ) {
+      setQuoteLoading(false);
       return undefined;
     }
 
+    setQuoteLoading(true);
     quoteTimerRef.current = window.setTimeout(async () => {
-      setQuoteLoading(true);
       setError('');
       try {
         const nextQuote = await apiClient
           .post('/api/refunds/quote', { orderId: selectedOrder.id, hours: parsedHours })
           .then((response) => response?.data || null);
+        if (quoteRequestRef.current !== requestId) return;
         setQuote(nextQuote);
       } catch (requestError) {
+        if (quoteRequestRef.current !== requestId) return;
         setError(requestError?.response?.data?.error || t('wallet.refundQuoteFailed', '退款报价失败，请调整课时后重试'));
       } finally {
-        setQuoteLoading(false);
+        if (quoteRequestRef.current === requestId) setQuoteLoading(false);
       }
     }, 260);
     return () => window.clearTimeout(quoteTimerRef.current);
@@ -228,7 +233,6 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
         <header className="wallet-refund-header">
           <div>
             <h2 id={titleId}>{t('wallet.refundTitle', '申请退款')}</h2>
-            <p>{t('wallet.refundSubtitle', '仅退回未使用课时，每次选择一笔原充值订单')}</p>
           </div>
           <button
             type="button"
@@ -261,18 +265,14 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                           <strong>{formatDate(order.paidAt)}</strong>
                           <small>
                             {t(
-                              'wallet.refundOrderPurchased',
-                              `购买 ${formatNumber(order.purchasedHours)} 小时 · ¥${formatNumber(order.unitPriceCny)}/小时`,
-                              { hours: formatNumber(order.purchasedHours), price: formatNumber(order.unitPriceCny) }
+                              'wallet.refundOrderSummary',
+                              `购买 ${formatNumber(order.purchasedHours)} 小时 · 共 ¥${Number(order.paidAmountCny).toFixed(2)}`,
+                              {
+                                hours: formatNumber(order.purchasedHours),
+                                amount: Number(order.paidAmountCny).toFixed(2),
+                              }
                             )}
                           </small>
-                        </span>
-                        <span className="wallet-refund-order-available">
-                          {t(
-                            'wallet.refundAvailableHours',
-                            `可退 ${formatNumber(order.availableHours)} 小时`,
-                            { hours: formatNumber(order.availableHours) }
-                          )}
                         </span>
                       </button>
                     ))}
@@ -286,8 +286,22 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
 
               {selectedOrder && (
                 <section className="wallet-refund-section">
-                  <div className="wallet-refund-label-row">
+                  <div className="wallet-refund-hours-row">
                     <label htmlFor="wallet-refund-hours">{t('wallet.refundHours', '退款课时')}</label>
+                    <div className="wallet-refund-input">
+                      <input
+                        id="wallet-refund-hours"
+                        type="number"
+                        inputMode="decimal"
+                        min="0.25"
+                        max={selectedOrder.availableHours}
+                        step="0.25"
+                        value={hours}
+                        onChange={(event) => setHours(event.target.value)}
+                        disabled={submitting}
+                      />
+                      <span>{t('wallet.hours', '小时')}</span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setHours(formatNumber(selectedOrder.availableHours))}
@@ -295,46 +309,47 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                       {t('wallet.refundAll', '全部可退')}
                     </button>
                   </div>
-                  <div className="wallet-refund-input">
-                    <input
-                      id="wallet-refund-hours"
-                      type="number"
-                      inputMode="decimal"
-                      min="0.25"
-                      max={selectedOrder.availableHours}
-                      step="0.25"
-                      value={hours}
-                      onChange={(event) => setHours(event.target.value)}
-                      disabled={submitting}
-                    />
-                    <span>{t('wallet.hours', '小时')}</span>
-                  </div>
                   <p className="wallet-refund-help">
                     {t('wallet.refundQuarterHint', '可按 0.25 小时递增；部分退款后会重新计算原订单阶梯优惠')}
                   </p>
 
-                  {quoteLoading && <div className="wallet-refund-quote-loading"><LoadingText text={t('wallet.refundCalculating', '正在计算退款金额...')} /></div>}
-
-                  {quote && (
-                    <div className="wallet-refund-quote">
+                  <div
+                    className={`wallet-refund-quote${quoteLoading || !quote ? ' is-loading' : ''}`}
+                    aria-busy={quoteLoading || !quote}
+                  >
                       <div>
                         <span>{t('wallet.refundReferenceCny', '人民币参考退款')}</span>
-                        <strong>¥{Number(quote.amountCny).toFixed(2)}</strong>
+                        <strong>
+                          {quote
+                            ? `¥${Number(quote.amountCny).toFixed(2)}`
+                            : <i className="wallet-refund-quote-placeholder" aria-hidden="true" />}
+                        </strong>
                       </div>
                       <div>
                         <span>{t('wallet.refundOriginalAmount', '原路退回')}</span>
-                        <strong>{quote.amount.currency} {Number(quote.amount.value).toFixed(2)}</strong>
+                        <strong>
+                          {quote
+                            ? `${quote.amount.currency} ${Number(quote.amount.value).toFixed(2)}`
+                            : <i className="wallet-refund-quote-placeholder" aria-hidden="true" />}
+                        </strong>
                       </div>
                       <div>
                         <span>{t('wallet.refundRetained', '退款后本单保留')}</span>
-                        <strong>{formatNumber(quote.retainedHoursAfter)} {t('wallet.hours', '小时')}</strong>
+                        <strong>
+                          {quote
+                            ? `${formatNumber(quote.retainedHoursAfter)} ${t('wallet.hours', '小时')}`
+                            : <i className="wallet-refund-quote-placeholder" aria-hidden="true" />}
+                        </strong>
                       </div>
                       <div>
                         <span>{t('wallet.refundBalanceAfter', '退款后钱包余额')}</span>
-                        <strong>{formatNumber(quote.postRefundBalance)} {t('wallet.hours', '小时')}</strong>
+                        <strong>
+                          {quote
+                            ? `${formatNumber(quote.postRefundBalance)} ${t('wallet.hours', '小时')}`
+                            : <i className="wallet-refund-quote-placeholder" aria-hidden="true" />}
+                        </strong>
                       </div>
-                    </div>
-                  )}
+                  </div>
 
                   {insufficientForSchedule && (
                     <div className="wallet-refund-warning">

@@ -45,13 +45,6 @@
   color: #111;
 }
 
-.wallet-refund-header p {
-  margin: 5px 0 0;
-  color: rgba(17, 17, 17, 0.58);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .wallet-refund-close {
   width: 40px;
   height: 40px;
@@ -109,10 +102,7 @@
 .wallet-refund-order {
   width: 100%;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: block;
   padding: 13px 14px;
   border: 1px solid rgba(17, 17, 17, 0.1);
   border-radius: 14px;
@@ -148,12 +138,6 @@
   white-space: nowrap;
 }
 
-.wallet-refund-order-available {
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .wallet-refund-empty {
   padding: 18px 14px;
   border: 1px dashed rgba(17, 17, 17, 0.14);
@@ -163,22 +147,23 @@
   text-align: center;
 }
 
-.wallet-refund-label-row {
-  display: flex;
+.wallet-refund-hours-row {
+  display: grid;
+  grid-template-columns: max-content 120px max-content;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: 8px;
 }
 
-.wallet-refund-label-row label {
+.wallet-refund-hours-row label {
   color: #111;
   font-size: 13px;
   font-weight: 700;
 }
 
-.wallet-refund-label-row button {
-  padding: 0;
+.wallet-refund-hours-row button {
+  min-height: 44px;
+  justify-self: start;
+  padding: 0 2px;
   border: 0;
   background: transparent;
   color: rgba(17, 17, 17, 0.65);
@@ -188,12 +173,14 @@
 }
 
 .wallet-refund-input {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 46px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid rgba(17, 17, 17, 0.13);
   border-radius: 14px;
 }
@@ -204,7 +191,9 @@
 }
 
 .wallet-refund-input input {
+  width: 48px;
   min-width: 0;
+  flex: 0 1 48px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -226,10 +215,28 @@
   line-height: 1.5;
 }
 
-.wallet-refund-quote-loading {
-  margin-top: 12px;
-  color: rgba(17, 17, 17, 0.65);
-  font-size: 12px;
+@media (max-width: 359px) {
+  .wallet-refund-hours-row {
+    grid-template-areas:
+      "label action"
+      "input input";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+  }
+
+  .wallet-refund-hours-row label {
+    grid-area: label;
+  }
+
+  .wallet-refund-hours-row .wallet-refund-input {
+    grid-area: input;
+    width: 120px;
+    justify-self: start;
+  }
+
+  .wallet-refund-hours-row button {
+    grid-area: action;
+  }
 }
 
 .wallet-refund-quote {
@@ -245,6 +252,8 @@
 
 .wallet-refund-quote > div {
   min-width: 0;
+  min-height: 64px;
+  box-sizing: border-box;
   display: grid;
   gap: 5px;
   padding: 12px;
@@ -257,8 +266,29 @@
 }
 
 .wallet-refund-quote strong {
+  min-height: 17px;
   color: #111;
   font-size: 14px;
+}
+
+.wallet-refund-quote-placeholder {
+  width: min(86px, 72%);
+  height: 17px;
+  display: block;
+  border-radius: 5px;
+  background: rgba(17, 17, 17, 0.08);
+  animation: walletRefundQuotePulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes walletRefundQuotePulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wallet-refund-quote-placeholder {
+    animation: none;
+  }
 }
 
 .wallet-refund-warning,
