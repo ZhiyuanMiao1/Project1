@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { FiX } from 'react-icons/fi';
 import apiClient from '../../api/client';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
@@ -236,7 +237,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
             disabled={submitting}
             aria-label={t('common.close', '关闭')}
           >
-            ×
+            <FiX aria-hidden="true" />
           </button>
         </header>
 

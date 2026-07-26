@@ -39,6 +39,11 @@ from `admin-app`.
 
 - The admin console uses a compact left sidebar in `admin-app/src/styles.css`.
 
+## Modal Guidelines (`my-app`)
+
+- New or updated modal close buttons must follow the established Mentory style used by `LoginPopup` and `CourseReviewModal`: use the `FiX` icon from `react-icons/fi` inside a `40px × 40px` button with `12px` border radius, no border, white background, `#0f172a` icon color, centered `inline-flex` layout, an `18px × 18px` icon, and `rgba(15, 23, 42, 0.04)` hover background.
+- Reuse a shared close-button component when one exists. Until one is available, keep the modal-specific selector scoped but match the established style exactly; do not introduce literal `×` text, gray circular close buttons, or one-off visual variants.
+- Every modal close button must be a semantic `button` with `type="button"`, a localized accessible `aria-label`, keyboard focus support, and a disabled state when closing must be blocked during submission.
 
 ## Mobile H5 Guidelines (`my-app`)
 
