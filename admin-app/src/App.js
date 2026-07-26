@@ -69,6 +69,9 @@ const statusText = {
   running: '录制中',
   ready: '已生成',
   reviewed: '已评价',
+  partially_refunded: '部分退款',
+  refunded: '已退款',
+  processing: '退款确认中',
 };
 
 const LIVE_SDK_URL = 'https://g.alicdn.com/apsara-media-box/imp-web-live-push/6.4.9/alivc-live-push.js';
@@ -1805,6 +1808,8 @@ function OrdersPage() {
     { value: '', label: '全部' },
     { value: 'pending', label: '待支付' },
     { value: 'paid', label: '已支付' },
+    { value: 'refund_processing', label: '退款处理中' },
+    { value: 'refunded', label: '已退款' },
     { value: 'failed', label: '失败/取消' },
   ];
 
@@ -1833,7 +1838,10 @@ function OrdersPage() {
       ariaLabel="订单状态筛选"
     />,
     <SortHeader label={'\u8bfe\u65f6'} field="topup_hours" sort={sort} onSort={updateSort} />,
+    '可退课时',
     <SortHeader label={'\u91d1\u989d'} field="amount_cny" sort={sort} onSort={updateSort} />,
+    '退款',
+    '退款状态',
     <SortHeader label={'\u521b\u5efa\u65f6\u95f4'} field="created_at" sort={sort} onSort={updateSort} />,
   ];
 
@@ -1853,7 +1861,10 @@ function OrdersPage() {
             <ProviderBadge value={order.provider} />,
             <OrderStatusBadge order={order} />,
             order.topup_hours,
+            formatHourValue(order.remaining_hours),
             formatIntegerAmount(order.amount_cny),
+            order.refunded_amount_cny > 0 ? `¥${formatIntegerAmount(order.refunded_amount_cny)}` : '-',
+            order.refund_status ? <Badge value={order.refund_status} /> : '-',
             formatDate(order.created_at),
           ])}
         />

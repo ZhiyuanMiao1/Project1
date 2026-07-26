@@ -15,6 +15,7 @@ import {
   touchMentorLastReplied,
   touchMentorLastRepliedWithConnection,
 } from '../services/mentorRecommendation';
+import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
 
 const router = express.Router();
 
@@ -1761,14 +1762,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async 
       );
       await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
 
-      await conn.execute(
-        `
-        UPDATE users
-        SET lesson_balance_hours = lesson_balance_hours - ?
-        WHERE id = ?
-        `,
-        [proposedHours, req.user.id]
-      );
+      await consumeLessonHours(conn, req.user.id, Number(row.course_session_id), proposedHours);
     } else {
       await conn.execute(
         `
@@ -1802,6 +1796,9 @@ router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async 
     });
   } catch (e) {
     try { await conn.rollback(); } catch {}
+    if (isWalletHoursError(e)) {
+      return res.status(409).json({ code: e.code, error: e.message });
+    }
     if (isMissingMessagesSchemaError(e)) {
       return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
     }
@@ -2047,13 +2044,11 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', requireAuth,
       );
       await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
 
-      await conn.execute(
-        `
-        UPDATE users
-        SET lesson_balance_hours = lesson_balance_hours - ?
-        WHERE id = ?
-        `,
-        [disputedHours, Number(row.student_user_id)]
+      await consumeLessonHours(
+        conn,
+        Number(row.student_user_id),
+        Number(row.course_session_id),
+        disputedHours
       );
     }
     await touchMentorLastRepliedWithConnection(conn, Number(row.mentor_user_id));
@@ -2075,6 +2070,9 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', requireAuth,
     });
   } catch (e) {
     try { await conn.rollback(); } catch {}
+    if (isWalletHoursError(e)) {
+      return res.status(409).json({ code: e.code, error: e.message });
+    }
     if (isMissingMessagesSchemaError(e)) {
       return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
     }

@@ -85,7 +85,8 @@ const fetchWalletSummary = async (userId: number) => {
   );
   const remainingHours = toNumber(balanceRows?.[0]?.lesson_balance_hours, 0);
 
-  const sumRows = await dbQuery<any[]>(
+  const [sumRows, refundRows] = await Promise.all([
+    dbQuery<any[]>(
     `SELECT
        COALESCE(SUM(amount_cny), 0) AS totalTopUpCny,
        COALESCE(SUM(CASE WHEN credited_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS monthTopUpCny
@@ -93,12 +94,27 @@ const fetchWalletSummary = async (userId: number) => {
      WHERE user_id = ?
        AND credited_at IS NOT NULL`,
     [userId]
-  );
+    ),
+    dbQuery<any[]>(
+      `SELECT COALESCE(SUM(amount_cny), 0) AS monthRefundCny
+       FROM billing_refunds
+       WHERE user_id = ?
+         AND status = 'COMPLETED'
+         AND completed_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')`,
+      [userId]
+    ),
+  ]);
 
   const totalTopUpCny = toNumber(sumRows?.[0]?.totalTopUpCny, 0);
   const monthTopUpCny = toNumber(sumRows?.[0]?.monthTopUpCny, 0);
+  const monthRefundCny = toNumber(refundRows?.[0]?.monthRefundCny, 0);
 
-  return { remainingHours, totalTopUpCny, monthTopUpCny };
+  return {
+    remainingHours,
+    totalTopUpCny,
+    monthTopUpCny,
+    monthNetSpendingCny: Number((monthTopUpCny - monthRefundCny).toFixed(2)),
+  };
 };
 
 const getPayPalIssueCodes = (paypalData: any): string[] => {
@@ -270,11 +286,13 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
         await dbQuery(
           `INSERT INTO billing_orders (
              user_id, provider, provider_order_id, status,
-             topup_hours, unit_price_cny, amount_cny,
+           topup_hours, unit_price_cny, amount_cny,
+             pricing_version, standard_unit_price_cny,
+             discount_threshold_hours, discount_unit_price_cny,
              currency_code, amount_usd,
              paypal_fx_quote_id, paypal_fx_rate, paypal_fx_expires_at,
              provider_create_json
-           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'USD', ?, ?, ?, ?, ?)
+           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'tier-v1', 600.00, 10.00, 500.00, 'USD', ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              status = VALUES(status),
              topup_hours = VALUES(topup_hours),
@@ -353,6 +371,7 @@ router.post('/checkout/orders/:orderId/capture', requireAuth, async (req: Reques
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
+        await conn.query('SELECT id FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [req.user.id]);
 
         const [orderRows] = await conn.query<any[]>(
           `SELECT id, topup_hours, amount_usd, currency_code, credited_at
@@ -407,7 +426,13 @@ router.post('/checkout/orders/:orderId/capture', requireAuth, async (req: Reques
             'UPDATE users SET lesson_balance_hours = lesson_balance_hours + ? WHERE id = ?',
             [toNumber(order?.topup_hours, 0), req.user.id]
           );
-          await conn.query('UPDATE billing_orders SET credited_at = CURRENT_TIMESTAMP WHERE id = ?', [order.id]);
+          await conn.query(
+            `UPDATE billing_orders
+             SET credited_at = CURRENT_TIMESTAMP,
+                 remaining_hours = topup_hours
+             WHERE id = ?`,
+            [order.id]
+          );
         }
 
         await conn.commit();

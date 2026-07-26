@@ -10,6 +10,7 @@ const availabilityBusy_1 = require("../services/availabilityBusy");
 const mailService_1 = require("../services/mailService");
 const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
+const walletHours_1 = require("../services/walletHours");
 const router = express_1.default.Router();
 const isMissingMessagesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
@@ -1409,11 +1410,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
         WHERE id = ?
         `, [proposedHours, Number(row.course_session_id)]);
             await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(row.mentor_user_id));
-            await conn.execute(`
-        UPDATE users
-        SET lesson_balance_hours = lesson_balance_hours - ?
-        WHERE id = ?
-        `, [proposedHours, req.user.id]);
+            await (0, walletHours_1.consumeLessonHours)(conn, req.user.id, Number(row.course_session_id), proposedHours);
         }
         else {
             await conn.execute(`
@@ -1444,6 +1441,9 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
             await conn.rollback();
         }
         catch { }
+        if ((0, walletHours_1.isWalletHoursError)(e)) {
+            return res.status(409).json({ code: e.code, error: e.message });
+        }
         if (isMissingMessagesSchemaError(e)) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }
@@ -1653,11 +1653,7 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requi
         WHERE id = ?
         `, [disputedHours, Number(row.course_session_id)]);
             await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(row.mentor_user_id));
-            await conn.execute(`
-        UPDATE users
-        SET lesson_balance_hours = lesson_balance_hours - ?
-        WHERE id = ?
-        `, [disputedHours, Number(row.student_user_id)]);
+            await (0, walletHours_1.consumeLessonHours)(conn, Number(row.student_user_id), Number(row.course_session_id), disputedHours);
         }
         await (0, mentorRecommendation_1.touchMentorLastRepliedWithConnection)(conn, Number(row.mentor_user_id));
         await conn.execute(`
@@ -1677,6 +1673,9 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requi
             await conn.rollback();
         }
         catch { }
+        if ((0, walletHours_1.isWalletHoursError)(e)) {
+            return res.status(409).json({ code: e.code, error: e.message });
+        }
         if (isMissingMessagesSchemaError(e)) {
             return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
         }

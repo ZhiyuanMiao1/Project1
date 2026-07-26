@@ -16,6 +16,7 @@ const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
 const classroomObserverToken_1 = require("../services/classroomObserverToken");
 const ossClient_1 = require("../services/ossClient");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
+const walletHours_1 = require("../services/walletHours");
 const router = (0, express_1.Router)();
 const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
 const USER_STATUSES = new Set(['active', 'suspended']);
@@ -920,7 +921,21 @@ router.get('/orders', adminAuth_1.requireAdminAuth, async (req, res) => {
         where.push('bo.provider = ?');
         params.push(provider);
     }
-    if (status === 'pending') {
+    if (status === 'refund_processing') {
+        where.push(`EXISTS (
+      SELECT 1 FROM billing_refunds br
+      WHERE br.billing_order_id = bo.id
+        AND br.status IN ('PROCESSING', 'PENDING')
+    )`);
+    }
+    else if (status === 'refunded') {
+        where.push(`EXISTS (
+      SELECT 1 FROM billing_refunds br
+      WHERE br.billing_order_id = bo.id
+        AND br.status = 'COMPLETED'
+    )`);
+    }
+    else if (status === 'pending') {
         where.push("bo.status IN ('CREATED', 'APPROVED')");
     }
     else if (status === 'paid') {
@@ -950,11 +965,34 @@ router.get('/orders', adminAuth_1.requireAdminAuth, async (req, res) => {
         const rows = await (0, db_1.query)(`SELECT
          bo.id, bo.user_id, bo.provider, bo.provider_order_id, bo.status, bo.topup_hours,
          bo.unit_price_cny, bo.amount_cny, bo.currency_code, bo.amount_usd, bo.paypal_capture_id,
+         bo.remaining_hours,
+         COALESCE(refunds.refunded_hours, 0) AS refunded_hours,
+         COALESCE(refunds.refunded_amount_cny, 0) AS refunded_amount_cny,
+         CASE
+           WHEN COALESCE(refunds.processing_count, 0) > 0 THEN 'PROCESSING'
+           WHEN COALESCE(refunds.pending_count, 0) > 0 THEN 'PENDING'
+           WHEN COALESCE(refunds.completed_hours, 0) >= bo.topup_hours THEN 'REFUNDED'
+           WHEN COALESCE(refunds.completed_count, 0) > 0 THEN 'PARTIALLY_REFUNDED'
+           WHEN COALESCE(refunds.failed_count, 0) > 0 THEN 'FAILED'
+           ELSE NULL
+         END AS refund_status,
          bo.created_at, bo.captured_at, bo.credited_at, bo.updated_at,
          u.email, u.username, u.account_status, ur.public_id AS student_public_id
        FROM billing_orders bo
        JOIN users u ON u.id = bo.user_id
        LEFT JOIN user_roles ur ON ur.user_id = u.id AND ur.role = 'student'
+       LEFT JOIN (
+         SELECT billing_order_id,
+                SUM(CASE WHEN status = 'COMPLETED' THEN requested_hours ELSE 0 END) AS refunded_hours,
+                SUM(CASE WHEN status = 'COMPLETED' THEN requested_hours ELSE 0 END) AS completed_hours,
+                SUM(CASE WHEN status = 'COMPLETED' THEN amount_cny ELSE 0 END) AS refunded_amount_cny,
+                SUM(status = 'COMPLETED') AS completed_count,
+                SUM(status = 'PROCESSING') AS processing_count,
+                SUM(status = 'PENDING') AS pending_count,
+                SUM(status = 'FAILED') AS failed_count
+         FROM billing_refunds
+         GROUP BY billing_order_id
+       ) refunds ON refunds.billing_order_id = bo.id
        WHERE ${where.join(' AND ')}
        ORDER BY bo.created_at DESC, bo.id DESC
        ${pagingSql(limit, offset)}`, params);
@@ -1268,9 +1306,7 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', adminAuth_1.re
        SET duration_hours = ?, status = 'completed'
        WHERE id = ?`, [finalHours, courseId]);
         await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(before.mentor_user_id));
-        await conn.execute(`UPDATE users
-       SET lesson_balance_hours = lesson_balance_hours - ?
-       WHERE id = ?`, [finalHours, Number(before.student_user_id)]);
+        await (0, walletHours_1.consumeLessonHours)(conn, Number(before.student_user_id), courseId, finalHours);
         await conn.execute(`UPDATE message_threads
        SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`, [Number(before.message_item_id), Number(before.thread_id)]);
@@ -1287,6 +1323,9 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', adminAuth_1.re
             await conn?.rollback();
         }
         catch { }
+        if ((0, walletHours_1.isWalletHoursError)(error)) {
+            return res.status(409).json({ code: error.code, error: error.message });
+        }
         console.error('Admin classroom lesson hours final decision error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }

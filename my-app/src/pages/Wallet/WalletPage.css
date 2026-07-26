@@ -125,6 +125,38 @@
   gap: 16px;
 }
 
+.wallet-refund-trigger {
+  min-height: 38px;
+  flex: 0 0 auto;
+  margin-top: 18px;
+  padding: 8px 14px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.wallet-refund-trigger:hover {
+  border-color: rgba(17, 17, 17, 0.3);
+  background: rgba(17, 17, 17, 0.03);
+  transform: translateY(-1px);
+}
+
+.wallet-refund-trigger:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, 0.45);
+  outline-offset: 3px;
+}
+
+@media (min-width: 900px) {
+  .wallet-refund-trigger {
+    margin-top: 32px;
+  }
+}
+
 .wallet-panel-eyebrow {
   font-size: 13px;
   color: rgba(17, 17, 17, 0.65);
@@ -633,6 +665,14 @@ paypal-mark.wallet-paypal-primary-mark:defined {
   .wallet-hours-input {
     width: 100%;
     max-width: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .wallet-refund-trigger {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 14px;
   }
 }
 

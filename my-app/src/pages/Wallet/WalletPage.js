@@ -11,6 +11,7 @@ import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { useI18n } from '../../i18n/language';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
+import RefundModal from './RefundModal';
 import './WalletPage.css';
 
 const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
@@ -27,9 +28,12 @@ function WalletPage() {
   const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
+  const [isRefundOpen, setIsRefundOpen] = useState(false);
+  const [isRefundSuccessOpen, setIsRefundSuccessOpen] = useState(false);
   const [walletSummary, setWalletSummary] = useState(() => ({
     remainingHours: 0,
     monthTopUpCny: 0,
+    monthNetSpendingCny: 0,
     totalTopUpCny: 0,
   }));
 
@@ -49,6 +53,11 @@ function WalletPage() {
   const [payPalInitError, setPayPalInitError] = useState('');
 
   const handleClosePaySuccess = useCallback(() => setIsPaySuccessOpen(false), []);
+  const handleCloseRefund = useCallback(() => setIsRefundOpen(false), []);
+  const handleRefundWalletUpdated = useCallback((wallet) => {
+    setWalletSummary((previous) => ({ ...(previous || {}), ...(wallet || {}) }));
+  }, []);
+  const handleRefundCompleted = useCallback(() => setIsRefundSuccessOpen(true), []);
 
   const normalizeFxQuote = useCallback((payload) => {
     const quoteId = String(payload?.quote_id || '').trim();
@@ -159,6 +168,7 @@ function WalletPage() {
 
   const remainingHours = walletSummary?.remainingHours ?? 0;
   const monthTopUpCny = walletSummary?.monthTopUpCny ?? 0;
+  const monthNetSpendingCny = walletSummary?.monthNetSpendingCny ?? monthTopUpCny;
   const totalTopUpCny = walletSummary?.totalTopUpCny ?? 0;
 
   const hoursNumber = Number(topUpHours);
@@ -186,6 +196,7 @@ function WalletPage() {
     setWalletSummary({
       remainingHours: Number(data?.remainingHours) || 0,
       monthTopUpCny: Number(data?.monthTopUpCny) || 0,
+      monthNetSpendingCny: Number(data?.monthNetSpendingCny ?? data?.monthTopUpCny) || 0,
       totalTopUpCny: Number(data?.totalTopUpCny) || 0,
     });
     return data;
@@ -193,7 +204,12 @@ function WalletPage() {
 
   useEffect(() => {
     if (!isLoggedIn) {
-      setWalletSummary({ remainingHours: 0, monthTopUpCny: 0, totalTopUpCny: 0 });
+      setWalletSummary({
+        remainingHours: 0,
+        monthTopUpCny: 0,
+        monthNetSpendingCny: 0,
+        totalTopUpCny: 0,
+      });
       return;
     }
     fetchWalletSummary().catch((err) => console.error('Wallet summary load error:', err));
@@ -536,8 +552,15 @@ function WalletPage() {
 
                 <div className="wallet-stat-grid" aria-label={t('wallet.balanceAria', '余额统计')}>
                   <div className="wallet-stat">
-                    <div className="wallet-stat-label">{t('wallet.monthSpending', '本月支出')}</div>
-                    <div className="wallet-stat-value">¥ {formatCny(monthTopUpCny)}</div>
+                    <div className="wallet-stat-label">{t('wallet.monthNetSpending', '本月净支出')}</div>
+                    <div className="wallet-stat-value">¥ {formatCny(monthNetSpendingCny)}</div>
+                    <button
+                      type="button"
+                      className="wallet-refund-trigger"
+                      onClick={() => setIsRefundOpen(true)}
+                    >
+                      {t('wallet.refundAction', '申请退款')}
+                    </button>
                   </div>
                   <div className="wallet-stat">
                     <div className="wallet-stat-label">{t('wallet.totalTopUp', '累计充值')}</div>
@@ -737,6 +760,19 @@ function WalletPage() {
       )}
 
       <SuccessModal open={isPaySuccessOpen} title={t('wallet.paySuccess', '支付成功')} autoCloseMs={2200} onClose={handleClosePaySuccess} />
+      <RefundModal
+        open={isRefundOpen}
+        onClose={handleCloseRefund}
+        onWalletUpdated={handleRefundWalletUpdated}
+        onCompleted={handleRefundCompleted}
+      />
+      <SuccessModal
+        open={isRefundSuccessOpen}
+        title={t('wallet.refundSuccess', '退款已提交成功')}
+        description={t('wallet.refundSuccessDescription', '款项将按 PayPal 处理进度原路退回')}
+        autoCloseMs={2600}
+        onClose={() => setIsRefundSuccessOpen(false)}
+      />
     </div>
   );
 }

@@ -589,7 +589,8 @@ router.get('/wallet-summary', requireAuth, async (req: Request, res: Response) =
     );
     const remainingHours = toNumber(balanceRows?.[0]?.lesson_balance_hours, 0);
 
-    const sumRows = await dbQuery<any[]>(
+    const [sumRows, refundRows] = await Promise.all([
+      dbQuery<any[]>(
       `SELECT
          COALESCE(SUM(amount_cny), 0) AS totalTopUpCny,
          COALESCE(SUM(CASE WHEN credited_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01') THEN amount_cny ELSE 0 END), 0) AS monthTopUpCny
@@ -597,12 +598,23 @@ router.get('/wallet-summary', requireAuth, async (req: Request, res: Response) =
        WHERE user_id = ?
          AND credited_at IS NOT NULL`,
       [req.user.id]
-    );
+      ),
+      dbQuery<any[]>(
+        `SELECT COALESCE(SUM(amount_cny), 0) AS monthRefundCny
+         FROM billing_refunds
+         WHERE user_id = ?
+           AND status = 'COMPLETED'
+           AND completed_at >= DATE_FORMAT(CURRENT_DATE, '%Y-%m-01')`,
+        [req.user.id]
+      ),
+    ]);
 
     const totalTopUpCny = toNumber(sumRows?.[0]?.totalTopUpCny, 0);
     const monthTopUpCny = toNumber(sumRows?.[0]?.monthTopUpCny, 0);
+    const monthRefundCny = toNumber(refundRows?.[0]?.monthRefundCny, 0);
+    const monthNetSpendingCny = Number((monthTopUpCny - monthRefundCny).toFixed(2));
 
-    return res.json({ remainingHours, monthTopUpCny, totalTopUpCny });
+    return res.json({ remainingHours, monthTopUpCny, monthNetSpendingCny, totalTopUpCny });
   } catch (e) {
     console.error('Account wallet summary error:', e);
     if (isMissingWalletSchemaError(e)) {

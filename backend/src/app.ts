@@ -19,6 +19,7 @@ import classroomChatRoute from './routes/classroomChat';
 import paypalApiRoute from './routes/paypalApi';
 import paypalRoute from './routes/paypal';
 import adminRoute from './routes/admin';
+import refundsRoute from './routes/refunds';
 
 dotenv.config();
 
@@ -78,6 +79,7 @@ app.use('/api/classrooms', classroomChatRoute);
 app.use('/api/paypal-api', paypalApiRoute);
 app.use('/api/paypal', paypalRoute);
 app.use('/api/admin', adminRoute);
+app.use('/api/refunds', refundsRoute);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

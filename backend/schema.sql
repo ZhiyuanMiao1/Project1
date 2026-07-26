@@ -542,6 +542,87 @@ CREATE TABLE IF NOT EXISTS `billing_orders` (
   CONSTRAINT `fk_billing_orders_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Refundable lesson-hour inventory. NULL means an order has not been credited yet
+-- or an upgraded database still needs the one-time FIFO backfill.
+SET @__mx_has_billing_remaining_hours := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'billing_orders'
+    AND COLUMN_NAME = 'remaining_hours'
+);
+SET @__mx_sql := IF(
+  @__mx_has_billing_remaining_hours = 0,
+  'ALTER TABLE `billing_orders` ADD COLUMN `remaining_hours` DECIMAL(10,2) NULL AFTER `topup_hours`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_billing_pricing_version := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'billing_orders'
+    AND COLUMN_NAME = 'pricing_version'
+);
+SET @__mx_sql := IF(
+  @__mx_has_billing_pricing_version = 0,
+  'ALTER TABLE `billing_orders` ADD COLUMN `pricing_version` VARCHAR(32) NOT NULL DEFAULT ''tier-v1'' AFTER `unit_price_cny`, ADD COLUMN `standard_unit_price_cny` DECIMAL(10,2) NOT NULL DEFAULT 600.00 AFTER `pricing_version`, ADD COLUMN `discount_threshold_hours` DECIMAL(10,2) NOT NULL DEFAULT 10.00 AFTER `standard_unit_price_cny`, ADD COLUMN `discount_unit_price_cny` DECIMAL(10,2) NOT NULL DEFAULT 500.00 AFTER `discount_threshold_hours`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+CREATE TABLE IF NOT EXISTS `billing_hour_allocations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `billing_order_id` BIGINT NOT NULL,
+  `course_session_id` BIGINT NULL,
+  `allocation_kind` ENUM('lesson','legacy') NOT NULL DEFAULT 'lesson',
+  `source_key` VARCHAR(64) NOT NULL,
+  `hours` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_billing_hour_allocation_source` (`billing_order_id`, `source_key`),
+  KEY `idx_billing_hour_allocations_user` (`user_id`, `created_at`),
+  KEY `idx_billing_hour_allocations_session` (`course_session_id`),
+  CONSTRAINT `fk_billing_hour_allocations_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_billing_hour_allocations_order` FOREIGN KEY (`billing_order_id`) REFERENCES `billing_orders`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `billing_refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `public_id` CHAR(36) NOT NULL,
+  `user_id` INT NOT NULL,
+  `billing_order_id` BIGINT NOT NULL,
+  `provider` VARCHAR(20) NOT NULL DEFAULT 'paypal',
+  `requested_hours` DECIMAL(10,2) NOT NULL,
+  `amount_cny` DECIMAL(10,2) NOT NULL,
+  `currency_code` CHAR(3) NOT NULL,
+  `amount_original` DECIMAL(10,2) NOT NULL,
+  `paypal_request_id` VARCHAR(78) NOT NULL,
+  `paypal_refund_id` VARCHAR(64) NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'PROCESSING',
+  `balance_reserved` TINYINT(1) NOT NULL DEFAULT 1,
+  `failure_code` VARCHAR(80) NULL,
+  `failure_message` VARCHAR(500) NULL,
+  `provider_response_json` LONGTEXT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `completed_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_billing_refunds_public_id` (`public_id`),
+  UNIQUE KEY `uniq_billing_refunds_paypal_request` (`paypal_request_id`),
+  UNIQUE KEY `uniq_billing_refunds_paypal_refund` (`paypal_refund_id`),
+  KEY `idx_billing_refunds_user_created` (`user_id`, `created_at`),
+  KEY `idx_billing_refunds_order_status` (`billing_order_id`, `status`),
+  CONSTRAINT `fk_billing_refunds_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_billing_refunds_order` FOREIGN KEY (`billing_order_id`) REFERENCES `billing_orders`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 12b) Ensure PayPal FX quote fields exist for upgraded databases.
 SET @__mx_has_billing_fx_quote_id := (
   SELECT COUNT(*)

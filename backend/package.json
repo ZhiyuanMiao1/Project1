@@ -7,6 +7,8 @@
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "db:migrate:v2": "npm run build && node dist/scripts/migrate-v2.js",
+    "db:migrate:refunds": "npm run build && node dist/scripts/migrate-refunds.js",
+    "test:refunds": "node -r ts-node/register src/services/refundPricing.test.ts",
     "db:migrate:vector": "npm run build && node dist/scripts/migrate-vector-index.js",
     "cleanup:classroom-temp-files": "npm run build && node dist/scripts/cleanup-classroom-temp-files.js",
     "embed:courses": "npm run build && node dist/scripts/embed-course-mappings.js",
