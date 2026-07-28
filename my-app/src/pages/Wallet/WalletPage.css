@@ -774,17 +774,15 @@ paypal-mark.wallet-paypal-primary-mark:defined {
   }
 
   .wallet-menu {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    margin-left: 0;
-    border-radius: 12px;
-    background: transparent;
-    box-shadow: none;
     appearance: none;
     -webkit-appearance: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .wallet-menu::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
   }
 
   .wallet-hero {
