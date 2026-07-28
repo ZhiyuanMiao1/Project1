@@ -643,9 +643,14 @@
     border-radius: 12px;
   }
 
+  .favorites-card:not(.favorites-card--create) {
+    height: auto;
+    align-self: start;
+  }
+
   .favorites-card-body {
-    min-height: 58px;
-    padding: 9px 10px 11px;
+    min-height: 0;
+    padding: 9px 10px 8px;
   }
 
   .favorites-card-title h3 {
@@ -698,6 +703,7 @@
     width: 100%;
     min-height: 44px;
     padding: 10px 8px;
+    font-size: 16px;
   }
 
   .favorites-card--skeleton-create {
