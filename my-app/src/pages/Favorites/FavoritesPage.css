@@ -650,7 +650,7 @@
 
   .favorites-card-body {
     min-height: 0;
-    padding: 9px 10px 8px;
+    padding: 9px 10px 10px;
   }
 
   .favorites-card-title h3 {
@@ -703,7 +703,7 @@
     width: 100%;
     min-height: 44px;
     padding: 10px 8px;
-    font-size: 16px;
+    font-size: 15px;
   }
 
   .favorites-card--skeleton-create {
