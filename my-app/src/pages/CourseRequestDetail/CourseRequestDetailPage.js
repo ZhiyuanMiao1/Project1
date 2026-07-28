@@ -431,6 +431,10 @@ function CourseRequestDetailPage() {
   const navigate = useNavigate();
   const params = useParams();
   const requestId = safeDecode(typeof params?.requestId === 'string' ? params.requestId : '');
+  const isMessageReadOnly = useMemo(() => {
+    const query = new URLSearchParams(location?.search || '');
+    return query.get('source') === 'messages';
+  }, [location?.search]);
 
   const currentPath = useMemo(() => {
     try {
@@ -1084,6 +1088,7 @@ function CourseRequestDetailPage() {
   }, [language, selectedDate, selectedRangeKeys]);
 
   const handleTimelineClick = (event) => {
+    if (isMessageReadOnly) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const pixelsPerMinute = timelineConfig.rowHeight / 60;
     const offsetY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
@@ -1100,6 +1105,7 @@ function CourseRequestDetailPage() {
 
   const handleAvailabilitySlotClick = (slot) => (event) => {
     event.stopPropagation();
+    if (isMessageReadOnly) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const ratio = rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5;
     const clampedRatio = Math.max(0, Math.min(0.999, ratio));
@@ -1171,7 +1177,7 @@ function CourseRequestDetailPage() {
   };
 
   const handleSelectionResizePointerDown = (edge) => (event) => {
-    if (!scheduleSelection) return;
+    if (isMessageReadOnly || !scheduleSelection) return;
     event.preventDefault();
     event.stopPropagation();
 
@@ -1193,7 +1199,7 @@ function CourseRequestDetailPage() {
   };
 
   const handleSendAppointment = () => {
-    if (!scheduleSelection) return;
+    if (isMessageReadOnly || !scheduleSelection) return;
     if (!isLoggedIn) {
       rememberPostLoginRedirect();
       setForceLoginForAppointment(true);
@@ -1204,7 +1210,7 @@ function CourseRequestDetailPage() {
   };
 
   const handleConfirmSendAppointment = async () => {
-    if (!scheduleSelection || isSendingAppointment) return;
+    if (isMessageReadOnly || !scheduleSelection || isSendingAppointment) return;
 
     const studentUserId = Number(request?.studentUserId);
     if (!Number.isFinite(studentUserId) || studentUserId <= 0) {
@@ -1306,7 +1312,7 @@ function CourseRequestDetailPage() {
                 </div>
               </div>
 
-              <aside className="mentor-detail-schedule" aria-label={t('requestDetail.scheduleAria', '可约时间')}>
+              <aside className={`mentor-detail-schedule${isMessageReadOnly ? ' is-read-only' : ''}`} aria-label={t('requestDetail.scheduleAria', '可约时间')}>
                 <div className="mentor-detail-schedule-meta">
                   <span>{t('mentorDetail.timeZonePrefix', '时区：')} {buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                 </div>
@@ -1449,14 +1455,16 @@ function CourseRequestDetailPage() {
                           </button>
                           <div className="reschedule-date-title">{scheduleTitle}</div>
                         </div>
-                        <button
-                          type="button"
-                          className="reschedule-header-btn icon close"
-                          aria-label={t('mentorDetail.clearSelection', '清空选择')}
-                          onClick={() => setScheduleSelection(null)}
-                        >
-                          <FiX size={18} aria-hidden="true" />
-                        </button>
+                        {!isMessageReadOnly ? (
+                          <button
+                            type="button"
+                            className="reschedule-header-btn icon close"
+                            aria-label={t('mentorDetail.clearSelection', '清空选择')}
+                            onClick={() => setScheduleSelection(null)}
+                          >
+                            <FiX size={18} aria-hidden="true" />
+                          </button>
+                        ) : null}
                       </div>
 
                       <div className="reschedule-timeline">
@@ -1557,7 +1565,7 @@ function CourseRequestDetailPage() {
                               ))}
                             </div>
 
-                            {scheduleSelection && (
+                            {!isMessageReadOnly && scheduleSelection && (
                               <div className="reschedule-selection-layer" aria-hidden="true">
                                 <div
                                   className="reschedule-slot selection"
@@ -1590,16 +1598,18 @@ function CourseRequestDetailPage() {
                         </div>
                       </div>
 
-                      <div className="reschedule-footer">
-                        <button
-                          type="button"
-                          className="reschedule-send-btn"
-                          onClick={handleSendAppointment}
-                          disabled={!scheduleSelection}
-                        >
-                          {t('mentorDetail.sendAppointment', '发送预约')}
-                        </button>
-                      </div>
+                      {!isMessageReadOnly ? (
+                        <div className="reschedule-footer">
+                          <button
+                            type="button"
+                            className="reschedule-send-btn"
+                            onClick={handleSendAppointment}
+                            disabled={!scheduleSelection}
+                          >
+                            {t('mentorDetail.sendAppointment', '发送预约')}
+                          </button>
+                        </div>
+                      ) : null}
                     </aside>
                   </div>
                 </div>
@@ -1681,7 +1691,7 @@ function CourseRequestDetailPage() {
       )}
 
       <ConfirmModal
-        open={showSendConfirm}
+        open={!isMessageReadOnly && showSendConfirm}
         title={t('requestDetail.confirmSendTitle', '确认发送预约？')}
         description={(() => {
           if (!scheduleSelection) return t('requestDetail.noSelectedTime', '未选择预约时间');

@@ -474,6 +474,10 @@
   cursor: pointer;
 }
 
+.mentor-detail-schedule.is-read-only .reschedule-slot.availability {
+  cursor: default;
+}
+
 .mentor-detail-times-panel .reschedule-slot.busy {
   background: rgba(245, 158, 11, 0.14);
   border: 1px solid rgba(245, 158, 11, 0.28);

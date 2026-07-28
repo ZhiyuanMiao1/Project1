@@ -48,6 +48,11 @@
   animation: scheduleCardSendIn 240ms ease-out both;
 }
 
+.schedule-card.menu-open {
+  z-index: 13;
+  overflow: visible;
+}
+
 .schedule-card.is-sending::after {
   content: '';
   position: absolute;
@@ -158,6 +163,9 @@
 }
 
 .schedule-card-more-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
   border: none;
   background: transparent;
   text-align: left;
@@ -167,6 +175,7 @@
   border-radius: 8px;
   padding: 7px 10px;
   cursor: pointer;
+  text-decoration: none;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
@@ -233,6 +242,27 @@
 
 .schedule-card-title-main {
   font-weight: 750;
+}
+
+.schedule-card-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.schedule-card-title-link:hover {
+  text-decoration: none;
+}
+
+.schedule-card-title-link:hover .schedule-card-title-main,
+.schedule-card-title-link:hover .schedule-card-title-sub {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.schedule-card-title-link:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
 }
 
 .schedule-card-title-sep {
@@ -758,6 +788,19 @@
     margin-right: 0;
   }
 
+  .schedule-card-more {
+    top: 2px;
+    right: 4px;
+  }
+
+  .schedule-card-more-trigger {
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
   .schedule-card {
     width: 320px;
     min-height: 178px;
@@ -768,6 +811,7 @@
 
   .schedule-card-top {
     gap: 4px;
+    padding-right: 42px;
   }
 
   .schedule-card-title {

@@ -65,6 +65,10 @@ function AppointmentCard({
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
   const canScheduleNextLesson = statusKey === 'pending' || statusKey === 'accepted';
   const scheduleCardId = String(scheduleCard?.id || '');
+  const courseRequestId = safeText(scheduleCard?.courseRequestId);
+  const requestDetailsHref = courseRequestId && thread?.myRole === 'mentor'
+    ? `/mentor/requests/${encodeURIComponent(courseRequestId)}?source=messages`
+    : '';
   const recallDisabledTitle = !isOutgoing
     ? t('appointment.onlyRecallOwn', '仅可撤回自己发出的日程')
     : statusKey === 'expired'
@@ -245,7 +249,7 @@ function AppointmentCard({
           />
         </div>
       )}
-      <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''}`}>
+      <div className={`schedule-card ${isSendingCard ? 'is-sending' : ''} ${actualMessageMenuOpen ? 'menu-open' : ''}`}>
         <div className={`schedule-card-more ${actualMessageMenuOpen ? 'open' : ''}`}>
           <button
             type="button"
@@ -262,6 +266,18 @@ function AppointmentCard({
           </button>
           {actualMessageMenuOpen && (
             <div className="schedule-card-more-menu" role="menu">
+              {requestDetailsHref ? (
+                <a
+                  className="schedule-card-more-item"
+                  href={requestDetailsHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  role="menuitem"
+                  onClick={() => toggleActualMessageMenuOpen(false)}
+                >
+                  {t('appointment.viewRequestDetails', '课程需求详情')}
+                </a>
+              ) : null}
               {canScheduleNextLesson ? (
                 <button
                   type="button"
@@ -313,25 +329,61 @@ function AppointmentCard({
             <div className="schedule-card-title-text">{t('appointment.schedule', '日程')}</div>
           </div>
           <div className="schedule-card-title">
-            <span className="schedule-card-title-piece">
-              <span className="schedule-card-title-icon" aria-hidden="true">
-                {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
-              </span>
-              <span className="schedule-card-title-main">
-                {getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}
-              </span>
-            </span>
-            {titleParts.courseType ? (
-              <>
-                <span className="schedule-card-title-sep" aria-hidden="true">-</span>
+            {requestDetailsHref ? (
+              <a
+                className="schedule-card-title-link"
+                href={requestDetailsHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t(
+                  'appointment.viewRequestDetailsAria',
+                  '查看{course}的课程需求详情',
+                  { course: `${getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}${titleParts.courseType ? ` · ${getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}` : ''}` },
+                )}
+              >
                 <span className="schedule-card-title-piece">
                   <span className="schedule-card-title-icon" aria-hidden="true">
-                    {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
+                    {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
                   </span>
-                  <span className="schedule-card-title-sub">{getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}</span>
+                  <span className="schedule-card-title-main">
+                    {getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}
+                  </span>
                 </span>
+                {titleParts.courseType ? (
+                  <>
+                    <span className="schedule-card-title-sep" aria-hidden="true">-</span>
+                    <span className="schedule-card-title-piece">
+                      <span className="schedule-card-title-icon" aria-hidden="true">
+                        {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
+                      </span>
+                      <span className="schedule-card-title-sub">{getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}</span>
+                    </span>
+                  </>
+                ) : null}
+              </a>
+            ) : (
+              <>
+                <span className="schedule-card-title-piece">
+                  <span className="schedule-card-title-icon" aria-hidden="true">
+                    {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
+                  </span>
+                  <span className="schedule-card-title-main">
+                    {getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}
+                  </span>
+                </span>
+                {titleParts.courseType ? (
+                  <>
+                    <span className="schedule-card-title-sep" aria-hidden="true">-</span>
+                    <span className="schedule-card-title-piece">
+                      <span className="schedule-card-title-icon" aria-hidden="true">
+                        {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
+                      </span>
+                      <span className="schedule-card-title-sub">{getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}</span>
+                    </span>
+                  </>
+                ) : null}
               </>
-            ) : null}
+            )}
           </div>
         </div>
 

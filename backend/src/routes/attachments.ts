@@ -3,6 +3,7 @@ import { body, param, validationResult } from 'express-validator';
 import { requireAuth } from '../middleware/auth';
 import { query } from '../db';
 import { buildContentDisposition, getOssClient } from '../services/ossClient';
+import { canMentorReadCourseRequest } from '../services/courseRequestAccess';
 
 const router = Router();
 
@@ -10,8 +11,6 @@ const SIGNED_URL_EXPIRE_SECONDS = 120; // 2 minutes
 const MAX_BATCH_ITEMS = 20;
 
 const isHex32 = (s: unknown) => typeof s === 'string' && /^[0-9a-fA-F]{32}$/.test(s);
-
-const canMentorAccessRequestStatus = (status: string) => status === 'submitted' || status === 'paired';
 
 const ensureOssReady = (res: Response) => {
   const client = getOssClient();
@@ -22,7 +21,7 @@ const ensureOssReady = (res: Response) => {
   return client;
 };
 
-const authorizeCourseRequestAccess = (req: Request, res: Response, requestRow: any) => {
+const authorizeCourseRequestAccess = async (req: Request, res: Response, requestId: number, requestRow: any) => {
   const user = req.user;
   if (!user) {
     res.status(401).json({ error: '未授权' });
@@ -38,7 +37,13 @@ const authorizeCourseRequestAccess = (req: Request, res: Response, requestRow: a
     return true;
   }
   if (user.role === 'mentor') {
-    if (!canMentorAccessRequestStatus(status)) {
+    const canRead = await canMentorReadCourseRequest({
+      requestId,
+      studentUserId,
+      mentorUserId: user.id,
+      requestStatus: status,
+    });
+    if (!canRead) {
       res.status(403).json({ error: '无权限' });
       return false;
     }
@@ -94,7 +99,7 @@ router.get(
     );
     const row = rows?.[0];
     if (!row) return res.status(404).json({ error: '未找到附件' });
-    if (!authorizeCourseRequestAccess(req, res, row)) return;
+    if (!(await authorizeCourseRequestAccess(req, res, requestId, row))) return;
 
     const ossKey = String(row.oss_key || '').trim();
     if (!ossKey) return res.status(404).json({ error: '未找到附件' });
@@ -141,7 +146,7 @@ router.post(
     );
     const requestRow = requestRows?.[0];
     if (!requestRow) return res.status(404).json({ error: '未找到需求' });
-    if (!authorizeCourseRequestAccess(req, res, requestRow)) return;
+    if (!(await authorizeCourseRequestAccess(req, res, requestId, requestRow))) return;
 
     const placeholders = fileIds.map(() => '?').join(', ');
     const rows = await query<any[]>(

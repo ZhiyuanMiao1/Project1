@@ -5,11 +5,11 @@ const express_validator_1 = require("express-validator");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const ossClient_1 = require("../services/ossClient");
+const courseRequestAccess_1 = require("../services/courseRequestAccess");
 const router = (0, express_1.Router)();
 const SIGNED_URL_EXPIRE_SECONDS = 120; // 2 minutes
 const MAX_BATCH_ITEMS = 20;
 const isHex32 = (s) => typeof s === 'string' && /^[0-9a-fA-F]{32}$/.test(s);
-const canMentorAccessRequestStatus = (status) => status === 'submitted' || status === 'paired';
 const ensureOssReady = (res) => {
     const client = (0, ossClient_1.getOssClient)();
     if (!client) {
@@ -18,7 +18,7 @@ const ensureOssReady = (res) => {
     }
     return client;
 };
-const authorizeCourseRequestAccess = (req, res, requestRow) => {
+const authorizeCourseRequestAccess = async (req, res, requestId, requestRow) => {
     const user = req.user;
     if (!user) {
         res.status(401).json({ error: '未授权' });
@@ -34,7 +34,13 @@ const authorizeCourseRequestAccess = (req, res, requestRow) => {
         return true;
     }
     if (user.role === 'mentor') {
-        if (!canMentorAccessRequestStatus(status)) {
+        const canRead = await (0, courseRequestAccess_1.canMentorReadCourseRequest)({
+            requestId,
+            studentUserId,
+            mentorUserId: user.id,
+            requestStatus: status,
+        });
+        if (!canRead) {
             res.status(403).json({ error: '无权限' });
             return false;
         }
@@ -79,7 +85,7 @@ router.get('/course-requests/:requestId/attachments/:fileId/signed-url', auth_1.
     const row = rows?.[0];
     if (!row)
         return res.status(404).json({ error: '未找到附件' });
-    if (!authorizeCourseRequestAccess(req, res, row))
+    if (!(await authorizeCourseRequestAccess(req, res, requestId, row)))
         return;
     const ossKey = String(row.oss_key || '').trim();
     if (!ossKey)
@@ -117,7 +123,7 @@ router.post('/course-requests/:requestId/attachments/signed-urls', auth_1.requir
     const requestRow = requestRows?.[0];
     if (!requestRow)
         return res.status(404).json({ error: '未找到需求' });
-    if (!authorizeCourseRequestAccess(req, res, requestRow))
+    if (!(await authorizeCourseRequestAccess(req, res, requestId, requestRow)))
         return;
     const placeholders = fileIds.map(() => '?').join(', ');
     const rows = await (0, db_1.query)(`SELECT file_id, original_file_name, oss_key

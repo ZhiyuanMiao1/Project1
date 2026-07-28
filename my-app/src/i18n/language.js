@@ -864,6 +864,8 @@ const en = {
   'appointment.reschedule': 'Reschedule',
   'appointment.changeStatusTo': 'Change schedule status to',
   'appointment.moreActions': 'More actions',
+  'appointment.viewRequestDetails': 'Course request details',
+  'appointment.viewRequestDetailsAria': 'View course request details for {course}',
   'appointment.scheduleNextLesson': 'Schedule next lesson',
   'appointment.deleteForMe': 'Delete for me',
   'appointment.recall': 'Recall',

@@ -8,6 +8,7 @@ const mentorCourseEmbeddings_1 = require("../services/mentorCourseEmbeddings");
 const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages");
 const mentorCourseAsync_1 = require("../services/mentorCourseAsync");
 const availabilityBusy_1 = require("../services/availabilityBusy");
+const courseRequestAccess_1 = require("../services/courseRequestAccess");
 const router = (0, express_1.Router)();
 // GET /api/mentor/permissions
 // Check mentor permissions (e.g., can edit profile card)
@@ -153,7 +154,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
     ];
     return res.json({ cards });
 });
-// GET /api/mentor/requests/:id — fetch one submitted course request
+// GET /api/mentor/requests/:id — fetch a public request or one linked to this mentor
 router.get('/requests/:id', auth_1.requireAuth, async (req, res) => {
     const role = req.user?.role;
     if (role !== 'mentor') {
@@ -208,28 +209,17 @@ router.get('/requests/:id', auth_1.requireAuth, async (req, res) => {
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
        WHERE r.id = ?
-         AND r.status = 'submitted'
-         AND NOT EXISTS (
-           SELECT 1
-           FROM message_items mi
-           INNER JOIN message_threads mt
-             ON mt.id = mi.thread_id
-            AND mt.student_user_id = r.user_id
-           INNER JOIN appointment_statuses ast
-             ON ast.appointment_message_id = mi.id
-            AND ast.status = 'accepted'
-           WHERE mi.message_type = 'appointment_card'
-             AND JSON_UNQUOTE(
-               CASE
-                 WHEN JSON_VALID(mi.payload_json) THEN JSON_EXTRACT(mi.payload_json, '$.courseRequestId')
-                 ELSE NULL
-               END
-             ) = CAST(r.id AS CHAR)
-           LIMIT 1
-         )
        LIMIT 1`, [requestId]);
         const row = rows?.[0];
         if (!row)
+            return res.status(404).json({ error: '未找到需求' });
+        const canRead = await (0, courseRequestAccess_1.canMentorReadCourseRequest)({
+            requestId,
+            studentUserId: Number(row.student_user_id),
+            mentorUserId: req.user.id,
+            requestStatus: row.status,
+        });
+        if (!canRead)
             return res.status(404).json({ error: '未找到需求' });
         let courseTypes = [];
         try {

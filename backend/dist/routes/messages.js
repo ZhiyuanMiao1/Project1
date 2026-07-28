@@ -335,6 +335,7 @@ const toScheduleCard = (row, currentUserId) => {
     const payload = parseAppointmentPayload(row?.payload_json);
     if (!payload)
         return null;
+    const courseRequestId = toPositiveIntOrNull(payload.courseRequestId);
     const rawStatus = typeof row?.appointment_status === 'string'
         ? row.appointment_status.trim().toLowerCase()
         : '';
@@ -353,6 +354,7 @@ const toScheduleCard = (row, currentUserId) => {
         isRead: Number(row?.is_read_by_me) === 1,
         courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
         courseTypeId: typeof payload.courseTypeId === 'string' ? payload.courseTypeId : '',
+        courseRequestId: courseRequestId == null ? '' : String(courseRequestId),
     };
 };
 const toLessonHoursConfirmationCard = (row, currentUserId) => {
