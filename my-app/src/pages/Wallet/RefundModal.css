@@ -149,7 +149,7 @@
 
 .wallet-refund-hours-row {
   display: grid;
-  grid-template-columns: max-content 120px max-content;
+  grid-template-columns: max-content 144px max-content;
   align-items: center;
   gap: 8px;
 }
@@ -191,9 +191,9 @@
 }
 
 .wallet-refund-input input {
-  width: 48px;
+  width: 72px;
   min-width: 0;
-  flex: 0 1 48px;
+  flex: 0 1 72px;
   border: 0;
   outline: 0;
   background: transparent;
@@ -230,7 +230,7 @@
 
   .wallet-refund-hours-row .wallet-refund-input {
     grid-area: input;
-    width: 120px;
+    width: 144px;
     justify-self: start;
   }
 

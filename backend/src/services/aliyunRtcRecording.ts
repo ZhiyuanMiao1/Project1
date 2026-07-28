@@ -9,6 +9,7 @@ import type { ResultSetHeader } from 'mysql2';
 import { query as dbQuery } from '../db';
 import type { AuthorizedClassroomContext, SessionRole } from './classroomAccess';
 import { getAliyunLiveRuntimeConfig } from './aliyunRtc';
+import { buildRecordingHlsPrefix, buildRecordingMp4Prefix } from './recordingStorage';
 
 export type ClassroomRecordingStatus = 'starting' | 'running' | 'stopping' | 'stopped' | 'failed';
 
@@ -257,12 +258,12 @@ const buildStartRequest = (
       fileInfo: [
         {
           format: 'MP4',
-          filePathPrefix: ['classrooms', context.roomId, 'mp4'],
+          filePathPrefix: buildRecordingMp4Prefix(context.roomId).split('/'),
           fileNamePattern: '{AppId}_{ChannelId}_{StartTime}',
         },
         {
           format: 'HLS',
-          filePathPrefix: ['classrooms', context.roomId, 'hls'],
+          filePathPrefix: buildRecordingHlsPrefix(context.roomId).split('/'),
           fileNamePattern: '{AppId}_{ChannelId}_{StartTime}',
           sliceNamePattern: '{AppId}_{ChannelId}_{StartTime}_{Sequence}',
           sliceDuration: 30,
@@ -324,7 +325,7 @@ export const startClassroomRecording = async (
   const liveRuntime = getAliyunLiveRuntimeConfig();
   if (!liveRuntime) throw new Error('实时音视频配置缺失，请检查 ALIYUN_LIVE_ARTC_APP_ID / ALIYUN_LIVE_ARTC_APP_KEY');
 
-  const storagePrefix = `classrooms/${context.roomId}`;
+  const storagePrefix = buildRecordingMp4Prefix(context.roomId);
   const insertResult = await dbQuery<ResultSetHeader>(
     `
     INSERT INTO classroom_recordings

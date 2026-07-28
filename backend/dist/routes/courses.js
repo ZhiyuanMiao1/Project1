@@ -9,6 +9,7 @@ const db_1 = require("../db");
 const auth_1 = require("../middleware/auth");
 const ossClient_1 = require("../services/ossClient");
 const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
+const recordingStorage_1 = require("../services/recordingStorage");
 const classroomAccess_1 = require("../services/classroomAccess");
 const router = (0, express_1.Router)();
 const REVIEW_SCORE_KEYS = [
@@ -114,10 +115,9 @@ const listReplayMp4Files = async (storagePrefixes) => {
     const files = [];
     const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
     for (const storagePrefix of storagePrefixes) {
-        const normalizedPrefix = storagePrefix.replace(/^\/+|\/+$/g, '');
-        if (!normalizedPrefix)
+        const mp4Prefix = (0, recordingStorage_1.resolveReplayMp4ObjectPrefix)(storagePrefix);
+        if (!mp4Prefix)
             continue;
-        const mp4Prefix = `${normalizedPrefix}/mp4/`;
         let marker = '';
         do {
             const result = await client.list({

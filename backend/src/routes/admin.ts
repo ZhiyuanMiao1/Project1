@@ -10,6 +10,7 @@ import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../s
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
 import { createClassroomObserverToken } from '../services/classroomObserverToken';
 import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
+import { resolveReplayMp4ObjectPrefix } from '../services/recordingStorage';
 import {
   ensureMentorRecommendationColumns,
   recomputeMentorCompletedSessionCount,
@@ -233,9 +234,8 @@ const listReplayMp4Files = async (storagePrefixes: string[]) => {
   const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
 
   for (const storagePrefix of storagePrefixes) {
-    const normalizedPrefix = safeString(storagePrefix, 512).replace(/^\/+|\/+$/g, '');
-    if (!normalizedPrefix) continue;
-    const mp4Prefix = `${normalizedPrefix}/mp4/`;
+    const mp4Prefix = resolveReplayMp4ObjectPrefix(storagePrefix);
+    if (!mp4Prefix) continue;
     let marker = '';
 
     do {

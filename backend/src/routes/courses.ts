@@ -4,6 +4,7 @@ import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { buildContentDisposition, getRecordingOssClient } from '../services/ossClient';
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
+import { resolveReplayMp4ObjectPrefix } from '../services/recordingStorage';
 import {
   ClassroomHttpError,
   isMissingClassroomSchemaError,
@@ -152,10 +153,8 @@ const listReplayMp4Files = async (storagePrefixes: string[]) => {
   const expiresAt = Math.floor(Date.now() / 1000) + REPLAY_SIGNED_URL_EXPIRE_SECONDS;
 
   for (const storagePrefix of storagePrefixes) {
-    const normalizedPrefix = storagePrefix.replace(/^\/+|\/+$/g, '');
-    if (!normalizedPrefix) continue;
-
-    const mp4Prefix = `${normalizedPrefix}/mp4/`;
+    const mp4Prefix = resolveReplayMp4ObjectPrefix(storagePrefix);
+    if (!mp4Prefix) continue;
     let marker = '';
 
     do {

@@ -9,6 +9,7 @@ const openapi_client_1 = require("@alicloud/openapi-client");
 const model_1 = require("@alicloud/live20161101/dist/models/model");
 const db_1 = require("../db");
 const aliyunRtc_1 = require("./aliyunRtc");
+const recordingStorage_1 = require("./recordingStorage");
 const ACTIVE_RECORDING_STATUSES = ['starting', 'running', 'stopping'];
 const MIX_VIDEO_WIDTH = 1280;
 const MIX_VIDEO_HEIGHT = 720;
@@ -204,12 +205,12 @@ const buildStartRequest = (context, runtime, presenceEntries) => {
             fileInfo: [
                 {
                     format: 'MP4',
-                    filePathPrefix: ['classrooms', context.roomId, 'mp4'],
+                    filePathPrefix: (0, recordingStorage_1.buildRecordingMp4Prefix)(context.roomId).split('/'),
                     fileNamePattern: '{AppId}_{ChannelId}_{StartTime}',
                 },
                 {
                     format: 'HLS',
-                    filePathPrefix: ['classrooms', context.roomId, 'hls'],
+                    filePathPrefix: (0, recordingStorage_1.buildRecordingHlsPrefix)(context.roomId).split('/'),
                     fileNamePattern: '{AppId}_{ChannelId}_{StartTime}',
                     sliceNamePattern: '{AppId}_{ChannelId}_{StartTime}_{Sequence}',
                     sliceDuration: 30,
@@ -263,7 +264,7 @@ const startClassroomRecording = async (context, startedByUserId, presenceEntries
     const liveRuntime = (0, aliyunRtc_1.getAliyunLiveRuntimeConfig)();
     if (!liveRuntime)
         throw new Error('实时音视频配置缺失，请检查 ALIYUN_LIVE_ARTC_APP_ID / ALIYUN_LIVE_ARTC_APP_KEY');
-    const storagePrefix = `classrooms/${context.roomId}`;
+    const storagePrefix = (0, recordingStorage_1.buildRecordingMp4Prefix)(context.roomId);
     const insertResult = await (0, db_1.query)(`
     INSERT INTO classroom_recordings
       (course_session_id, app_id, channel_id, status, storage_prefix, started_by_user_id)
