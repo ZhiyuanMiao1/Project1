@@ -531,6 +531,7 @@ const en = {
   'requestDetail.infoAndScheduleAria': 'Course information and schedule',
   'requestDetail.previewAria': 'Course preview card',
   'requestDetail.scheduleAria': 'Available times',
+  'requestDetail.expandScheduleHint': 'View the student calendar and available times',
   'requestDetail.studentAvailability': 'Student availability',
   'requestDetail.attachmentsAria': 'Student uploaded attachments',
   'requestDetail.attachmentsTitle': 'Student Attachments',

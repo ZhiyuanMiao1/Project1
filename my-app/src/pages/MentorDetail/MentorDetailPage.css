@@ -1383,6 +1383,30 @@
   .mentor-detail-schedule.is-mobile-open .mentor-detail-times-panel {
     width: 100%;
     min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .mentor-detail-schedule.is-mobile-open .mentor-detail-times-panel {
+    height: auto;
+  }
+
+  .mentor-detail-times-panel .mentor-detail-reschedule-embed.reschedule-drawer {
+    height: auto;
+    overflow: visible;
+  }
+
+  .mentor-detail-times-panel .reschedule-timeline {
+    flex: 0 0 auto;
+  }
+
+  .mentor-detail-times-panel .reschedule-timeline-scroll {
+    overflow: visible;
+    flex: 0 0 auto;
+  }
+
+  .mentor-detail-times-panel .reschedule-footer {
+    position: static;
+    flex: 0 0 auto;
   }
 
   .mentor-detail-times-panel .mentor-detail-clear-selection.reschedule-header-btn {
@@ -1428,9 +1452,9 @@
 
   .mentor-rating-distribution {
     grid-column: auto;
-    flex: 0 0 clamp(180px, 52vw, 210px);
+    flex: 0 0 clamp(168px, 48vw, 190px);
     box-sizing: border-box;
-    padding: 10px 14px 14px 0;
+    padding: 10px 10px 14px 0;
     scroll-snap-align: start;
   }
 
@@ -1444,10 +1468,10 @@
   }
 
   .cat-item {
-    flex: 0 0 136px;
+    flex: 0 0 124px;
     min-height: 132px;
     box-sizing: border-box;
-    padding: 10px 12px 14px;
+    padding: 10px 10px 14px;
     border: none;
     border-radius: 0;
     background: transparent;
