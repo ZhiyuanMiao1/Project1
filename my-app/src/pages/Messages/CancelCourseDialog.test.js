@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import CancelCourseDialog from './CancelCourseDialog';
+import AppointmentActionDialog from './AppointmentActionDialog';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -10,7 +10,7 @@ jest.mock('../../i18n/language', () => ({
   }),
 }));
 
-describe('CancelCourseDialog', () => {
+describe('AppointmentActionDialog', () => {
   let container;
   let root;
 
@@ -30,7 +30,7 @@ describe('CancelCourseDialog', () => {
     const onConfirm = jest.fn();
 
     act(() => root.render(
-      <CancelCourseDialog
+      <AppointmentActionDialog
         open
         error="取消失败，请稍后再试"
         onClose={onClose}
@@ -58,7 +58,7 @@ describe('CancelCourseDialog', () => {
     const onClose = jest.fn();
 
     act(() => root.render(
-      <CancelCourseDialog
+      <AppointmentActionDialog
         open
         submitting
         onClose={onClose}
@@ -70,11 +70,28 @@ describe('CancelCourseDialog', () => {
     const buttons = [...container.querySelectorAll('button')];
 
     expect(buttons.every((button) => button.disabled)).toBe(true);
-    expect(container.textContent).toContain('取消中…');
+    expect(container.textContent).toContain('处理中…');
 
     act(() => overlay.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
     act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test('supports action-specific Mentory confirmation copy', () => {
+    act(() => root.render(
+      <AppointmentActionDialog
+        open
+        title="实际已上课"
+        message="确认这节课实际已经进行吗？课程将保留，后续仍需双方确认实际课时"
+        onClose={jest.fn()}
+        onConfirm={jest.fn()}
+      />,
+    ));
+
+    expect(container.textContent).toContain('实际已上课');
+    expect(container.textContent).toContain(
+      '确认这节课实际已经进行吗？课程将保留，后续仍需双方确认实际课时'
+    );
   });
 });

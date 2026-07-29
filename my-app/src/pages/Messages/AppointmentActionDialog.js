@@ -3,10 +3,14 @@ import { FiX } from 'react-icons/fi';
 import { useI18n } from '../../i18n/language';
 import './CancelCourseDialog.css';
 
-function CancelCourseDialog({
+function AppointmentActionDialog({
   open,
   submitting = false,
   error = '',
+  title = '',
+  message = '',
+  confirmLabel = '',
+  submittingLabel = '',
   onClose,
   onConfirm,
 }) {
@@ -58,7 +62,7 @@ function CancelCourseDialog({
       >
         <header className="cancel-course-dialog__header">
           <h2 id="cancel-course-dialog-title" className="cancel-course-dialog__title">
-            {t('appointment.cancelDialogTitle', '取消课程')}
+            {title || t('appointment.cancelDialogTitle', '取消课程')}
           </h2>
           <button
             className="cancel-course-dialog__close"
@@ -73,7 +77,7 @@ function CancelCourseDialog({
 
         <div className="cancel-course-dialog__body">
           <p id="cancel-course-dialog-description" className="cancel-course-dialog__description">
-            {t(
+            {message || t(
               'appointment.cancelDialogMessage',
               '确定取消这节课吗？本次取消不会扣除学生课时',
             )}
@@ -102,8 +106,8 @@ function CancelCourseDialog({
             disabled={submitting}
           >
             {submitting
-              ? t('appointment.cancelling', '取消中…')
-              : t('appointment.cancelDialogConfirm', '确认')}
+              ? (submittingLabel || t('common.processing', '处理中…'))
+              : (confirmLabel || t('appointment.cancelDialogConfirm', '确认'))}
           </button>
         </footer>
       </section>
@@ -111,4 +115,4 @@ function CancelCourseDialog({
   );
 }
 
-export default CancelCourseDialog;
+export default AppointmentActionDialog;

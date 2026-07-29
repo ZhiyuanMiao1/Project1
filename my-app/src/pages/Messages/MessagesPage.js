@@ -12,7 +12,7 @@ import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
-import CancelCourseDialog from './CancelCourseDialog';
+import AppointmentActionDialog from './AppointmentActionDialog';
 import { isMessageRectVisible } from './messageVisibilityUtils';
 import {
   formatScheduleWindowForTimeZone,
@@ -456,7 +456,7 @@ function MessagesPage() {
   const [actionError, setActionError] = useState('');
   const [appointmentBusyId, setAppointmentBusyId] = useState(null);
   const [messageActionBusyId, setMessageActionBusyId] = useState(null);
-  const [cancelCourseAppointmentId, setCancelCourseAppointmentId] = useState(null);
+  const [appointmentActionConfirmation, setAppointmentActionConfirmation] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
   const [rescheduleIntent, setRescheduleIntent] = useState('reschedule');
@@ -1171,28 +1171,59 @@ function MessagesPage() {
   const handleAppointmentLifecycle = async (appointmentId, action) => {
     if (!appointmentId || !action) return;
 
-    if (action === 'cancel') {
-      setActionError('');
-      setOpenScheduleMessageMenuId(null);
-      setCancelCourseAppointmentId(String(appointmentId));
-      return;
-    }
-
     const confirmations = {
-      start_not_held: t('appointment.notHeldConfirm', '确定发起“本节未上课”确认吗？需要对方确认后才会移除课程。'),
-      confirm_not_held: t('appointment.confirmNotHeldConfirm', '确认这节课没有进行吗？确认后课程会被移除，且不会扣除课时。'),
-      keep_as_held: t('appointment.classWasHeldConfirm', '确认这节课实际已经进行吗？之后仍可按正常流程确认课时。'),
-      withdraw_not_held: t('appointment.withdrawNotHeldConfirm', '确定撤回未上课确认吗？'),
+      cancel: {
+        title: t('appointment.cancelDialogTitle', '取消课程'),
+        message: t('appointment.cancelDialogMessage', '确定取消这节课吗？本次取消不会扣除学生课时'),
+        submittingLabel: t('appointment.cancelling', '取消中…'),
+      },
+      start_not_held: {
+        title: t('appointment.notHeld', '本节未上课'),
+        message: t(
+          'appointment.notHeldDialogMessage',
+          '确定发起“本节未上课”确认吗？需要对方确认后，课程才会被移除且不会扣除课时'
+        ),
+      },
+      confirm_not_held: {
+        title: t('appointment.confirmNotHeld', '确认未上课'),
+        message: t(
+          'appointment.confirmNotHeldDialogMessage',
+          '确认这节课没有进行吗？确认后课程会被移除且不会扣除课时'
+        ),
+      },
+      keep_as_held: {
+        title: t('appointment.classWasHeld', '实际已上课'),
+        message: t(
+          'appointment.classWasHeldDialogMessage',
+          '确认这节课实际已经进行吗？课程将保留，后续仍需双方确认实际课时'
+        ),
+      },
+      withdraw_not_held: {
+        title: t('appointment.withdrawNotHeld', '撤回未上课确认'),
+        message: t(
+          'appointment.withdrawNotHeldDialogMessage',
+          '确定撤回未上课确认吗？课程状态将恢复为已接受'
+        ),
+      },
     };
-    if (confirmations[action] && !window.confirm(confirmations[action])) return;
+    const confirmation = confirmations[action];
+    if (!confirmation) return;
 
-    await performAppointmentLifecycle(appointmentId, action);
+    setActionError('');
+    setOpenScheduleMessageMenuId(null);
+    setAppointmentActionConfirmation({
+      appointmentId: String(appointmentId),
+      action,
+      ...confirmation,
+    });
   };
 
-  const handleCancelCourseConfirm = async () => {
-    if (!cancelCourseAppointmentId) return;
-    const cancelled = await performAppointmentLifecycle(cancelCourseAppointmentId, 'cancel');
-    if (cancelled) setCancelCourseAppointmentId(null);
+  const handleAppointmentActionConfirm = async () => {
+    const pending = appointmentActionConfirmation;
+    if (!pending?.appointmentId || !pending?.action) return;
+
+    const completed = await performAppointmentLifecycle(pending.appointmentId, pending.action);
+    if (completed) setAppointmentActionConfirmation(null);
   };
 
   const handleDeleteForMe = async (appointmentId) => {
@@ -2053,15 +2084,21 @@ function MessagesPage() {
         />
       )}
 
-      <CancelCourseDialog
-        open={Boolean(cancelCourseAppointmentId)}
+      <AppointmentActionDialog
+        open={Boolean(appointmentActionConfirmation)}
+        title={appointmentActionConfirmation?.title || ''}
+        message={appointmentActionConfirmation?.message || ''}
+        submittingLabel={
+          appointmentActionConfirmation?.submittingLabel
+          || t('common.processing', '处理中…')
+        }
         submitting={
-          Boolean(cancelCourseAppointmentId)
-          && String(messageActionBusyId || '') === String(cancelCourseAppointmentId)
+          Boolean(appointmentActionConfirmation?.appointmentId)
+          && String(messageActionBusyId || '') === String(appointmentActionConfirmation.appointmentId)
         }
         error={actionError}
-        onClose={() => setCancelCourseAppointmentId(null)}
-        onConfirm={handleCancelCourseConfirm}
+        onClose={() => setAppointmentActionConfirmation(null)}
+        onConfirm={handleAppointmentActionConfirm}
       />
 
       {rescheduleOpen && (
