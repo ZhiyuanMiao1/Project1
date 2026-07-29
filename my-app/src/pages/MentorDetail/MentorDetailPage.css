@@ -1192,35 +1192,6 @@
     display: none;
   }
 
-  .mentor-rating-grid {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .mentor-rating-distribution {
-    grid-column: auto;
-    padding: 0;
-  }
-
-  .mentor-rating-categories {
-    grid-column: auto;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-    border-left: none;
-  }
-
-  .cat-item {
-    min-height: 0;
-    padding: 14px 14px 16px;
-    border-radius: 14px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: rgba(2, 6, 23, 0.02);
-  }
-
-  .cat-item + .cat-item {
-    border-left: none;
-  }
-
   .mentor-reviews-grid {
     grid-template-columns: 1fr;
     margin-left: 0;
@@ -1435,6 +1406,57 @@
   .mentor-detail-clear-selection-label {
     display: inline;
   }
+
+  .mentor-rating-grid {
+    margin-left: 0;
+    margin-right: 0;
+    padding-bottom: 10px;
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mentor-rating-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mentor-rating-distribution {
+    grid-column: auto;
+    flex: 0 0 clamp(180px, 52vw, 210px);
+    box-sizing: border-box;
+    padding: 10px 14px 14px 0;
+    scroll-snap-align: start;
+  }
+
+  .mentor-rating-categories {
+    grid-column: auto;
+    flex: 0 0 auto;
+    display: flex;
+    grid-template-columns: none;
+    gap: 0;
+    border-left: 1px solid rgba(15, 23, 42, 0.08);
+  }
+
+  .cat-item {
+    flex: 0 0 136px;
+    min-height: 132px;
+    box-sizing: border-box;
+    padding: 10px 12px 14px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    scroll-snap-align: start;
+  }
+
+  .cat-item + .cat-item {
+    border-left: 1px solid rgba(15, 23, 42, 0.08);
+  }
 }
 
 @media (max-width: 600px) {
@@ -1485,10 +1507,6 @@
 
   .mentor-detail-times-panel {
     height: min(480px, 68vh);
-  }
-
-  .mentor-rating-categories {
-    grid-template-columns: 1fr;
   }
 
   .review-modal-overlay {
