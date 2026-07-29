@@ -402,6 +402,12 @@
   padding: 0 4px;
 }
 
+.mentor-detail-schedule-trigger,
+.mentor-detail-schedule-backdrop,
+.mentor-detail-schedule-sheet-header {
+  display: none;
+}
+
 .mentor-detail-schedule-body {
   margin-top: 12px;
   display: grid;
@@ -441,6 +447,10 @@
 
 .mentor-detail-times-panel .reschedule-header {
   padding: 12px 12px;
+}
+
+.mentor-detail-clear-selection-label {
+  display: none;
 }
 
 .mentor-detail-times-panel .reschedule-date-title {
@@ -1221,6 +1231,209 @@
 @media (max-width: 899.98px) {
   .mentor-detail-top {
     --mentor-detail-preview-base-height: 320px;
+  }
+
+  .mentor-detail-schedule {
+    width: 100%;
+    justify-self: stretch;
+    margin-top: 8px;
+    padding: 0;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .mentor-detail-schedule-meta {
+    padding: 0 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+
+  .mentor-detail-schedule-trigger {
+    width: 100%;
+    min-height: 72px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: #ffffff;
+    color: #0f172a;
+    -webkit-text-fill-color: #0f172a;
+    appearance: none;
+    -webkit-appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+  }
+
+  .mentor-detail-schedule-trigger:hover {
+    background: rgba(15, 23, 42, 0.025);
+  }
+
+  .mentor-detail-schedule-trigger:focus-visible,
+  .mentor-detail-schedule-sheet-close:focus-visible {
+    outline: 2px solid rgba(15, 23, 42, 0.35);
+    outline-offset: 3px;
+  }
+
+  .mentor-detail-schedule-trigger-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .mentor-detail-schedule-trigger-title {
+    font-size: 16px;
+    line-height: 1.35;
+    font-weight: 700;
+  }
+
+  .mentor-detail-schedule-trigger-summary {
+    color: #64748b;
+    -webkit-text-fill-color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .mentor-detail-schedule-trigger > svg {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+  }
+
+  .mentor-detail-schedule-body {
+    display: none;
+    margin-top: 0;
+  }
+
+  .mentor-detail-schedule.is-mobile-open .mentor-detail-schedule-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2090;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, 0.52);
+    cursor: default;
+  }
+
+  .mentor-detail-schedule.is-mobile-open .mentor-detail-schedule-body {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: 0;
+    z-index: 2100;
+    width: min(720px, 100%);
+    height: min(92dvh, 860px);
+    max-height: calc(100dvh - 8px);
+    margin: 0;
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    border-radius: 24px 24px 0 0;
+    background: #ffffff;
+    box-shadow: 0 -20px 60px rgba(15, 23, 42, 0.2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-50%);
+  }
+
+  .mentor-detail-schedule-sheet-header {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    min-height: 76px;
+    margin: 0 -16px;
+    padding: 14px 16px 12px;
+    box-sizing: border-box;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .mentor-detail-schedule-sheet-title {
+    color: #0f172a;
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 750;
+  }
+
+  .mentor-detail-schedule-sheet-timezone {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .mentor-detail-schedule-sheet-close {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #0f172a;
+    -webkit-text-fill-color: #0f172a;
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .mentor-detail-schedule-sheet-close:hover {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  .mentor-detail-schedule-sheet-close svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mentor-detail-schedule.is-mobile-open .calendar-card,
+  .mentor-detail-schedule.is-mobile-open .mentor-detail-times-panel {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mentor-detail-times-panel .mentor-detail-clear-selection.reschedule-header-btn {
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 6px;
+    border-radius: 10px;
+    color: #0f172a;
+    -webkit-text-fill-color: #0f172a;
+    font-size: 14px;
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .mentor-detail-clear-selection-icon {
+    display: none;
+  }
+
+  .mentor-detail-clear-selection-label {
+    display: inline;
   }
 }
 

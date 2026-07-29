@@ -374,6 +374,8 @@ function MentorDetailPage() {
 
   const scheduleScrollRef = useRef(null);
   const scheduleResizeRef = useRef(null);
+  const mobileScheduleTriggerRef = useRef(null);
+  const mobileScheduleCloseRef = useRef(null);
   const didDragRef = useRef(false);
 
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -405,6 +407,7 @@ function MentorDetailPage() {
   const [isDraggingRange, setIsDraggingRange] = useState(false);
   const [dragPreviewKeys, setDragPreviewKeys] = useState(() => new Set());
   const [scheduleSelection, setScheduleSelection] = useState(null);
+  const [isMobileScheduleOpen, setIsMobileScheduleOpen] = useState(false);
   const [showCourseOnboarding, setShowCourseOnboarding] = useState(false);
   const [courseOnboardingSelectedRequestId, setCourseOnboardingSelectedRequestId] = useState(null);
   const [viewMonth, setViewMonth] = useState(() => {
@@ -412,6 +415,46 @@ function MentorDetailPage() {
     const todayNoon = toNoonDate(new Date(parts.year, parts.month - 1, parts.day));
     return new Date(todayNoon.getFullYear(), todayNoon.getMonth(), 1);
   });
+
+  const closeMobileSchedule = useCallback(({ restoreFocus = true } = {}) => {
+    setIsMobileScheduleOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => mobileScheduleTriggerRef.current?.focus?.());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileScheduleOpen) return undefined;
+
+    const mobileQuery = window.matchMedia('(max-width: 899.98px)');
+    if (!mobileQuery.matches) {
+      setIsMobileScheduleOpen(false);
+      return undefined;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    const focusFrame = window.requestAnimationFrame(() => mobileScheduleCloseRef.current?.focus?.());
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeMobileSchedule();
+    };
+    const handleBreakpointChange = (event) => {
+      if (!event.matches) closeMobileSchedule({ restoreFocus: false });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    mobileQuery.addEventListener?.('change', handleBreakpointChange);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener('keydown', handleKeyDown);
+      mobileQuery.removeEventListener?.('change', handleBreakpointChange);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [closeMobileSchedule, isMobileScheduleOpen]);
 
   useEffect(() => {
     const onboarding = location?.state?.courseOnboarding;
@@ -1248,6 +1291,7 @@ function MentorDetailPage() {
 
   const handleSendAppointment = () => {
     if (!scheduleSelection) return;
+    closeMobileSchedule({ restoreFocus: false });
     if (!isLoggedIn) {
       rememberPostLoginRedirect();
       setForceLoginForAppointment(true);
@@ -1357,11 +1401,68 @@ function MentorDetailPage() {
                     />
                   </div>
                 </div>
-                <aside className="mentor-detail-schedule" aria-label={t('mentorDetail.scheduleAria', '导师可约时间')}>
+                <aside
+                  className={`mentor-detail-schedule${isMobileScheduleOpen ? ' is-mobile-open' : ''}`}
+                  aria-label={t('mentorDetail.scheduleAria', '导师可约时间')}
+                >
                   <div className="mentor-detail-schedule-meta">
                     <span>{t('mentorDetail.timeZonePrefix', '时区：')} {buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}</span>
                   </div>
-                  <div className="mentor-detail-schedule-body" aria-label={t('mentorDetail.chooseDateAria', '选择日期')}>
+                  <button
+                    type="button"
+                    className="mentor-detail-schedule-trigger"
+                    ref={mobileScheduleTriggerRef}
+                    aria-expanded={isMobileScheduleOpen}
+                    aria-controls="mentor-mobile-schedule-sheet"
+                    onClick={() => setIsMobileScheduleOpen(true)}
+                  >
+                    <span className="mentor-detail-schedule-trigger-copy">
+                      <span className="mentor-detail-schedule-trigger-title">
+                        {scheduleSelection
+                          ? t('mentorDetail.selectedAppointmentTime', '已选择预约时间')
+                          : t('mentorDetail.chooseAppointmentTime', '选择预约时间')}
+                      </span>
+                      <span className="mentor-detail-schedule-trigger-summary">
+                        {scheduleSelection
+                          ? `${formatFullDate(selectedDate, language)} · ${minutesToTimeLabel(scheduleSelection.startMinutes)}-${minutesToTimeLabel(scheduleSelection.endMinutes)}`
+                          : t('mentorDetail.expandScheduleHint', '查看导师日历与可约时间')}
+                      </span>
+                    </span>
+                    <FiChevronRight aria-hidden="true" />
+                  </button>
+                  {isMobileScheduleOpen ? (
+                    <div
+                      className="mentor-detail-schedule-backdrop"
+                      aria-hidden="true"
+                      onClick={() => closeMobileSchedule()}
+                    />
+                  ) : null}
+                  <div
+                    id="mentor-mobile-schedule-sheet"
+                    className="mentor-detail-schedule-body"
+                    role={isMobileScheduleOpen ? 'dialog' : undefined}
+                    aria-modal={isMobileScheduleOpen ? 'true' : undefined}
+                    aria-label={t('mentorDetail.chooseDateAria', '选择日期')}
+                  >
+                    <div className="mentor-detail-schedule-sheet-header">
+                      <div>
+                        <div className="mentor-detail-schedule-sheet-title">
+                          {t('mentorDetail.chooseAppointmentTime', '选择预约时间')}
+                        </div>
+                        <div className="mentor-detail-schedule-sheet-timezone">
+                          {buildShortUTC(selectedTimeZone, selectedDate)} {selectedTimeZone}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="mentor-detail-schedule-sheet-close"
+                        ref={mobileScheduleCloseRef}
+                        aria-label={t('mentorDetail.closeSchedule', '关闭预约时间选择')}
+                        onClick={() => closeMobileSchedule()}
+                      >
+                        <FiX aria-hidden="true" />
+                      </button>
+                    </div>
                     <div className="calendar-card" aria-label={t('mentorDetail.calendarAria', '可约日期日历')}>
                       <div className="calendar-header">
                         <div className="month-label">{monthLabel}</div>
@@ -1501,11 +1602,14 @@ function MentorDetailPage() {
                           </div>
                           <button
                             type="button"
-                            className="reschedule-header-btn icon close"
+                            className="reschedule-header-btn icon close mentor-detail-clear-selection"
                             aria-label={t('mentorDetail.clearSelection', '清空选择')}
                             onClick={() => setScheduleSelection(null)}
                           >
-                            <FiX size={18} aria-hidden="true" />
+                            <FiX className="mentor-detail-clear-selection-icon" size={18} aria-hidden="true" />
+                            <span className="mentor-detail-clear-selection-label">
+                              {t('mentorDetail.clear', '清除')}
+                            </span>
                           </button>
                         </div>
 
