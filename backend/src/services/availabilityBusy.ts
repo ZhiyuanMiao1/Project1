@@ -170,7 +170,18 @@ const parseCourseWindowText = (windowText: unknown, createdAt: Date) => {
 
 const parseStoredUtcDate = (value: unknown) => {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return new Date(value.getTime());
+    // `starts_at` is stored as a UTC wall-clock value in a MySQL DATETIME.
+    // mysql2 materializes DATETIME values as local Date instances, so copying
+    // the timestamp would incorrectly shift the lesson by the server offset.
+    return new Date(Date.UTC(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+      value.getHours(),
+      value.getMinutes(),
+      value.getSeconds(),
+      value.getMilliseconds(),
+    ));
   }
   const raw = safeText(value);
   if (!raw) return null;
@@ -201,7 +212,16 @@ const parseStoredUtcDate = (value: unknown) => {
 
 const normalizeDecisionStatus = (value: unknown) => {
   const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending') return raw;
+  if (
+    raw === 'accepted'
+    || raw === 'rejected'
+    || raw === 'rescheduling'
+    || raw === 'pending'
+    || raw === 'cancelled'
+    || raw === 'canceled'
+    || raw === 'not_held_pending'
+    || raw === 'not_held'
+  ) return raw;
   return '';
 };
 
@@ -332,7 +352,7 @@ export const getBusySelectionsForUsers = async (
     );
 
     for (const row of appointmentRows || []) {
-      const status = normalizeDecisionStatus(row?.appointment_status) || 'pending';
+      const status = normalizeDecisionStatus(row?.appointment_status);
       if (status !== 'pending' && status !== 'accepted') continue;
 
       const payload = parseAppointmentPayload(row?.payload_json);
