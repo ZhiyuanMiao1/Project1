@@ -483,7 +483,7 @@ CREATE TABLE IF NOT EXISTS `message_item_reads` (
 -- Persist appointment card status (accepted/rejected/etc) so both parties see consistent state.
 CREATE TABLE IF NOT EXISTS `appointment_statuses` (
   `appointment_message_id` BIGINT NOT NULL,
-  `status` ENUM('pending','accepted','rejected','rescheduling') NOT NULL DEFAULT 'pending',
+  `status` ENUM('pending','accepted','rejected','rescheduling','cancelled','not_held_pending','not_held') NOT NULL DEFAULT 'pending',
   `updated_by_user_id` INT NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -492,6 +492,9 @@ CREATE TABLE IF NOT EXISTS `appointment_statuses` (
   CONSTRAINT `fk_appointment_statuses_message` FOREIGN KEY (`appointment_message_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_appointment_statuses_user` FOREIGN KEY (`updated_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `appointment_statuses`
+  MODIFY COLUMN `status` ENUM('pending','accepted','rejected','rescheduling','cancelled','not_held_pending','not_held') NOT NULL DEFAULT 'pending';
 
 UPDATE `mentor_profiles` mp
 LEFT JOIN (

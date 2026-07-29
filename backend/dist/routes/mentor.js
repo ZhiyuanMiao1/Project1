@@ -75,7 +75,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
          ON mp.user_id = r.user_id
        LEFT JOIN account_settings s
          ON s.user_id = r.user_id
-       WHERE r.status = 'submitted'
+       WHERE r.status IN ('submitted', 'paired')
          AND r.user_id <> ?
          AND NOT EXISTS (
            SELECT 1
@@ -85,7 +85,7 @@ router.get('/cards', auth_1.requireAuth, async (req, res) => {
             AND mt.student_user_id = r.user_id
            INNER JOIN appointment_statuses ast
              ON ast.appointment_message_id = mi.id
-            AND ast.status = 'accepted'
+            AND ast.status IN ('accepted', 'rescheduling', 'not_held_pending')
            WHERE mi.message_type = 'appointment_card'
              AND JSON_UNQUOTE(
                CASE

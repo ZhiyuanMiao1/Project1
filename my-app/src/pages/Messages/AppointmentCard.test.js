@@ -56,13 +56,10 @@ describe('AppointmentCard course request details', () => {
     container.remove();
   });
 
-  test('links the course title and more menu to the read-only mentor detail view', () => {
+  test('keeps the title static and exposes details only in the more menu', () => {
     act(() => root.render(<AppointmentCard {...baseProps} />));
 
-    const titleLink = container.querySelector('.schedule-card-title-link');
-    expect(titleLink).not.toBeNull();
-    expect(titleLink.getAttribute('href')).toBe('/mentor/requests/42?source=messages');
-    expect(titleLink.getAttribute('target')).toBe('_blank');
+    expect(container.querySelector('.schedule-card-title-link')).toBeNull();
 
     const moreButton = container.querySelector('.schedule-card-more-trigger');
     act(() => moreButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
@@ -82,5 +79,56 @@ describe('AppointmentCard course request details', () => {
     ));
 
     expect(container.querySelector('.schedule-card-title-link')).toBeNull();
+    const moreButton = container.querySelector('.schedule-card-more-trigger');
+    act(() => moreButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(container.querySelector('.schedule-card-more-menu a')).toBeNull();
+  });
+
+  test('shows cancellation and rescheduling only in the accepted card menu', () => {
+    act(() => root.render(
+      <AppointmentCard
+        {...baseProps}
+        scheduleCard={{ ...baseProps.scheduleCard, status: 'accepted' }}
+      />,
+    ));
+
+    const moreButton = container.querySelector('.schedule-card-more-trigger');
+    act(() => moreButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const labels = [...container.querySelectorAll('.schedule-card-more-item')].map((item) => item.textContent);
+    expect(labels).toContain('修改时间');
+    expect(labels).toContain('取消课程');
+    expect(container.querySelector('.schedule-card-bottom').textContent).toContain('已接受');
+  });
+
+  test('lets the receiver revise a rejected proposal from the status control', () => {
+    act(() => root.render(
+      <AppointmentCard
+        {...baseProps}
+        scheduleCard={{ ...baseProps.scheduleCard, status: 'rejected' }}
+      />,
+    ));
+
+    const statusButton = container.querySelector('.schedule-decision-wrapper .schedule-btn.merged');
+    expect(statusButton).not.toBeNull();
+    expect(statusButton.disabled).toBe(false);
+
+    act(() => statusButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const actions = [...container.querySelectorAll('.schedule-decision-popover .inline-action')]
+      .map((item) => item.textContent);
+    expect(actions).toEqual(expect.arrayContaining(['接受', '修改时间']));
+  });
+
+  test('keeps a source proposal in rescheduling state instead of restoring the initial actions', () => {
+    act(() => root.render(
+      <AppointmentCard
+        {...baseProps}
+        scheduleCard={{ ...baseProps.scheduleCard, status: 'rescheduling' }}
+      />,
+    ));
+
+    const actionButtons = container.querySelectorAll('.schedule-card-bottom .schedule-btn');
+    expect(actionButtons).toHaveLength(1);
+    expect(actionButtons[0].textContent).toContain('修改时间中');
+    expect(actionButtons[0].disabled).toBe(true);
   });
 });

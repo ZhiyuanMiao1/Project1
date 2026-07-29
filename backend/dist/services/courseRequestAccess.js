@@ -33,7 +33,7 @@ const canMentorReadCourseRequest = async ({ requestId, studentUserId, mentorUser
          AND mt.student_user_id = ?
         INNER JOIN appointment_statuses ast
           ON ast.appointment_message_id = mi.id
-         AND ast.status = 'accepted'
+         AND ast.status IN ('accepted', 'rescheduling', 'not_held_pending')
         WHERE mi.message_type = 'appointment_card'
           AND JSON_UNQUOTE(
             CASE
@@ -49,6 +49,8 @@ const canMentorReadCourseRequest = async ({ requestId, studentUserId, mentorUser
     if (isLinkedMentor)
         return true;
     const hasAcceptedAppointment = access.has_accepted_appointment === 1 || access.has_accepted_appointment === true;
-    return safeStatus(requestStatus) === 'submitted' && !hasAcceptedAppointment;
+    const normalizedRequestStatus = safeStatus(requestStatus);
+    return ((normalizedRequestStatus === 'submitted' || normalizedRequestStatus === 'paired')
+        && !hasAcceptedAppointment);
 };
 exports.canMentorReadCourseRequest = canMentorReadCourseRequest;

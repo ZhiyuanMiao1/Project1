@@ -12,6 +12,29 @@ const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const walletHours_1 = require("../services/walletHours");
 const router = express_1.default.Router();
+let appointmentLifecycleSchemaPromise = null;
+const ensureAppointmentLifecycleStatuses = async () => {
+    if (!appointmentLifecycleSchemaPromise) {
+        appointmentLifecycleSchemaPromise = (0, db_1.query)(`
+      ALTER TABLE appointment_statuses
+      MODIFY COLUMN status ENUM(
+        'pending',
+        'accepted',
+        'rejected',
+        'rescheduling',
+        'cancelled',
+        'not_held_pending',
+        'not_held'
+      ) NOT NULL DEFAULT 'pending'
+      `)
+            .then(() => undefined)
+            .catch((error) => {
+            appointmentLifecycleSchemaPromise = null;
+            throw error;
+        });
+    }
+    return appointmentLifecycleSchemaPromise;
+};
 const isMissingMessagesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
     if (code === 'ER_NO_SUCH_TABLE' || code === 'ER_BAD_FIELD_ERROR')
@@ -339,7 +362,13 @@ const toScheduleCard = (row, currentUserId) => {
     const rawStatus = typeof row?.appointment_status === 'string'
         ? row.appointment_status.trim().toLowerCase()
         : '';
-    const normalizedStatus = rawStatus === 'accepted' || rawStatus === 'rejected' || rawStatus === 'rescheduling' || rawStatus === 'pending'
+    const normalizedStatus = rawStatus === 'accepted'
+        || rawStatus === 'rejected'
+        || rawStatus === 'rescheduling'
+        || rawStatus === 'pending'
+        || rawStatus === 'cancelled'
+        || rawStatus === 'not_held_pending'
+        || rawStatus === 'not_held'
         ? rawStatus
         : 'pending';
     return {
@@ -350,6 +379,7 @@ const toScheduleCard = (row, currentUserId) => {
         sourceAppointmentId: typeof payload.sourceAppointmentId === 'string' ? payload.sourceAppointmentId.trim() : '',
         time: row?.created_at ? new Date(row.created_at).toISOString() : '',
         status: normalizedStatus,
+        statusUpdatedByMe: Number(row?.appointment_status_updated_by_user_id) === currentUserId,
         canRecall: Number(row?.sender_user_id) === currentUserId && normalizedStatus === 'pending',
         isRead: Number(row?.is_read_by_me) === 1,
         courseDirectionId: typeof payload.courseDirectionId === 'string' ? payload.courseDirectionId : '',
@@ -389,7 +419,13 @@ const toLessonHoursConfirmationCard = (row, currentUserId) => {
 };
 const normalizeDecisionStatus = (value) => {
     const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-    if (raw === 'accepted' || raw === 'rejected' || raw === 'rescheduling' || raw === 'pending')
+    if (raw === 'accepted'
+        || raw === 'rejected'
+        || raw === 'rescheduling'
+        || raw === 'pending'
+        || raw === 'cancelled'
+        || raw === 'not_held_pending'
+        || raw === 'not_held')
         return raw;
     return '';
 };
@@ -607,12 +643,15 @@ const applyExplicitRescheduleSourceStatuses = async (rowsForThread) => {
         const sourceAppointmentId = toPositiveIntOrNull(payload.sourceAppointmentId);
         const appointmentId = toPositiveIntOrNull(row?.id);
         const updatedByUserId = toPositiveIntOrNull(row?.sender_user_id);
+        const childStatus = appointmentId == null
+            ? 'pending'
+            : (statusByAppointmentId.get(appointmentId) || 'pending');
         if (sourceAppointmentId != null && sourceAppointmentId !== appointmentId) {
             const sourceStatus = statusByAppointmentId.get(sourceAppointmentId) || 'pending';
             if (safeText(payload.intent).toLowerCase() === 'reschedule'
                 && updatedByUserId != null
-                && sourceStatus !== 'accepted'
-                && sourceStatus !== 'rejected') {
+                && (childStatus === 'pending' || childStatus === 'rejected' || childStatus === 'rescheduling')
+                && (sourceStatus === 'pending' || sourceStatus === 'rescheduling')) {
                 rescheduleSourceUpdates.set(sourceAppointmentId, updatedByUserId);
             }
             continue;
@@ -714,6 +753,83 @@ const markCourseRequestPairedForAcceptedAppointment = async (conn, payload, stud
       AND status = 'submitted'
     `, [courseRequestId, studentUserId]);
 };
+const reopenCourseRequestIfNoActiveAppointment = async (conn, payload, studentUserId) => {
+    const courseRequestId = toPositiveIntOrNull(payload?.courseRequestId);
+    if (courseRequestId == null || !Number.isFinite(studentUserId) || studentUserId <= 0)
+        return;
+    const [activeRows] = await conn.execute(`
+    SELECT mi.id
+    FROM message_items mi
+    INNER JOIN message_threads mt
+      ON mt.id = mi.thread_id
+     AND mt.student_user_id = ?
+    INNER JOIN appointment_statuses ast
+      ON ast.appointment_message_id = mi.id
+     AND ast.status IN ('accepted', 'rescheduling', 'not_held_pending')
+    WHERE mi.message_type = 'appointment_card'
+      AND JSON_UNQUOTE(
+        CASE
+          WHEN JSON_VALID(mi.payload_json) THEN JSON_EXTRACT(mi.payload_json, '$.courseRequestId')
+          ELSE NULL
+        END
+      ) = CAST(? AS CHAR)
+    LIMIT 1
+    `, [studentUserId, courseRequestId]);
+    if (activeRows?.[0])
+        return;
+    await conn.execute(`
+    UPDATE course_requests
+    SET status = 'submitted',
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+      AND user_id = ?
+      AND status = 'paired'
+    `, [courseRequestId, studentUserId]);
+};
+const getAppointmentCourseWindow = (row) => {
+    const payload = parseAppointmentPayload(row?.payload_json);
+    if (!payload)
+        return null;
+    const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
+    const parsed = parseCourseWindowText(payload.windowText, createdAt);
+    if (!parsed)
+        return null;
+    return {
+        payload,
+        startsAt: formatUtcDatetime(parsed.startsAtUtc),
+        startsAtMs: parsed.startsAtUtc.getTime(),
+    };
+};
+const cancelAppointmentCourseSession = async (conn, row) => {
+    const window = getAppointmentCourseWindow(row);
+    if (!window)
+        return;
+    const [sessionRows] = await conn.execute(`
+    SELECT id
+    FROM course_sessions
+    WHERE student_user_id = ?
+      AND mentor_user_id = ?
+      AND starts_at = ?
+    LIMIT 1
+    FOR UPDATE
+    `, [Number(row.student_user_id), Number(row.mentor_user_id), window.startsAt]);
+    const sessionId = toPositiveIntOrNull(sessionRows?.[0]?.id);
+    if (sessionId == null)
+        return;
+    const [confirmationRows] = await conn.execute(`
+    SELECT id
+    FROM lesson_hour_confirmations
+    WHERE course_session_id = ?
+    LIMIT 1
+    `, [sessionId]);
+    if (confirmationRows?.[0]) {
+        const error = new Error('课时确认已开始，请在课时确认中处理');
+        error.code = 'LESSON_HOURS_STARTED';
+        throw error;
+    }
+    await conn.execute(`UPDATE course_sessions SET status = 'cancelled' WHERE id = ?`, [sessionId]);
+    await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(row.mentor_user_id));
+};
 const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
     const payload = parseAppointmentPayload(row?.payload_json);
     if (!payload) {
@@ -792,6 +908,10 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
         await markCourseRequestPairedForAcceptedAppointment(conn, payload, studentUserId);
         return;
     }
+    // A reschedule proposal must not remove the original class until the new
+    // time has been accepted. Rejection/cancellation are handled separately.
+    if (status === 'rescheduling')
+        return;
     const existingId = toPositiveIntOrNull(existingRow?.id);
     if (existingId == null)
         return;
@@ -1208,11 +1328,18 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
         return res.status(400).json({ error: '无效预约ID' });
     }
     const status = normalizeDecisionStatus(req.body?.status ?? req.body?.decision);
-    if (!status || status === 'pending') {
+    if (status !== 'accepted' && status !== 'rejected' && status !== 'rescheduling') {
         return res.status(400).json({ error: '无效状态' });
     }
     await (0, mentorResponseTime_1.ensureMentorResponseTimeColumn)();
     await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
+    try {
+        await ensureAppointmentLifecycleStatuses();
+    }
+    catch (e) {
+        console.error('Ensure appointment lifecycle statuses error:', e);
+        return res.status(500).json({ error: '数据库升级失败，请检查 appointment_statuses 表权限' });
+    }
     const conn = await db_1.pool.getConnection();
     try {
         await conn.beginTransaction();
@@ -1242,12 +1369,37 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             return res.status(404).json({ error: '预约不存在或无权限' });
         const currentStatus = normalizeDecisionStatus(row.appointment_status) || 'pending';
         const isSender = Number(row.sender_user_id) === req.user.id;
-        const canSenderMarkRescheduling = isSender
-            && status === 'rescheduling'
-            && (currentStatus === 'accepted' || currentStatus === 'rejected');
-        if (isSender && !canSenderMarkRescheduling) {
+        const canRespondToPending = !isSender
+            && currentStatus === 'pending'
+            && (status === 'accepted' || status === 'rejected' || status === 'rescheduling');
+        const canRescheduleAccepted = currentStatus === 'accepted' && status === 'rescheduling';
+        const canReviseRejected = currentStatus === 'rejected'
+            && (status === 'rescheduling'
+                || (!isSender && status === 'accepted'));
+        if (!canRespondToPending && !canRescheduleAccepted && !canReviseRejected) {
             await conn.rollback();
-            return res.status(403).json({ error: '不能对自己发的预约更改状态' });
+            return res.status(409).json({ error: '该预约状态已变化，请刷新后重试' });
+        }
+        if (canRespondToPending) {
+            const pendingWindow = getAppointmentCourseWindow(row);
+            if (!pendingWindow || Date.now() >= pendingWindow.startsAtMs) {
+                await conn.rollback();
+                return res.status(409).json({ error: '该预约已过期，不能再处理' });
+            }
+        }
+        if (canRescheduleAccepted) {
+            const currentWindow = getAppointmentCourseWindow(row);
+            if (!currentWindow || Date.now() >= currentWindow.startsAtMs) {
+                await conn.rollback();
+                return res.status(409).json({ error: '课程已到开始时间，请使用“本节未上课”' });
+            }
+        }
+        if (canReviseRejected) {
+            const rejectedWindow = getAppointmentCourseWindow(row);
+            if (!rejectedWindow || Date.now() >= rejectedWindow.startsAtMs) {
+                await conn.rollback();
+                return res.status(409).json({ error: '该预约已过期，不能再修改' });
+            }
         }
         await conn.execute(`
       INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
@@ -1271,6 +1423,38 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             }
             console.error('Sync course session error:', e);
             throw e;
+        }
+        if (status === 'accepted') {
+            const acceptedPayload = parseAppointmentPayload(row.payload_json);
+            const sourceAppointmentId = toPositiveIntOrNull(acceptedPayload?.sourceAppointmentId);
+            if (safeText(acceptedPayload?.intent).toLowerCase() === 'reschedule' && sourceAppointmentId != null) {
+                const [sourceRows] = await conn.execute(`
+          SELECT
+            mi.id,
+            mi.payload_json,
+            mi.created_at,
+            t.student_user_id,
+            t.mentor_user_id
+          FROM message_items mi
+          INNER JOIN message_threads t ON t.id = mi.thread_id
+          WHERE mi.id = ?
+            AND mi.thread_id = ?
+            AND mi.message_type = 'appointment_card'
+          LIMIT 1
+          `, [sourceAppointmentId, Number(row.thread_id)]);
+                const sourceRow = sourceRows?.[0];
+                if (sourceRow) {
+                    await conn.execute(`
+            INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+            VALUES (?, 'cancelled', ?)
+            ON DUPLICATE KEY UPDATE
+              status = VALUES(status),
+              updated_by_user_id = VALUES(updated_by_user_id),
+              updated_at = CURRENT_TIMESTAMP
+            `, [sourceAppointmentId, req.user.id]);
+                    await cancelAppointmentCourseSession(conn, sourceRow);
+                }
+            }
         }
         const shouldEmitDecisionMessage = status === 'accepted' || status === 'rejected';
         if (shouldEmitDecisionMessage) {
@@ -1315,6 +1499,172 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             return res.status(500).json({ error: '数据库未升级，请先执行backend/schema.sql' });
         }
         console.error('Update appointment decision error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+    finally {
+        try {
+            conn.release();
+        }
+        catch { }
+    }
+});
+router.post('/appointments/:appointmentId/lifecycle', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const appointmentId = Number(req.params.appointmentId);
+    if (!Number.isFinite(appointmentId) || appointmentId <= 0) {
+        return res.status(400).json({ error: '无效预约ID' });
+    }
+    const action = safeText(req.body?.action).toLowerCase();
+    if (!['cancel', 'start_not_held', 'confirm_not_held', 'keep_as_held', 'withdraw_not_held'].includes(action)) {
+        return res.status(400).json({ error: '无效操作' });
+    }
+    await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
+    try {
+        await ensureAppointmentLifecycleStatuses();
+    }
+    catch (e) {
+        console.error('Ensure appointment lifecycle statuses error:', e);
+        return res.status(500).json({ error: '数据库升级失败，请检查 appointment_statuses 表权限' });
+    }
+    const conn = await db_1.pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [rows] = await conn.execute(`
+      SELECT
+        mi.id,
+        mi.thread_id,
+        mi.sender_user_id,
+        mi.payload_json,
+        mi.created_at,
+        COALESCE(ast.status, 'pending') AS appointment_status,
+        ast.updated_by_user_id AS appointment_status_updated_by_user_id,
+        t.student_user_id,
+        t.mentor_user_id
+      FROM message_items mi
+      INNER JOIN message_threads t ON t.id = mi.thread_id
+      LEFT JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+      WHERE mi.id = ?
+        AND mi.message_type = 'appointment_card'
+        AND (t.student_user_id = ? OR t.mentor_user_id = ?)
+      LIMIT 1
+      FOR UPDATE
+      `, [appointmentId, req.user.id, req.user.id]);
+        const row = rows?.[0];
+        if (!row) {
+            await conn.rollback();
+            return res.status(404).json({ error: '预约不存在或无权限' });
+        }
+        const currentStatus = normalizeDecisionStatus(row.appointment_status) || 'pending';
+        const window = getAppointmentCourseWindow(row);
+        if (!window) {
+            await conn.rollback();
+            return res.status(400).json({ error: '预约时间数据无效' });
+        }
+        let nextStatus = currentStatus;
+        let shouldCancelSession = false;
+        let shouldReopenRequest = false;
+        if (action === 'cancel') {
+            if (currentStatus !== 'accepted') {
+                await conn.rollback();
+                return res.status(409).json({ error: '只有已接受且未开始的课程可以取消' });
+            }
+            if (Date.now() >= window.startsAtMs) {
+                await conn.rollback();
+                return res.status(409).json({ error: '课程已到开始时间，请使用“本节未上课”' });
+            }
+            nextStatus = 'cancelled';
+            shouldCancelSession = true;
+            shouldReopenRequest = true;
+        }
+        else if (action === 'start_not_held') {
+            if (currentStatus !== 'accepted') {
+                await conn.rollback();
+                return res.status(409).json({ error: '当前课程不能发起未上课确认' });
+            }
+            if (Date.now() < window.startsAtMs) {
+                await conn.rollback();
+                return res.status(409).json({ error: '课程开始前请直接取消课程' });
+            }
+            const [confirmationRows] = await conn.execute(`
+        SELECT id
+        FROM lesson_hour_confirmations
+        WHERE course_session_id IN (
+          SELECT id FROM course_sessions
+          WHERE student_user_id = ? AND mentor_user_id = ? AND starts_at = ?
+        )
+        LIMIT 1
+        `, [Number(row.student_user_id), Number(row.mentor_user_id), window.startsAt]);
+            if (confirmationRows?.[0]) {
+                await conn.rollback();
+                return res.status(409).json({ error: '课时确认已开始，请在课时确认中处理' });
+            }
+            nextStatus = 'not_held_pending';
+        }
+        else {
+            if (currentStatus !== 'not_held_pending') {
+                await conn.rollback();
+                return res.status(409).json({ error: '该课程没有待处理的未上课确认' });
+            }
+            const requestedBy = Number(row.appointment_status_updated_by_user_id);
+            if (action === 'withdraw_not_held') {
+                if (requestedBy !== req.user.id) {
+                    await conn.rollback();
+                    return res.status(403).json({ error: '只有发起方可以撤回未上课确认' });
+                }
+                nextStatus = 'accepted';
+            }
+            else {
+                if (requestedBy === req.user.id) {
+                    await conn.rollback();
+                    return res.status(403).json({ error: '需要由另一方处理未上课确认' });
+                }
+                if (action === 'confirm_not_held') {
+                    nextStatus = 'not_held';
+                    shouldCancelSession = true;
+                    shouldReopenRequest = true;
+                }
+                else {
+                    nextStatus = 'accepted';
+                }
+            }
+        }
+        await conn.execute(`
+      INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_at = CURRENT_TIMESTAMP
+      `, [appointmentId, nextStatus, req.user.id]);
+        if (shouldCancelSession)
+            await cancelAppointmentCourseSession(conn, row);
+        if (shouldReopenRequest) {
+            await reopenCourseRequestIfNoActiveAppointment(conn, window.payload, Number(row.student_user_id));
+        }
+        await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        await conn.commit();
+        return res.json({
+            ok: true,
+            appointmentId: String(appointmentId),
+            status: nextStatus,
+            statusUpdatedByMe: true,
+            courseRemoved: shouldCancelSession,
+            courseRequestReopened: shouldReopenRequest,
+        });
+    }
+    catch (e) {
+        try {
+            await conn.rollback();
+        }
+        catch { }
+        if (String(e?.code || '') === 'LESSON_HOURS_STARTED') {
+            return res.status(409).json({ error: e.message });
+        }
+        if (isMissingMessagesSchemaError(e)) {
+            return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+        }
+        console.error('Update appointment lifecycle error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
     finally {
@@ -2379,7 +2729,8 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
           mi.sender_user_id,
           mi.payload_json,
           mi.created_at,
-          COALESCE(ast.status, 'pending') AS appointment_status
+          COALESCE(ast.status, 'pending') AS appointment_status,
+          ast.updated_by_user_id AS appointment_status_updated_by_user_id
           ,
           CASE
             WHEN mi.sender_user_id = ? THEN 1

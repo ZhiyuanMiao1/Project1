@@ -12,6 +12,7 @@ import { emitMessageUnreadChanged } from '../../hooks/useMessageUnreadSummary';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import './MessagesPage.css';
 import AppointmentCard from './AppointmentCard';
+import { isMessageRectVisible } from './messageVisibilityUtils';
 import {
   formatScheduleWindowForTimeZone,
   getCourseTitleParts,
@@ -1048,37 +1049,51 @@ function MessagesPage() {
     );
     if (unreadTargets.length === 0) return undefined;
 
+    const markTargetReadIfVisible = (target, rect, rootBounds) => {
+      if (!isMessageRectVisible(rect, rootBounds)) return false;
+
+      const messageId = target.getAttribute('data-message-id');
+      const threadId = target.getAttribute('data-thread-id') || String(activeThread.id);
+      if (!messageId) return false;
+
+      queueVisibleMessageRead(messageId, threadId);
+      return true;
+    };
+
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
-
-        const ratio = Number(entry.intersectionRatio || 0);
-        const rootBounds = entry.rootBounds;
-        const rect = entry.boundingClientRect;
-        const fullyInsideRoot = Boolean(
-          rootBounds
-          && rect.top >= rootBounds.top + 4
-          && rect.bottom <= rootBounds.bottom - 4
-        );
-        if (ratio < 0.55 && !fullyInsideRoot) return;
-
         const target = entry.target;
-        const messageId = target.getAttribute('data-message-id');
-        const threadId = target.getAttribute('data-thread-id') || String(activeThread.id);
-        if (!messageId) return;
-
-        queueVisibleMessageRead(messageId, threadId);
-        observer.unobserve(target);
+        if (markTargetReadIfVisible(target, entry.boundingClientRect, entry.rootBounds)) {
+          observer.unobserve(target);
+        }
       });
     }, {
       root: scrollRoot,
-      threshold: [0.35, 0.55, 0.75, 1],
-      rootMargin: '-4% 0px -4% 0px',
+      threshold: [0, 0.35, 0.55, 0.75, 1],
+      rootMargin: '0px',
     });
 
     unreadTargets.forEach((target) => observer.observe(target));
 
-    return () => observer.disconnect();
+    // IntersectionObserver does not always emit a useful transition when a
+    // short timeline is already fully laid out and cannot scroll. Check the
+    // initial geometry once after layout so a visible final system notice can
+    // still be acknowledged.
+    const initialVisibilityFrame = window.requestAnimationFrame(() => {
+      const rootRect = scrollRoot.getBoundingClientRect();
+      unreadTargets.forEach((target) => {
+        if (!target.isConnected) return;
+        if (markTargetReadIfVisible(target, target.getBoundingClientRect(), rootRect)) {
+          observer.unobserve(target);
+        }
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(initialVisibilityFrame);
+      observer.disconnect();
+    };
   }, [activeThread?.id, isLoggedIn, mobileDetailOpen, queueVisibleMessageRead, timelineItems]);
 
   const persistAppointmentDecision = async (appointmentId, status) => {
@@ -1106,6 +1121,55 @@ function MessagesPage() {
     try {
       await reloadThreads();
     } catch {}
+  };
+
+  const handleAppointmentLifecycle = async (appointmentId, action) => {
+    if (!appointmentId || !action) return;
+    const confirmations = {
+      cancel: t('appointment.cancelConfirm', '确定取消这节课吗？取消后不会扣除课时。'),
+      start_not_held: t('appointment.notHeldConfirm', '确定发起“本节未上课”确认吗？需要对方确认后才会移除课程。'),
+      confirm_not_held: t('appointment.confirmNotHeldConfirm', '确认这节课没有进行吗？确认后课程会被移除，且不会扣除课时。'),
+      keep_as_held: t('appointment.classWasHeldConfirm', '确认这节课实际已经进行吗？之后仍可按正常流程确认课时。'),
+      withdraw_not_held: t('appointment.withdrawNotHeldConfirm', '确定撤回未上课确认吗？'),
+    };
+    if (confirmations[action] && !window.confirm(confirmations[action])) return;
+
+    const actionId = String(appointmentId);
+    setActionError('');
+    setMessageActionBusyId(actionId);
+    try {
+      const response = await api.post(
+        `/api/messages/appointments/${encodeURIComponent(actionId)}/lifecycle`,
+        { action },
+      );
+      const nextStatus = String(response?.data?.status || '').trim();
+      if (nextStatus) {
+        setScheduleCards((prev) => prev.map((card) => (
+          String(card?.id) === actionId
+            ? {
+              ...card,
+              status: nextStatus,
+              statusUpdatedByMe: nextStatus === 'not_held_pending',
+              ...(response?.data?.courseRemoved ? { courseSessionId: '' } : {}),
+            }
+            : card
+        )));
+      }
+      if (response?.data?.courseRemoved) {
+        window.dispatchEvent(new CustomEvent('mentory:courses-changed', {
+          detail: { appointmentId: actionId },
+        }));
+      }
+      await reloadThreads();
+    } catch (err) {
+      const msg = err?.response?.data?.error || err?.message || t(
+        'appointment.lifecycleFailed',
+        '更新课程状态失败，请稍后再试',
+      );
+      setActionError(String(msg));
+    } finally {
+      setMessageActionBusyId(null);
+    }
   };
 
   const handleDeleteForMe = async (appointmentId) => {
@@ -1921,6 +1985,7 @@ function MessagesPage() {
                           onOpenMessageMenuChange={setOpenScheduleMessageMenuId}
                           onDecision={handleAppointmentDecision}
                           onReschedule={openRescheduleFor}
+                          onLifecycle={handleAppointmentLifecycle}
                           onScheduleNextLesson={openNextLessonFor}
                           onDeleteForMe={handleDeleteForMe}
                           onRecall={handleRecall}

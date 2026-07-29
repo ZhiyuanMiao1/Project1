@@ -28,6 +28,7 @@ function AppointmentCard({
   onOpenMessageMenuChange,
   onDecision,
   onReschedule,
+  onLifecycle,
   onScheduleNextLesson,
   onDeleteForMe,
   onRecall,
@@ -52,10 +53,14 @@ function AppointmentCard({
   };
   const isBusy = String(appointmentBusyId) === String(scheduleCard?.id);
   const isMessageActionBusy = String(messageActionBusyId) === String(scheduleCard?.id);
-  const showActions = !isOutgoing && statusKey !== 'expired';
-  const canEditDecision = !isOutgoing && !isScheduleExpired && statusKey !== 'pending';
+  const showActions = !isOutgoing
+    && statusKey !== 'expired'
+    && statusKey !== 'cancelled'
+    && statusKey !== 'not_held_pending'
+    && statusKey !== 'not_held';
+  const canEditDecision = !isOutgoing && !isScheduleExpired && statusKey === 'rejected';
   const canRescheduleResolvedOutgoing = isOutgoing
-    && (statusKey === 'accepted' || statusKey === 'rejected')
+    && statusKey === 'rejected'
     && !isScheduleExpired;
   const courseSessionId = safeText(scheduleCard?.courseSessionId);
   const classroomHref = courseSessionId ? `/classroom/${encodeURIComponent(courseSessionId)}` : '';
@@ -64,6 +69,11 @@ function AppointmentCard({
   const canRecall = canRecallByStatus
     && (typeof scheduleCard?.canRecall === 'boolean' ? scheduleCard.canRecall : true);
   const canScheduleNextLesson = statusKey === 'pending' || statusKey === 'accepted';
+  const canModifyTime = statusKey === 'accepted' && !isScheduleExpired;
+  const canCancelCourse = statusKey === 'accepted' && !isScheduleExpired;
+  const canStartNotHeld = statusKey === 'accepted' && isScheduleExpired;
+  const canRespondNotHeld = statusKey === 'not_held_pending' && !scheduleCard?.statusUpdatedByMe;
+  const canWithdrawNotHeld = statusKey === 'not_held_pending' && Boolean(scheduleCard?.statusUpdatedByMe);
   const scheduleCardId = String(scheduleCard?.id || '');
   const courseRequestId = safeText(scheduleCard?.courseRequestId);
   const requestDetailsHref = courseRequestId && thread?.myRole === 'mentor'
@@ -291,6 +301,84 @@ function AppointmentCard({
                   {t('appointment.scheduleNextLesson', '预约下节课')}
                 </button>
               ) : null}
+              {canModifyTime ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item"
+                  onClick={() => {
+                    toggleActualMessageMenuOpen(false);
+                    onReschedule?.(scheduleCard?.id);
+                  }}
+                  disabled={isMessageActionBusy || isExiting || isBusy}
+                >
+                  {t('appointment.reschedule', '修改时间')}
+                </button>
+              ) : null}
+              {canCancelCourse ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item danger"
+                  onClick={() => {
+                    toggleActualMessageMenuOpen(false);
+                    onLifecycle?.(scheduleCard?.id, 'cancel');
+                  }}
+                  disabled={isMessageActionBusy || isExiting || isBusy}
+                >
+                  {t('appointment.cancelCourse', '取消课程')}
+                </button>
+              ) : null}
+              {canStartNotHeld ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item"
+                  onClick={() => {
+                    toggleActualMessageMenuOpen(false);
+                    onLifecycle?.(scheduleCard?.id, 'start_not_held');
+                  }}
+                  disabled={isMessageActionBusy || isExiting || isBusy}
+                >
+                  {t('appointment.notHeld', '本节未上课')}
+                </button>
+              ) : null}
+              {canRespondNotHeld ? (
+                <>
+                  <button
+                    type="button"
+                    className="schedule-card-more-item"
+                    onClick={() => {
+                      toggleActualMessageMenuOpen(false);
+                      onLifecycle?.(scheduleCard?.id, 'confirm_not_held');
+                    }}
+                    disabled={isMessageActionBusy || isExiting || isBusy}
+                  >
+                    {t('appointment.confirmNotHeld', '确认未上课')}
+                  </button>
+                  <button
+                    type="button"
+                    className="schedule-card-more-item"
+                    onClick={() => {
+                      toggleActualMessageMenuOpen(false);
+                      onLifecycle?.(scheduleCard?.id, 'keep_as_held');
+                    }}
+                    disabled={isMessageActionBusy || isExiting || isBusy}
+                  >
+                    {t('appointment.classWasHeld', '实际已上课')}
+                  </button>
+                </>
+              ) : null}
+              {canWithdrawNotHeld ? (
+                <button
+                  type="button"
+                  className="schedule-card-more-item"
+                  onClick={() => {
+                    toggleActualMessageMenuOpen(false);
+                    onLifecycle?.(scheduleCard?.id, 'withdraw_not_held');
+                  }}
+                  disabled={isMessageActionBusy || isExiting || isBusy}
+                >
+                  {t('appointment.withdrawNotHeld', '撤回未上课确认')}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="schedule-card-more-item"
@@ -329,18 +417,6 @@ function AppointmentCard({
             <div className="schedule-card-title-text">{t('appointment.schedule', '日程')}</div>
           </div>
           <div className="schedule-card-title">
-            {requestDetailsHref ? (
-              <a
-                className="schedule-card-title-link"
-                href={requestDetailsHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t(
-                  'appointment.viewRequestDetailsAria',
-                  '查看{course}的课程需求详情',
-                  { course: `${getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}${titleParts.courseType ? ` · ${getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}` : ''}` },
-                )}
-              >
                 <span className="schedule-card-title-piece">
                   <span className="schedule-card-title-icon" aria-hidden="true">
                     {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
@@ -360,30 +436,6 @@ function AppointmentCard({
                     </span>
                   </>
                 ) : null}
-              </a>
-            ) : (
-              <>
-                <span className="schedule-card-title-piece">
-                  <span className="schedule-card-title-icon" aria-hidden="true">
-                    {titleParts.DirectionIcon ? <titleParts.DirectionIcon size={14} /> : null}
-                  </span>
-                  <span className="schedule-card-title-main">
-                    {getCourseDirectionDisplayLabel(titleParts.directionId || titleParts.courseName, titleParts.courseName || scheduleTitle)}
-                  </span>
-                </span>
-                {titleParts.courseType ? (
-                  <>
-                    <span className="schedule-card-title-sep" aria-hidden="true">-</span>
-                    <span className="schedule-card-title-piece">
-                      <span className="schedule-card-title-icon" aria-hidden="true">
-                        {titleParts.CourseTypeIcon ? <titleParts.CourseTypeIcon size={14} /> : null}
-                      </span>
-                      <span className="schedule-card-title-sub">{getCourseTypeLabel(titleParts.courseTypeId || titleParts.courseType, titleParts.courseType)}</span>
-                    </span>
-                  </>
-                ) : null}
-              </>
-            )}
           </div>
         </div>
 

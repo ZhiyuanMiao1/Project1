@@ -11,6 +11,9 @@ export const SCHEDULE_STATUS_META = {
   accepted: { label: '已接受', tone: 'accept' },
   rejected: { label: '已拒绝', tone: 'reject' },
   rescheduling: { label: '修改时间中', tone: 'reschedule' },
+  cancelled: { label: '已取消', tone: 'expired' },
+  not_held_pending: { label: '待确认未上课', tone: 'reschedule' },
+  not_held: { label: '本节未上课', tone: 'expired' },
   expired: { label: '已过期', tone: 'expired' },
 };
 
