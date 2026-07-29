@@ -1218,6 +1218,12 @@
   }
 }
 
+@media (max-width: 899.98px) {
+  .mentor-detail-top {
+    --mentor-detail-preview-base-height: 320px;
+  }
+}
+
 @media (max-width: 600px) {
   .mentor-detail-header {
     padding-top: 16px;
