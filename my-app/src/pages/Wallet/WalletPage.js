@@ -527,6 +527,16 @@ function WalletPage() {
   };
 
   const canUsePayPalButton = isHoursValid && !isPayPalInitializing;
+  const topUpArrivalTip =
+    selectedTopUpMethod === 'paypal'
+      ? t(
+          'wallet.tipRealtimePayPal',
+          '充值成功后余额实时到账，海外Visa/Master等也可以通过Paypal访客身份付款'
+        )
+      : t(
+          'wallet.tipNonRealtimeLocal',
+          '充值成功后非实时到账，Mentory还在完善中，正在改进支付体验'
+        );
 
   const toggleStudentAuthModal = () => {
     setShowStudentAuth((prev) => !prev);
@@ -768,7 +778,7 @@ function WalletPage() {
               <div className="wallet-panel wallet-panel-muted" aria-label={t('wallet.tips', '温馨提示')}>
                 <div className="wallet-panel-title">{t('wallet.tips', '温馨提示')}</div>
                 <ul className="wallet-tip-list">
-                  <li>{t('wallet.tipRealtime', '充值成功后余额实时到账')}</li>
+                  <li>{topUpArrivalTip}</li>
                   <li>{t('wallet.tipHelp', '如遇支付问题，请前往“帮助中心”联系我们')}</li>
                 </ul>
               </div>
