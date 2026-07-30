@@ -762,8 +762,21 @@ function WalletPage() {
                       )}
                     </div>
                   ) : (
-                    <button type="button" className="wallet-primary" onClick={handleTopUp} disabled={!canSubmitTopUp}>
-                      {t('wallet.topUpNow', '立即充值')}
+                    <button
+                      type="button"
+                      className={`wallet-primary wallet-local-payment-primary wallet-local-payment-primary--${selectedTopUpMethod}`}
+                      onClick={handleTopUp}
+                      disabled={!canSubmitTopUp}
+                    >
+                      <span className="wallet-local-payment-primary-content">
+                        <span className="wallet-local-payment-primary-logo" aria-hidden="true">
+                          <img
+                            src={selectedTopUpMethod === 'alipay' ? alipayLogo : wechatPayLogo}
+                            alt=""
+                          />
+                        </span>
+                        <span>{t('wallet.topUpNow', '立即充值')}</span>
+                      </span>
                     </button>
                   )}
 

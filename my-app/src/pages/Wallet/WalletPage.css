@@ -587,6 +587,54 @@
   padding-bottom: 8px;
 }
 
+.wallet-local-payment-primary {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-weight: 600;
+}
+
+.wallet-local-payment-primary--alipay {
+  background: #1677ff;
+}
+
+.wallet-local-payment-primary--wechat {
+  background: #07c160;
+}
+
+.wallet-local-payment-primary-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.wallet-local-payment-primary-logo {
+  height: 32px;
+  min-width: 104px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 8px;
+  border-radius: 5px;
+  background: #fff;
+}
+
+.wallet-local-payment-primary-logo img {
+  display: block;
+  width: 96px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.wallet-local-payment-primary--wechat .wallet-local-payment-primary-logo {
+  min-width: 116px;
+}
+
+.wallet-local-payment-primary--wechat .wallet-local-payment-primary-logo img {
+  width: 108px;
+}
+
 .wallet-paypal-primary:hover:not(:disabled) {
   transform: translateY(-1px);
 }
@@ -1008,6 +1056,10 @@ paypal-mark.wallet-paypal-primary-mark:defined {
   }
 
   .wallet-paypal-primary {
+    min-height: 52px;
+  }
+
+  .wallet-local-payment-primary {
     min-height: 52px;
   }
 
