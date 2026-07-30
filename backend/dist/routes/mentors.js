@@ -6,6 +6,7 @@ const mentorTeachingLanguages_1 = require("../services/mentorTeachingLanguages")
 const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorDirectionScores_1 = require("../services/mentorDirectionScores");
 const rdsVectorIndex_1 = require("../services/rdsVectorIndex");
+const embeddingConfig_1 = require("../services/embeddingConfig");
 const availabilityBusy_1 = require("../services/availabilityBusy");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
@@ -300,12 +301,14 @@ const applyTopRelativeCutoff = (items, delta, absMin) => {
     });
 };
 async function loadDirectionEmbeddingById(directionId) {
-    const rows = await (0, db_1.query)('SELECT embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id = ? LIMIT 1', ['direction', directionId]);
+    const model = (0, embeddingConfig_1.getDashScopeEmbeddingModel)();
+    const dimension = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
+    const rows = await (0, db_1.query)('SELECT embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id = ? AND model = ? AND embedding_dim = ? LIMIT 1', ['direction', directionId, model, dimension]);
     const row = rows?.[0];
     const embedding = parseEmbedding(row?.embedding);
     if (!embedding)
         return null;
-    return { embedding, embeddingDim: Number(row?.embedding_dim) || embedding.length };
+    return { embedding, embeddingDim: Number(row?.embedding_dim) || embedding.length, model };
 }
 // GET /api/mentors/approved
 // Public: return mentors who have passed approval.
@@ -356,6 +359,8 @@ router.get('/approved', async (_req, res) => {
             return rows || [];
         }
         const whereOthers = isOthersDirection ? 'AND mds.score > 0' : '';
+        const activeEmbeddingModel = (0, embeddingConfig_1.getDashScopeEmbeddingModel)();
+        const activeEmbeddingDimension = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
         const rows = await (0, db_1.query)(`
       SELECT
         ur.user_id,
@@ -389,10 +394,12 @@ router.get('/approved', async (_req, res) => {
       LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
       LEFT JOIN account_settings s ON s.user_id = ur.user_id
       WHERE mds.direction_id = ?
+        AND mds.embedding_model = ?
+        AND mds.embedding_dim = ?
       ${whereOthers}
       ORDER BY mds.score DESC, mp.updated_at DESC, ur.public_id ASC
       LIMIT 100
-      `, [directionId]);
+      `, [directionId, activeEmbeddingModel, activeEmbeddingDimension]);
         return rows || [];
     };
     try {
@@ -501,7 +508,9 @@ router.get('/approved', async (_req, res) => {
                 }
                 const tVectorEnsureMs = timingEnabled ? msSince(tVectorEnsureStart) : 0;
                 if (vectorReady) {
-                    const dirRows = await (0, db_1.query)("SELECT 1 AS ok FROM course_embeddings WHERE kind = 'direction' AND source_id = ? LIMIT 1", [directionId]);
+                    const activeEmbeddingModel = (0, embeddingConfig_1.getDashScopeEmbeddingModel)();
+                    const activeEmbeddingDimension = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
+                    const dirRows = await (0, db_1.query)("SELECT 1 AS ok FROM course_embeddings WHERE kind = 'direction' AND source_id = ? AND model = ? AND embedding_dim = ? LIMIT 1", [directionId, activeEmbeddingModel, activeEmbeddingDimension]);
                     const directionEmbeddingExists = Boolean(dirRows?.[0]);
                     if (directionEmbeddingExists) {
                         const tVectorQueryStart = timingEnabled ? hrNow() : 0n;
@@ -520,14 +529,23 @@ router.get('/approved', async (_req, res) => {
                   JOIN (
                     SELECT TO_VECTOR(CAST(embedding AS CHAR)) AS q_vec
                     FROM course_embeddings
-                    WHERE kind = 'direction' AND source_id = ?
+                    WHERE kind = 'direction' AND source_id = ? AND model = ? AND embedding_dim = ?
                     LIMIT 1
                   ) q
                   WHERE mce.user_id IN (${placeholders})
+                    AND mce.model = ?
+                    AND mce.embedding_dim = ?
                 ) ranked
                 WHERE rn = 1
                 ORDER BY score DESC, user_id ASC
-                `, [directionId, ...vectorUserIds]);
+                `, [
+                                directionId,
+                                activeEmbeddingModel,
+                                activeEmbeddingDimension,
+                                ...vectorUserIds,
+                                activeEmbeddingModel,
+                                activeEmbeddingDimension,
+                            ]);
                             vectorRanked = true;
                         }
                         catch (e) {
@@ -585,7 +603,9 @@ router.get('/approved', async (_req, res) => {
                         const placeholders = userIds.map(() => '?').join(',');
                         let courseRows = [];
                         try {
-                            courseRows = await (0, db_1.query)(`SELECT user_id, course_text, embedding FROM mentor_course_embeddings WHERE user_id IN (${placeholders})`, userIds);
+                            courseRows = await (0, db_1.query)(`SELECT user_id, course_text, embedding
+               FROM mentor_course_embeddings
+               WHERE user_id IN (${placeholders}) AND model = ? AND embedding_dim = ?`, [...userIds, queryEmbeddingInfo.model, queryEmbeddingInfo.embeddingDim]);
                         }
                         catch (e) {
                             const code = String(e?.code || '');

@@ -1,5 +1,8 @@
-const DEFAULT_EMBEDDINGS_URL =
-  'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding';
+import {
+  assertSupportedEmbeddingDimension,
+  getDashScopeEmbeddingMaxBatchSize,
+  getDashScopeEmbeddingsUrl,
+} from './embeddingConfig';
 
 export type DashScopeEmbeddingOptions = {
   apiKey: string;
@@ -11,10 +14,13 @@ export type DashScopeEmbeddingOptions = {
 
 export async function dashscopeEmbedTexts(texts: string[], opts: DashScopeEmbeddingOptions): Promise<number[][]> {
   const clean = texts.map((t) => String(t ?? '').trim());
-  const url = (opts.url || DEFAULT_EMBEDDINGS_URL).trim();
-  const batchSize = Math.max(1, Math.min(64, Number(opts.batchSize || 16)));
+  const url = (opts.url || getDashScopeEmbeddingsUrl()).trim();
+  const maxBatchSize = getDashScopeEmbeddingMaxBatchSize(opts.model);
+  const requestedBatchSize = Number(opts.batchSize || maxBatchSize);
+  const batchSize = Math.max(1, Math.min(maxBatchSize, Number.isFinite(requestedBatchSize) ? requestedBatchSize : maxBatchSize));
   const dimensionRaw = typeof opts.dimension === 'number' ? opts.dimension : Number(opts.dimension);
   const dimension = Number.isFinite(dimensionRaw) && dimensionRaw > 0 ? Math.floor(dimensionRaw) : null;
+  if (dimension) assertSupportedEmbeddingDimension(opts.model, dimension);
 
   const out: number[][] = [];
 
@@ -52,13 +58,24 @@ export async function dashscopeEmbedTexts(texts: string[], opts: DashScopeEmbedd
       throw new Error(`[dashscope] Unexpected embeddings length: got=${embeddings?.length} want=${batch.length}`);
     }
 
-    for (const item of embeddings) {
+    const orderedBatch = new Array<number[]>(batch.length);
+    for (let responseIndex = 0; responseIndex < embeddings.length; responseIndex += 1) {
+      const item = embeddings[responseIndex];
       const emb = item?.embedding;
       if (!Array.isArray(emb) || emb.length === 0) {
         throw new Error('[dashscope] Missing embedding in response');
       }
-      out.push(emb as number[]);
+      const textIndexRaw = Number(item?.text_index);
+      const textIndex = Number.isInteger(textIndexRaw) ? textIndexRaw : responseIndex;
+      if (textIndex < 0 || textIndex >= batch.length || orderedBatch[textIndex]) {
+        throw new Error(`[dashscope] Invalid embedding text_index: ${item?.text_index}`);
+      }
+      orderedBatch[textIndex] = emb as number[];
     }
+    if (orderedBatch.some((embedding) => !embedding)) {
+      throw new Error('[dashscope] Missing ordered embedding in response');
+    }
+    out.push(...orderedBatch);
   }
 
   return out;

@@ -1,16 +1,7 @@
 import { query } from '../db';
+import { getDashScopeEmbeddingDimension } from './embeddingConfig';
 
 type ColumnExistsRow = { c: number };
-
-const DEFAULT_VECTOR_DIMENSION = 256;
-
-const parseVectorDimension = (value: any, fallback = DEFAULT_VECTOR_DIMENSION) => {
-  const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-  const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-};
-
-const getVectorDimension = () => parseVectorDimension(process.env.DASHSCOPE_EMBEDDING_DIM, DEFAULT_VECTOR_DIMENSION);
 
 const vectorBytes = (dimension: number) => dimension * 4;
 
@@ -41,7 +32,7 @@ export async function ensureCourseEmbeddingsVectorColumn() {
   if (!supported) return false;
 
   const tableName = 'course_embeddings';
-  const dim = getVectorDimension();
+  const dim = getDashScopeEmbeddingDimension();
   const bytes = vectorBytes(dim);
 
   if (!(await columnExists(tableName, 'embedding_vec'))) {
@@ -69,7 +60,7 @@ export async function ensureMentorCourseEmbeddingsVectorIndex() {
   if (!supported) return false;
 
   const tableName = 'mentor_course_embeddings';
-  const dim = getVectorDimension();
+  const dim = getDashScopeEmbeddingDimension();
   const bytes = vectorBytes(dim);
 
   if (!(await columnExists(tableName, 'embedding_vec'))) {

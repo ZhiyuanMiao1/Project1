@@ -4,13 +4,7 @@ exports.isRdsVectorIndexSupported = isRdsVectorIndexSupported;
 exports.ensureCourseEmbeddingsVectorColumn = ensureCourseEmbeddingsVectorColumn;
 exports.ensureMentorCourseEmbeddingsVectorIndex = ensureMentorCourseEmbeddingsVectorIndex;
 const db_1 = require("../db");
-const DEFAULT_VECTOR_DIMENSION = 256;
-const parseVectorDimension = (value, fallback = DEFAULT_VECTOR_DIMENSION) => {
-    const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-};
-const getVectorDimension = () => parseVectorDimension(process.env.DASHSCOPE_EMBEDDING_DIM, DEFAULT_VECTOR_DIMENSION);
+const embeddingConfig_1 = require("./embeddingConfig");
 const vectorBytes = (dimension) => dimension * 4;
 async function isRdsVectorIndexSupported() {
     try {
@@ -34,7 +28,7 @@ async function ensureCourseEmbeddingsVectorColumn() {
     if (!supported)
         return false;
     const tableName = 'course_embeddings';
-    const dim = getVectorDimension();
+    const dim = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
     const bytes = vectorBytes(dim);
     if (!(await columnExists(tableName, 'embedding_vec'))) {
         await (0, db_1.query)(`ALTER TABLE \`${tableName}\` ADD COLUMN \`embedding_vec\` /*!99999 vector(${dim}) */ varbinary(${bytes}) NULL`);
@@ -51,7 +45,7 @@ async function ensureMentorCourseEmbeddingsVectorIndex() {
     if (!supported)
         return false;
     const tableName = 'mentor_course_embeddings';
-    const dim = getVectorDimension();
+    const dim = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
     const bytes = vectorBytes(dim);
     if (!(await columnExists(tableName, 'embedding_vec'))) {
         await (0, db_1.query)(`ALTER TABLE \`${tableName}\` ADD COLUMN \`embedding_vec\` /*!99999 vector(${dim}) */ varbinary(${bytes}) NULL`);

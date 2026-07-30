@@ -287,7 +287,7 @@ CREATE TABLE IF NOT EXISTS `recent_visits` (
   CONSTRAINT `fk_recent_visits_user_role` FOREIGN KEY (`user_id`, `role`) REFERENCES `user_roles`(`user_id`, `role`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 8) Course embeddings (DashScope text-embedding-v4)
+-- 8) Course embeddings (DashScope qwen3.7-text-embedding, 256 dimensions by default)
 CREATE TABLE IF NOT EXISTS `course_embeddings` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `kind` ENUM('direction','course_type') NOT NULL,
@@ -331,6 +331,8 @@ CREATE TABLE IF NOT EXISTS `mentor_direction_scores` (
   `user_id` INT NOT NULL,
   `direction_id` VARCHAR(64) NOT NULL,
   `score` DOUBLE NOT NULL DEFAULT 0,
+  `embedding_model` VARCHAR(64) NOT NULL,
+  `embedding_dim` INT NOT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`, `direction_id`),

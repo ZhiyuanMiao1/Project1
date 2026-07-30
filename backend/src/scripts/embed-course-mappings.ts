@@ -3,6 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { pool, query } from '../db';
 import { ensureCourseEmbeddingsVectorColumn } from '../services/rdsVectorIndex';
+import {
+  assertSupportedEmbeddingDimension,
+  getDashScopeEmbeddingDimension,
+  getDashScopeEmbeddingModel,
+  getDashScopeEmbeddingsUrl,
+  parseEmbeddingDimension,
+} from '../services/embeddingConfig';
 
 type CourseKind = 'direction' | 'course_type';
 
@@ -13,19 +20,10 @@ type CourseRow = {
   text: string;
 };
 
-const DEFAULT_MODEL = 'text-embedding-v4';
-const DEFAULT_DIMENSION = 256;
-const DEFAULT_EMBEDDINGS_URL = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding';
-
 function requiredEnv(name: string) {
   const value = process.env[name];
   if (!value || !value.trim()) throw new Error(`Missing env var: ${name}`);
   return value.trim();
-}
-
-function parseDimension(raw: any, fallback = DEFAULT_DIMENSION) {
-  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? '').trim(), 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 function sha256Hex(input: string) {
@@ -128,7 +126,8 @@ async function ensureTable() {
 }
 
 async function fetchEmbedding(opts: { text: string; model: string; apiKey: string; url: string; dimension: number }) {
-  const dim = parseDimension(opts.dimension, DEFAULT_DIMENSION);
+  const dim = parseEmbeddingDimension(opts.dimension, getDashScopeEmbeddingDimension());
+  assertSupportedEmbeddingDimension(opts.model, dim);
   const res = await fetch(opts.url, {
     method: 'POST',
     headers: {
@@ -215,12 +214,15 @@ async function main() {
     const limitRaw = args.get('limit');
     const limit = typeof limitRaw === 'string' ? Number.parseInt(limitRaw, 10) : null;
 
-    const model = (typeof args.get('model') === 'string' ? String(args.get('model')) : DEFAULT_MODEL).trim();
-    const dimension = parseDimension(
-      typeof args.get('dimension') === 'string' ? String(args.get('dimension')) : process.env.DASHSCOPE_EMBEDDING_DIM,
-      DEFAULT_DIMENSION
+    const model = (
+      typeof args.get('model') === 'string' ? String(args.get('model')) : getDashScopeEmbeddingModel()
+    ).trim();
+    const dimension = parseEmbeddingDimension(
+      typeof args.get('dimension') === 'string' ? String(args.get('dimension')) : getDashScopeEmbeddingDimension(),
+      getDashScopeEmbeddingDimension()
     );
-    const embeddingsUrl = String(process.env.DASHSCOPE_EMBEDDINGS_URL || DEFAULT_EMBEDDINGS_URL).trim();
+    assertSupportedEmbeddingDimension(model, dimension);
+    const embeddingsUrl = getDashScopeEmbeddingsUrl();
     const apiKey = requiredEnv('DASHSCOPE_API_KEY');
 
     const courseMappingsPath = resolveCourseMappingsPath(typeof args.get('file') === 'string' ? String(args.get('file')) : undefined);

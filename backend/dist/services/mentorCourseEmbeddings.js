@@ -11,8 +11,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const dashscopeEmbeddings_1 = require("./dashscopeEmbeddings");
 const db_1 = require("../db");
 const rdsVectorIndex_1 = require("./rdsVectorIndex");
-const DEFAULT_MODEL = 'text-embedding-v4';
-const DEFAULT_DIMENSION = 256;
+const embeddingConfig_1 = require("./embeddingConfig");
 let mentorCourseVectorReady = null;
 const sha256Hex = (input) => crypto_1.default.createHash('sha256').update(input).digest('hex');
 const normalizeCourseText = (input) => {
@@ -75,10 +74,6 @@ async function ensureMentorCourseEmbeddingsTable() {
         }
     }
 }
-const parseEmbeddingDimension = (raw, fallback = DEFAULT_DIMENSION) => {
-    const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-};
 async function loadGlobalEmbeddingsByLabel(labels, model, dimension) {
     const unique = Array.from(new Set(labels.map((s) => s.trim()).filter(Boolean)));
     if (unique.length === 0)
@@ -116,8 +111,8 @@ async function loadExistingHashes(userId, keys) {
     return map;
 }
 async function prepareMentorCourseEmbeddings(params) {
-    const model = (params.model || DEFAULT_MODEL).trim();
-    const dimension = parseEmbeddingDimension(params.dimension, parseEmbeddingDimension(process.env.DASHSCOPE_EMBEDDING_DIM, DEFAULT_DIMENSION));
+    const model = (params.model || (0, embeddingConfig_1.getDashScopeEmbeddingModel)()).trim();
+    const dimension = (0, embeddingConfig_1.parseEmbeddingDimension)(params.dimension, (0, embeddingConfig_1.getDashScopeEmbeddingDimension)());
     const items = params.courses
         .map((courseText) => {
         const courseTextTrim = String(courseText ?? '').trim();
@@ -160,8 +155,7 @@ async function prepareMentorCourseEmbeddings(params) {
         const embeddings = await (0, dashscopeEmbeddings_1.dashscopeEmbedTexts)(toEmbed, {
             apiKey: params.apiKey,
             model,
-            url: params.url,
-            batchSize: 16,
+            url: params.url || (0, embeddingConfig_1.getDashScopeEmbeddingsUrl)(),
             dimension,
         });
         for (let j = 0; j < embeddings.length; j++) {

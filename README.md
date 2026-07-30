@@ -36,6 +36,27 @@ Mentory 支持导师在个人名片中自定义「可授课课程」，并在学
 - “其它课程方向”Tab：不做向量化匹配，而是基于已存相关度做派生计算（例如：当导师对所有已定义方向的最高相关度低于阈值时，才会进入该 Tab，并按“缺口值”从高到低排序）。
 - Tab 顺序：课程方向 Tab 的展示顺序支持个性化配置（可在设置中调整），不影响上述排序机制。
 
+### Embedding 模型配置与迁移
+
+当前默认文本向量模型为 `qwen3.7-text-embedding`，默认维度为 `256`。生产环境应显式配置：
+
+```bash
+DASHSCOPE_EMBEDDING_MODEL=qwen3.7-text-embedding
+DASHSCOPE_EMBEDDING_DIM=256
+```
+
+模型或维度变更时，必须在后端停止接收写入的维护窗口内依次执行：
+
+```bash
+cd /opt/mentory/backend
+npm run db:migrate:embedding-model
+npm run embed:courses -- --force
+npm run backfill:mentor-courses
+pm2 restart mentory-backend --update-env
+```
+
+课程方向向量、导师课程向量和预计算方向分数会记录模型与维度；服务只比较同一模型、同一维度的数据，防止迁移期间混用不同向量空间。
+
 
 ## 同步到远端 `main`（强制覆盖本地）
 

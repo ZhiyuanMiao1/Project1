@@ -2,6 +2,12 @@ import crypto from 'crypto';
 import { dashscopeEmbedTexts } from './dashscopeEmbeddings';
 import { query } from '../db';
 import { ensureMentorCourseEmbeddingsVectorIndex } from './rdsVectorIndex';
+import {
+  getDashScopeEmbeddingDimension,
+  getDashScopeEmbeddingModel,
+  getDashScopeEmbeddingsUrl,
+  parseEmbeddingDimension,
+} from './embeddingConfig';
 
 export type MentorCourseEmbeddingRow = {
   courseText: string;
@@ -13,9 +19,6 @@ export type MentorCourseEmbeddingRow = {
   embedding: number[];
   textHash: string;
 };
-
-const DEFAULT_MODEL = 'text-embedding-v4';
-const DEFAULT_DIMENSION = 256;
 
 let mentorCourseVectorReady: boolean | null = null;
 
@@ -81,11 +84,6 @@ export async function ensureMentorCourseEmbeddingsTable() {
 
 type GlobalEmbeddingRow = { label: string; embedding: any; embedding_dim: number; model: string };
 
-const parseEmbeddingDimension = (raw: any, fallback = DEFAULT_DIMENSION) => {
-  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw ?? ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-};
-
 async function loadGlobalEmbeddingsByLabel(labels: string[], model: string, dimension: number) {
   const unique = Array.from(new Set(labels.map((s) => s.trim()).filter(Boolean)));
   if (unique.length === 0) return new Map<string, { embedding: number[]; embeddingDim: number }>();
@@ -136,8 +134,8 @@ export async function prepareMentorCourseEmbeddings(params: {
   url?: string;
   dimension?: number;
 }) {
-  const model = (params.model || DEFAULT_MODEL).trim();
-  const dimension = parseEmbeddingDimension(params.dimension, parseEmbeddingDimension(process.env.DASHSCOPE_EMBEDDING_DIM, DEFAULT_DIMENSION));
+  const model = (params.model || getDashScopeEmbeddingModel()).trim();
+  const dimension = parseEmbeddingDimension(params.dimension, getDashScopeEmbeddingDimension());
 
   const items = params.courses
     .map((courseText) => {
@@ -188,8 +186,7 @@ export async function prepareMentorCourseEmbeddings(params: {
     const embeddings = await dashscopeEmbedTexts(toEmbed, {
       apiKey: params.apiKey,
       model,
-      url: params.url,
-      batchSize: 16,
+      url: params.url || getDashScopeEmbeddingsUrl(),
       dimension,
     });
     for (let j = 0; j < embeddings.length; j++) {

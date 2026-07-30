@@ -4,12 +4,18 @@ exports.ensureMentorDirectionScoresTable = ensureMentorDirectionScoresTable;
 exports.refreshMentorDirectionScores = refreshMentorDirectionScores;
 const db_1 = require("../db");
 const rdsVectorIndex_1 = require("./rdsVectorIndex");
+const embeddingConfig_1 = require("./embeddingConfig");
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
 const RELEVANCE_ABS_MIN = 0.6;
 let mentorDirectionScoresEnsured = false;
 const tableExists = async (tableName, queryFn) => {
     const rows = await queryFn('SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [tableName]);
+    const n = typeof rows?.[0]?.c === 'number' ? rows[0].c : Number(rows?.[0]?.c);
+    return Number.isFinite(n) && n > 0;
+};
+const columnExists = async (tableName, columnName, queryFn) => {
+    const rows = await queryFn('SELECT COUNT(*) AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', [tableName, columnName]);
     const n = typeof rows?.[0]?.c === 'number' ? rows[0].c : Number(rows?.[0]?.c);
     return Number.isFinite(n) && n > 0;
 };
@@ -20,6 +26,13 @@ async function ensureMentorDirectionScoresTable(queryFn) {
     const ok = await tableExists('mentor_direction_scores', q);
     if (!ok) {
         const err = new Error('数据库未升级，请先执行 backend/schema.sql');
+        err.code = 'SCHEMA_NOT_UPGRADED';
+        throw err;
+    }
+    const hasModelColumn = await columnExists('mentor_direction_scores', 'embedding_model', q);
+    const hasDimensionColumn = await columnExists('mentor_direction_scores', 'embedding_dim', q);
+    if (!hasModelColumn || !hasDimensionColumn) {
+        const err = new Error('数据库未升级，请先运行 npm run db:migrate:embedding-model');
         err.code = 'SCHEMA_NOT_UPGRADED';
         throw err;
     }
@@ -55,11 +68,9 @@ const cosineSimilarity = (a, aNorm, b, bNorm) => {
         dot += a[i] * b[i];
     return dot / (aNorm * bNorm);
 };
-async function hasAnyMentorCourseEmbeddings(userId, queryFn) {
+async function hasAnyMentorCourseEmbeddings(userId, model, dimension, queryFn) {
     try {
-        const rows = await queryFn('SELECT COUNT(*) AS c FROM mentor_course_embeddings WHERE user_id = ? LIMIT 1', [
-            userId,
-        ]);
+        const rows = await queryFn('SELECT COUNT(*) AS c FROM mentor_course_embeddings WHERE user_id = ? AND model = ? AND embedding_dim = ? LIMIT 1', [userId, model, dimension]);
         const n = typeof rows?.[0]?.c === 'number' ? rows[0].c : Number(rows?.[0]?.c);
         return Number.isFinite(n) && n > 0;
     }
@@ -71,16 +82,22 @@ async function hasAnyMentorCourseEmbeddings(userId, queryFn) {
         throw e;
     }
 }
-async function computeScoresWithVectors(userId, queryFn) {
+async function computeScoresWithVectors(userId, model, dimension, queryFn) {
     const rows = await queryFn(`
     SELECT
       ce.source_id AS direction_id,
       MAX(1 - VEC_DISTANCE(mce.embedding_vec, ce.embedding_vec)) AS score
     FROM course_embeddings ce
-    JOIN mentor_course_embeddings mce ON mce.user_id = ?
-    WHERE ce.kind = ? AND ce.source_id <> ?
+    JOIN mentor_course_embeddings mce
+      ON mce.user_id = ?
+      AND mce.model = ce.model
+      AND mce.embedding_dim = ce.embedding_dim
+    WHERE ce.kind = ?
+      AND ce.source_id <> ?
+      AND ce.model = ?
+      AND ce.embedding_dim = ?
     GROUP BY ce.source_id
-    `, [userId, DIRECTION_KIND, OTHERS_DIRECTION_ID]);
+    `, [userId, DIRECTION_KIND, OTHERS_DIRECTION_ID, model, dimension]);
     const scores = (rows || [])
         .map((r) => {
         const directionId = String(r?.direction_id || '').trim();
@@ -99,22 +116,25 @@ async function computeScoresWithVectors(userId, queryFn) {
         MAX(1 - VEC_DISTANCE(mce.embedding_vec, ce.embedding_vec)) AS best_score
       FROM mentor_course_embeddings mce
       JOIN course_embeddings ce
-        ON ce.kind = ? AND ce.source_id <> ?
+        ON ce.kind = ?
+        AND ce.source_id <> ?
+        AND ce.model = mce.model
+        AND ce.embedding_dim = mce.embedding_dim
       WHERE mce.user_id = ?
+        AND mce.model = ?
+        AND mce.embedding_dim = ?
       GROUP BY mce.id
     ) t
-    `, [DIRECTION_KIND, OTHERS_DIRECTION_ID, userId]);
+    `, [DIRECTION_KIND, OTHERS_DIRECTION_ID, userId, model, dimension]);
     const rawMin = minRows?.[0]?.min_best_score;
     const minParsed = typeof rawMin === 'number' ? rawMin : Number.parseFloat(String(rawMin ?? '0'));
     return { scores, minCourseBestScore: Number.isFinite(minParsed) ? minParsed : 0 };
 }
-async function computeScoresFallback(userId, queryFn) {
-    const dirRows = await queryFn('SELECT source_id, embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id <> ?', [DIRECTION_KIND, OTHERS_DIRECTION_ID]);
+async function computeScoresFallback(userId, model, dimension, queryFn) {
+    const dirRows = await queryFn('SELECT source_id, embedding, embedding_dim FROM course_embeddings WHERE kind = ? AND source_id <> ? AND model = ? AND embedding_dim = ?', [DIRECTION_KIND, OTHERS_DIRECTION_ID, model, dimension]);
     let courseRows = [];
     try {
-        courseRows = await queryFn('SELECT course_text, embedding FROM mentor_course_embeddings WHERE user_id = ?', [
-            userId,
-        ]);
+        courseRows = await queryFn('SELECT course_text, embedding FROM mentor_course_embeddings WHERE user_id = ? AND model = ? AND embedding_dim = ?', [userId, model, dimension]);
     }
     catch (e) {
         const code = String(e?.code || '');
@@ -192,8 +212,10 @@ async function refreshMentorDirectionScores(params) {
     const preferVector = params.preferVector !== false;
     const queryFn = params.queryFn || (async (sql, args = []) => (0, db_1.query)(sql, args));
     const execFn = params.execFn || (async (sql, args = []) => (0, db_1.query)(sql, args));
+    const model = (0, embeddingConfig_1.getDashScopeEmbeddingModel)();
+    const dimension = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
     await ensureMentorDirectionScoresTable(queryFn);
-    const hasCourses = await hasAnyMentorCourseEmbeddings(userId, queryFn);
+    const hasCourses = await hasAnyMentorCourseEmbeddings(userId, model, dimension, queryFn);
     if (!hasCourses) {
         await execFn('DELETE FROM mentor_direction_scores WHERE user_id = ?', [userId]);
         return { stored: 0, mode: 'none' };
@@ -202,7 +224,7 @@ async function refreshMentorDirectionScores(params) {
     let minCourseBestScore = 0;
     let mode = 'fallback';
     if (!preferVector) {
-        const r = await computeScoresFallback(userId, queryFn);
+        const r = await computeScoresFallback(userId, model, dimension, queryFn);
         scores = r.scores;
         minCourseBestScore = r.minCourseBestScore;
         mode = 'fallback';
@@ -212,24 +234,28 @@ async function refreshMentorDirectionScores(params) {
             const vecOk = await (0, rdsVectorIndex_1.ensureCourseEmbeddingsVectorColumn)();
             const mentorVecOk = await (0, rdsVectorIndex_1.ensureMentorCourseEmbeddingsVectorIndex)();
             if (vecOk && mentorVecOk) {
-                const r = await computeScoresWithVectors(userId, queryFn);
+                const r = await computeScoresWithVectors(userId, model, dimension, queryFn);
                 scores = r.scores;
                 minCourseBestScore = r.minCourseBestScore;
                 mode = 'rds';
             }
             else {
-                const r = await computeScoresFallback(userId, queryFn);
+                const r = await computeScoresFallback(userId, model, dimension, queryFn);
                 scores = r.scores;
                 minCourseBestScore = r.minCourseBestScore;
                 mode = 'fallback';
             }
         }
         catch {
-            const r = await computeScoresFallback(userId, queryFn);
+            const r = await computeScoresFallback(userId, model, dimension, queryFn);
             scores = r.scores;
             minCourseBestScore = r.minCourseBestScore;
             mode = 'fallback';
         }
+    }
+    if (scores.length === 0) {
+        await execFn('DELETE FROM mentor_direction_scores WHERE user_id = ?', [userId]);
+        return { stored: 0, mode: 'none' };
     }
     const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
     scores = scores.filter((s) => s.directionId !== OTHERS_DIRECTION_ID);
@@ -241,11 +267,12 @@ async function refreshMentorDirectionScores(params) {
     if (rowsToInsert.length === 0) {
         return { stored: 0, mode };
     }
-    const placeholders = rowsToInsert.map(() => '(?, ?, ?)').join(',');
     const args = [];
     for (const row of rowsToInsert) {
-        args.push(userId, row.directionId, row.score);
+        args.push(userId, row.directionId, row.score, model, dimension);
     }
-    await execFn(`INSERT INTO mentor_direction_scores (user_id, direction_id, score) VALUES ${placeholders}`, args);
+    await execFn(`INSERT INTO mentor_direction_scores
+      (user_id, direction_id, score, embedding_model, embedding_dim)
+     VALUES ${rowsToInsert.map(() => '(?, ?, ?, ?, ?)').join(',')}`, args);
     return { stored: rowsToInsert.length, mode };
 }
