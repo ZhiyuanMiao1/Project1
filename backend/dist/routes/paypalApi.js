@@ -118,6 +118,17 @@ const mapFxIssue = (issues) => {
     }
     return null;
 };
+router.get('/auth/client-config', (_req, res) => {
+    const runtime = (0, paypal_1.requirePayPalRuntime)(res);
+    if (!runtime)
+        return;
+    // PayPal client IDs are designed to be used in browser integrations.
+    // Keep the client secret server-side; never include it in this response.
+    return res.json({
+        clientId: runtime.clientId,
+        environment: runtime.env,
+    });
+});
 router.get('/auth/browser-safe-client-token', async (req, res) => {
     const runtime = (0, paypal_1.requirePayPalRuntime)(res);
     if (!runtime)

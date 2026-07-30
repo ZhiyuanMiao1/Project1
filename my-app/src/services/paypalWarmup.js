@@ -57,22 +57,22 @@ export async function ensurePayPalReady() {
       throw createError('PayPal SDK 未就绪，请稍后重试');
     }
 
-    let tokenData = null;
+    let clientConfig = null;
     try {
-      tokenData = await apiClient
-        .get('/api/paypal-api/auth/browser-safe-client-token')
+      clientConfig = await apiClient
+        .get('/api/paypal-api/auth/client-config')
         .then((r) => r?.data || null);
     } catch (e) {
       throw createError('PayPal 初始化失败，请稍后重试', e);
     }
 
-    const clientToken = tokenData?.accessToken;
-    if (!clientToken) {
-      throw createError(tokenData?.hint || tokenData?.error || 'PayPal 初始化失败，请稍后重试');
+    const clientId = String(clientConfig?.clientId || '').trim();
+    if (!clientId) {
+      throw createError(clientConfig?.hint || clientConfig?.error || 'PayPal 初始化失败，请稍后重试');
     }
 
     const sdkInstance = await paypal.createInstance({
-      clientToken,
+      clientId,
       components: ['paypal-payments'],
       pageType: 'checkout',
     });

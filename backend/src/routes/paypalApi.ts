@@ -145,6 +145,18 @@ const mapFxIssue = (issues: string[]): { code: 'FX_QUOTE_EXPIRED' | 'FX_QUOTE_IN
   return null;
 };
 
+router.get('/auth/client-config', (_req: Request, res: Response) => {
+  const runtime = requirePayPalRuntime(res);
+  if (!runtime) return;
+
+  // PayPal client IDs are designed to be used in browser integrations.
+  // Keep the client secret server-side; never include it in this response.
+  return res.json({
+    clientId: runtime.clientId,
+    environment: runtime.env,
+  });
+});
+
 router.get('/auth/browser-safe-client-token', async (req: Request, res: Response) => {
   const runtime = requirePayPalRuntime(res);
   if (!runtime) return;
