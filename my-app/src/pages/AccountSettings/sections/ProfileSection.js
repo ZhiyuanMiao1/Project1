@@ -301,7 +301,7 @@ function ProfileSection({
                 renderMaybeLoadingText(mentorIdValue)
               )}
             </span>
-            {mentorReviewStatusLabel ? (
+            {mentorReviewStatus !== 'approved' && mentorReviewStatusLabel ? (
               <span className={`settings-mentor-status settings-mentor-status--${mentorReviewStatus}`}>
                 {mentorReviewStatusLabel}
               </span>
