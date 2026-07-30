@@ -1,0 +1,290 @@
+.alipay-transfer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.alipay-transfer-modal {
+  position: relative;
+  width: min(500px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 28px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 72px rgba(15, 23, 42, 0.22);
+  outline: none;
+}
+
+.alipay-transfer-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 120ms ease;
+}
+
+.alipay-transfer-close:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.alipay-transfer-close:focus-visible,
+.alipay-transfer-copy:focus-visible,
+.alipay-transfer-done:focus-visible {
+  outline: 2px solid rgba(22, 119, 255, 0.65);
+  outline-offset: 2px;
+}
+
+.alipay-transfer-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.alipay-transfer-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 14px;
+  padding-right: 42px;
+}
+
+.alipay-transfer-logo {
+  width: 92px;
+  height: 38px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.alipay-transfer-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.alipay-transfer-heading p {
+  margin: 5px 0 0;
+  color: rgba(15, 23, 42, 0.62);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alipay-transfer-details {
+  display: grid;
+  gap: 1px;
+  margin-top: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.alipay-transfer-detail {
+  min-width: 0;
+  padding: 16px;
+  background: #fff;
+}
+
+.alipay-transfer-detail--remark {
+  background: rgba(22, 119, 255, 0.035);
+}
+
+.alipay-transfer-label {
+  color: rgba(15, 23, 42, 0.58);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.alipay-transfer-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 12px;
+  margin-top: 7px;
+}
+
+.alipay-transfer-value,
+.alipay-transfer-amount {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.alipay-transfer-amount {
+  display: block;
+  margin-top: 7px;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.alipay-transfer-student-id {
+  color: #1677ff;
+}
+
+.alipay-transfer-copy {
+  min-height: 36px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(22, 119, 255, 0.08);
+  color: #0958d9;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-text-fill-color: #0958d9;
+}
+
+.alipay-transfer-copy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.alipay-transfer-copy svg {
+  width: 15px;
+  height: 15px;
+}
+
+.alipay-transfer-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: #fff7e6;
+  color: #7a3e00;
+}
+
+.alipay-transfer-warning-mark {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fa8c16;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.alipay-transfer-warning p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.alipay-transfer-warning strong,
+.alipay-transfer-warning span {
+  display: block;
+}
+
+.alipay-transfer-done {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 20px;
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #111;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-text-fill-color: #fff;
+}
+
+@media (max-width: 599px) {
+  .alipay-transfer-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .alipay-transfer-modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .alipay-transfer-close {
+    top: 14px;
+    right: 14px;
+  }
+
+  .alipay-transfer-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .alipay-transfer-logo {
+    width: 82px;
+    height: 34px;
+  }
+
+  .alipay-transfer-heading h2 {
+    font-size: 21px;
+  }
+
+  .alipay-transfer-details {
+    margin-top: 20px;
+  }
+
+  .alipay-transfer-detail {
+    padding: 14px;
+  }
+
+  .alipay-transfer-copy {
+    min-width: 64px;
+    min-height: 44px;
+  }
+
+  .alipay-transfer-done {
+    min-height: 52px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alipay-transfer-close {
+    transition: none;
+  }
+}

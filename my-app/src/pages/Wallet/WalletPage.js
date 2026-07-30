@@ -5,12 +5,14 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import apiClient from '../../api/client';
+import { fetchAccountProfile } from '../../api/account';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
 import { useI18n } from '../../i18n/language';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
+import AlipayTransferModal from './AlipayTransferModal';
 import RefundModal from './RefundModal';
 import './WalletPage.css';
 
@@ -28,6 +30,7 @@ function WalletPage() {
   const [topUpHours, setTopUpHours] = useState('1');
   const [topUpNotice, setTopUpNotice] = useState('');
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
+  const [isAlipayTransferOpen, setIsAlipayTransferOpen] = useState(false);
   const [isRefundOpen, setIsRefundOpen] = useState(false);
   const [isRefundSuccessOpen, setIsRefundSuccessOpen] = useState(false);
   const [walletSummary, setWalletSummary] = useState(() => ({
@@ -36,6 +39,8 @@ function WalletPage() {
     monthNetSpendingCny: 0,
     totalTopUpCny: 0,
   }));
+  const [studentId, setStudentId] = useState('');
+  const [isStudentIdLoading, setIsStudentIdLoading] = useState(false);
 
   const [fxQuote, setFxQuote] = useState(null);
   const [isFxLoading, setIsFxLoading] = useState(false);
@@ -210,9 +215,29 @@ function WalletPage() {
         monthNetSpendingCny: 0,
         totalTopUpCny: 0,
       });
+      setStudentId('');
+      setIsStudentIdLoading(false);
       return;
     }
     fetchWalletSummary().catch((err) => console.error('Wallet summary load error:', err));
+    let active = true;
+    setIsStudentIdLoading(true);
+    fetchAccountProfile()
+      .then((res) => {
+        if (!active) return;
+        setStudentId(typeof res?.data?.studentId === 'string' ? res.data.studentId.trim() : '');
+      })
+      .catch((err) => {
+        if (!active) return;
+        setStudentId('');
+        console.error('StudentID load error:', err);
+      })
+      .finally(() => {
+        if (active) setIsStudentIdLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [fetchWalletSummary, isLoggedIn]);
 
   useEffect(() => {
@@ -486,6 +511,11 @@ function WalletPage() {
 
   const handleTopUp = () => {
     if (!canSubmitTopUp) return;
+    if (selectedTopUpMethod === 'alipay') {
+      setTopUpNotice('');
+      setIsAlipayTransferOpen(true);
+      return;
+    }
     const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? t('wallet.selectedFallback', '所选方式');
     setTopUpNotice(
       t(
@@ -760,6 +790,13 @@ function WalletPage() {
       )}
 
       <SuccessModal open={isPaySuccessOpen} title={t('wallet.paySuccess', '支付成功')} autoCloseMs={2200} onClose={handleClosePaySuccess} />
+      <AlipayTransferModal
+        open={isAlipayTransferOpen}
+        amountCny={amountCnyNumber}
+        studentId={studentId}
+        studentIdLoading={isStudentIdLoading}
+        onClose={() => setIsAlipayTransferOpen(false)}
+      />
       <RefundModal
         open={isRefundOpen}
         onClose={handleCloseRefund}
