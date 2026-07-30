@@ -4,6 +4,7 @@ import {
   DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION,
   DEFAULT_DASHSCOPE_EMBEDDING_MODEL,
   getDashScopeEmbeddingMaxBatchSize,
+  getMentorDirectionRelevanceThreshold,
 } from './embeddingConfig';
 import { refreshMentorDirectionScores } from './mentorDirectionScores';
 
@@ -12,6 +13,8 @@ async function main() {
   assert.equal(DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION, 256);
   assert.equal(getDashScopeEmbeddingMaxBatchSize('qwen3.7-text-embedding'), 20);
   assert.equal(getDashScopeEmbeddingMaxBatchSize('text-embedding-v4'), 10);
+  assert.equal(getMentorDirectionRelevanceThreshold('qwen3.7-text-embedding'), 0.665);
+  assert.equal(getMentorDirectionRelevanceThreshold('text-embedding-v4'), 0.6);
 
   const originalFetch = global.fetch;
   const batches: Array<{ model: string; texts: string[] }> = [];

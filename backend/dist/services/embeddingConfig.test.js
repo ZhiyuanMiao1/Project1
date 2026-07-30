@@ -12,6 +12,8 @@ async function main() {
     strict_1.default.equal(embeddingConfig_1.DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION, 256);
     strict_1.default.equal((0, embeddingConfig_1.getDashScopeEmbeddingMaxBatchSize)('qwen3.7-text-embedding'), 20);
     strict_1.default.equal((0, embeddingConfig_1.getDashScopeEmbeddingMaxBatchSize)('text-embedding-v4'), 10);
+    strict_1.default.equal((0, embeddingConfig_1.getMentorDirectionRelevanceThreshold)('qwen3.7-text-embedding'), 0.665);
+    strict_1.default.equal((0, embeddingConfig_1.getMentorDirectionRelevanceThreshold)('text-embedding-v4'), 0.6);
     const originalFetch = global.fetch;
     const batches = [];
     global.fetch = async (_input, init) => {

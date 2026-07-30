@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.assertSupportedEmbeddingDimension = exports.getDashScopeEmbeddingMaxBatchSize = exports.getDashScopeEmbeddingsUrl = exports.getDashScopeEmbeddingDimension = exports.getDashScopeEmbeddingModel = exports.parseEmbeddingDimension = exports.DEFAULT_DASHSCOPE_EMBEDDINGS_URL = exports.DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION = exports.DEFAULT_DASHSCOPE_EMBEDDING_MODEL = void 0;
+exports.assertSupportedEmbeddingDimension = exports.getMentorDirectionRelevanceThreshold = exports.getDashScopeEmbeddingMaxBatchSize = exports.getDashScopeEmbeddingsUrl = exports.getDashScopeEmbeddingDimension = exports.getDashScopeEmbeddingModel = exports.parseEmbeddingDimension = exports.DEFAULT_DASHSCOPE_EMBEDDINGS_URL = exports.DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION = exports.DEFAULT_DASHSCOPE_EMBEDDING_MODEL = void 0;
 exports.DEFAULT_DASHSCOPE_EMBEDDING_MODEL = 'qwen3.7-text-embedding';
 exports.DEFAULT_DASHSCOPE_EMBEDDING_DIMENSION = 256;
 exports.DEFAULT_DASHSCOPE_EMBEDDINGS_URL = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding';
@@ -33,6 +33,13 @@ const getDashScopeEmbeddingMaxBatchSize = (model) => {
     return 10;
 };
 exports.getDashScopeEmbeddingMaxBatchSize = getDashScopeEmbeddingMaxBatchSize;
+const getMentorDirectionRelevanceThreshold = (model = (0, exports.getDashScopeEmbeddingModel)()) => {
+    const configured = Number.parseFloat(String(process.env.MENTOR_DIRECTION_RELEVANCE_ABS_MIN ?? '').trim());
+    if (Number.isFinite(configured) && configured >= 0 && configured <= 1)
+        return configured;
+    return String(model).trim().toLowerCase() === 'qwen3.7-text-embedding' ? 0.665 : 0.6;
+};
+exports.getMentorDirectionRelevanceThreshold = getMentorDirectionRelevanceThreshold;
 const assertSupportedEmbeddingDimension = (model, dimension) => {
     const normalizedModel = String(model || '').trim().toLowerCase();
     const allowed = KNOWN_DIMENSIONS[normalizedModel];

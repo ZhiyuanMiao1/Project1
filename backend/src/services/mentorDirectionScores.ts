@@ -1,6 +1,10 @@
 import { query } from '../db';
 import { ensureCourseEmbeddingsVectorColumn, ensureMentorCourseEmbeddingsVectorIndex } from './rdsVectorIndex';
-import { getDashScopeEmbeddingDimension, getDashScopeEmbeddingModel } from './embeddingConfig';
+import {
+  getDashScopeEmbeddingDimension,
+  getDashScopeEmbeddingModel,
+  getMentorDirectionRelevanceThreshold,
+} from './embeddingConfig';
 
 type DbQuery = (sql: string, params?: any[]) => Promise<any[]>;
 type DbExec = (sql: string, params?: any[]) => Promise<any>;
@@ -11,8 +15,6 @@ type MentorCourseEmbeddingRow = { course_text: string; embedding: any };
 
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
-
-const RELEVANCE_ABS_MIN = 0.6;
 
 let mentorDirectionScoresEnsured = false;
 
@@ -244,10 +246,10 @@ async function computeScoresFallback(
   return { scores, minCourseBestScore: Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0 };
 }
 
-function computeOthersScore(minCourseBestScore: number, hasCourses: boolean) {
+function computeOthersScore(minCourseBestScore: number, hasCourses: boolean, relevanceThreshold: number) {
   if (!hasCourses) return 0;
   const best = Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0;
-  const delta = RELEVANCE_ABS_MIN - best;
+  const delta = relevanceThreshold - best;
   return delta > 0 ? delta : 0;
 }
 
@@ -263,6 +265,7 @@ export async function refreshMentorDirectionScores(params: {
   const execFn = params.execFn || (async (sql: string, args: any[] = []) => query<any>(sql, args));
   const model = getDashScopeEmbeddingModel();
   const dimension = getDashScopeEmbeddingDimension();
+  const relevanceThreshold = getMentorDirectionRelevanceThreshold(model);
 
   await ensureMentorDirectionScoresTable(queryFn);
 
@@ -309,7 +312,7 @@ export async function refreshMentorDirectionScores(params: {
     return { stored: 0, mode: 'none' as const };
   }
 
-  const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
+  const othersScore = computeOthersScore(minCourseBestScore, hasCourses, relevanceThreshold);
   scores = scores.filter((s) => s.directionId !== OTHERS_DIRECTION_ID);
   scores.push({ directionId: OTHERS_DIRECTION_ID, score: othersScore });
 

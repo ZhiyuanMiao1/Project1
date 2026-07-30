@@ -7,7 +7,6 @@ const rdsVectorIndex_1 = require("./rdsVectorIndex");
 const embeddingConfig_1 = require("./embeddingConfig");
 const DIRECTION_KIND = 'direction';
 const OTHERS_DIRECTION_ID = 'others';
-const RELEVANCE_ABS_MIN = 0.6;
 let mentorDirectionScoresEnsured = false;
 const tableExists = async (tableName, queryFn) => {
     const rows = await queryFn('SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [tableName]);
@@ -200,11 +199,11 @@ async function computeScoresFallback(userId, model, dimension, queryFn) {
     }));
     return { scores, minCourseBestScore: Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0 };
 }
-function computeOthersScore(minCourseBestScore, hasCourses) {
+function computeOthersScore(minCourseBestScore, hasCourses, relevanceThreshold) {
     if (!hasCourses)
         return 0;
     const best = Number.isFinite(minCourseBestScore) ? minCourseBestScore : 0;
-    const delta = RELEVANCE_ABS_MIN - best;
+    const delta = relevanceThreshold - best;
     return delta > 0 ? delta : 0;
 }
 async function refreshMentorDirectionScores(params) {
@@ -214,6 +213,7 @@ async function refreshMentorDirectionScores(params) {
     const execFn = params.execFn || (async (sql, args = []) => (0, db_1.query)(sql, args));
     const model = (0, embeddingConfig_1.getDashScopeEmbeddingModel)();
     const dimension = (0, embeddingConfig_1.getDashScopeEmbeddingDimension)();
+    const relevanceThreshold = (0, embeddingConfig_1.getMentorDirectionRelevanceThreshold)(model);
     await ensureMentorDirectionScoresTable(queryFn);
     const hasCourses = await hasAnyMentorCourseEmbeddings(userId, model, dimension, queryFn);
     if (!hasCourses) {
@@ -257,7 +257,7 @@ async function refreshMentorDirectionScores(params) {
         await execFn('DELETE FROM mentor_direction_scores WHERE user_id = ?', [userId]);
         return { stored: 0, mode: 'none' };
     }
-    const othersScore = computeOthersScore(minCourseBestScore, hasCourses);
+    const othersScore = computeOthersScore(minCourseBestScore, hasCourses, relevanceThreshold);
     scores = scores.filter((s) => s.directionId !== OTHERS_DIRECTION_ID);
     scores.push({ directionId: OTHERS_DIRECTION_ID, score: othersScore });
     await execFn('DELETE FROM mentor_direction_scores WHERE user_id = ?', [userId]);

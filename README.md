@@ -45,6 +45,8 @@ DASHSCOPE_EMBEDDING_MODEL=qwen3.7-text-embedding
 DASHSCOPE_EMBEDDING_DIM=256
 ```
 
+`qwen3.7-text-embedding` 的“其它课程方向”绝对相关度阈值默认校准为 `0.665`；如后续使用标注数据重新校准，可通过 `MENTOR_DIRECTION_RELEVANCE_ABS_MIN` 覆盖。
+
 模型或维度变更时，必须在后端停止接收写入的维护窗口内依次执行：
 
 ```bash

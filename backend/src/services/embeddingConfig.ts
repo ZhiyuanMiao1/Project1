@@ -38,6 +38,12 @@ export const getDashScopeEmbeddingMaxBatchSize = (model: string) => {
   return 10;
 };
 
+export const getMentorDirectionRelevanceThreshold = (model = getDashScopeEmbeddingModel()) => {
+  const configured = Number.parseFloat(String(process.env.MENTOR_DIRECTION_RELEVANCE_ABS_MIN ?? '').trim());
+  if (Number.isFinite(configured) && configured >= 0 && configured <= 1) return configured;
+  return String(model).trim().toLowerCase() === 'qwen3.7-text-embedding' ? 0.665 : 0.6;
+};
+
 export const assertSupportedEmbeddingDimension = (model: string, dimension: number) => {
   const normalizedModel = String(model || '').trim().toLowerCase();
   const allowed = KNOWN_DIMENSIONS[normalizedModel];
