@@ -97,16 +97,15 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
         </button>
 
         <div className="alipay-transfer-heading">
-          <img className="alipay-transfer-logo" src={alipayLogo} alt="" />
-          <div>
-            <h2 id={titleId}>{t('wallet.alipayTransferTitle', '支付宝转账')}</h2>
-            <p>{t('wallet.alipayTransferSubtitle', '请打开支付宝，搜索 Mentory 企业账号并完成转账')}</p>
-          </div>
+          <h2 id={titleId} className="alipay-transfer-visually-hidden">
+            {t('wallet.alipayTransferTitle', '支付宝转账')}
+          </h2>
+          <img className="alipay-transfer-logo" src={alipayLogo} alt="Alipay" />
         </div>
 
         <div className="alipay-transfer-details">
           <div className="alipay-transfer-detail">
-            <div className="alipay-transfer-label">{t('wallet.alipayAccount', '支付宝搜索')}</div>
+            <div className="alipay-transfer-label">{t('wallet.alipayAccount', '打开支付宝搜索')}</div>
             <div className="alipay-transfer-value-row">
               <strong className="alipay-transfer-value">{ALIPAY_ACCOUNT}</strong>
               {renderCopyButton(
@@ -123,7 +122,7 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
           </div>
 
           <div className="alipay-transfer-detail alipay-transfer-detail--remark">
-            <div className="alipay-transfer-label">{t('wallet.alipayRemark', '转账备注（StudentID）')}</div>
+            <div className="alipay-transfer-label">{t('wallet.alipayRemark', '转账备注（重要）')}</div>
             <div className="alipay-transfer-value-row">
               <strong className="alipay-transfer-value alipay-transfer-student-id">
                 {studentIdLoading
@@ -140,16 +139,17 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
         </div>
 
         <div className="alipay-transfer-warning" role="note">
-          <span className="alipay-transfer-warning-mark" aria-hidden="true">!</span>
-          <p>
-            <strong>{t('wallet.alipayRemarkRequired', '请务必填写备注')}</strong>
-            <span>{t('wallet.alipayRemarkHelp', '备注内容为你的 StudentID，否则可能无法及时确认充值。')}</span>
-          </p>
+          {t('wallet.alipayPaymentNotice', 'Mentory将在确认收款后更新你的课时')}
         </div>
 
-        <button type="button" className="alipay-transfer-done" onClick={onClose}>
-          {t('wallet.alipayUnderstood', '我知道了')}
-        </button>
+        <div className="alipay-transfer-actions">
+          <button type="button" className="alipay-transfer-cancel" onClick={onClose}>
+            {t('common.cancel', '取消')}
+          </button>
+          <button type="button" className="alipay-transfer-done" onClick={onClose}>
+            {t('wallet.alipayPaid', '已付款')}
+          </button>
+        </div>
       </div>
     </div>
   );
