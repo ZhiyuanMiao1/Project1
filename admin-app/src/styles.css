@@ -284,6 +284,50 @@ button.link-button {
   margin: 0 0 16px;
 }
 
+.mentor-queue-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mentor-queue-tabs button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid #d5dbe7;
+  border-radius: 6px;
+  background: #fff;
+  color: #51627d;
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.mentor-queue-tabs button:hover,
+.mentor-queue-tabs button:focus-visible {
+  border-color: #82adba;
+  background: #f4fafb;
+  color: #176b87;
+}
+
+.mentor-queue-tabs button.active {
+  border-color: #19728b;
+  background: #e8f5f7;
+  color: #11566d;
+}
+
+.mentor-queue-tabs button span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 20px;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: inherit;
+  font-size: 12px;
+}
+
 .search-box {
   width: min(420px, 100%);
   display: flex;
@@ -1619,6 +1663,20 @@ th {
   color: #9a5b00;
 }
 
+.status-filter-header-pending_receipt .status-filter-trigger,
+.status-filter-header.status-filter-header-pending_receipt.active .status-filter-trigger {
+  background: #fae8ff;
+  color: #86198f;
+}
+
+.status-filter-header-actionable .status-filter-trigger,
+.status-filter-header.status-filter-header-actionable.active .status-filter-trigger,
+.status-filter-header-interview_pending .status-filter-trigger,
+.status-filter-header.status-filter-header-interview_pending.active .status-filter-trigger {
+  background: #e8f1ff;
+  color: #245ca6;
+}
+
 .status-filter-header-approved .status-filter-trigger,
 .status-filter-header.status-filter-header-approved.active .status-filter-trigger {
   background: #e7f6ee;
@@ -1626,7 +1684,9 @@ th {
 }
 
 .status-filter-header-rejected .status-filter-trigger,
-.status-filter-header.status-filter-header-rejected.active .status-filter-trigger {
+.status-filter-header.status-filter-header-rejected.active .status-filter-trigger,
+.status-filter-header-interview_rejected .status-filter-trigger,
+.status-filter-header.status-filter-header-interview_rejected.active .status-filter-trigger {
   background: #fde8e6;
   color: #b42318;
 }
@@ -1717,6 +1777,12 @@ th {
 .status-filter-header-pending:focus-within .status-filter-trigger {
   background: #fff4df;
   color: #9a5b00;
+}
+
+.status-filter-header-pending_receipt .status-filter-trigger:hover,
+.status-filter-header-pending_receipt:focus-within .status-filter-trigger {
+  background: #fae8ff;
+  color: #86198f;
 }
 
 .status-filter-header-approved .status-filter-trigger:hover,
@@ -1871,6 +1937,10 @@ th {
   color: #9a5b00;
 }
 
+.status-filter-menu .status-filter-option-pending_receipt {
+  color: #86198f;
+}
+
 .status-filter-menu .status-filter-option-approved {
   color: #0f6b3d;
 }
@@ -1943,6 +2013,13 @@ th {
 .status-filter-menu .status-filter-option-pending.active {
   background: #fff4df;
   color: #9a5b00;
+}
+
+.status-filter-menu .status-filter-option-pending_receipt:hover,
+.status-filter-menu .status-filter-option-pending_receipt:focus-visible,
+.status-filter-menu .status-filter-option-pending_receipt.active {
+  background: #fae8ff;
+  color: #86198f;
 }
 
 .status-filter-menu .status-filter-option-approved:hover,
@@ -2182,6 +2259,7 @@ tr:last-child td {
 
 .badge-suspended,
 .badge-rejected,
+.badge-interview_rejected,
 .badge-critical,
 .badge-failed,
 .badge-order-failed {
@@ -2196,6 +2274,50 @@ tr:last-child td {
 .badge-order-unknown {
   background: #fff4df;
   color: #9a5b00;
+}
+
+.badge-order-pending-receipt {
+  background: #fae8ff;
+  color: #86198f;
+}
+
+.badge-interview_pending {
+  background: #e8f1ff;
+  color: #245ca6;
+}
+
+.order-confirm-payment {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.order-confirm-payment:hover .badge,
+.order-confirm-payment:focus-visible .badge {
+  box-shadow: inset 0 0 0 1px #c026d3;
+}
+
+.order-confirm-payment:focus-visible {
+  outline: 2px solid rgba(192, 38, 211, 0.3);
+  outline-offset: 2px;
+}
+
+.order-confirm-payment:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.page-action-error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 13px;
 }
 
 .badge-reviewing,
@@ -2674,6 +2796,80 @@ tr:last-child td {
   margin: 0;
   color: #26364d;
   overflow-wrap: anywhere;
+}
+
+.classroom-chat-history {
+  display: grid;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.classroom-chat-history-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #e4e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.classroom-chat-history-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.classroom-chat-history-meta div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.classroom-chat-history-meta strong {
+  color: #172033;
+  overflow-wrap: anywhere;
+}
+
+.classroom-chat-history-meta span {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef3f8;
+  color: #52627a;
+  font-size: 12px;
+}
+
+.classroom-chat-history-meta time {
+  flex: 0 0 auto;
+  color: #66758d;
+  font-size: 12px;
+}
+
+.classroom-chat-history-item p {
+  margin: 0;
+  color: #26364d;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.classroom-chat-history-file {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #f6f8fb;
+}
+
+.classroom-chat-history-file strong {
+  overflow-wrap: anywhere;
+}
+
+.classroom-chat-history-file span {
+  color: #66758d;
+  font-size: 12px;
 }
 
 @keyframes spin {

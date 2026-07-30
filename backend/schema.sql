@@ -939,7 +939,21 @@ SET @__mx_has_mentor_review_status := (
 );
 SET @__mx_sql := IF(
   @__mx_has_mentor_review_status = 0,
-  'ALTER TABLE `user_roles` ADD COLUMN `mentor_review_status` ENUM(''pending'',''approved'',''rejected'') NOT NULL DEFAULT ''pending'' AFTER `mentor_approved`',
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_review_status` ENUM(''pending'',''interview_pending'',''approved'',''rejected'',''interview_rejected'') NOT NULL DEFAULT ''pending'' AFTER `mentor_approved`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_mentor_review_column_type := (
+  SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_review_status'
+  LIMIT 1
+);
+SET @__mx_sql := IF(
+  LOCATE('interview_pending', COALESCE(@__mx_mentor_review_column_type, '')) = 0,
+  'ALTER TABLE `user_roles` MODIFY COLUMN `mentor_review_status` ENUM(''pending'',''interview_pending'',''approved'',''rejected'',''interview_rejected'') NOT NULL DEFAULT ''pending''',
   'SELECT 1'
 );
 PREPARE __mx_stmt FROM @__mx_sql;
@@ -953,6 +967,19 @@ SET @__mx_has_mentor_review_note := (
 SET @__mx_sql := IF(
   @__mx_has_mentor_review_note = 0,
   'ALTER TABLE `user_roles` ADD COLUMN `mentor_review_note` TEXT NULL AFTER `mentor_review_status`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_qs_top100 := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_qs_top100'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_qs_top100 = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_qs_top100` TINYINT(1) NOT NULL DEFAULT 0 AFTER `mentor_review_note`',
   'SELECT 1'
 );
 PREPARE __mx_stmt FROM @__mx_sql;
@@ -985,6 +1012,45 @@ PREPARE __mx_stmt FROM @__mx_sql;
 EXECUTE __mx_stmt;
 DEALLOCATE PREPARE __mx_stmt;
 
+SET @__mx_has_mentor_interview_note := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_interview_note'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_interview_note = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_interview_note` TEXT NULL AFTER `mentor_reviewed_by_admin_id`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_interviewed_at := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_interviewed_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_interviewed_at = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_interviewed_at` TIMESTAMP NULL DEFAULT NULL AFTER `mentor_interview_note`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_mentor_interviewed_by := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_roles' AND COLUMN_NAME = 'mentor_interviewed_by_admin_id'
+);
+SET @__mx_sql := IF(
+  @__mx_has_mentor_interviewed_by = 0,
+  'ALTER TABLE `user_roles` ADD COLUMN `mentor_interviewed_by_admin_id` BIGINT NULL AFTER `mentor_interviewed_at`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
 SET @__mx_has_account_mentor_resume_url := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account_settings' AND COLUMN_NAME = 'mentor_resume_url'
@@ -1001,3 +1067,7 @@ DEALLOCATE PREPARE __mx_stmt;
 UPDATE `user_roles`
 SET `mentor_review_status` = 'approved'
 WHERE `role` = 'mentor' AND `mentor_approved` = 1 AND `mentor_review_status` <> 'approved';
+
+UPDATE `user_roles`
+SET `mentor_approved` = 0
+WHERE `role` = 'mentor' AND `mentor_review_status` <> 'approved' AND `mentor_approved` <> 0;

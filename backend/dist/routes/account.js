@@ -11,6 +11,7 @@ const express_validator_1 = require("express-validator");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const availabilityBusy_1 = require("../services/availabilityBusy");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
+const adminSchema_1 = require("../services/adminSchema");
 const toInt = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
     return Number.isFinite(n) ? n : fallback;
@@ -388,7 +389,11 @@ router.get('/ids', auth_1.requireAuth, async (req, res) => {
             }
             if (row.role === 'mentor') {
                 mentorId = row.public_id;
-                if (row.mentor_review_status === 'pending' || row.mentor_review_status === 'approved' || row.mentor_review_status === 'rejected') {
+                if (row.mentor_review_status === 'pending'
+                    || row.mentor_review_status === 'interview_pending'
+                    || row.mentor_review_status === 'approved'
+                    || row.mentor_review_status === 'rejected'
+                    || row.mentor_review_status === 'interview_rejected') {
                     mentorReviewStatus = row.mentor_review_status;
                 }
                 mentorCreatedAt = row.created_at ?? null;
@@ -443,6 +448,7 @@ router.post('/mentor-activation', auth_1.requireAuth, [
         return res.status(400).json({ error: '请先上传简历' });
     }
     try {
+        await (0, adminSchema_1.ensureAdminSchema)();
         const ensured = await ensureMentorResumeColumn();
         if (!ensured)
             return res.status(500).json({ error: '服务器错误，请稍后再试' });
@@ -463,7 +469,12 @@ router.post('/mentor-activation', auth_1.requireAuth, [
            SET mentor_review_status = 'pending',
                mentor_review_note = NULL,
                mentor_reviewed_at = NULL,
-               mentor_reviewed_by_admin_id = NULL
+               mentor_reviewed_by_admin_id = NULL,
+               mentor_interview_note = NULL,
+               mentor_interviewed_at = NULL,
+               mentor_interviewed_by_admin_id = NULL,
+               mentor_qs_top100 = 0,
+               mentor_approved = 0
            WHERE user_id = ? AND role = 'mentor'`, [req.user.id]);
         }
         return res.status(201).json({

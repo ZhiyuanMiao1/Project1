@@ -20,6 +20,13 @@ const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
 const FX_INVALID_CODE = 'FX_QUOTE_INVALID';
 const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 
+const createPaymentReference = () => {
+  if (typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+};
+
 function WalletPage() {
   const { t } = useI18n();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -31,6 +38,10 @@ function WalletPage() {
   const [topUpNotice, setTopUpNotice] = useState('');
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
   const [isAlipayTransferOpen, setIsAlipayTransferOpen] = useState(false);
+  const [isAlipayReporting, setIsAlipayReporting] = useState(false);
+  const [alipayReportError, setAlipayReportError] = useState('');
+  const [alipayClientReference, setAlipayClientReference] = useState('');
+  const [isAlipayReportSuccessOpen, setIsAlipayReportSuccessOpen] = useState(false);
   const [isRefundOpen, setIsRefundOpen] = useState(false);
   const [isRefundSuccessOpen, setIsRefundSuccessOpen] = useState(false);
   const [walletSummary, setWalletSummary] = useState(() => ({
@@ -513,6 +524,8 @@ function WalletPage() {
     if (!canSubmitTopUp) return;
     if (selectedTopUpMethod === 'alipay') {
       setTopUpNotice('');
+      setAlipayReportError('');
+      setAlipayClientReference(createPaymentReference());
       setIsAlipayTransferOpen(true);
       return;
     }
@@ -524,6 +537,31 @@ function WalletPage() {
         { method: methodLabel, hours: hoursNumber.toFixed(2), unitPrice: unitPriceCny, total: amountCnyNumber.toFixed(2) }
       )
     );
+  };
+
+  const handleAlipayPaid = async () => {
+    if (isAlipayReporting || !alipayClientReference) return;
+    setIsAlipayReporting(true);
+    setAlipayReportError('');
+    try {
+      await apiClient.post('/api/alipay/transfers/report', {
+        hours: Number(hoursNumber.toFixed(2)),
+        clientReference: alipayClientReference,
+      });
+      setIsAlipayTransferOpen(false);
+      setIsAlipayReportSuccessOpen(true);
+      setTopUpNotice(
+        t('wallet.alipayReportSuccess', '付款信息已提交，Mentory确认收款后课时将自动到账')
+      );
+    } catch (err) {
+      setAlipayReportError(
+        err?.response?.data?.error
+          || err?.message
+          || t('wallet.alipayReportFailed', '付款信息提交失败，请稍后重试')
+      );
+    } finally {
+      setIsAlipayReporting(false);
+    }
   };
 
   const canUsePayPalButton = isHoursValid && !isPayPalInitializing;
@@ -825,7 +863,19 @@ function WalletPage() {
         amountCny={amountCnyNumber}
         studentId={studentId}
         studentIdLoading={isStudentIdLoading}
-        onClose={() => setIsAlipayTransferOpen(false)}
+        submitting={isAlipayReporting}
+        errorMessage={alipayReportError}
+        onPaid={handleAlipayPaid}
+        onClose={() => {
+          if (!isAlipayReporting) setIsAlipayTransferOpen(false);
+        }}
+      />
+      <SuccessModal
+        open={isAlipayReportSuccessOpen}
+        title={t('wallet.alipayReportSubmitted', '付款信息已提交')}
+        description={t('wallet.alipayReportSuccess', 'Mentory确认收款后课时将自动到账')}
+        autoCloseMs={2600}
+        onClose={() => setIsAlipayReportSuccessOpen(false)}
       />
       <RefundModal
         open={isRefundOpen}

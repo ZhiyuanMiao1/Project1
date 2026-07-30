@@ -111,6 +111,44 @@
   white-space: normal;
 }
 
+.settings-mentor-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+}
+
+.settings-mentor-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #fff4df;
+  color: #9a5b00;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.settings-mentor-status--interview_pending {
+  background: #e8f1ff;
+  color: #245ca6;
+}
+
+.settings-mentor-status--approved {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.settings-mentor-status--rejected,
+.settings-mentor-status--interview_rejected {
+  background: #fde8e6;
+  color: #b42318;
+}
+
 .settings-inline-link {
   border: none;
   background: transparent;

@@ -216,6 +216,7 @@ function TimeZoneSelect({ id, value, onChange, options }) {
 function ProfileSection({
   studentIdValue,
   mentorIdValue,
+  mentorReviewStatus,
   canActivateMentor,
   mentorActivationLabel,
   emailValue,
@@ -267,6 +268,13 @@ function ProfileSection({
       now
     );
   }, [availabilityTimeZone, timeZoneDraft]);
+  const mentorReviewStatusLabel = {
+    pending: t('settings.mentorStatus.resumePending', '简历审核中'),
+    interview_pending: t('settings.mentorStatus.interviewPending', '待面试'),
+    approved: t('settings.mentorStatus.approved', '已通过'),
+    rejected: t('settings.mentorStatus.resumeRejected', '简历驳回'),
+    interview_rejected: t('settings.mentorStatus.interviewRejected', '面试未通过'),
+  }[mentorReviewStatus] || '';
 
   return (
     <>
@@ -279,18 +287,25 @@ function ProfileSection({
       <div className="settings-row">
         <div className="settings-row-main">
           <div className="settings-row-title">MentorID</div>
-          <div className="settings-row-value">
-            {canActivateMentor ? (
-              <button
-                type="button"
-                className="settings-inline-link"
-                onClick={onActivateMentor}
-              >
-                {mentorActivationLabel || t('common.openMentor', '点击开通')}
-              </button>
-            ) : (
-              renderMaybeLoadingText(mentorIdValue)
-            )}
+          <div className="settings-row-value settings-mentor-value">
+            <span>
+              {canActivateMentor ? (
+                <button
+                  type="button"
+                  className="settings-inline-link"
+                  onClick={onActivateMentor}
+                >
+                  {mentorActivationLabel || t('common.openMentor', '点击开通')}
+                </button>
+              ) : (
+                renderMaybeLoadingText(mentorIdValue)
+              )}
+            </span>
+            {mentorReviewStatusLabel ? (
+              <span className={`settings-mentor-status settings-mentor-status--${mentorReviewStatus}`}>
+                {mentorReviewStatusLabel}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>

@@ -19,7 +19,7 @@ import { consumeLessonHours, isWalletHoursError } from '../services/walletHours'
 
 const router = Router();
 
-const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
+const ORDER_STATUSES = new Set(['CREATED', 'APPROVED', 'PENDING_RECEIPT', 'COMPLETED', 'CAPTURED', 'VOIDED', 'FAILED']);
 const USER_STATUSES = new Set(['active', 'suspended']);
 const CLASSROOM_STATUSES = new Set(['scheduled', 'completed', 'cancelled']);
 const LESSON_HOURS_STATUSES = new Set(['none', 'pending', 'confirmed', 'disputed', 'dispute_confirmed', 'platform_review']);
@@ -454,9 +454,10 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
         `SELECT
            SUM(CASE WHEN role = 'mentor'
              AND mentor_approved = 1
-             AND COALESCE(mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors,
-           SUM(CASE WHEN role = 'mentor' AND mentor_review_status = 'pending' AND mentor_approved = 0 THEN 1 ELSE 0 END) AS pendingMentors,
-           SUM(CASE WHEN role = 'mentor' AND mentor_review_status = 'rejected' THEN 1 ELSE 0 END) AS rejectedMentors
+             AND COALESCE(mentor_interviewed_at, mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors,
+           SUM(CASE WHEN role = 'mentor' AND mentor_review_status IN ('pending','interview_pending') AND mentor_approved = 0 THEN 1 ELSE 0 END) AS pendingMentors,
+           SUM(CASE WHEN role = 'mentor' AND mentor_review_status = 'interview_pending' AND mentor_approved = 0 THEN 1 ELSE 0 END) AS interviewPendingMentors,
+           SUM(CASE WHEN role = 'mentor' AND mentor_review_status IN ('rejected','interview_rejected') THEN 1 ELSE 0 END) AS rejectedMentors
          FROM user_roles
          WHERE created_at <= ?`,
         [rangeEnd, rangeEnd]
@@ -536,7 +537,7 @@ router.get('/dashboard/summary', requireAdminAuth, async (req: Request, res: Res
         `SELECT
            SUM(CASE WHEN role = 'mentor'
              AND mentor_approved = 1
-             AND COALESCE(mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors
+             AND COALESCE(mentor_interviewed_at, mentor_reviewed_at, created_at) <= ? THEN 1 ELSE 0 END) AS approvedMentors
          FROM user_roles`,
         [previousRangeEnd]
       ),
@@ -784,67 +785,277 @@ router.patch('/users/:userId/status', requireAdminAuth, async (req: Request, res
   }
 });
 
+type MentorReviewStage = 'resume' | 'interview';
+type MentorReviewDecision = 'pass' | 'reject';
+
+class MentorReviewDecisionError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const executeMentorReviewDecision = async ({
+  userId,
+  adminId,
+  stage,
+  decision,
+  note,
+  qsTop100,
+}: {
+  userId: number;
+  adminId: number;
+  stage: MentorReviewStage;
+  decision: MentorReviewDecision;
+  note: string | null;
+  qsTop100: boolean;
+}) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [beforeRows] = await conn.execute<any[]>(
+      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1 FOR UPDATE",
+      [userId]
+    );
+    const before = beforeRows?.[0];
+    if (!before) throw new MentorReviewDecisionError(404, '未找到导师申请');
+
+    const expectedStatus = stage === 'resume' ? 'pending' : 'interview_pending';
+    if (String(before.mentor_review_status || '') !== expectedStatus) {
+      throw new MentorReviewDecisionError(409, '申请状态已变化，请刷新后重试');
+    }
+
+    if (stage === 'resume') {
+      if (decision === 'pass') {
+        await conn.execute(
+          `UPDATE user_roles
+           SET mentor_approved = 0,
+               mentor_review_status = 'interview_pending',
+               mentor_review_note = NULL,
+               mentor_qs_top100 = 0,
+               mentor_reviewed_at = CURRENT_TIMESTAMP,
+               mentor_reviewed_by_admin_id = ?,
+               mentor_interview_note = NULL,
+               mentor_interviewed_at = NULL,
+               mentor_interviewed_by_admin_id = NULL
+           WHERE user_id = ? AND role = 'mentor'`,
+          [adminId, userId]
+        );
+      } else {
+        await conn.execute(
+          `UPDATE user_roles
+           SET mentor_approved = 0,
+               mentor_review_status = 'rejected',
+               mentor_review_note = ?,
+               mentor_qs_top100 = 0,
+               mentor_reviewed_at = CURRENT_TIMESTAMP,
+               mentor_reviewed_by_admin_id = ?,
+               mentor_interview_note = NULL,
+               mentor_interviewed_at = NULL,
+               mentor_interviewed_by_admin_id = NULL
+           WHERE user_id = ? AND role = 'mentor'`,
+          [note, adminId, userId]
+        );
+      }
+    } else if (decision === 'pass') {
+      await conn.execute(
+        `UPDATE user_roles
+         SET mentor_approved = 1,
+             mentor_review_status = 'approved',
+             mentor_interview_note = ?,
+             mentor_qs_top100 = ?,
+             mentor_interviewed_at = CURRENT_TIMESTAMP,
+             mentor_interviewed_by_admin_id = ?
+         WHERE user_id = ? AND role = 'mentor'`,
+        [note, qsTop100 ? 1 : 0, adminId, userId]
+      );
+    } else {
+      await conn.execute(
+        `UPDATE user_roles
+         SET mentor_approved = 0,
+             mentor_review_status = 'interview_rejected',
+             mentor_interview_note = ?,
+             mentor_qs_top100 = 0,
+             mentor_interviewed_at = CURRENT_TIMESTAMP,
+             mentor_interviewed_by_admin_id = ?
+         WHERE user_id = ? AND role = 'mentor'`,
+        [note, adminId, userId]
+      );
+    }
+
+    const [afterRows] = await conn.execute<any[]>(
+      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+      [userId]
+    );
+    await conn.commit();
+    return { before, after: afterRows?.[0] };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+};
+
+const respondMentorReviewDecision = async (
+  req: Request,
+  res: Response,
+  stage: MentorReviewStage,
+  decision: MentorReviewDecision
+) => {
+  const userId = toPositiveInt(req.params.userId, 0);
+  if (!userId) return res.status(400).json({ error: '无效导师ID' });
+
+  const bodyValue = (req.body || {}) as Record<string, unknown>;
+  const rawNote = Object.prototype.hasOwnProperty.call(bodyValue, 'note') ? bodyValue.note : bodyValue.reason;
+  if (typeof rawNote !== 'undefined' && typeof rawNote !== 'string') {
+    return res.status(400).json({ error: '审核备注格式无效' });
+  }
+  const noteText = typeof rawNote === 'string' ? rawNote.trim() : '';
+  if (noteText.length > 500) {
+    return res.status(400).json({ error: '审核备注不能超过 500 字' });
+  }
+  const note = noteText || null;
+  const hasQsTop100 = Object.prototype.hasOwnProperty.call(bodyValue, 'qsTop100');
+  if (hasQsTop100 && typeof bodyValue.qsTop100 !== 'boolean') {
+    return res.status(400).json({ error: 'QS100 参数无效' });
+  }
+  if ((stage !== 'interview' || decision !== 'pass') && hasQsTop100) {
+    return res.status(400).json({ error: '仅面试通过时可以设置 QS100' });
+  }
+  if (stage === 'resume' && decision === 'reject' && (!note || note.length < 2)) {
+    return res.status(400).json({ error: '请填写至少 2 个字的驳回原因' });
+  }
+  if (stage === 'interview' && (!note || note.length < 5)) {
+    return res.status(400).json({ error: '请填写简短面评' });
+  }
+
+  let result: { before: any; after: any };
+  try {
+    result = await executeMentorReviewDecision({
+      userId,
+      adminId: req.admin!.adminId,
+      stage,
+      decision,
+      note,
+      qsTop100: bodyValue.qsTop100 === true,
+    });
+  } catch (error) {
+    if (error instanceof MentorReviewDecisionError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    console.error('Admin mentor review decision error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+
+  try {
+    await audit({
+      req,
+      action: `mentor.${stage}.${decision}`,
+      targetType: 'mentor',
+      targetId: userId,
+      reason: note || (bodyValue.qsTop100 === true ? 'QS100' : null),
+      before: result.before,
+      after: result.after,
+    });
+  } catch (error) {
+    console.error('Admin mentor review decision audit error:', error);
+  }
+  return res.json({ mentor: result.after });
+};
+
 router.get('/mentors/reviews', requireAdminAuth, async (req: Request, res: Response) => {
   const { page, limit, offset } = getPaging(req);
   const q = safeString(req.query.q, 100);
   const status = safeString(req.query.status, 20);
-  const where = ["ur.role = 'mentor'"];
-  const params: any[] = [];
+  const baseWhere = ["ur.role = 'mentor'"];
+  const baseParams: any[] = [];
 
-  if (status === 'suspended') {
-    where.push('u.account_status = ?');
-    params.push(status);
-  } else if (status === 'approved' || status === 'rejected' || status === 'pending') {
-    where.push('ur.mentor_review_status = ?');
-    params.push(status);
-  }
   if (q) {
     const like = `%${escapeLike(q)}%`;
     const id = Number.parseInt(q, 10);
-    where.push(`(
+    baseWhere.push(`(
       u.email LIKE ? ESCAPE '\\\\'
       OR u.username LIKE ? ESCAPE '\\\\'
       OR ur.public_id LIKE ? ESCAPE '\\\\'
       OR mp.display_name LIKE ? ESCAPE '\\\\'
       ${Number.isFinite(id) && id > 0 ? 'OR u.id = ?' : ''}
     )`);
-    params.push(like, like, like, like);
-    if (Number.isFinite(id) && id > 0) params.push(id);
+    baseParams.push(like, like, like, like);
+    if (Number.isFinite(id) && id > 0) baseParams.push(id);
+  }
+
+  const where = [...baseWhere];
+  const params = [...baseParams];
+  if (status === 'suspended') {
+    where.push('u.account_status = ?');
+    params.push(status);
+  } else if (status === 'actionable') {
+    where.push("ur.mentor_review_status IN ('pending','interview_pending')");
+    where.push('ur.mentor_approved = 0');
+  } else if (['pending', 'interview_pending', 'approved', 'rejected', 'interview_rejected'].includes(status)) {
+    where.push('ur.mentor_review_status = ?');
+    params.push(status);
   }
 
   try {
-    const countRows = await query<Array<{ total: number }>>(
-      `SELECT COUNT(*) AS total
-       FROM user_roles ur
-       JOIN users u ON u.id = ur.user_id
-       LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
-       WHERE ${where.join(' AND ')}`,
-      params
+    const [countRows, summaryRows, rows] = await Promise.all([
+      query<Array<{ total: number }>>(
+        `SELECT COUNT(*) AS total
+         FROM user_roles ur
+         JOIN users u ON u.id = ur.user_id
+         LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+         WHERE ${where.join(' AND ')}`,
+        params
+      ),
+      query<any[]>(
+        `SELECT
+           SUM(CASE WHEN ur.mentor_review_status IN ('pending','interview_pending') AND ur.mentor_approved = 0 THEN 1 ELSE 0 END) AS actionable,
+           SUM(CASE WHEN ur.mentor_review_status = 'pending' AND ur.mentor_approved = 0 THEN 1 ELSE 0 END) AS resumePending,
+           SUM(CASE WHEN ur.mentor_review_status = 'interview_pending' AND ur.mentor_approved = 0 THEN 1 ELSE 0 END) AS interviewPending,
+           SUM(CASE WHEN ur.mentor_review_status = 'approved' AND ur.mentor_approved = 1 THEN 1 ELSE 0 END) AS approved,
+           SUM(CASE WHEN ur.mentor_review_status IN ('rejected','interview_rejected') THEN 1 ELSE 0 END) AS rejected
+         FROM user_roles ur
+         JOIN users u ON u.id = ur.user_id
+         LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+         WHERE ${baseWhere.join(' AND ')}`,
+        baseParams
+      ),
+      query<any[]>(
+        `SELECT
+           ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
+           ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at,
+           ur.mentor_interview_note, ur.mentor_interviewed_at, ur.created_at AS mentor_created_at,
+           u.username, u.email, u.account_status, u.last_login_at,
+           mp.display_name, mp.degree, mp.school, mp.timezone, mp.avatar_url, mp.updated_at AS profile_updated_at,
+           s.mentor_resume_url,
+           COALESCE(teaching.total_teaching_hours, 0) AS total_teaching_hours
+         FROM user_roles ur
+         JOIN users u ON u.id = ur.user_id
+         LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
+         LEFT JOIN account_settings s ON s.user_id = ur.user_id
+         LEFT JOIN (
+           SELECT mentor_user_id, SUM(duration_hours) AS total_teaching_hours
+           FROM course_sessions
+           WHERE status = 'completed'
+           GROUP BY mentor_user_id
+         ) teaching ON teaching.mentor_user_id = ur.user_id
+         WHERE ${where.join(' AND ')}
+         ORDER BY
+           CASE WHEN ? = 'actionable' THEN ur.created_at END ASC,
+           CASE WHEN ? <> 'actionable' THEN ur.created_at END DESC,
+           ur.user_id DESC
+         ${pagingSql(limit, offset)}`,
+        [...params, status, status]
+      ),
+    ]);
+    const rawSummary = summaryRows?.[0] || {};
+    const summary = Object.fromEntries(
+      Object.entries(rawSummary).map(([key, value]) => [key, Number(value || 0)])
     );
-    const rows = await query<any[]>(
-      `SELECT
-         ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
-         ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at, ur.created_at AS mentor_created_at,
-         u.username, u.email, u.account_status, u.last_login_at,
-         mp.display_name, mp.degree, mp.school, mp.timezone, mp.avatar_url, mp.updated_at AS profile_updated_at,
-         s.mentor_resume_url,
-         COALESCE(teaching.total_teaching_hours, 0) AS total_teaching_hours
-       FROM user_roles ur
-       JOIN users u ON u.id = ur.user_id
-       LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
-       LEFT JOIN account_settings s ON s.user_id = ur.user_id
-       LEFT JOIN (
-         SELECT mentor_user_id, SUM(duration_hours) AS total_teaching_hours
-         FROM course_sessions
-         WHERE status = 'completed'
-         GROUP BY mentor_user_id
-       ) teaching ON teaching.mentor_user_id = ur.user_id
-       WHERE ${where.join(' AND ')}
-       ORDER BY ur.created_at DESC, ur.user_id DESC
-       ${pagingSql(limit, offset)}`,
-      params
-    );
-    return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), mentors: rows || [] });
+    return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), summary, mentors: rows || [] });
   } catch (error) {
     console.error('Admin mentor reviews list error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
@@ -860,6 +1071,9 @@ router.get('/mentors/:userId/review', requireAdminAuth, async (req: Request, res
       `SELECT
          ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
          ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at, ur.mentor_reviewed_by_admin_id,
+         COALESCE(resume_admin.display_name, resume_admin.username) AS mentor_reviewed_by_admin_name,
+         ur.mentor_interview_note, ur.mentor_interviewed_at, ur.mentor_interviewed_by_admin_id,
+         COALESCE(interview_admin.display_name, interview_admin.username) AS mentor_interviewed_by_admin_name,
          ur.created_at AS mentor_created_at,
          u.username, u.email, u.account_status, u.last_login_at,
          mp.display_name, mp.gender, mp.degree, mp.school, mp.timezone, mp.courses_json,
@@ -870,6 +1084,8 @@ router.get('/mentors/:userId/review', requireAdminAuth, async (req: Request, res
        JOIN users u ON u.id = ur.user_id
        LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
        LEFT JOIN account_settings s ON s.user_id = ur.user_id
+       LEFT JOIN admin_users resume_admin ON resume_admin.id = ur.mentor_reviewed_by_admin_id
+       LEFT JOIN admin_users interview_admin ON interview_admin.id = ur.mentor_interviewed_by_admin_id
        WHERE ur.user_id = ? AND ur.role = 'mentor'
        LIMIT 1`,
       [userId]
@@ -988,74 +1204,38 @@ router.get('/mentors/:userId/resume-preview', async (req: Request, res: Response
   }
 });
 
-router.post('/mentors/:userId/approve', requireAdminAuth, async (req: Request, res: Response) => {
-  const userId = toPositiveInt(req.params.userId, 0);
-  const qsTop100 = req.body?.qsTop100 === true || req.body?.qsTop100 === 1 || req.body?.qsTop100 === '1' || req.body?.qsTop100 === 'true';
-  if (!userId) return res.status(400).json({ error: '无效导师ID' });
-
-  try {
-    const beforeRows = await query<any[]>(
-      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
-      [userId]
-    );
-    const before = beforeRows?.[0];
-    if (!before) return res.status(404).json({ error: '未找到导师申请' });
-    await query(
-      `UPDATE user_roles
-       SET mentor_approved = 1,
-           mentor_review_status = 'approved',
-           mentor_review_note = NULL,
-           mentor_qs_top100 = ?,
-           mentor_reviewed_at = CURRENT_TIMESTAMP,
-           mentor_reviewed_by_admin_id = ?
-       WHERE user_id = ? AND role = 'mentor'`,
-      [qsTop100 ? 1 : 0, req.admin!.adminId, userId]
-    );
-    const afterRows = await query<any[]>(
-      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
-      [userId]
-    );
-    const after = afterRows?.[0];
-    await audit({ req, action: 'mentor.approve', targetType: 'mentor', targetId: userId, reason: qsTop100 ? 'QS100' : null, before, after });
-    return res.json({ mentor: after });
-  } catch (error) {
-    console.error('Admin approve mentor error:', error);
-    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+router.post('/mentors/:userId/review-decision', requireAdminAuth, async (req: Request, res: Response) => {
+  const stage = safeString((req.body as any)?.stage, 20) as MentorReviewStage;
+  const decision = safeString((req.body as any)?.decision, 20) as MentorReviewDecision;
+  if (stage !== 'resume' && stage !== 'interview') {
+    return res.status(400).json({ error: '无效审核阶段' });
   }
+  if (decision !== 'pass' && decision !== 'reject') {
+    return res.status(400).json({ error: '无效审核结论' });
+  }
+  return respondMentorReviewDecision(req, res, stage, decision);
+});
+
+router.post('/mentors/:userId/approve', requireAdminAuth, async (req: Request, res: Response) => {
+  return respondMentorReviewDecision(req, res, 'interview', 'pass');
 });
 
 router.post('/mentors/:userId/reject', requireAdminAuth, async (req: Request, res: Response) => {
   const userId = toPositiveInt(req.params.userId, 0);
-  const reason = readReason(req, 0);
   if (!userId) return res.status(400).json({ error: '无效导师ID' });
 
   try {
-    const beforeRows = await query<any[]>(
-      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
+    const rows = await query<any[]>(
+      "SELECT mentor_review_status FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
       [userId]
     );
-    const before = beforeRows?.[0];
-    if (!before) return res.status(404).json({ error: '未找到导师申请' });
-    await query(
-      `UPDATE user_roles
-       SET mentor_approved = 0,
-           mentor_review_status = 'rejected',
-           mentor_review_note = ?,
-           mentor_qs_top100 = 0,
-           mentor_reviewed_at = CURRENT_TIMESTAMP,
-           mentor_reviewed_by_admin_id = ?
-       WHERE user_id = ? AND role = 'mentor'`,
-      [reason, req.admin!.adminId, userId]
-    );
-    const afterRows = await query<any[]>(
-      "SELECT * FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1",
-      [userId]
-    );
-    const after = afterRows?.[0];
-    await audit({ req, action: 'mentor.reject', targetType: 'mentor', targetId: userId, reason, before, after });
-    return res.json({ mentor: after });
+    const status = String(rows?.[0]?.mentor_review_status || '');
+    if (!status) return res.status(404).json({ error: '未找到导师申请' });
+    if (status === 'pending') return respondMentorReviewDecision(req, res, 'resume', 'reject');
+    if (status === 'interview_pending') return respondMentorReviewDecision(req, res, 'interview', 'reject');
+    return res.status(409).json({ error: '申请状态已变化，请刷新后重试' });
   } catch (error) {
-    console.error('Admin reject mentor error:', error);
+    console.error('Admin legacy reject mentor error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });
@@ -1100,6 +1280,8 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
     )`);
   } else if (status === 'pending') {
     where.push("bo.status IN ('CREATED', 'APPROVED')");
+  } else if (status === 'pending_receipt') {
+    where.push("bo.status = 'PENDING_RECEIPT'");
   } else if (status === 'paid') {
     where.push("(bo.credited_at IS NOT NULL OR bo.status IN ('COMPLETED', 'CAPTURED'))");
   } else if (status === 'failed') {
@@ -1168,6 +1350,104 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
     console.error('Admin orders list error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
+});
+
+router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Request, res: Response) => {
+  const orderId = toPositiveInt(req.params.orderId, 0);
+  if (!orderId) return res.status(400).json({ error: '无效订单ID' });
+
+  let conn: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
+  let before: any = null;
+  let after: any = null;
+  let alreadyConfirmed = false;
+
+  try {
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    const [orderRows] = await conn.query<any[]>(
+      `SELECT id, user_id, provider, provider_order_id, status, topup_hours,
+              amount_cny, remaining_hours, credited_at, captured_at
+       FROM billing_orders
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [orderId]
+    );
+    before = orderRows?.[0];
+    if (!before) {
+      await conn.rollback();
+      return res.status(404).json({ error: '未找到订单' });
+    }
+    if (String(before.provider || '').toLowerCase() !== 'alipay') {
+      await conn.rollback();
+      return res.status(400).json({ error: '仅支付宝待收款订单支持人工确认' });
+    }
+
+    alreadyConfirmed = Boolean(before.credited_at);
+    if (!alreadyConfirmed && String(before.status || '').toUpperCase() !== 'PENDING_RECEIPT') {
+      await conn.rollback();
+      return res.status(409).json({ error: '该订单当前不是待收款状态，请刷新后重试' });
+    }
+
+    if (!alreadyConfirmed) {
+      const hours = Number(before.topup_hours);
+      if (!Number.isFinite(hours) || hours <= 0) {
+        await conn.rollback();
+        return res.status(409).json({ error: '订单课时无效，无法确认收款' });
+      }
+
+      await conn.query('SELECT id FROM users WHERE id = ? LIMIT 1 FOR UPDATE', [before.user_id]);
+      await conn.query(
+        'UPDATE users SET lesson_balance_hours = lesson_balance_hours + ? WHERE id = ?',
+        [hours, before.user_id]
+      );
+      await conn.query(
+        `UPDATE billing_orders
+         SET status = 'COMPLETED',
+             captured_at = COALESCE(captured_at, CURRENT_TIMESTAMP),
+             credited_at = CURRENT_TIMESTAMP,
+             remaining_hours = topup_hours,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        [orderId]
+      );
+    }
+
+    const [afterRows] = await conn.query<any[]>(
+      `SELECT id, user_id, provider, provider_order_id, status, topup_hours,
+              amount_cny, remaining_hours, credited_at, captured_at
+       FROM billing_orders WHERE id = ? LIMIT 1`,
+      [orderId]
+    );
+    after = afterRows?.[0];
+    await conn.commit();
+  } catch (error) {
+    try {
+      await conn?.rollback();
+    } catch {}
+    console.error('Admin confirm Alipay payment error:', error);
+    return res.status(500).json({ error: '确认收款失败，请稍后再试' });
+  } finally {
+    conn?.release();
+  }
+
+  try {
+    if (!alreadyConfirmed) {
+      await audit({
+        req,
+        action: 'order.payment.confirm',
+        targetType: 'billing_order',
+        targetId: orderId,
+        reason: '支付宝人工确认收款',
+        before,
+        after,
+      });
+    }
+  } catch (error) {
+    console.error('Admin confirm Alipay payment audit error:', error);
+  }
+
+  return res.json({ order: after, alreadyConfirmed });
 });
 
 router.patch('/orders/:orderId/status', requireAdminAuth, async (req: Request, res: Response) => {
@@ -1555,25 +1835,35 @@ router.get('/classrooms/:courseId/chat', requireAdminAuth, async (req: Request, 
     const rows = await query<any[]>(
       `SELECT
          cm.id, cm.sender_user_id, cm.message_type, cm.text_content, cm.created_at,
+         CASE
+           WHEN cm.sender_user_id = cs.student_user_id THEN 'student'
+           WHEN cm.sender_user_id = cs.mentor_user_id THEN 'mentor'
+           ELSE ''
+         END AS sender_role,
          u.email, u.username,
          sr.public_id AS student_public_id,
          mr.public_id AS mentor_public_id,
          ctf.file_id, ctf.original_file_name, ctf.content_type, ctf.size_bytes, ctf.ext, ctf.cleanup_status
        FROM classroom_messages cm
+       INNER JOIN course_sessions cs ON cs.id = cm.classroom_id
        LEFT JOIN users u ON u.id = cm.sender_user_id
        LEFT JOIN user_roles sr ON sr.user_id = cm.sender_user_id AND sr.role = 'student'
        LEFT JOIN user_roles mr ON mr.user_id = cm.sender_user_id AND mr.role = 'mentor'
        LEFT JOIN classroom_temp_files ctf ON ctf.classroom_id = cm.classroom_id AND ctf.file_id = cm.file_id
        WHERE cm.classroom_id = ?
-       ORDER BY cm.id ASC
-       LIMIT 500`,
+       ORDER BY cm.id ASC`,
       [courseId]
     );
 
     const messages = (rows || []).map((row) => ({
       id: String(row.id),
       senderUserId: Number(row.sender_user_id),
-      senderLabel: row.student_public_id || row.mentor_public_id || row.username || row.email || `User ${row.sender_user_id}`,
+      senderLabel: (
+        row.sender_role === 'student'
+          ? row.student_public_id
+          : (row.sender_role === 'mentor' ? row.mentor_public_id : '')
+      ) || row.username || row.email || `User ${row.sender_user_id}`,
+      senderRole: safeString(row.sender_role, 20),
       messageType: safeString(row.message_type, 20),
       textContent: safeString(row.text_content, 4000),
       createdAt: toIsoString(row.created_at),

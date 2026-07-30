@@ -297,7 +297,9 @@ function AccountSettingsPage({ mode = 'student' }) {
           email: typeof data.email === 'string' ? data.email : '',
           studentId: typeof data.studentId === 'string' ? data.studentId : '',
           mentorId: typeof data.mentorId === 'string' ? data.mentorId : '',
-          mentorReviewStatus: ['pending', 'approved', 'rejected'].includes(data.mentorReviewStatus) ? data.mentorReviewStatus : null,
+          mentorReviewStatus: ['pending', 'interview_pending', 'approved', 'rejected', 'interview_rejected'].includes(data.mentorReviewStatus)
+            ? data.mentorReviewStatus
+            : null,
           degree: typeof data.degree === 'string' ? data.degree : '',
           school: typeof data.school === 'string' ? data.school : '',
           studentCreatedAt: typeof data.studentCreatedAt === 'string' ? data.studentCreatedAt : null,
@@ -456,7 +458,7 @@ function AccountSettingsPage({ mode = 'student' }) {
 
   const studentIdValue = accountProfile.studentId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notProvided', '未提供'));
   const mentorIdValue = accountProfile.mentorId || (idsStatus === 'loading' ? t('common.loading', '加载中...') : t('common.notActivated', '暂未开通'));
-  const canResubmitMentorApplication = accountProfile.mentorReviewStatus === 'rejected';
+  const canResubmitMentorApplication = ['rejected', 'interview_rejected'].includes(accountProfile.mentorReviewStatus);
   const canActivateMentor = isLoggedIn && idsStatus !== 'loading' && (!accountProfile.mentorId || canResubmitMentorApplication);
   const mentorActivationLabel = canResubmitMentorApplication
     ? t('settings.resubmitMentorApplication', '重新提交')
@@ -964,6 +966,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                 <ProfileSection
                   studentIdValue={studentIdValue}
                   mentorIdValue={mentorIdValue}
+                  mentorReviewStatus={accountProfile.mentorReviewStatus}
                   canActivateMentor={canActivateMentor}
                   mentorActivationLabel={mentorActivationLabel}
                   emailValue={emailValue}

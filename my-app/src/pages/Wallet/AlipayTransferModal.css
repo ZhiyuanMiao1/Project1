@@ -187,6 +187,16 @@
   line-height: 1.55;
 }
 
+.alipay-transfer-error {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #b42318;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .alipay-transfer-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -205,6 +215,13 @@
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+}
+
+.alipay-transfer-close:disabled,
+.alipay-transfer-cancel:disabled,
+.alipay-transfer-done:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .alipay-transfer-cancel {

@@ -30,6 +30,17 @@ const addIndexIfMissing = async (sql: string) => {
   }
 };
 
+const ensureMentorReviewStatusEnum = async () => {
+  const rows = await query<Array<{ Type?: string; type?: string }>>(
+    "SHOW COLUMNS FROM user_roles LIKE 'mentor_review_status'"
+  );
+  const type = String(rows?.[0]?.Type || rows?.[0]?.type || '').toLowerCase();
+  if (type.includes("'interview_pending'") && type.includes("'interview_rejected'")) return;
+  await query(
+    "ALTER TABLE user_roles MODIFY COLUMN mentor_review_status ENUM('pending','interview_pending','approved','rejected','interview_rejected') NOT NULL DEFAULT 'pending'"
+  );
+};
+
 export const ensureAdminSchema = async () => {
   if (adminSchemaEnsured) return true;
 
@@ -84,8 +95,9 @@ export const ensureAdminSchema = async () => {
   );
 
   await addColumnIfMissing(
-    "ALTER TABLE user_roles ADD COLUMN mentor_review_status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending' AFTER mentor_approved"
+    "ALTER TABLE user_roles ADD COLUMN mentor_review_status ENUM('pending','interview_pending','approved','rejected','interview_rejected') NOT NULL DEFAULT 'pending' AFTER mentor_approved"
   );
+  await ensureMentorReviewStatusEnum();
   await addColumnIfMissing(
     'ALTER TABLE user_roles ADD COLUMN mentor_review_note TEXT NULL AFTER mentor_review_status'
   );
@@ -98,12 +110,24 @@ export const ensureAdminSchema = async () => {
   await addColumnIfMissing(
     'ALTER TABLE user_roles ADD COLUMN mentor_reviewed_by_admin_id BIGINT NULL AFTER mentor_reviewed_at'
   );
+  await addColumnIfMissing(
+    'ALTER TABLE user_roles ADD COLUMN mentor_interview_note TEXT NULL AFTER mentor_reviewed_by_admin_id'
+  );
+  await addColumnIfMissing(
+    'ALTER TABLE user_roles ADD COLUMN mentor_interviewed_at TIMESTAMP NULL DEFAULT NULL AFTER mentor_interview_note'
+  );
+  await addColumnIfMissing(
+    'ALTER TABLE user_roles ADD COLUMN mentor_interviewed_by_admin_id BIGINT NULL AFTER mentor_interviewed_at'
+  );
   await addIndexIfMissing(
     'ALTER TABLE user_roles ADD KEY idx_user_roles_mentor_review (role, mentor_review_status, mentor_approved)'
   );
 
   await query(
     "UPDATE user_roles SET mentor_review_status = 'approved' WHERE role = 'mentor' AND mentor_approved = 1 AND mentor_review_status <> 'approved'"
+  );
+  await query(
+    "UPDATE user_roles SET mentor_approved = 0 WHERE role = 'mentor' AND mentor_review_status <> 'approved' AND mentor_approved <> 0"
   );
 
   adminSchemaEnsured = true;

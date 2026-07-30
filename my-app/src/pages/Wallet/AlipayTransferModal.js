@@ -6,7 +6,16 @@ import './AlipayTransferModal.css';
 
 const ALIPAY_ACCOUNT = 'pay@mentory.cc';
 
-function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onClose }) {
+function AlipayTransferModal({
+  open,
+  amountCny,
+  studentId,
+  studentIdLoading,
+  submitting = false,
+  errorMessage = '',
+  onClose,
+  onPaid,
+}) {
   const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef(null);
@@ -23,7 +32,7 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
 
     const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0);
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.();
+      if (event.key === 'Escape' && !submitting) onClose?.();
     };
     document.addEventListener('keydown', handleKeyDown);
 
@@ -33,7 +42,7 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
       document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [onClose, open]);
+  }, [onClose, open, submitting]);
 
   if (!open) return null;
 
@@ -75,7 +84,7 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
       className="alipay-transfer-overlay"
       role="presentation"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose?.();
+        if (event.target === event.currentTarget && !submitting) onClose?.();
       }}
     >
       <div
@@ -90,6 +99,7 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
           type="button"
           className="alipay-transfer-close"
           onClick={onClose}
+          disabled={submitting}
           aria-label={t('wallet.alipayClose', '关闭支付宝转账指引')}
           ref={closeButtonRef}
         >
@@ -141,13 +151,23 @@ function AlipayTransferModal({ open, amountCny, studentId, studentIdLoading, onC
         <div className="alipay-transfer-warning" role="note">
           {t('wallet.alipayPaymentNotice', 'Mentory将在确认收款后更新你的课时')}
         </div>
+        {errorMessage ? (
+          <div className="alipay-transfer-error" role="alert">{errorMessage}</div>
+        ) : null}
 
         <div className="alipay-transfer-actions">
-          <button type="button" className="alipay-transfer-cancel" onClick={onClose}>
+          <button type="button" className="alipay-transfer-cancel" onClick={onClose} disabled={submitting}>
             {t('common.cancel', '取消')}
           </button>
-          <button type="button" className="alipay-transfer-done" onClick={onClose}>
-            {t('wallet.alipayPaid', '已付款')}
+          <button
+            type="button"
+            className="alipay-transfer-done"
+            onClick={onPaid}
+            disabled={submitting || studentIdLoading || !normalizedStudentId}
+          >
+            {submitting
+              ? t('wallet.alipayReporting', '正在提交...')
+              : t('wallet.alipayPaid', '已付款')}
           </button>
         </div>
       </div>

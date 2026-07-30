@@ -139,7 +139,7 @@ const RegisterPopup = ({ onClose, onSuccess }) => {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));
             } catch {}
           }
-          setOk(t('auth.registerDone', '注册成功，已自动登录'));
+          setOk(t('auth.mentorApplicationSubmitted', '账号已创建，导师申请已提交'));
           // 三点动画 2 秒后，关闭弹窗并进入导师页
           setTimeout(() => {
             try { onClose && onClose(); } catch {}

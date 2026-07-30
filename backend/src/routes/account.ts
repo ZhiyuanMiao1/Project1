@@ -6,6 +6,7 @@ import { body, validationResult } from 'express-validator';
 import { clearRefreshTokenCookie, revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 import { getBusySelectionsForUser } from '../services/availabilityBusy';
 import { ensureAccountRecommendationColumns } from '../services/mentorRecommendation';
+import { ensureAdminSchema } from '../services/adminSchema';
 
 type Role = 'student' | 'mentor';
 
@@ -17,7 +18,7 @@ type CurrentUserRow = {
 type PublicIdRow = {
   role: Role;
   public_id: string;
-  mentor_review_status?: 'pending' | 'approved' | 'rejected' | null;
+  mentor_review_status?: 'pending' | 'interview_pending' | 'approved' | 'rejected' | 'interview_rejected' | null;
   created_at?: Date | string | null;
 };
 
@@ -435,7 +436,7 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
 
     let studentId: string | null = null;
     let mentorId: string | null = null;
-    let mentorReviewStatus: 'pending' | 'approved' | 'rejected' | null = null;
+    let mentorReviewStatus: 'pending' | 'interview_pending' | 'approved' | 'rejected' | 'interview_rejected' | null = null;
     let studentCreatedAt: Date | string | null = null;
     let mentorCreatedAt: Date | string | null = null;
     for (const row of rows) {
@@ -445,7 +446,13 @@ router.get('/ids', requireAuth, async (req: Request, res: Response) => {
       }
       if (row.role === 'mentor') {
         mentorId = row.public_id;
-        if (row.mentor_review_status === 'pending' || row.mentor_review_status === 'approved' || row.mentor_review_status === 'rejected') {
+        if (
+          row.mentor_review_status === 'pending'
+          || row.mentor_review_status === 'interview_pending'
+          || row.mentor_review_status === 'approved'
+          || row.mentor_review_status === 'rejected'
+          || row.mentor_review_status === 'interview_rejected'
+        ) {
           mentorReviewStatus = row.mentor_review_status;
         }
         mentorCreatedAt = row.created_at ?? null;
@@ -511,6 +518,7 @@ router.post(
     }
 
     try {
+      await ensureAdminSchema();
       const ensured = await ensureMentorResumeColumn();
       if (!ensured) return res.status(500).json({ error: '服务器错误，请稍后再试' });
 
@@ -547,7 +555,12 @@ router.post(
            SET mentor_review_status = 'pending',
                mentor_review_note = NULL,
                mentor_reviewed_at = NULL,
-               mentor_reviewed_by_admin_id = NULL
+               mentor_reviewed_by_admin_id = NULL,
+               mentor_interview_note = NULL,
+               mentor_interviewed_at = NULL,
+               mentor_interviewed_by_admin_id = NULL,
+               mentor_qs_top100 = 0,
+               mentor_approved = 0
            WHERE user_id = ? AND role = 'mentor'`,
           [req.user.id]
         );

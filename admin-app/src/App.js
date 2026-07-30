@@ -49,9 +49,11 @@ const navItems = [
 const statusText = {
   active: '正常',
   suspended: '已封禁',
-  pending: '待处理',
+  pending: '待审简历',
+  interview_pending: '待面试',
   approved: '已通过',
-  rejected: '已驳回',
+  rejected: '简历驳回',
+  interview_rejected: '面试未通过',
   open: '待处理',
   reviewing: '处理中',
   resolved: '已解决',
@@ -274,6 +276,9 @@ const getOrderStatusMeta = (order) => {
   if (order?.credited_at || status === 'COMPLETED' || status === 'CAPTURED') {
     return { key: 'paid', label: '已支付' };
   }
+  if (status === 'PENDING_RECEIPT') {
+    return { key: 'pending-receipt', label: '待收款' };
+  }
   if (status === 'FAILED' || status === 'VOIDED') {
     return { key: 'failed', label: '失败/取消' };
   }
@@ -283,8 +288,24 @@ const getOrderStatusMeta = (order) => {
   return { key: 'unknown', label: '待确认' };
 };
 
-function OrderStatusBadge({ order }) {
+function OrderStatusBadge({ order, confirming = false, onConfirm }) {
   const meta = getOrderStatusMeta(order);
+  if (meta.key === 'pending-receipt' && typeof onConfirm === 'function') {
+    return (
+      <button
+        type="button"
+        className="order-confirm-payment"
+        onClick={() => onConfirm(order)}
+        disabled={confirming}
+        aria-label={`确认支付宝订单 ${order.id} 已收款`}
+        title="点击确认收款"
+      >
+        <span className={`badge badge-order-${meta.key}`}>
+          {confirming ? '确认中…' : meta.label}
+        </span>
+      </button>
+    );
+  }
   return <span className={`badge badge-order-${meta.key}`}>{meta.label}</span>;
 }
 
@@ -317,34 +338,43 @@ function ReasonDialog({ config, onClose, onSubmit }) {
   const [qsTop100, setQsTop100] = useState(false);
   if (!config) return null;
   const reasonRequired = config.reasonRequired !== false;
-  const minLength = reasonRequired ? 2 : 0;
+  const minLength = reasonRequired ? (config.minLength || 2) : 0;
+  const maxLength = config.maxLength || 1000;
   const showQsTop100 = Boolean(config.showQsTop100);
+  const showReason = !config.hideReason;
+  const payload = showQsTop100 ? { qsTop100, reason: reason.trim() } : reason;
   return (
     <div className="modal-backdrop" role="presentation">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reason-title">
         <h2 id="reason-title">{config.title}</h2>
         <p>{config.description}</p>
+        {showReason ? (
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder={config.placeholder || '填写操作原因'}
+            maxLength={maxLength}
+            autoFocus
+          />
+        ) : null}
         {showQsTop100 ? (
           <label className="modal-checkbox">
             <input
               type="checkbox"
               checked={qsTop100}
               onChange={(event) => setQsTop100(event.target.checked)}
-              autoFocus
             />
             <span>标记为QS100</span>
           </label>
-        ) : (
-          <textarea
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={config.placeholder || '填写操作原因'}
-            autoFocus
-          />
-        )}
+        ) : null}
         <div className="modal-actions">
           <button className="ghost" onClick={onClose}>取消</button>
-          <button onClick={() => onSubmit(showQsTop100 ? { qsTop100 } : reason)} disabled={!showQsTop100 && reason.trim().length < minLength}>确认</button>
+          <button
+            onClick={() => onSubmit(payload)}
+            disabled={showReason && reason.trim().length < minLength}
+          >
+            {config.confirmLabel || '确认'}
+          </button>
         </div>
       </div>
     </div>
@@ -1520,12 +1550,12 @@ function getMentorStatusValue(mentor) {
 
 function MentorReviewsPage() {
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('actionable');
   const [reload, setReload] = useState(0);
   const [detail, setDetail] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [accountDialog, setAccountDialog] = useState(null);
-  const [sort, setSort] = useState({ field: 'mentor_created_at', direction: 'desc' });
+  const [sort, setSort] = useState({ field: 'mentor_created_at', direction: 'asc' });
   const { loading, error, data } = useAsync(
     () => api('/api/admin/mentors/reviews', { params: { q, status, limit: 50 } }),
     [q, status, reload]
@@ -1563,9 +1593,12 @@ function MentorReviewsPage() {
 
   const statusOptions = [
     { value: '', label: '全部' },
-    { value: 'pending', label: '待审核' },
+    { value: 'actionable', label: '全部待处理' },
+    { value: 'pending', label: '待审简历' },
+    { value: 'interview_pending', label: '待面试' },
     { value: 'approved', label: '已通过' },
-    { value: 'rejected', label: '已驳回' },
+    { value: 'rejected', label: '简历驳回' },
+    { value: 'interview_rejected', label: '面试未通过' },
     { value: 'suspended', label: '已封禁' },
   ];
 
@@ -1580,10 +1613,16 @@ function MentorReviewsPage() {
   };
 
   const submitReview = async (payload) => {
-    const body = dialog.action === 'approve'
-      ? { qsTop100: Boolean(payload?.qsTop100) }
-      : { reason: payload };
-    await api(`/api/admin/mentors/${dialog.mentor.user_id}/${dialog.action}`, {
+    const note = typeof payload === 'string' ? payload.trim() : String(payload?.reason || '').trim();
+    const body = {
+      stage: dialog.stage,
+      decision: dialog.decision,
+      ...(note ? { note } : {}),
+      ...(dialog.stage === 'interview' && dialog.decision === 'pass'
+        ? { qsTop100: Boolean(payload?.qsTop100) }
+        : {}),
+    };
+    await api(`/api/admin/mentors/${dialog.mentor.user_id}/review-decision`, {
       method: 'POST',
       body,
     });
@@ -1607,6 +1646,29 @@ function MentorReviewsPage() {
       <PageTitle title="导师管理" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、MentorID、姓名" />
+        <div className="mentor-queue-tabs" aria-label="导师审核快捷队列">
+          <button
+            type="button"
+            className={status === 'actionable' ? 'active' : ''}
+            onClick={() => setStatus('actionable')}
+          >
+            全部待处理 <span>{asNumber(data?.summary?.actionable)}</span>
+          </button>
+          <button
+            type="button"
+            className={status === 'pending' ? 'active' : ''}
+            onClick={() => setStatus('pending')}
+          >
+            待审简历 <span>{asNumber(data?.summary?.resumePending)}</span>
+          </button>
+          <button
+            type="button"
+            className={status === 'interview_pending' ? 'active' : ''}
+            onClick={() => setStatus('interview_pending')}
+          >
+            待面试 <span>{asNumber(data?.summary?.interviewPending)}</span>
+          </button>
+        </div>
       </Toolbar>
       <State loading={loading} error={error}>
         <DataTable
@@ -1641,28 +1703,36 @@ function MentorReviewsPage() {
               >
                 详情
               </button>
-              {mentor.mentor_review_status === 'pending' || mentor.mentor_review_status === 'rejected' ? (
+              {mentor.mentor_review_status === 'pending' || mentor.mentor_review_status === 'interview_pending' ? (
                 <>
                   <button
                     type="button"
                     className="icon-action approve-action"
-                    title="通过"
-                    aria-label="通过"
-                    onClick={() => setDialog({ title: '通过导师审核', mentor, action: 'approve' })}
+                    title={mentor.mentor_review_status === 'pending' ? '简历通过' : '面试通过'}
+                    aria-label={mentor.mentor_review_status === 'pending' ? '简历通过' : '面试通过'}
+                    onClick={() => setDialog({
+                      title: mentor.mentor_review_status === 'pending' ? '确认简历通过' : '记录面试通过',
+                      mentor,
+                      stage: mentor.mentor_review_status === 'pending' ? 'resume' : 'interview',
+                      decision: 'pass',
+                    })}
                   >
                     <FontAwesomeIcon icon={faCheck} />
                   </button>
-                  {mentor.mentor_review_status === 'pending' ? (
-                    <button
-                      type="button"
-                      className="icon-action reject-action"
-                      title="驳回"
-                      aria-label="驳回"
-                      onClick={() => setDialog({ title: '驳回导师审核', mentor, action: 'reject' })}
-                    >
-                      <FontAwesomeIcon icon={faXmark} />
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="icon-action reject-action"
+                    title={mentor.mentor_review_status === 'pending' ? '简历驳回' : '面试未通过'}
+                    aria-label={mentor.mentor_review_status === 'pending' ? '简历驳回' : '面试未通过'}
+                    onClick={() => setDialog({
+                      title: mentor.mentor_review_status === 'pending' ? '驳回导师简历' : '记录面试未通过',
+                      mentor,
+                      stage: mentor.mentor_review_status === 'pending' ? 'resume' : 'interview',
+                      decision: 'reject',
+                    })}
+                  >
+                    <FontAwesomeIcon icon={faXmark} />
+                  </button>
                 </>
               ) : null}
               <button
@@ -1694,13 +1764,17 @@ function MentorReviewsPage() {
         />
       ) : null}
       <ReasonDialog
-        key={dialog ? `${dialog.action}-${dialog.mentor.user_id}` : 'mentor-review-dialog'}
+        key={dialog ? `${dialog.stage}-${dialog.decision}-${dialog.mentor.user_id}` : 'mentor-review-dialog'}
         config={dialog ? {
           title: dialog.title,
           description: `目标导师：${dialog.mentor.email} (${dialog.mentor.public_id})`,
-          reasonRequired: false,
-          placeholder: '填写驳回原因',
-          showQsTop100: dialog.action === 'approve',
+          reasonRequired: !(dialog.stage === 'resume' && dialog.decision === 'pass'),
+          hideReason: dialog.stage === 'resume' && dialog.decision === 'pass',
+          minLength: dialog.stage === 'interview' ? 5 : 2,
+          maxLength: 500,
+          placeholder: dialog.stage === 'interview' ? '填写简短面评' : '填写简历驳回原因',
+          showQsTop100: dialog.stage === 'interview' && dialog.decision === 'pass',
+          confirmLabel: dialog.stage === 'resume' && dialog.decision === 'pass' ? '进入待面试' : '提交结果',
         } : null}
         onClose={() => setDialog(null)}
         onSubmit={submitReview}
@@ -1722,6 +1796,19 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
   const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId]);
   const mentor = data?.mentor || {};
   const resumeUrl = parseUrlList(mentor.resumeUrls || mentor.mentor_resume_url)[0] || '';
+  const reviewStatus = String(mentor.mentor_review_status || '');
+  const resumeResult = reviewStatus === 'pending'
+    ? '待审核'
+    : reviewStatus === 'rejected'
+      ? '已驳回'
+      : '已通过';
+  const interviewResult = reviewStatus === 'interview_pending'
+    ? '待面试'
+    : reviewStatus === 'approved'
+      ? '已通过'
+      : reviewStatus === 'interview_rejected'
+        ? '未通过'
+        : '-';
   const openResume = async () => {
     if (!resumeUrl) return;
     const token = getToken();
@@ -1739,7 +1826,6 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
         <DetailGrid
           items={[
             ['状态', <Badge value={getMentorStatusValue(mentor)} />],
-            ['审核状态', <Badge value={mentor.mentor_review_status} />],
             ['姓名', mentor.display_name],
             ['学校', mentor.school],
             ['学历', mentor.degree],
@@ -1747,7 +1833,12 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
             ['评分', mentor.rating],
             ['QS100', mentor.mentor_qs_top100 ? '是' : '否'],
             ['简历', resumeUrl ? <button className="link-button" onClick={openResume}>打开简历</button> : '-'],
-            ['审核备注', mentor.mentor_review_note],
+            ['简历审核结果', resumeResult],
+            ['简历处理时间', formatDate(mentor.mentor_reviewed_at)],
+            ['简历驳回原因', mentor.mentor_review_note],
+            ['面试结论', interviewResult],
+            ['面试处理时间', formatDate(mentor.mentor_interviewed_at)],
+            ['面评', mentor.mentor_interview_note],
           ]}
         />
         <div className="drawer-actions">
@@ -1773,9 +1864,12 @@ function OrdersPage() {
   const [status, setStatus] = useState('');
   const [provider, setProvider] = useState('');
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [confirmingOrderId, setConfirmingOrderId] = useState(null);
+  const [actionError, setActionError] = useState('');
   const { loading, error, data } = useAsync(
     () => api('/api/admin/orders', { params: { q, status, provider, limit: 50 } }),
-    [q, status, provider]
+    [q, status, provider, refreshNonce]
   );
 
   const orders = useMemo(() => {
@@ -1804,8 +1898,23 @@ function OrdersPage() {
     setSort({ field, direction });
   };
 
+  const confirmAlipayPayment = async (order) => {
+    if (!order?.id || confirmingOrderId) return;
+    setConfirmingOrderId(order.id);
+    setActionError('');
+    try {
+      await api(`/api/admin/orders/${order.id}/confirm-payment`, { method: 'POST' });
+      setRefreshNonce((value) => value + 1);
+    } catch (requestError) {
+      setActionError(requestError?.message || '确认收款失败，请稍后重试');
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
   const statusOptions = [
     { value: '', label: '全部' },
+    { value: 'pending_receipt', label: '待收款' },
     { value: 'pending', label: '待支付' },
     { value: 'paid', label: '已支付' },
     { value: 'refund_processing', label: '退款处理中' },
@@ -1851,6 +1960,7 @@ function OrdersPage() {
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索邮箱、订单号、StudentID" />
       </Toolbar>
+      {actionError ? <div className="page-action-error" role="alert">{actionError}</div> : null}
       <State loading={loading} error={error}>
         <DataTable
           columns={orderColumns}
@@ -1859,7 +1969,11 @@ function OrdersPage() {
             order.student_public_id || '-',
             order.email || '-',
             <ProviderBadge value={order.provider} />,
-            <OrderStatusBadge order={order} />,
+            <OrderStatusBadge
+              order={order}
+              confirming={confirmingOrderId === order.id}
+              onConfirm={confirmAlipayPayment}
+            />,
             order.topup_hours,
             formatHourValue(order.remaining_hours),
             formatIntegerAmount(order.amount_cny),
@@ -2268,10 +2382,12 @@ function ClassroomsPage() {
 function ClassroomDrawer({ courseId, onClose }) {
   const { loading, error, data } = useAsync(() => api(`/api/admin/classrooms/${courseId}`), [courseId]);
   const replayState = useAsync(() => api(`/api/admin/classrooms/${courseId}/replay-files`), [courseId]);
+  const chatState = useAsync(() => api(`/api/admin/classrooms/${courseId}/chat`), [courseId]);
   const classroom = data?.classroom || {};
   const lesson = classroom.latestLessonHours || {};
   const recordings = classroom.recordings || [];
   const replayFiles = replayState.data?.files || [];
+  const chatMessages = chatState.data?.messages || [];
   return (
     <aside className="drawer wide-drawer">
       <button className="drawer-close" onClick={onClose}>×</button>
@@ -2353,6 +2469,31 @@ function ClassroomDrawer({ courseId, onClose }) {
             ]}
           />
         ) : <div className="state">未评价</div>}
+        <h3>聊天与对话记录{chatState.loading ? '' : `（${chatMessages.length}）`}</h3>
+        <State loading={chatState.loading} error={chatState.error}>
+          <div className="classroom-chat-history">
+            {chatMessages.length ? chatMessages.map((message) => (
+              <article className="classroom-chat-history-item" key={message.id}>
+                <div className="classroom-chat-history-meta">
+                  <div>
+                    <strong>{message.senderLabel}</strong>
+                    <span>{message.senderRole === 'student' ? '学生' : (message.senderRole === 'mentor' ? '导师' : '课堂成员')}</span>
+                  </div>
+                  <time dateTime={message.createdAt}>{formatDate(message.createdAt)}</time>
+                </div>
+                {message.messageType === 'file' ? (
+                  <div className="classroom-chat-history-file">
+                    <strong>{message.file?.fileName || '文件'}</strong>
+                    <span>
+                      {formatFileSize(message.file?.sizeBytes)}
+                      {message.file?.cleanupStatus === 'deleted' ? ' · 文件已清理，仅保留记录' : ''}
+                    </span>
+                  </div>
+                ) : <p>{message.textContent}</p>}
+              </article>
+            )) : <div className="empty">暂无聊天与对话记录</div>}
+          </div>
+        </State>
       </State>
     </aside>
   );
