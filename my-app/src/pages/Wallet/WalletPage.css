@@ -581,15 +581,22 @@
 }
 
 .wallet-paypal-primary {
+  box-sizing: border-box;
+  height: 52px;
+  min-height: 52px;
+  margin-top: 0;
   background: #0070ba;
   font-weight: 600;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .wallet-local-payment-primary {
-  padding-top: 8px;
-  padding-bottom: 8px;
+  box-sizing: border-box;
+  height: 52px;
+  min-height: 52px;
+  padding-top: 0;
+  padding-bottom: 0;
   font-weight: 600;
 }
 
@@ -609,30 +616,18 @@
 }
 
 .wallet-local-payment-primary-logo {
-  height: 32px;
-  min-width: 104px;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1px 8px;
-  border-radius: 5px;
-  background: #fff;
-}
-
-.wallet-local-payment-primary-logo img {
   display: block;
-  width: 96px;
-  height: 30px;
+  width: 120px;
+  height: 40px;
+  flex: 0 0 auto;
   object-fit: contain;
+  filter: brightness(0) invert(1);
 }
 
-.wallet-local-payment-primary--wechat .wallet-local-payment-primary-logo {
-  min-width: 116px;
-}
-
-.wallet-local-payment-primary--wechat .wallet-local-payment-primary-logo img {
-  width: 108px;
+.wallet-local-payment-primary-logo--wechat {
+  width: 112px;
+  height: 42px;
+  transform: translateY(2px);
 }
 
 .wallet-paypal-primary:hover:not(:disabled) {
@@ -643,17 +638,31 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.wallet-paypal-primary-mark {
-  display: none;
-  transform: scale(0.85);
-  transform-origin: center;
+.wallet-paypal-primary-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
 }
 
-paypal-mark.wallet-paypal-primary-mark:defined {
-  display: inline-block;
+.wallet-paypal-primary-icon {
+  display: block;
+  width: 25px;
+  height: 25px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.wallet-paypal-primary-wordmark {
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }
 
 .wallet-notice {
@@ -1053,14 +1062,6 @@ paypal-mark.wallet-paypal-primary-mark:defined {
 
   .wallet-paypal {
     margin-top: 16px;
-  }
-
-  .wallet-paypal-primary {
-    min-height: 52px;
-  }
-
-  .wallet-local-payment-primary {
-    min-height: 52px;
   }
 
   .wallet-empty,

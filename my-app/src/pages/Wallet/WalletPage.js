@@ -740,7 +740,14 @@ function WalletPage() {
                         disabled={!canUsePayPalButton}
                       >
                         <span className="wallet-paypal-primary-content">
-                          <paypal-mark className="wallet-paypal-primary-mark" aria-hidden="true"></paypal-mark>
+                          <span className="wallet-paypal-primary-brand" aria-hidden="true">
+                            <img
+                              className="wallet-paypal-primary-icon"
+                              src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+                              alt=""
+                            />
+                            <span className="wallet-paypal-primary-wordmark">PayPal</span>
+                          </span>
                           <span>{t('wallet.topUpNow', '立即充值')}</span>
                         </span>
                       </button>
@@ -769,12 +776,12 @@ function WalletPage() {
                       disabled={!canSubmitTopUp}
                     >
                       <span className="wallet-local-payment-primary-content">
-                        <span className="wallet-local-payment-primary-logo" aria-hidden="true">
-                          <img
-                            src={selectedTopUpMethod === 'alipay' ? alipayLogo : wechatPayLogo}
-                            alt=""
-                          />
-                        </span>
+                        <img
+                          className={`wallet-local-payment-primary-logo wallet-local-payment-primary-logo--${selectedTopUpMethod}`}
+                          src={selectedTopUpMethod === 'alipay' ? alipayLogo : wechatPayLogo}
+                          alt=""
+                          aria-hidden="true"
+                        />
                         <span>{t('wallet.topUpNow', '立即充值')}</span>
                       </span>
                     </button>
