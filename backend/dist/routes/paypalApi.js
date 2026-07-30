@@ -4,6 +4,7 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const paypal_1 = require("../services/paypal");
+const fx_1 = require("../services/fx");
 const router = (0, express_1.Router)();
 const cachedBrowserSafeTokens = new Map();
 function normalizeClientTokenDomain(raw) {
@@ -176,25 +177,14 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
         const token = await (0, paypal_1.getServerAccessToken)(runtime);
         let latestQuote;
         let pricingRefreshed = false;
-        try {
-            latestQuote = await (0, paypal_1.quoteCnyToUsd)(runtime, token.accessToken, pricing.amountCny, quoteId);
-        }
-        catch (err) {
-            const paypal = err?.paypal;
-            const fxIssue = mapFxIssue(getPayPalIssueCodes(paypal?.data));
-            if (fxIssue) {
-                return res.status(409).json({
-                    code: fxIssue.code,
-                    error: fxIssue.message,
-                });
-            }
-            throw err;
-        }
-        if ((0, paypal_1.isFxQuoteExpired)(latestQuote.expiresAt)) {
+        // Legacy PayPal FX quote (kept in services/paypal.ts for a future rollback):
+        // latestQuote = await quoteCnyToUsdWithPayPal(runtime, token.accessToken, pricing.amountCny, quoteId);
+        latestQuote = await (0, fx_1.quoteCnyToUsd)(pricing.amountCny);
+        if ((0, fx_1.isFxQuoteExpired)(latestQuote.expiresAt)) {
             return res.status(409).json({
                 code: 'FX_QUOTE_EXPIRED',
                 error: 'FX quote expired. Please refresh the quote.',
-                pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+                pricing: (0, fx_1.toPublicFxQuote)(latestQuote),
             });
         }
         // If quoted USD differs from client snapshot, continue with latest quote and notify client to refresh display.
@@ -206,9 +196,10 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
             purchase_units: [
                 {
                     amount: { currency_code: 'USD', value: latestQuote.usdAmount },
-                    payment_instruction: {
-                        payee_receivable_fx_rate_id: latestQuote.quoteId,
-                    },
+                    // Legacy PayPal FX lock, intentionally disabled while Frankfurter supplies pricing:
+                    // payment_instruction: {
+                    //   payee_receivable_fx_rate_id: latestQuote.quoteId,
+                    // },
                     custom_id: `u${req.user.id}`,
                     description: `Mentory top-up ${hours} hours`,
                 },
@@ -228,7 +219,7 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
                 return res.status(409).json({
                     code: fxIssue.code,
                     error: fxIssue.message,
-                    pricing: (0, paypal_1.toPublicFxQuote)(latestQuote),
+                    pricing: (0, fx_1.toPublicFxQuote)(latestQuote),
                     paypal: { status, data },
                 });
             }
@@ -268,7 +259,7 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
                     latestQuote.quoteId,
                     Number.parseFloat(latestQuote.rate),
                     new Date(latestQuote.expiresAt),
-                    JSON.stringify({ ...(data || {}), pricing: (0, paypal_1.toPublicFxQuote)(latestQuote) }),
+                    JSON.stringify({ ...(data || {}), pricing: (0, fx_1.toPublicFxQuote)(latestQuote) }),
                 ]);
             }
         }
@@ -276,7 +267,7 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
             console.error('PayPal create order DB write error:', err);
             // Do not block checkout: capture flow will re-check and persist.
         }
-        const responsePayload = { ...(data || {}), pricing: (0, paypal_1.toPublicFxQuote)(latestQuote) };
+        const responsePayload = { ...(data || {}), pricing: (0, fx_1.toPublicFxQuote)(latestQuote) };
         if (pricingRefreshed) {
             responsePayload.code = 'FX_QUOTE_REFRESHED';
             responsePayload.message = 'FX quote refreshed; order created with latest pricing.';

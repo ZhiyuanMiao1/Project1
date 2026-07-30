@@ -14,7 +14,7 @@ export type CachedToken = {
   expiresAtMs: number;
 };
 
-export type FxQuote = {
+export type PayPalFxQuote = {
   quoteId: string;
   rate: string;
   expiresAt: string;
@@ -146,7 +146,7 @@ export const computeTopUpPrice = (hours: number) => {
   return { unitPriceCny, amountCny };
 };
 
-const parseFxQuotePayload = (data: any): FxQuote | null => {
+const parseFxQuotePayload = (data: any): PayPalFxQuote | null => {
   const list =
     (Array.isArray(data?.exchange_rate_quotes) && data.exchange_rate_quotes) ||
     (Array.isArray(data?.quote_items) && data.quote_items) ||
@@ -183,12 +183,18 @@ const parseFxQuotePayload = (data: any): FxQuote | null => {
   };
 };
 
-export async function quoteCnyToUsd(
+/**
+ * Legacy PayPal FX implementation.
+ *
+ * The active checkout flow now uses Frankfurter in services/fx.ts. This is
+ * intentionally retained so the PayPal FX integration can be restored later.
+ */
+export async function quoteCnyToUsdWithPayPal(
   runtime: PayPalRuntimeConfig,
   accessToken: string,
   amountCny: number,
   fxId?: string
-): Promise<FxQuote> {
+): Promise<PayPalFxQuote> {
   const quoteItem: Record<string, any> = {
     base_currency: 'CNY',
     quote_currency: 'USD',
@@ -226,14 +232,14 @@ export async function quoteCnyToUsd(
   return quote;
 }
 
-export const toPublicFxQuote = (quote: FxQuote) => ({
+export const toPublicPayPalFxQuote = (quote: PayPalFxQuote) => ({
   quote_id: quote.quoteId,
   rate: quote.rate,
   expires_at: quote.expiresAt,
   usd_amount: quote.usdAmount,
 });
 
-export const isFxQuoteExpired = (expiresAt: string, nowMs = Date.now()): boolean => {
+export const isPayPalFxQuoteExpired = (expiresAt: string, nowMs = Date.now()): boolean => {
   const expiresAtMs = Date.parse(expiresAt);
   if (!Number.isFinite(expiresAtMs)) return true;
   return expiresAtMs <= nowMs;

@@ -9,6 +9,7 @@
     "db:migrate:v2": "npm run build && node dist/scripts/migrate-v2.js",
     "db:migrate:refunds": "npm run build && node dist/scripts/migrate-refunds.js",
     "test:refunds": "node -r ts-node/register src/services/refundPricing.test.ts",
+    "test:fx": "node -r ts-node/register src/services/fx.test.ts",
     "test:embeddings": "node -r ts-node/register src/services/embeddingConfig.test.ts",
     "db:migrate:vector": "npm run build && node dist/scripts/migrate-vector-index.js",
     "db:migrate:embedding-model": "npm run build && node dist/scripts/migrate-embedding-model.js",

@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isFxQuoteExpired = exports.toPublicFxQuote = exports.computeTopUpPrice = exports.parseUsdAmount = exports.parseTopUpHours = void 0;
+exports.isPayPalFxQuoteExpired = exports.toPublicPayPalFxQuote = exports.computeTopUpPrice = exports.parseUsdAmount = exports.parseTopUpHours = void 0;
 exports.getPayPalRuntimeConfig = getPayPalRuntimeConfig;
 exports.requirePayPalRuntime = requirePayPalRuntime;
 exports.getBasicAuthHeader = getBasicAuthHeader;
 exports.fetchJson = fetchJson;
 exports.requestOAuthAccessToken = requestOAuthAccessToken;
 exports.getServerAccessToken = getServerAccessToken;
-exports.quoteCnyToUsd = quoteCnyToUsd;
+exports.quoteCnyToUsdWithPayPal = quoteCnyToUsdWithPayPal;
 const serverTokenCache = new Map();
 const parsePayPalEnv = () => {
     const env = String(process.env.PAYPAL_ENV || 'sandbox').trim().toLowerCase();
@@ -148,7 +148,13 @@ const parseFxQuotePayload = (data) => {
         raw: first,
     };
 };
-async function quoteCnyToUsd(runtime, accessToken, amountCny, fxId) {
+/**
+ * Legacy PayPal FX implementation.
+ *
+ * The active checkout flow now uses Frankfurter in services/fx.ts. This is
+ * intentionally retained so the PayPal FX integration can be restored later.
+ */
+async function quoteCnyToUsdWithPayPal(runtime, accessToken, amountCny, fxId) {
     const quoteItem = {
         base_currency: 'CNY',
         quote_currency: 'USD',
@@ -181,17 +187,17 @@ async function quoteCnyToUsd(runtime, accessToken, amountCny, fxId) {
     }
     return quote;
 }
-const toPublicFxQuote = (quote) => ({
+const toPublicPayPalFxQuote = (quote) => ({
     quote_id: quote.quoteId,
     rate: quote.rate,
     expires_at: quote.expiresAt,
     usd_amount: quote.usdAmount,
 });
-exports.toPublicFxQuote = toPublicFxQuote;
-const isFxQuoteExpired = (expiresAt, nowMs = Date.now()) => {
+exports.toPublicPayPalFxQuote = toPublicPayPalFxQuote;
+const isPayPalFxQuoteExpired = (expiresAt, nowMs = Date.now()) => {
     const expiresAtMs = Date.parse(expiresAt);
     if (!Number.isFinite(expiresAtMs))
         return true;
     return expiresAtMs <= nowMs;
 };
-exports.isFxQuoteExpired = isFxQuoteExpired;
+exports.isPayPalFxQuoteExpired = isPayPalFxQuoteExpired;

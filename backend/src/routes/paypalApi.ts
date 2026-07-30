@@ -6,14 +6,12 @@ import {
   computeTopUpPrice,
   fetchJson,
   getServerAccessToken,
-  isFxQuoteExpired,
   parseTopUpHours,
   parseUsdAmount,
-  quoteCnyToUsd,
   requestOAuthAccessToken,
   requirePayPalRuntime,
-  toPublicFxQuote,
 } from '../services/paypal';
+import { isFxQuoteExpired, quoteCnyToUsd, toPublicFxQuote } from '../services/fx';
 
 const router = Router();
 
@@ -217,19 +215,9 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
 
     let latestQuote;
     let pricingRefreshed = false;
-    try {
-      latestQuote = await quoteCnyToUsd(runtime, token.accessToken, pricing.amountCny, quoteId);
-    } catch (err) {
-      const paypal = (err as any)?.paypal;
-      const fxIssue = mapFxIssue(getPayPalIssueCodes(paypal?.data));
-      if (fxIssue) {
-        return res.status(409).json({
-          code: fxIssue.code,
-          error: fxIssue.message,
-        });
-      }
-      throw err;
-    }
+    // Legacy PayPal FX quote (kept in services/paypal.ts for a future rollback):
+    // latestQuote = await quoteCnyToUsdWithPayPal(runtime, token.accessToken, pricing.amountCny, quoteId);
+    latestQuote = await quoteCnyToUsd(pricing.amountCny);
 
     if (isFxQuoteExpired(latestQuote.expiresAt)) {
       return res.status(409).json({
@@ -249,9 +237,10 @@ router.post('/checkout/orders/create', requireAuth, async (req: Request, res: Re
       purchase_units: [
         {
           amount: { currency_code: 'USD', value: latestQuote.usdAmount },
-          payment_instruction: {
-            payee_receivable_fx_rate_id: latestQuote.quoteId,
-          },
+          // Legacy PayPal FX lock, intentionally disabled while Frankfurter supplies pricing:
+          // payment_instruction: {
+          //   payee_receivable_fx_rate_id: latestQuote.quoteId,
+          // },
           custom_id: `u${req.user.id}`,
           description: `Mentory top-up ${hours} hours`,
         },
