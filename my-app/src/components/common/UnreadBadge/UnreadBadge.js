@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useI18n } from '../../../i18n/language';
 import './UnreadBadge.css';
 
 const formatCount = (count) => {
@@ -7,7 +8,8 @@ const formatCount = (count) => {
   return String(Math.floor(count));
 };
 
-function UnreadBadge({ count = 0, className = '', variant = 'default', ariaLabel = '未读消息' }) {
+function UnreadBadge({ count = 0, className = '', variant = 'default', ariaLabel }) {
+  const { t } = useI18n();
   const safeCount = Number.isFinite(Number(count)) ? Math.max(0, Math.floor(Number(count))) : 0;
   const prevCountRef = useRef(safeCount);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -40,9 +42,16 @@ function UnreadBadge({ count = 0, className = '', variant = 'default', ariaLabel
   ]
     .filter(Boolean)
     .join(' ');
+  const resolvedAriaLabel = ariaLabel || t('common.unreadMessages', '未读消息');
 
   return (
-    <span className={classes} aria-label={`${ariaLabel} ${safeCount} 条`}>
+    <span
+      className={classes}
+      aria-label={t('common.badgeCount', `${resolvedAriaLabel} ${safeCount} 条`, {
+        label: resolvedAriaLabel,
+        count: safeCount,
+      })}
+    >
       {formatCount(safeCount)}
     </span>
   );

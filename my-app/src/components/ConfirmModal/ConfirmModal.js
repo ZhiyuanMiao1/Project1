@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef } from 'react';
 import Button from '../common/Button/Button';
 import LoadingText from '../common/LoadingText/LoadingText';
+import { useI18n } from '../../i18n/language';
 import './ConfirmModal.css';
 
 const ACTIVE_TEXT_RE = /(?:中|ing)(?:\s*(?:[.．。]{2,}|…+))$/iu;
@@ -13,15 +14,19 @@ const renderActionText = (value) => (
 
 function ConfirmModal({
   open,
-  title = '确认操作',
+  title,
   description,
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useI18n();
   const titleId = useId();
   const confirmButtonRef = useRef(null);
+  const resolvedTitle = title || t('common.confirmAction', '确认操作');
+  const resolvedConfirmText = confirmText || t('common.confirm', '确认');
+  const resolvedCancelText = cancelText || t('common.cancel', '取消');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -55,7 +60,7 @@ function ConfirmModal({
     >
       <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="confirm-modal-header">
-          <h3 id={titleId} className="confirm-modal-title">{title}</h3>
+          <h3 id={titleId} className="confirm-modal-title">{resolvedTitle}</h3>
         </div>
 
         {description ? (
@@ -66,14 +71,14 @@ function ConfirmModal({
 
         <div className="confirm-modal-actions">
           <Button className="confirm-modal-btn confirm-modal-btn--cancel" onClick={() => onCancel?.()}>
-            {cancelText}
+            {resolvedCancelText}
           </Button>
           <Button
             className="confirm-modal-btn confirm-modal-btn--confirm"
             ref={confirmButtonRef}
             onClick={() => onConfirm?.()}
           >
-            {renderActionText(confirmText)}
+            {renderActionText(resolvedConfirmText)}
           </Button>
         </div>
       </div>

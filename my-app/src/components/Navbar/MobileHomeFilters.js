@@ -1,10 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { FiX } from 'react-icons/fi';
+import { useI18n } from '../../i18n/language';
 import './MobileHomeFilters.css';
 
-export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChevron = true, hideLabelWhenSelected = false }) {
+export function MobileHomeFilters({ filters, ariaLabel, showChevron = true, hideLabelWhenSelected = false }) {
+  const { t } = useI18n();
+  const resolvedAriaLabel = ariaLabel || t('nav.homeFilters', '主页筛选');
   return (
-    <div className="mobile-home-filters" aria-label={ariaLabel}>
+    <div className="mobile-home-filters" aria-label={resolvedAriaLabel}>
       <div className="mobile-home-filters__scroller">
         {filters.map((filter) => {
           const hasValue = Boolean(String(filter.value || '').trim());
@@ -28,7 +32,7 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChe
                   type="button"
                   className="mobile-filter-chip__clear"
                   onClick={filter.onClear}
-                  aria-label={filter.clearLabel || `清除${filter.label}`}
+                  aria-label={filter.clearLabel || t('common.clearFilter', `清除${filter.label}`, { label: filter.label })}
                 >
                   <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                     <path d="M4 4l8 8M12 4l-8 8" />
@@ -43,7 +47,8 @@ export function MobileHomeFilters({ filters, ariaLabel = '主页筛选', showChe
   );
 }
 
-export function MobileSearchSheet({ open, title, value, placeholder, onChange, onClose, onSubmit, searchLabel = '搜索' }) {
+export function MobileSearchSheet({ open, title, value, placeholder, onChange, onClose, onSubmit, searchLabel }) {
+  const { t } = useI18n();
   const inputRef = useRef(null);
   const overlayRef = useRef(null);
 
@@ -104,7 +109,9 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
         <div className="mobile-sheet__handle" aria-hidden="true" />
         <div className="mobile-sheet__header">
           <h2>{title}</h2>
-          <button type="button" onClick={onClose} aria-label="关闭">×</button>
+          <button type="button" onClick={onClose} aria-label={t('common.close', '关闭')}>
+            <FiX aria-hidden="true" />
+          </button>
         </div>
         <form
           className="mobile-search-sheet__form"
@@ -119,7 +126,7 @@ export function MobileSearchSheet({ open, title, value, placeholder, onChange, o
             placeholder={placeholder}
             onChange={(event) => onChange(event.target.value)}
           />
-          <button type="submit">{searchLabel}</button>
+          <button type="submit">{searchLabel || t('common.search', '搜索')}</button>
         </form>
       </section>
     </div>

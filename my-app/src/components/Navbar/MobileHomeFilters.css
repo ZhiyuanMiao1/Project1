@@ -377,12 +377,31 @@
 
   .mobile-sheet__header h2 { margin: 0; font-size: 18px; }
   .mobile-sheet__header button {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border: 0;
-    border-radius: 50%;
-    background: #f3f4f6;
-    font-size: 24px;
+    border-radius: 12px;
+    background: #fff;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .mobile-sheet__header button:hover {
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  .mobile-sheet__header button:focus-visible {
+    outline: 2px solid #0f172a;
+    outline-offset: 2px;
+  }
+
+  .mobile-sheet__header button svg {
+    width: 18px;
+    height: 18px;
   }
 
   .mobile-search-sheet__form { display: flex; gap: 10px; padding: 8px 0 4px; }

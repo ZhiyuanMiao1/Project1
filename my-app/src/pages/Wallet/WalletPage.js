@@ -660,6 +660,7 @@ function WalletPage() {
                       className={`wallet-method-card wallet-method-card--${method.id} ${selectedTopUpMethod === method.id ? 'is-selected' : ''}`}
                       onClick={() => setSelectedTopUpMethod(method.id)}
                       aria-pressed={selectedTopUpMethod === method.id}
+                      aria-label={method.title}
                     >
                       <span className={`wallet-method-icon wallet-method-icon--${method.id}`} aria-hidden="true">
                         {method.id === 'paypal' && (

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useI18n } from '../../../i18n/language';
 
 const ITEM_HEIGHT = 44;
 const VISIBLE_ITEMS = 5;
@@ -121,11 +122,14 @@ function WheelPickerSheet({
   onCancel,
   onConfirm,
   confirmDisabled = false,
-  cancelLabel = '取消',
-  confirmLabel = '完成',
+  cancelLabel,
+  confirmLabel,
 }) {
+  const { t } = useI18n();
   const dialogRef = useRef(null);
   const cancelRef = useRef(null);
+  const resolvedCancelLabel = cancelLabel || t('common.cancel', '取消');
+  const resolvedConfirmLabel = confirmLabel || t('common.done', '完成');
 
   useEffect(() => {
     if (!open) return undefined;
@@ -185,7 +189,7 @@ function WheelPickerSheet({
       >
         <div className="wheel-sheet__handle" aria-hidden />
         <div className="wheel-sheet__header">
-          <button ref={cancelRef} type="button" className="wheel-sheet__action" onClick={onCancel}>{cancelLabel}</button>
+          <button ref={cancelRef} type="button" className="wheel-sheet__action" onClick={onCancel}>{resolvedCancelLabel}</button>
           <h2>{title}</h2>
           <button
             type="button"
@@ -193,7 +197,7 @@ function WheelPickerSheet({
             onClick={onConfirm}
             disabled={confirmDisabled}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
         <div
