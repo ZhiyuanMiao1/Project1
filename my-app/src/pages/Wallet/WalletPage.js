@@ -770,61 +770,63 @@ function WalletPage() {
                     </div>
                   </div>
 
-                  {selectedTopUpMethod === 'paypal' ? (
-                    <div className="wallet-paypal" aria-label="PayPal">
+                  <div className="wallet-payment-action">
+                    {selectedTopUpMethod === 'paypal' ? (
+                      <div className="wallet-paypal" aria-label="PayPal">
+                        <button
+                          type="button"
+                          className="wallet-primary wallet-paypal-primary"
+                          onClick={handlePayPalTopUp}
+                          disabled={!canUsePayPalButton}
+                        >
+                          <span className="wallet-paypal-primary-content">
+                            <span className="wallet-paypal-primary-brand" aria-hidden="true">
+                              <img
+                                className="wallet-paypal-primary-icon"
+                                src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
+                                alt=""
+                              />
+                              <span className="wallet-paypal-primary-wordmark">PayPal</span>
+                            </span>
+                            <span>{t('wallet.topUpNow', '立即充值')}</span>
+                          </span>
+                        </button>
+                        {!isPayPalInitializing && payPalInitError && (
+                          <div className="wallet-empty">
+                            <div>{payPalInitError}</div>
+                            {isLocalhost && openWith127Url && (
+                              <div style={{ marginTop: 8 }}>
+                                <a href={openWith127Url}>{t('wallet.open127', '用 127.0.0.1 打开')}</a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {!isPayPalInitializing && !payPalInitError && !isPayPalEligible && (
+                          <div className="wallet-empty">{t('wallet.paypalUnavailable', 'PayPal 当前不可用')}</div>
+                        )}
+                        {!isPayPalInitializing && !payPalInitError && isPayPalEligible && fxError && !fxQuote && (
+                          <div className="wallet-empty">{fxError}</div>
+                        )}
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        className="wallet-primary wallet-paypal-primary"
-                        onClick={handlePayPalTopUp}
-                        disabled={!canUsePayPalButton}
+                        className={`wallet-primary wallet-local-payment-primary wallet-local-payment-primary--${selectedTopUpMethod}`}
+                        onClick={handleTopUp}
+                        disabled={!canSubmitTopUp}
                       >
-                        <span className="wallet-paypal-primary-content">
-                          <span className="wallet-paypal-primary-brand" aria-hidden="true">
-                            <img
-                              className="wallet-paypal-primary-icon"
-                              src="https://www.paypalobjects.com/webstatic/icon/pp258.png"
-                              alt=""
-                            />
-                            <span className="wallet-paypal-primary-wordmark">PayPal</span>
-                          </span>
+                        <span className="wallet-local-payment-primary-content">
+                          <img
+                            className={`wallet-local-payment-primary-logo wallet-local-payment-primary-logo--${selectedTopUpMethod}`}
+                            src={selectedTopUpMethod === 'alipay' ? alipayLogo : wechatPayLogo}
+                            alt=""
+                            aria-hidden="true"
+                          />
                           <span>{t('wallet.topUpNow', '立即充值')}</span>
                         </span>
                       </button>
-                      {!isPayPalInitializing && payPalInitError && (
-                        <div className="wallet-empty">
-                          <div>{payPalInitError}</div>
-                          {isLocalhost && openWith127Url && (
-                            <div style={{ marginTop: 8 }}>
-                              <a href={openWith127Url}>{t('wallet.open127', '用 127.0.0.1 打开')}</a>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {!isPayPalInitializing && !payPalInitError && !isPayPalEligible && (
-                        <div className="wallet-empty">{t('wallet.paypalUnavailable', 'PayPal 当前不可用')}</div>
-                      )}
-                      {!isPayPalInitializing && !payPalInitError && isPayPalEligible && fxError && !fxQuote && (
-                        <div className="wallet-empty">{fxError}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className={`wallet-primary wallet-local-payment-primary wallet-local-payment-primary--${selectedTopUpMethod}`}
-                      onClick={handleTopUp}
-                      disabled={!canSubmitTopUp}
-                    >
-                      <span className="wallet-local-payment-primary-content">
-                        <img
-                          className={`wallet-local-payment-primary-logo wallet-local-payment-primary-logo--${selectedTopUpMethod}`}
-                          src={selectedTopUpMethod === 'alipay' ? alipayLogo : wechatPayLogo}
-                          alt=""
-                          aria-hidden="true"
-                        />
-                        <span>{t('wallet.topUpNow', '立即充值')}</span>
-                      </span>
-                    </button>
-                  )}
+                    )}
+                  </div>
 
                   {topUpNotice && (
                     <div className={`wallet-notice${isPayPalPlainNotice ? ' is-plain' : ''}`}>

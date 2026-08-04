@@ -957,7 +957,7 @@
 
   .wallet-method-icon--paypal {
     width: 26px;
-    height: 36px;
+    height: 42px;
   }
 
   .wallet-method-paypal-icon {
@@ -967,6 +967,11 @@
 
   .wallet-method-title--paypal {
     font-size: 15px;
+  }
+
+  .wallet-method-card--paypal .wallet-method-body {
+    height: 42px;
+    justify-content: center;
   }
 
   .wallet-method-icon--alipay,
@@ -1057,11 +1062,6 @@
 
   .wallet-primary {
     min-height: 52px;
-    margin-top: 16px;
-  }
-
-  .wallet-paypal {
-    margin-top: 16px;
   }
 
   .wallet-empty,
@@ -1099,8 +1099,21 @@
     min-height: 60px;
   }
 
+  .wallet-method-card--paypal {
+    gap: 2px;
+  }
+
   .wallet-method-icon--paypal {
-    display: none;
+    width: 22px;
+  }
+
+  .wallet-method-paypal-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .wallet-method-title--paypal {
+    font-size: 14px;
   }
 
   .wallet-method-alipay-icon,
@@ -1111,6 +1124,29 @@
 }
 
 @media (max-width: 899px) {
+  .wallet-payment-action {
+    width: 100%;
+    min-width: 0;
+    margin-top: 16px;
+  }
+
+  .wallet-payment-action .wallet-primary,
+  .wallet-payment-action .wallet-paypal {
+    margin-top: 0;
+  }
+
+  .wallet-paypal-primary-content,
+  .wallet-local-payment-primary-content {
+    min-height: 32px;
+    line-height: 1;
+  }
+
+  .wallet-local-payment-primary-logo,
+  .wallet-local-payment-primary-logo--wechat {
+    height: 32px;
+    transform: none;
+  }
+
   .wallet-empty {
     box-sizing: border-box;
     width: 100%;

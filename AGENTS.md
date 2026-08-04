@@ -39,6 +39,14 @@ from `admin-app`.
 
 - The admin console uses a compact left sidebar in `admin-app/src/styles.css`.
 
+## Bilingual UI and Public Content
+
+- Mentory supports switching the interface language in Settings. Whenever a user-facing web feature, page, workflow, or public-facing/marketing page is added or updated in Chinese, implement the corresponding English version in the same change; do not ship Chinese-only copy with English deferred to later.
+- Integrate both languages with the project's existing language setting and localization mechanism. Do not create a separate language switch or hard-code bilingual text into the same interface unless the design explicitly requires both languages to appear together.
+- Keep feature behavior, information hierarchy, calls to action, validation messages, empty/error/loading states, accessibility labels, metadata, and other visible content functionally equivalent in Chinese and English. Translate for natural meaning and product context rather than word-for-word output.
+- Include newly introduced backend-provided display copy, configuration-driven content, and public SEO/share content when they are part of the experience. Keep internal logs, developer comments, identifiers, and admin-only technical data unchanged unless localization is explicitly required.
+- Treat Chinese and English as part of the same definition of done: verify both language states and check that longer English text does not cause clipping, overflow, broken wrapping, or layout regressions at the relevant viewport sizes.
+
 ## Modal Guidelines (`my-app`)
 
 - New or updated modal close buttons must follow the established Mentory style used by `LoginPopup` and `CourseReviewModal`: use the `FiX` icon from `react-icons/fi` inside a `40px × 40px` button with `12px` border radius, no border, white background, `#0f172a` icon color, centered `inline-flex` layout, an `18px × 18px` icon, and `rgba(15, 23, 42, 0.04)` hover background.
