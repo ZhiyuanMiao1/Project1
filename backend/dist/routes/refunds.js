@@ -8,6 +8,7 @@ const paypal_1 = require("../services/paypal");
 const router = (0, express_1.Router)();
 const ACTIVE_REFUND_STATUSES = new Set(['PROCESSING', 'PENDING', 'COMPLETED']);
 const FINAL_REFUND_STATUSES = new Set(['COMPLETED', 'FAILED']);
+const REFUNDABLE_PROVIDERS = new Set(['paypal', 'alipay', 'wechat']);
 const EPSILON = 0.000001;
 const toNumber = (value, fallback = 0) => {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
@@ -26,6 +27,22 @@ const normalizeRefundStatus = (value) => {
         ? status
         : 'PROCESSING';
 };
+const normalizeProvider = (value) => String(value || '').trim().toLowerCase();
+const getOriginalPaidAmount = (order) => {
+    const currency = String(order.currency_code || '').trim().toUpperCase();
+    if (currency === 'CNY')
+        return toNumber(order.amount_cny);
+    const providerAmount = toNumber(order.amount_usd);
+    return providerAmount > 0 ? providerAmount : toNumber(order.amount_cny);
+};
+const canRefundOrder = (order) => {
+    if (!order)
+        return false;
+    const provider = normalizeProvider(order.provider);
+    if (!REFUNDABLE_PROVIDERS.has(provider))
+        return false;
+    return provider !== 'paypal' || Boolean(order.paypal_capture_id);
+};
 const aggregateActiveRefunds = (rows = []) => {
     return rows.reduce((acc, row) => {
         const status = normalizeRefundStatus(row?.status);
@@ -43,7 +60,7 @@ const calculateOrderQuote = (order, active, requestedHours) => {
         requestedHours,
         priorActiveRefundHours: active.hours,
         originalAmountCny: toNumber(order.amount_cny),
-        originalAmount: toNumber(order.amount_usd),
+        originalAmount: getOriginalPaidAmount(order),
         priorActiveRefundCny: active.cny,
         priorActiveRefundOriginal: active.original,
         standardUnitPriceCny: toNumber(order.standard_unit_price_cny, 600),
@@ -281,6 +298,14 @@ async function processPayPalRefund(refundId) {
         return fetchRefundRow(refundId);
     }
 }
+async function processRefund(refundId) {
+    const refund = await fetchRefundRow(refundId);
+    if (!refund)
+        return null;
+    return normalizeProvider(refund.provider) === 'paypal'
+        ? processPayPalRefund(refundId)
+        : refund;
+}
 router.get('/eligible-orders', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ error: '未授权' });
@@ -293,9 +318,9 @@ router.get('/eligible-orders', auth_1.requireAuth, async (req, res) => {
                 bo.paypal_capture_id, bo.credited_at
          FROM billing_orders bo
          WHERE bo.user_id = ?
-           AND bo.provider = 'paypal'
+           AND LOWER(bo.provider) IN ('paypal', 'alipay', 'wechat')
            AND bo.credited_at IS NOT NULL
-           AND bo.paypal_capture_id IS NOT NULL
+           AND (LOWER(bo.provider) <> 'paypal' OR bo.paypal_capture_id IS NOT NULL)
            AND bo.remaining_hours > 0
          ORDER BY bo.credited_at DESC, bo.id DESC`, [req.user.id]),
             (0, db_1.query)(`SELECT *
@@ -327,7 +352,7 @@ router.get('/eligible-orders', auth_1.requireAuth, async (req, res) => {
                 paidAmountCny: Number(toNumber(order.amount_cny).toFixed(2)),
                 paidAmount: {
                     currency: String(order.currency_code || 'USD').toUpperCase(),
-                    value: Number(toNumber(order.amount_usd).toFixed(2)),
+                    value: Number(getOriginalPaidAmount(order).toFixed(2)),
                 },
                 maximumRefund: {
                     hours: availableHours,
@@ -365,8 +390,8 @@ router.post('/quote', auth_1.requireAuth, async (req, res) => {
     const conn = await db_1.pool.getConnection();
     try {
         const { order, active } = await loadOrderAndRefunds(conn, req.user.id, orderId, false);
-        if (!order || order.provider !== 'paypal' || !order.paypal_capture_id) {
-            return res.status(404).json({ error: '未找到可退款的 PayPal 订单' });
+        if (!canRefundOrder(order)) {
+            return res.status(404).json({ error: '未找到可退款订单' });
         }
         const availableHours = toNumber(order.remaining_hours);
         if (hours > availableHours + EPSILON) {
@@ -437,9 +462,9 @@ router.post('/', auth_1.requireAuth, async (req, res) => {
         }
         else {
             const { order, active } = await loadOrderAndRefunds(conn, req.user.id, orderId, true);
-            if (!order || order.provider !== 'paypal' || !order.paypal_capture_id) {
+            if (!canRefundOrder(order)) {
                 await conn.rollback();
-                return res.status(404).json({ error: '未找到可退款的 PayPal 订单' });
+                return res.status(404).json({ error: '未找到可退款订单' });
             }
             const availableHours = toNumber(order.remaining_hours);
             if (hours > availableHours + EPSILON) {
@@ -475,23 +500,27 @@ router.post('/', auth_1.requireAuth, async (req, res) => {
                 await conn.rollback();
                 return res.status(409).json({ error: '可退款课时已发生变化，请重新获取报价' });
             }
+            const provider = normalizeProvider(order.provider);
+            const initialStatus = provider === 'paypal' ? 'PROCESSING' : 'PENDING';
             const [insertResult] = await conn.query(`INSERT INTO billing_refunds
           (public_id, user_id, billing_order_id, provider, requested_hours,
            amount_cny, currency_code, amount_original, paypal_request_id, status)
-         VALUES (?, ?, ?, 'paypal', ?, ?, ?, ?, ?, 'PROCESSING')`, [
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
                 clientRequestId,
                 req.user.id,
                 orderId,
+                provider,
                 hours,
                 quote.refundAmountCny,
-                String(order.currency_code || 'USD').toUpperCase(),
+                String(order.currency_code || (provider === 'paypal' ? 'USD' : 'CNY')).toUpperCase(),
                 quote.refundAmountOriginal,
                 clientRequestId,
+                initialStatus,
             ]);
             refundId = Number(insertResult.insertId);
             await conn.commit();
         }
-        const processed = await processPayPalRefund(refundId);
+        const processed = await processRefund(refundId);
         if (!processed)
             return res.status(404).json({ error: '退款记录不存在' });
         const wallet = await getWalletSummary(req.user.id);
@@ -520,7 +549,7 @@ router.get('/:refundId/status', auth_1.requireAuth, async (req, res) => {
         const id = Number(rows?.[0]?.id || 0);
         if (!id)
             return res.status(404).json({ error: '退款记录不存在' });
-        const processed = await processPayPalRefund(id);
+        const processed = await processRefund(id);
         const wallet = await getWalletSummary(req.user.id);
         return res.json({ refund: processed ? toPublicRefund(processed) : null, wallet });
     }

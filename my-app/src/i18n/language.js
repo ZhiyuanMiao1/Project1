@@ -845,7 +845,7 @@ const en = {
   'wallet.refundSubmitFailed': 'Failed to submit the refund. Please try again later.',
   'wallet.refundChooseOrder': 'Choose a top-up',
   'wallet.refundOrderSummary': 'Purchased {hours} hours · Paid CNY {amount}',
-  'wallet.refundNoOrders': 'No refundable unused PayPal hours',
+  'wallet.refundNoOrders': 'No refundable unused hours',
   'wallet.refundHours': 'Refund hours',
   'wallet.refundAll': 'Refund all available',
   'wallet.refundQuarterHint': 'Refunds use 0.25-hour increments. Tier pricing is recalculated after a partial refund.',
@@ -866,7 +866,7 @@ const en = {
   'wallet.refundConfirmSubmit': 'Confirm Refund',
   'wallet.refundContinue': 'Continue',
   'wallet.refundSuccess': 'Refund Submitted',
-  'wallet.refundSuccessDescription': 'Funds will be returned through PayPal according to its processing status.',
+  'wallet.refundSuccessDescription': 'Funds will be returned according to the processing status of the original payment method.',
 
   'messages.title': 'Messages',
   'messages.loginRequired': 'Please log in to view messages',

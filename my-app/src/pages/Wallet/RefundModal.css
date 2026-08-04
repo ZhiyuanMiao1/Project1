@@ -102,7 +102,10 @@
 .wallet-refund-order {
   width: 100%;
   min-width: 0;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   padding: 13px 14px;
   border: 1px solid rgba(17, 17, 17, 0.1);
   border-radius: 14px;
@@ -117,11 +120,28 @@
   box-shadow: inset 0 0 0 0.5px #111;
 }
 
-.wallet-refund-order > span:first-child,
+.wallet-refund-order-details,
 .wallet-refund-history-item > span {
   min-width: 0;
   display: grid;
   gap: 3px;
+}
+
+.wallet-refund-provider-logo {
+  width: auto;
+  max-width: 86px;
+  height: 28px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.wallet-refund-provider-logo.is-paypal {
+  width: 28px;
+}
+
+.wallet-refund-provider-logo.is-wechat {
+  max-width: 82px;
+  height: 30px;
 }
 
 .wallet-refund-order strong,

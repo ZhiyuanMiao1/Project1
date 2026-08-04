@@ -887,7 +887,7 @@ function WalletPage() {
       <SuccessModal
         open={isRefundSuccessOpen}
         title={t('wallet.refundSuccess', '退款已提交成功')}
-        description={t('wallet.refundSuccessDescription', '款项将按 PayPal 处理进度原路退回')}
+        description={t('wallet.refundSuccessDescription', '款项将按原支付方式的处理进度退回')}
         autoCloseMs={2600}
         onClose={() => setIsRefundSuccessOpen(false)}
       />

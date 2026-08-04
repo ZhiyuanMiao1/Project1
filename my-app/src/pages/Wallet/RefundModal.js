@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { FiX } from 'react-icons/fi';
 import apiClient from '../../api/client';
+import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
+import wechatPayLogo from '../../assets/images/WechatPay.svg';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import { useI18n } from '../../i18n/language';
 import './RefundModal.css';
@@ -18,6 +20,13 @@ const createRequestId = () => {
     return window.crypto.randomUUID();
   }
   return `refund-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const providerLogo = (provider) => {
+  const normalized = String(provider || '').toLowerCase();
+  if (normalized === 'alipay') return alipayLogo;
+  if (normalized === 'wechat') return wechatPayLogo;
+  return 'https://www.paypalobjects.com/webstatic/icon/pp258.png';
 };
 
 function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
@@ -261,7 +270,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                         className={`wallet-refund-order${String(order.id) === String(selectedOrderId) ? ' is-selected' : ''}`}
                         onClick={() => setSelectedOrderId(String(order.id))}
                       >
-                        <span>
+                        <span className="wallet-refund-order-details">
                           <strong>{formatDate(order.paidAt)}</strong>
                           <small>
                             {t(
@@ -274,12 +283,18 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                             )}
                           </small>
                         </span>
+                        <img
+                          className={`wallet-refund-provider-logo is-${String(order.provider || 'paypal').toLowerCase()}`}
+                          src={providerLogo(order.provider)}
+                          alt=""
+                          aria-hidden="true"
+                        />
                       </button>
                     ))}
                   </div>
                 ) : (
                   <div className="wallet-refund-empty">
-                    {t('wallet.refundNoOrders', '暂无可退款的 PayPal 未使用课时')}
+                    {t('wallet.refundNoOrders', '暂无可退款的未使用课时')}
                   </div>
                 )}
               </section>
