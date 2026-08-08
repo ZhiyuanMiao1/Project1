@@ -13,6 +13,7 @@ import { useI18n } from '../../i18n/language';
 import alipayLogo from '../../assets/images/AlipayAndAlipayPlus.svg';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
 import AlipayTransferModal from './AlipayTransferModal';
+import WeChatTransferModal from './WeChatTransferModal';
 import RefundModal from './RefundModal';
 import './WalletPage.css';
 
@@ -42,6 +43,11 @@ function WalletPage() {
   const [alipayReportError, setAlipayReportError] = useState('');
   const [alipayClientReference, setAlipayClientReference] = useState('');
   const [isAlipayReportSuccessOpen, setIsAlipayReportSuccessOpen] = useState(false);
+  const [isWeChatTransferOpen, setIsWeChatTransferOpen] = useState(false);
+  const [isWeChatReporting, setIsWeChatReporting] = useState(false);
+  const [weChatReportError, setWeChatReportError] = useState('');
+  const [weChatClientReference, setWeChatClientReference] = useState('');
+  const [isWeChatReportSuccessOpen, setIsWeChatReportSuccessOpen] = useState(false);
   const [isRefundOpen, setIsRefundOpen] = useState(false);
   const [isRefundSuccessOpen, setIsRefundSuccessOpen] = useState(false);
   const [walletSummary, setWalletSummary] = useState(() => ({
@@ -515,7 +521,7 @@ function WalletPage() {
     () => [
       { id: 'paypal', title: 'PayPal', description: t('wallet.paypalDesc', '支持国际信用卡与余额') },
       { id: 'alipay', title: t('wallet.alipay', '支付宝'), description: t('wallet.alipayDesc', '推荐国内用户使用') },
-      { id: 'wechat', title: t('wallet.wechat', '微信'), description: t('wallet.wechatDesc', '微信支付快捷到账') },
+      { id: 'wechat', title: t('wallet.wechat', '微信'), description: t('wallet.wechatDesc', '使用Mentory官方商户码付款') },
     ],
     [t]
   );
@@ -527,6 +533,13 @@ function WalletPage() {
       setAlipayReportError('');
       setAlipayClientReference(createPaymentReference());
       setIsAlipayTransferOpen(true);
+      return;
+    }
+    if (selectedTopUpMethod === 'wechat') {
+      setTopUpNotice('');
+      setWeChatReportError('');
+      setWeChatClientReference(createPaymentReference());
+      setIsWeChatTransferOpen(true);
       return;
     }
     const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? t('wallet.selectedFallback', '所选方式');
@@ -564,6 +577,27 @@ function WalletPage() {
     }
   };
 
+  const handleWeChatPaid = async () => {
+    if (isWeChatReporting || !weChatClientReference) return;
+    setIsWeChatReporting(true);
+    setWeChatReportError('');
+    try {
+      await apiClient.post('/api/wechat/transfers/report', {
+        hours: Number(hoursNumber.toFixed(2)),
+        clientReference: weChatClientReference,
+      });
+      setIsWeChatTransferOpen(false);
+      setIsWeChatReportSuccessOpen(true);
+      setTopUpNotice(
+        t('wallet.wechatReportSuccess', '付款信息已提交，Mentory确认收款后课时将自动到账')
+      );
+    } catch (err) {
+      setWeChatReportError(t('wallet.wechatReportFailed', '付款信息提交失败，请稍后重试'));
+    } finally {
+      setIsWeChatReporting(false);
+    }
+  };
+
   const canUsePayPalButton = isHoursValid && !isPayPalInitializing;
   const topUpArrivalTip =
     selectedTopUpMethod === 'paypal'
@@ -571,10 +605,15 @@ function WalletPage() {
           'wallet.tipRealtimePayPal',
           '充值成功后余额实时到账，海外Visa/Master等也可以通过Paypal访客身份付款'
         )
-      : t(
-          'wallet.tipNonRealtimeLocal',
-          '充值成功后非实时到账，Mentory还在完善中，正在改进支付体验'
-        );
+      : selectedTopUpMethod === 'wechat'
+        ? t(
+            'wallet.tipManualWeChat',
+            '使用Mentory官方微信商户码付款；请备注StudentID，经人工核验后课时才会到账'
+          )
+        : t(
+            'wallet.tipNonRealtimeLocal',
+            '充值成功后非实时到账，Mentory还在完善中，正在改进支付体验'
+          );
 
   const toggleStudentAuthModal = () => {
     setShowStudentAuth((prev) => !prev);
@@ -879,6 +918,25 @@ function WalletPage() {
         description={t('wallet.alipayReportSuccess', 'Mentory确认收款后课时将自动到账')}
         autoCloseMs={2600}
         onClose={() => setIsAlipayReportSuccessOpen(false)}
+      />
+      <WeChatTransferModal
+        open={isWeChatTransferOpen}
+        amountCny={amountCnyNumber}
+        studentId={studentId}
+        studentIdLoading={isStudentIdLoading}
+        submitting={isWeChatReporting}
+        errorMessage={weChatReportError}
+        onPaid={handleWeChatPaid}
+        onClose={() => {
+          if (!isWeChatReporting) setIsWeChatTransferOpen(false);
+        }}
+      />
+      <SuccessModal
+        open={isWeChatReportSuccessOpen}
+        title={t('wallet.wechatReportSubmitted', '付款信息已提交')}
+        description={t('wallet.wechatReportSuccess', 'Mentory确认收款后课时将自动到账')}
+        autoCloseMs={3000}
+        onClose={() => setIsWeChatReportSuccessOpen(false)}
       />
       <RefundModal
         open={isRefundOpen}

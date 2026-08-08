@@ -1378,9 +1378,10 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
       await conn.rollback();
       return res.status(404).json({ error: '未找到订单' });
     }
-    if (String(before.provider || '').toLowerCase() !== 'alipay') {
+    const paymentProvider = String(before.provider || '').toLowerCase();
+    if (!['alipay', 'wechat'].includes(paymentProvider)) {
       await conn.rollback();
-      return res.status(400).json({ error: '仅支付宝待收款订单支持人工确认' });
+      return res.status(400).json({ error: '仅支付宝或微信待收款订单支持人工确认' });
     }
 
     alreadyConfirmed = Boolean(before.credited_at);
@@ -1425,7 +1426,7 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
     try {
       await conn?.rollback();
     } catch {}
-    console.error('Admin confirm Alipay payment error:', error);
+    console.error('Admin confirm manual payment error:', error);
     return res.status(500).json({ error: '确认收款失败，请稍后再试' });
   } finally {
     conn?.release();
@@ -1438,13 +1439,13 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
         action: 'order.payment.confirm',
         targetType: 'billing_order',
         targetId: orderId,
-        reason: '支付宝人工确认收款',
+        reason: `${String(before?.provider || '').toLowerCase() === 'wechat' ? '微信' : '支付宝'}人工确认收款`,
         before,
         after,
       });
     }
   } catch (error) {
-    console.error('Admin confirm Alipay payment audit error:', error);
+    console.error('Admin confirm manual payment audit error:', error);
   }
 
   return res.json({ order: after, alreadyConfirmed });

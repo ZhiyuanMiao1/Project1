@@ -288,16 +288,25 @@ const getOrderStatusMeta = (order) => {
   return { key: 'unknown', label: '待确认' };
 };
 
+const providerText = {
+  paypal: 'PayPal',
+  alipay: '支付宝',
+  wechat: '微信',
+};
+
 function OrderStatusBadge({ order, confirming = false, onConfirm }) {
   const meta = getOrderStatusMeta(order);
-  if (meta.key === 'pending-receipt' && typeof onConfirm === 'function') {
+  const providerKey = String(order?.provider || '').toLowerCase();
+  const providerLabel = providerText[providerKey] || '人工付款';
+  const supportsManualConfirmation = providerKey === 'alipay' || providerKey === 'wechat';
+  if (meta.key === 'pending-receipt' && supportsManualConfirmation && typeof onConfirm === 'function') {
     return (
       <button
         type="button"
         className="order-confirm-payment"
         onClick={() => onConfirm(order)}
         disabled={confirming}
-        aria-label={`确认支付宝订单 ${order.id} 已收款`}
+        aria-label={`确认${providerLabel}订单 ${order.id} 已收款`}
         title="点击确认收款"
       >
         <span className={`badge badge-order-${meta.key}`}>
@@ -308,12 +317,6 @@ function OrderStatusBadge({ order, confirming = false, onConfirm }) {
   }
   return <span className={`badge badge-order-${meta.key}`}>{meta.label}</span>;
 }
-
-const providerText = {
-  paypal: 'PayPal',
-  alipay: '支付宝',
-  wechat: '微信',
-};
 
 function ProviderBadge({ value }) {
   const key = String(value || '').toLowerCase();
@@ -1898,7 +1901,7 @@ function OrdersPage() {
     setSort({ field, direction });
   };
 
-  const confirmAlipayPayment = async (order) => {
+  const confirmManualPayment = async (order) => {
     if (!order?.id || confirmingOrderId) return;
     setConfirmingOrderId(order.id);
     setActionError('');
@@ -1972,7 +1975,7 @@ function OrdersPage() {
             <OrderStatusBadge
               order={order}
               confirming={confirmingOrderId === order.id}
-              onConfirm={confirmAlipayPayment}
+                  onConfirm={confirmManualPayment}
             />,
             order.topup_hours,
             formatHourValue(order.remaining_hours),
