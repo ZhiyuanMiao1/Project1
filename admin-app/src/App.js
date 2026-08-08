@@ -73,7 +73,7 @@ const statusText = {
   reviewed: '已评价',
   partially_refunded: '部分退款',
   refunded: '已退款',
-  processing: '退款确认中',
+  processing: '退款处理中',
 };
 
 const LIVE_SDK_URL = 'https://g.alicdn.com/apsara-media-box/imp-web-live-push/6.4.9/alivc-live-push.js';
@@ -316,6 +316,36 @@ function OrderStatusBadge({ order, confirming = false, onConfirm }) {
     );
   }
   return <span className={`badge badge-order-${meta.key}`}>{meta.label}</span>;
+}
+
+function RefundStatusBadge({ order, completing = false, onComplete }) {
+  const status = String(order?.refund_status || '').toUpperCase();
+  const provider = String(order?.provider || '').toLowerCase();
+  const isManualProvider = provider === 'alipay' || provider === 'wechat';
+  const isProcessing = status === 'PENDING' || status === 'PROCESSING';
+
+  if (isProcessing && isManualProvider && typeof onComplete === 'function') {
+    return (
+      <button
+        type="button"
+        className="manual-refund-status"
+        onClick={() => onComplete(order)}
+        disabled={completing}
+        aria-label={`确认订单 ${order.id} 已完成人工退款`}
+        title="点击确认人工退款已完成"
+      >
+        <span className="badge badge-processing">
+          {completing ? '确认中…' : '退款处理中'}
+        </span>
+      </button>
+    );
+  }
+  if (isProcessing) return <span className="badge badge-processing">退款处理中</span>;
+  if (status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') {
+    return <span className="badge badge-refunded">已退款</span>;
+  }
+  if (status === 'FAILED') return <span className="badge badge-failed">退款失败</span>;
+  return '-';
 }
 
 function ProviderBadge({ value }) {
@@ -1869,6 +1899,7 @@ function OrdersPage() {
   const [sort, setSort] = useState({ field: 'id', direction: 'desc' });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [confirmingOrderId, setConfirmingOrderId] = useState(null);
+  const [completingRefundOrderId, setCompletingRefundOrderId] = useState(null);
   const [actionError, setActionError] = useState('');
   const { loading, error, data } = useAsync(
     () => api('/api/admin/orders', { params: { q, status, provider, limit: 50 } }),
@@ -1912,6 +1943,27 @@ function OrdersPage() {
       setActionError(requestError?.message || '确认收款失败，请稍后重试');
     } finally {
       setConfirmingOrderId(null);
+    }
+  };
+
+  const completeManualRefund = async (order) => {
+    if (!order?.id || completingRefundOrderId) return;
+    const amount = Number(order.pending_refund_amount_cny || 0);
+    const providerLabel = providerText[String(order.provider || '').toLowerCase()] || '该渠道';
+    const amountLabel = Number.isFinite(amount) && amount > 0
+      ? ` ¥${formatIntegerAmount(amount)}`
+      : '';
+    if (!window.confirm(`确认已经通过${providerLabel}人工退还${amountLabel}？`)) return;
+
+    setCompletingRefundOrderId(order.id);
+    setActionError('');
+    try {
+      await api(`/api/admin/orders/${order.id}/complete-manual-refund`, { method: 'POST' });
+      setRefreshNonce((value) => value + 1);
+    } catch (requestError) {
+      setActionError(requestError?.message || '确认人工退款失败，请稍后重试');
+    } finally {
+      setCompletingRefundOrderId(null);
     }
   };
 
@@ -1980,8 +2032,16 @@ function OrdersPage() {
             order.topup_hours,
             formatHourValue(order.remaining_hours),
             formatIntegerAmount(order.amount_cny),
-            order.refunded_amount_cny > 0 ? `¥${formatIntegerAmount(order.refunded_amount_cny)}` : '-',
-            order.refund_status ? <Badge value={order.refund_status} /> : '-',
+            Number(order.refunded_amount_cny) > 0
+              ? `¥${formatIntegerAmount(order.refunded_amount_cny)}`
+              : Number(order.pending_refund_amount_cny) > 0
+                ? `¥${formatIntegerAmount(order.pending_refund_amount_cny)}`
+                : '-',
+            <RefundStatusBadge
+              order={order}
+              completing={completingRefundOrderId === order.id}
+              onComplete={completeManualRefund}
+            />,
             formatDate(order.created_at),
           ])}
         />

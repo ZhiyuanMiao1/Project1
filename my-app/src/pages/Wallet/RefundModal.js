@@ -15,6 +15,8 @@ const formatNumber = (value, digits = 2) => {
   return String(Number(parsed.toFixed(digits)));
 };
 
+const hasConsumedHours = (order) => Number(order?.consumedHours) > 0.000001;
+
 const createRequestId = () => {
   if (typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function') {
     return window.crypto.randomUUID();
@@ -273,14 +275,24 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                         <span className="wallet-refund-order-details">
                           <strong>{formatDate(order.paidAt)}</strong>
                           <small>
-                            {t(
-                              'wallet.refundOrderSummary',
-                              `购买 ${formatNumber(order.purchasedHours)} 小时 · 共 ¥${Number(order.paidAmountCny).toFixed(2)}`,
-                              {
-                                hours: formatNumber(order.purchasedHours),
-                                amount: Number(order.paidAmountCny).toFixed(2),
-                              }
-                            )}
+                            {hasConsumedHours(order)
+                              ? t(
+                                'wallet.refundConsumedOrderSummary',
+                                `购买 ${formatNumber(order.purchasedHours)} 小时 / 剩余可退 ${formatNumber(order.availableHours)} 小时 · 共 ¥${Number(order.paidAmountCny).toFixed(2)}`,
+                                {
+                                  hours: formatNumber(order.purchasedHours),
+                                  available: formatNumber(order.availableHours),
+                                  amount: Number(order.paidAmountCny).toFixed(2),
+                                }
+                              )
+                              : t(
+                                'wallet.refundOrderSummary',
+                                `购买 ${formatNumber(order.purchasedHours)} 小时 · 共 ¥${Number(order.paidAmountCny).toFixed(2)}`,
+                                {
+                                  hours: formatNumber(order.purchasedHours),
+                                  amount: Number(order.paidAmountCny).toFixed(2),
+                                }
+                              )}
                           </small>
                         </span>
                         <img
@@ -382,7 +394,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                       <p>
                         {t(
                           'wallet.refundConfirmDescription',
-                          `将从钱包扣除 ${formatNumber(hours)} 小时，并原路退回 ${quote.amount.currency} ${Number(quote.amount.value).toFixed(2)}。提交后无法撤销。`,
+                          `将从钱包扣除 ${formatNumber(hours)} 小时，并原路退回 ${quote.amount.currency} ${Number(quote.amount.value).toFixed(2)}。提交后无法撤销`,
                           {
                             hours: formatNumber(hours),
                             currency: quote.amount.currency,

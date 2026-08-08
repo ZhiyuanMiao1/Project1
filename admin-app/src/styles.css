@@ -2310,6 +2310,41 @@ tr:last-child td {
   opacity: 0.65;
 }
 
+.manual-refund-status {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.manual-refund-status:hover .badge,
+.manual-refund-status:focus-visible .badge {
+  box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+.manual-refund-status:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+.manual-refund-status:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.badge-processing {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.badge-refunded,
+.badge-partially_refunded {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
 .page-action-error {
   margin: 12px 0;
   padding: 10px 12px;

@@ -1315,6 +1315,8 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
          bo.remaining_hours,
          COALESCE(refunds.refunded_hours, 0) AS refunded_hours,
          COALESCE(refunds.refunded_amount_cny, 0) AS refunded_amount_cny,
+         COALESCE(refunds.pending_refund_hours, 0) AS pending_refund_hours,
+         COALESCE(refunds.pending_refund_amount_cny, 0) AS pending_refund_amount_cny,
          CASE
            WHEN COALESCE(refunds.processing_count, 0) > 0 THEN 'PROCESSING'
            WHEN COALESCE(refunds.pending_count, 0) > 0 THEN 'PENDING'
@@ -1333,6 +1335,8 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
                 SUM(CASE WHEN status = 'COMPLETED' THEN requested_hours ELSE 0 END) AS refunded_hours,
                 SUM(CASE WHEN status = 'COMPLETED' THEN requested_hours ELSE 0 END) AS completed_hours,
                 SUM(CASE WHEN status = 'COMPLETED' THEN amount_cny ELSE 0 END) AS refunded_amount_cny,
+                SUM(CASE WHEN status IN ('PROCESSING', 'PENDING') THEN requested_hours ELSE 0 END) AS pending_refund_hours,
+                SUM(CASE WHEN status IN ('PROCESSING', 'PENDING') THEN amount_cny ELSE 0 END) AS pending_refund_amount_cny,
                 SUM(status = 'COMPLETED') AS completed_count,
                 SUM(status = 'PROCESSING') AS processing_count,
                 SUM(status = 'PENDING') AS pending_count,
@@ -1449,6 +1453,125 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
   }
 
   return res.json({ order: after, alreadyConfirmed });
+});
+
+router.post('/orders/:orderId/complete-manual-refund', requireAdminAuth, async (req: Request, res: Response) => {
+  const orderId = toPositiveInt(req.params.orderId, 0);
+  if (!orderId) return res.status(400).json({ error: '无效订单ID' });
+
+  let conn: Awaited<ReturnType<typeof pool.getConnection>> | null = null;
+  let before: any[] = [];
+  let after: any[] = [];
+  let provider = '';
+
+  try {
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+
+    const [orderRows] = await conn.query<any[]>(
+      `SELECT id, provider, credited_at
+       FROM billing_orders
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [orderId]
+    );
+    const order = orderRows?.[0];
+    if (!order) {
+      await conn.rollback();
+      return res.status(404).json({ error: '未找到订单' });
+    }
+
+    provider = String(order.provider || '').trim().toLowerCase();
+    if (!['alipay', 'wechat'].includes(provider)) {
+      await conn.rollback();
+      return res.status(400).json({ error: '仅支付宝或微信订单支持人工确认退款' });
+    }
+    if (!order.credited_at) {
+      await conn.rollback();
+      return res.status(409).json({ error: '订单尚未确认收款，不能完成退款' });
+    }
+
+    const [refundRows] = await conn.query<any[]>(
+      `SELECT id, public_id, requested_hours, amount_cny, status, balance_reserved,
+              created_at, completed_at
+       FROM billing_refunds
+       WHERE billing_order_id = ?
+       ORDER BY id ASC
+       FOR UPDATE`,
+      [orderId]
+    );
+    before = refundRows || [];
+    const pendingRefunds = before.filter((refund) => {
+      const status = String(refund.status || '').toUpperCase();
+      return status === 'PENDING' || status === 'PROCESSING';
+    });
+
+    if (!pendingRefunds.length) {
+      const alreadyCompleted = before.some(
+        (refund) => String(refund.status || '').toUpperCase() === 'COMPLETED'
+      );
+      if (alreadyCompleted) {
+        await conn.commit();
+        return res.json({ alreadyCompleted: true, completedRefundCount: 0 });
+      }
+      await conn.rollback();
+      return res.status(409).json({ error: '该订单没有待处理的退款申请' });
+    }
+
+    await conn.query(
+      `UPDATE billing_refunds
+       SET status = 'COMPLETED',
+           completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP),
+           failure_code = NULL,
+           failure_message = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE billing_order_id = ?
+         AND provider IN ('alipay', 'wechat')
+         AND status IN ('PENDING', 'PROCESSING')`,
+      [orderId]
+    );
+
+    const [updatedRows] = await conn.query<any[]>(
+      `SELECT id, public_id, requested_hours, amount_cny, status, balance_reserved,
+              created_at, completed_at
+       FROM billing_refunds
+       WHERE billing_order_id = ?
+       ORDER BY id ASC`,
+      [orderId]
+    );
+    after = updatedRows || [];
+    await conn.commit();
+
+    try {
+      await audit({
+        req,
+        action: 'order.refund.manual.complete',
+        targetType: 'billing_order',
+        targetId: orderId,
+        reason: `${provider === 'wechat' ? '微信' : '支付宝'}人工退款已完成`,
+        before,
+        after,
+      });
+    } catch (auditError) {
+      console.error('Admin manual refund audit error:', auditError);
+    }
+
+    return res.json({
+      alreadyCompleted: false,
+      completedRefundCount: pendingRefunds.length,
+      completedAmountCny: Number(pendingRefunds.reduce(
+        (sum, refund) => sum + Number(refund.amount_cny || 0),
+        0
+      ).toFixed(2)),
+    });
+  } catch (error) {
+    try { await conn?.rollback(); } catch {}
+    console.error('Admin complete manual refund error:', error);
+    return res.status(500).json({ error: '确认人工退款失败，请稍后重试' });
+  } finally {
+    conn?.release();
+  }
 });
 
 router.patch('/orders/:orderId/status', requireAdminAuth, async (req: Request, res: Response) => {

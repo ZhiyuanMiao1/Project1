@@ -422,8 +422,14 @@ router.get('/eligible-orders', requireAuth, async (req: Request, res: Response) 
                 bo.unit_price_cny, bo.pricing_version, bo.standard_unit_price_cny,
                 bo.discount_threshold_hours, bo.discount_unit_price_cny,
                 bo.amount_cny, bo.currency_code, bo.amount_usd,
-                bo.paypal_capture_id, bo.credited_at
+                bo.paypal_capture_id, bo.credited_at,
+                COALESCE(allocations.consumed_hours, 0) AS consumed_hours
          FROM billing_orders bo
+         LEFT JOIN (
+           SELECT billing_order_id, SUM(hours) AS consumed_hours
+           FROM billing_hour_allocations
+           GROUP BY billing_order_id
+         ) allocations ON allocations.billing_order_id = bo.id
          WHERE bo.user_id = ?
            AND LOWER(bo.provider) IN ('paypal', 'alipay', 'wechat')
            AND bo.credited_at IS NOT NULL
@@ -461,6 +467,7 @@ router.get('/eligible-orders', requireAuth, async (req: Request, res: Response) 
         provider: String(order.provider),
         paidAt: toIso(order.credited_at),
         purchasedHours: Number(toNumber(order.topup_hours).toFixed(2)),
+        consumedHours: Number(toNumber(order.consumed_hours).toFixed(2)),
         availableHours,
         unitPriceCny: Number(toNumber(order.unit_price_cny).toFixed(2)),
         paidAmountCny: Number(toNumber(order.amount_cny).toFixed(2)),
