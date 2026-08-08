@@ -987,6 +987,10 @@
     height: 42px;
   }
 
+  .wallet-method-alipay-icon {
+    width: min(92px, 96%);
+  }
+
   .wallet-topup-form {
     margin-top: 22px;
   }
@@ -1121,6 +1125,10 @@
     width: min(74px, 94%);
   }
 
+  .wallet-method-alipay-icon {
+    width: min(80px, 98%);
+  }
+
 }
 
 @media (max-width: 899px) {
@@ -1145,6 +1153,15 @@
   .wallet-local-payment-primary-logo--wechat {
     height: 32px;
     transform: none;
+  }
+
+  .wallet-local-payment-primary-logo--alipay {
+    width: 132px;
+    height: 36px;
+  }
+
+  .wallet-local-payment-primary-logo--wechat {
+    height: 36px;
   }
 
   .wallet-empty {
