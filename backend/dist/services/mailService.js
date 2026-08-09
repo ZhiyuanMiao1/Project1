@@ -23,7 +23,7 @@ const parsePort = (value, fallback = 465) => {
     const parsed = Number.parseInt(raw, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
-const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-removebg.png';
+const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-Mentory-standard-removebg.png';
 const DEFAULT_PUBLIC_APP_URL = 'https://mentory.cc';
 const trimTrailingSlash = (value) => value.replace(/\/+$/, '');
 const getPublicAppUrl = () => {
@@ -34,7 +34,9 @@ exports.getPublicAppUrl = getPublicAppUrl;
 const getBrandLogoHtml = () => {
     const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
     const publicBaseUrl = (0, exports.getPublicAppUrl)();
-    const logoUrl = explicitLogoUrl || (publicBaseUrl ? `${trimTrailingSlash(publicBaseUrl)}/Logo-removebg.png` : DEFAULT_BRAND_LOGO_URL);
+    const logoUrl = explicitLogoUrl || (publicBaseUrl
+        ? `${trimTrailingSlash(publicBaseUrl)}/Logo-Mentory-standard-removebg.png`
+        : DEFAULT_BRAND_LOGO_URL);
     if (!/^https?:\/\//i.test(logoUrl))
         return '';
     return `<img src="${logoUrl}" alt="Mentory" width="88" style="display: block; width: 88px; max-width: 100%; height: auto; border: 0;" />`;

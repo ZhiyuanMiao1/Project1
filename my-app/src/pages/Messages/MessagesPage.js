@@ -448,7 +448,7 @@ function MessagesPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
-  const { totalBadgeCount } = useMenuBadgeSummary({
+  const { messageUnreadCount, totalBadgeCount } = useMenuBadgeSummary({
     enabled: isLoggedIn,
     courseViews: [isMentorView ? 'mentor' : 'student'],
   });
@@ -539,10 +539,6 @@ function MessagesPage() {
   }, [rescheduleDate]);
 
   const hasThreads = threads.length > 0;
-  const totalUnreadCount = useMemo(() => {
-    return threads.reduce((sum, thread) => sum + Math.max(0, Number(thread?.unreadCount || 0)), 0);
-  }, [threads]);
-
   const emitUnreadSummaryFromThreads = useCallback((threadRows, explicitTotalUnreadCount = null) => {
     const nextTotal = typeof explicitTotalUnreadCount === 'number'
       ? Math.max(0, Number(explicitTotalUnreadCount || 0))
@@ -2066,7 +2062,7 @@ function MessagesPage() {
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
           isLoggedIn={isLoggedIn}
-          unreadCount={totalUnreadCount}
+          unreadCount={messageUnreadCount}
           align="right"
           alignOffset={23}
         />
@@ -2078,7 +2074,7 @@ function MessagesPage() {
           anchorRef={menuAnchorRef}
           leftAlignRef={menuAnchorRef}
           forceLogin={false}
-          unreadCount={totalUnreadCount}
+          unreadCount={messageUnreadCount}
           align="right"
           alignOffset={23}
         />

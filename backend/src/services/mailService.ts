@@ -46,7 +46,7 @@ const parsePort = (value: any, fallback = 465) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-removebg.png';
+const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-Mentory-standard-removebg.png';
 const DEFAULT_PUBLIC_APP_URL = 'https://mentory.cc';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
@@ -59,7 +59,9 @@ export const getPublicAppUrl = () => {
 const getBrandLogoHtml = () => {
   const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
   const publicBaseUrl = getPublicAppUrl();
-  const logoUrl = explicitLogoUrl || (publicBaseUrl ? `${trimTrailingSlash(publicBaseUrl)}/Logo-removebg.png` : DEFAULT_BRAND_LOGO_URL);
+  const logoUrl = explicitLogoUrl || (publicBaseUrl
+    ? `${trimTrailingSlash(publicBaseUrl)}/Logo-Mentory-standard-removebg.png`
+    : DEFAULT_BRAND_LOGO_URL);
 
   if (!/^https?:\/\//i.test(logoUrl)) return '';
 

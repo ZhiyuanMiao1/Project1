@@ -924,6 +924,59 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
     WHERE id = ?
     `, [existingId]);
 };
+const getRecipientTimeZone = async (recipientUserId, recipientRole) => {
+    const rows = await (0, db_1.query)(`SELECT aset.availability_json, mp.timezone AS mentor_timezone
+     FROM users u
+     LEFT JOIN account_settings aset ON aset.user_id = u.id
+     LEFT JOIN mentor_profiles mp ON mp.user_id = u.id
+     WHERE u.id = ?
+     LIMIT 1`, [recipientUserId]);
+    const fallback = recipientRole === 'mentor'
+        ? safeText(rows?.[0]?.mentor_timezone) || 'Asia/Shanghai'
+        : 'Asia/Shanghai';
+    return parseAvailabilityPayload(rows?.[0]?.availability_json, fallback)?.timeZone || fallback;
+};
+const formatWindowForRecipient = (windowText, createdAt, timeZone, locale) => {
+    const base = createdAt ? new Date(createdAt) : new Date();
+    const parsed = parseCourseWindowText(windowText, Number.isNaN(base.getTime()) ? new Date() : base);
+    if (!parsed)
+        return safeText(windowText);
+    try {
+        const intlLocale = locale === 'en' ? 'en-US' : 'zh-CN';
+        const dateFormatter = new Intl.DateTimeFormat(intlLocale, {
+            timeZone,
+            year: 'numeric',
+            month: locale === 'en' ? 'short' : 'numeric',
+            day: 'numeric',
+            weekday: 'short',
+        });
+        const dateText = locale === 'en'
+            ? dateFormatter.format(parsed.startsAtUtc)
+            : (() => {
+                const parts = dateFormatter.formatToParts(parsed.startsAtUtc);
+                const get = (type) => parts.find((part) => part.type === type)?.value || '';
+                return `${get('year')}年${get('month')}月${get('day')}日 ${get('weekday')}`;
+            })();
+        const timeFormatter = new Intl.DateTimeFormat(intlLocale, {
+            timeZone,
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        });
+        const startText = timeFormatter.format(parsed.startsAtUtc);
+        const endText = timeFormatter.format(parsed.endsAtUtc);
+        const offsetPart = new Intl.DateTimeFormat('en-US', {
+            timeZone,
+            hour: '2-digit',
+            timeZoneName: 'shortOffset',
+        }).formatToParts(parsed.startsAtUtc).find((part) => part.type === 'timeZoneName')?.value || timeZone;
+        const offsetText = offsetPart.replace(/^GMT(?=$|[+-])/, 'UTC');
+        return `${dateText} ${startText}-${endText} (${offsetText})`;
+    }
+    catch {
+        return safeText(windowText);
+    }
+};
 const getAppointmentNotificationCopy = (kind, actorDisplayName, locale, hours) => {
     const isEnglish = locale === 'en';
     const actor = actorDisplayName || (isEnglish ? 'The other participant' : '对方');
@@ -1046,7 +1099,7 @@ const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentor
         return username;
     return publicId;
 };
-const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientUserId, studentUserId, mentorUserId, payload, hours, }) => {
+const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientUserId, studentUserId, mentorUserId, payload, payloadCreatedAt, hours, }) => {
     try {
         if (!Number.isFinite(actorUserId) || actorUserId <= 0)
             return;
@@ -1064,14 +1117,16 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
             return;
         const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId);
         const copy = getAppointmentNotificationCopy(kind, actorDisplayName, preferences.locale, hours);
+        const recipientRole = getUserRoleInThread(recipientUserId, studentUserId, mentorUserId);
+        const recipientTimeZone = await getRecipientTimeZone(recipientUserId, recipientRole);
         await (0, mailService_1.sendAppointmentNotificationMail)({
             recipientUserId,
             to,
             subject: copy.subject,
             eventTitle: copy.eventTitle,
             actorDisplayName,
-            windowText: safeText(payload?.windowText),
-            messageUrl: buildMessagesPageUrl(getUserRoleInThread(recipientUserId, studentUserId, mentorUserId)),
+            windowText: formatWindowForRecipient(payload?.windowText, payloadCreatedAt, recipientTimeZone, preferences.locale),
+            messageUrl: buildMessagesPageUrl(recipientRole),
             description: copy.description,
             locale: preferences.locale,
         });
@@ -1348,7 +1403,7 @@ router.post('/threads/:threadId/appointments', auth_1.requireAuth, async (req, r
         }
         const recipientUserId = req.user.id === studentUserId ? mentorUserId : studentUserId;
         void sendAppointmentNotificationSafely({
-            kind: 'new_time',
+            kind: appointmentIntent === 'reschedule' ? 'rescheduling' : 'new_time',
             actorUserId: req.user.id,
             recipientUserId,
             studentUserId,
@@ -1523,7 +1578,9 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
         }
         await conn.commit();
-        if (status === 'accepted' || status === 'rejected' || status === 'rescheduling') {
+        // A reschedule action immediately creates a replacement appointment card.
+        // That creation sends the single email with the proposed new time.
+        if (status === 'accepted' || status === 'rejected') {
             const studentUserId = Number(row.student_user_id);
             const mentorUserId = Number(row.mentor_user_id);
             void sendAppointmentNotificationSafely({
@@ -1533,6 +1590,7 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
                 studentUserId,
                 mentorUserId,
                 payload: parseAppointmentPayload(row.payload_json),
+                payloadCreatedAt: row.created_at,
             });
         }
         return res.json({ ok: true, appointmentId: String(appointmentId), status });
@@ -1707,6 +1765,7 @@ router.post('/appointments/:appointmentId/lifecycle', auth_1.requireAuth, async 
             studentUserId,
             mentorUserId,
             payload: window.payload,
+            payloadCreatedAt: row.created_at,
         });
         return res.json({
             ok: true,
@@ -2182,6 +2241,7 @@ router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (re
         mi.thread_id,
         mi.sender_user_id,
         mi.payload_json,
+        mi.created_at,
         COALESCE(ast.status, 'pending') AS appointment_status,
         t.student_user_id,
         t.mentor_user_id
@@ -2243,6 +2303,7 @@ router.post('/appointments/:appointmentId/recall', auth_1.requireAuth, async (re
             studentUserId,
             mentorUserId,
             payload: parseAppointmentPayload(row.payload_json),
+            payloadCreatedAt: row.created_at,
         });
         return res.json({ ok: true, appointmentId: String(appointmentId) });
     }
