@@ -223,9 +223,9 @@
   height: 44px;
   flex: 0 0 44px;
   padding: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  background: #f8fafc;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: #0f172a;
   display: inline-flex;
   align-items: center;
@@ -236,17 +236,13 @@
   -webkit-text-fill-color: currentColor;
   transition:
     color 0.18s ease,
-    background-color 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
     transform 0.18s ease;
 }
 
 .classroom-control-btn:not(:disabled):hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
-  transform: translateY(-1px);
+  background: transparent;
+  color: #0284c7;
+  transform: translateY(-1px) scale(1.08);
 }
 
 .classroom-control-btn:focus-visible {
@@ -255,14 +251,13 @@
 }
 
 .classroom-control-btn.active {
-  background: #e0f2fe;
-  border-color: #bae6fd;
+  background: transparent;
   color: #0369a1;
 }
 
 .classroom-control-btn.active:not(:disabled):hover {
-  background: #d8eefb;
-  border-color: #7dd3fc;
+  background: transparent;
+  color: #075985;
 }
 
 .classroom-control-btn:disabled {
@@ -271,25 +266,23 @@
 }
 
 .classroom-control-btn.leave {
-  background: #fef2f2;
-  border-color: #fecaca;
+  background: transparent;
   color: #dc2626;
 }
 
 .classroom-control-btn.schedule {
-  background: #ecfdf5;
-  border-color: #a7f3d0;
+  background: transparent;
   color: #047857;
 }
 
 .classroom-control-btn.schedule:not(:disabled):hover {
-  background: #d1fae5;
-  border-color: #6ee7b7;
+  background: transparent;
+  color: #065f46;
 }
 
 .classroom-control-btn.leave:not(:disabled):hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
+  background: transparent;
+  color: #b91c1c;
 }
 
 .classroom-control-tooltip {
