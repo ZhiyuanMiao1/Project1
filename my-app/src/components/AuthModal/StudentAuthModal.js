@@ -110,12 +110,12 @@ const StudentAuthModal = ({
       case 'courses':
         preloadRoute('studentCourses')?.catch(() => {});
         onClose && onClose();
-        navigate('/student/courses', { state: { from: 'student' } });
+        navigate('/student/courses', { state: { from: 'student', refreshKey: Date.now() } });
         return;
       case 'messages':
         preloadRoute('messages')?.catch(() => {});
         onClose && onClose();
-        navigate('/student/messages', { state: { from: 'student' } });
+        navigate('/student/messages', { state: { from: 'student', refreshKey: Date.now() } });
         return;
       case 'wallet':
         preloadRoute('wallet')?.catch(() => {});

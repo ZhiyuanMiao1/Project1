@@ -164,12 +164,12 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         if (isPendingMentor) return;
         preloadRoute('mentorCourses')?.catch(() => {});
         onClose && onClose();
-        navigate('/mentor/courses', { state: { from: 'mentor' } });
+        navigate('/mentor/courses', { state: { from: 'mentor', refreshKey: Date.now() } });
         return;
       case 'messages':
         preloadRoute('messages')?.catch(() => {});
         onClose && onClose();
-        navigate('/mentor/messages', { state: { from: 'mentor' } });
+        navigate('/mentor/messages', { state: { from: 'mentor', refreshKey: Date.now() } });
         return;
       case 'settings':
         preloadRoute('accountSettings')?.catch(() => {});

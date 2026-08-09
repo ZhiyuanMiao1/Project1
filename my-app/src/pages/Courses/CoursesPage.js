@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FaEllipsisH } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import Button from '../../components/common/Button/Button';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
@@ -346,6 +346,7 @@ const getReviewSuccessCopy = (message, t = (_key, fallback) => fallback) => {
 function CoursesPage({ entryRole = 'student' }) {
   const { t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const isMentorEntry = entryRole === 'mentor';
   const menuAnchorRef = useRef(null);
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -548,7 +549,7 @@ function CoursesPage({ entryRole = 'student' }) {
     return () => {
       alive = false;
     };
-  }, [isLoggedIn, t]);
+  }, [isLoggedIn, location?.state?.refreshKey, t]);
 
   const timelineData = useMemo(() => {
     const sorted = [...courses].sort((a, b) => toDateTimestamp(b) - toDateTimestamp(a));

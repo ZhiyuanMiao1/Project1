@@ -703,7 +703,7 @@ function MessagesPage() {
       });
 
     return () => { alive = false; };
-  }, [applyThreadsPayload, isLoggedIn, t]);
+  }, [applyThreadsPayload, isLoggedIn, location?.state?.refreshKey, t]);
 
   const [activeId, setActiveId] = useState(() => threads[0]?.id || null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
