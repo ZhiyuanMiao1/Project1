@@ -3625,9 +3625,9 @@ function ClassroomPage() {
         throw new Error(t('classroom.sdkUnsupportedScreenShare', '当前阿里云音视频 SDK 不支持共享屏幕'));
       }
 
-      screenShareCancelSilenceUntilRef.current = Date.now() + 3000;
-      await pusher.startScreenShare();
-      screenShareCancelSilenceUntilRef.current = 0;
+      // Configure the profile before the SDK creates/reuses the screen sender.
+      // Updating it immediately after startScreenShare can race the SDK's own
+      // setParameters call when a screen track is shared for the second time.
       if (typeof pusher.updateScreenVideoProfile === 'function') {
         try {
           await pusher.updateScreenVideoProfile(
@@ -3638,6 +3638,9 @@ function ClassroomPage() {
           );
         } catch {}
       }
+      screenShareCancelSilenceUntilRef.current = Date.now() + 3000;
+      await pusher.startScreenShare();
+      screenShareCancelSilenceUntilRef.current = 0;
 
       if (localScreenVideoRef.current && typeof pusher.startPreview === 'function') {
         const previewStream = await pusher.startPreview(localScreenVideoRef.current, true);

@@ -144,6 +144,10 @@ describe('ClassroomPage remote recovery', () => {
   let pusherInitMock;
   let startMicrophoneMock;
   let stopMicrophoneMock;
+  let startScreenShareMock;
+  let stopScreenShareMock;
+  let updateScreenVideoProfileMock;
+  let screenShareCallOrder;
   let container;
   let root;
   let originalConsoleDebug;
@@ -225,6 +229,19 @@ describe('ClassroomPage remote recovery', () => {
     pusherInitMock = jest.fn(() => Promise.resolve());
     startMicrophoneMock = jest.fn(() => Promise.resolve());
     stopMicrophoneMock = jest.fn(() => Promise.resolve());
+    screenShareCallOrder = [];
+    startScreenShareMock = jest.fn(() => {
+      screenShareCallOrder.push('start');
+      return Promise.resolve();
+    });
+    stopScreenShareMock = jest.fn(() => {
+      screenShareCallOrder.push('stop');
+      return Promise.resolve();
+    });
+    updateScreenVideoProfileMock = jest.fn(() => {
+      screenShareCallOrder.push('profile');
+      return Promise.resolve();
+    });
 
     class MockPusher {
       constructor() {
@@ -242,6 +259,12 @@ describe('ClassroomPage remote recovery', () => {
       startMicrophone = startMicrophoneMock;
 
       stopMicrophone = stopMicrophoneMock;
+
+      startScreenShare = startScreenShareMock;
+
+      stopScreenShare = stopScreenShareMock;
+
+      updateScreenVideoProfile = updateScreenVideoProfileMock;
 
       destroy = jest.fn();
 
@@ -405,6 +428,43 @@ describe('ClassroomPage remote recovery', () => {
     buttons.forEach((button) => {
       expect(button.querySelector('.classroom-control-tooltip')).toBeTruthy();
     });
+  });
+
+  test('configures the screen profile before every share, including after stopping once', async () => {
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const getScreenButton = () => Array.from(container.querySelectorAll('button'))
+      .find((button) => /共享屏幕|停止共享/.test(button.getAttribute('aria-label') || ''));
+
+    await act(async () => {
+      getScreenButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(getScreenButton()?.getAttribute('aria-label')).toBe('停止共享');
+
+    await act(async () => {
+      getScreenButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(getScreenButton()?.getAttribute('aria-label')).toBe('共享屏幕');
+
+    await act(async () => {
+      getScreenButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(getScreenButton()?.getAttribute('aria-label')).toBe('停止共享');
+    expect(updateScreenVideoProfileMock).toHaveBeenCalledTimes(2);
+    expect(updateScreenVideoProfileMock).toHaveBeenNthCalledWith(1, 2560, 1440, 3000, 15);
+    expect(updateScreenVideoProfileMock).toHaveBeenNthCalledWith(2, 2560, 1440, 3000, 15);
+    expect(startScreenShareMock).toHaveBeenCalledTimes(2);
+    expect(stopScreenShareMock).toHaveBeenCalledTimes(1);
+    expect(screenShareCallOrder).toEqual(['profile', 'start', 'stop', 'profile', 'start']);
   });
 
   test('keeps microphone state unchanged when starting the microphone fails', async () => {
