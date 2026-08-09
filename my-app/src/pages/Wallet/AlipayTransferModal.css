@@ -237,9 +237,13 @@
 
 .alipay-transfer-done {
   border: 0;
-  background: #111;
+  background: #1677ff;
   color: #fff;
   -webkit-text-fill-color: #fff;
+}
+
+.alipay-transfer-done:hover:not(:disabled) {
+  background: #0e6ae6;
 }
 
 @media (max-width: 599px) {

@@ -828,7 +828,7 @@ const en = {
   'wallet.alipayCopyStudentId': 'Copy StudentID',
   'wallet.alipayStudentIdUnavailable': 'Unable to load StudentID',
   'wallet.alipayPaymentNotice': 'Mentory will update your lesson hours after confirming receipt of payment',
-  'wallet.alipayPaid': 'Paid',
+  'wallet.alipayPaid': 'I Have Paid',
   'wallet.alipayReporting': 'Submitting...',
   'wallet.alipayReportSubmitted': 'Payment Report Submitted',
   'wallet.alipayReportSuccess': 'Your lesson hours will be added after Mentory confirms receipt',

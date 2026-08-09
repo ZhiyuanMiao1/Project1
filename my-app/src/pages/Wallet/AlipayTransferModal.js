@@ -167,7 +167,7 @@ function AlipayTransferModal({
           >
             {submitting
               ? t('wallet.alipayReporting', '正在提交...')
-              : t('wallet.alipayPaid', '已付款')}
+              : t('wallet.alipayPaid', '我已付款')}
           </button>
         </div>
       </div>
