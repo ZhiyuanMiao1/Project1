@@ -459,6 +459,7 @@ function MessagesPage() {
   const [appointmentActionConfirmation, setAppointmentActionConfirmation] = useState(null);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [rescheduleSourceId, setRescheduleSourceId] = useState(null);
+  const [rescheduleBusyExclusionId, setRescheduleBusyExclusionId] = useState(null);
   const [rescheduleIntent, setRescheduleIntent] = useState('reschedule');
   const [rescheduleDate, setRescheduleDate] = useState(() => toMiddayDate());
   const [rescheduleSelection, setRescheduleSelection] = useState(null);
@@ -531,6 +532,7 @@ function MessagesPage() {
     }
     setRescheduleSelection(null);
     setRescheduleSourceId(null);
+    setRescheduleBusyExclusionId(null);
     setRescheduleIntent('reschedule');
   }, [rescheduleOpen]);
 
@@ -797,7 +799,10 @@ function MessagesPage() {
     }
 
     setThreadAvailabilityStatus('loading');
-    api.get(`/api/messages/threads/${encodeURIComponent(String(activeThread.id))}/availability`)
+    const exclusionQuery = rescheduleBusyExclusionId
+      ? `?excludeSourceAppointmentId=${encodeURIComponent(String(rescheduleBusyExclusionId))}`
+      : '';
+    api.get(`/api/messages/threads/${encodeURIComponent(String(activeThread.id))}/availability${exclusionQuery}`)
       .then((res) => {
         if (!alive) return;
         setThreadAvailability({
@@ -815,7 +820,7 @@ function MessagesPage() {
       });
 
     return () => { alive = false; };
-  }, [activeThread?.id, isLoggedIn, rescheduleOpen]);
+  }, [activeThread?.id, isLoggedIn, rescheduleBusyExclusionId, rescheduleOpen]);
 
   const [scheduleCards, setScheduleCards] = useState(() => buildScheduleCardsFromThread(activeThread));
   const [isScheduleCardSending, setIsScheduleCardSending] = useState(false);
@@ -1303,6 +1308,11 @@ function MessagesPage() {
     setActionError('');
     setRescheduleIntent(intent);
     setRescheduleSourceId(String(appointmentId));
+    setRescheduleBusyExclusionId(
+      intent === 'reschedule' && sourceCard?.sourceAppointmentId
+        ? String(sourceCard.sourceAppointmentId)
+        : null,
+    );
     setRescheduleDate(initialDate);
     setRescheduleOpen(true);
   };

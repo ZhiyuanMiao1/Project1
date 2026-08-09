@@ -313,7 +313,8 @@ export const buildEmptyAvailability = (timeZone = DEFAULT_TIME_ZONE): Availabili
 
 export const getBusySelectionsForUsers = async (
   userIds: number[],
-  timeZoneByUserId = new Map<number, string>()
+  timeZoneByUserId = new Map<number, string>(),
+  options: { excludedAppointmentIds?: number[] } = {}
 ) => {
   const normalizedUserIds = Array.from(
     new Set(
@@ -329,6 +330,12 @@ export const getBusySelectionsForUsers = async (
   if (normalizedUserIds.length === 0) return results;
 
   const targetSet = new Set(normalizedUserIds);
+  const excludedAppointmentIds = new Set(
+    (Array.isArray(options.excludedAppointmentIds) ? options.excludedAppointmentIds : [])
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  );
+  const excludedCourseSessionKeys = new Set<string>();
   const buckets = new Map<number, Map<string, Set<number>>>();
   const placeholders = normalizedUserIds.map(() => '?').join(',');
   const nowMs = Date.now();
@@ -337,6 +344,7 @@ export const getBusySelectionsForUsers = async (
     const appointmentRows = await query<any[]>(
       `
       SELECT
+        mi.id,
         mi.payload_json,
         mi.created_at,
         COALESCE(ast.status, 'pending') AS appointment_status,
@@ -352,9 +360,6 @@ export const getBusySelectionsForUsers = async (
     );
 
     for (const row of appointmentRows || []) {
-      const status = normalizeDecisionStatus(row?.appointment_status);
-      if (status !== 'pending' && status !== 'accepted') continue;
-
       const payload = parseAppointmentPayload(row?.payload_json);
       const createdAt = row?.created_at ? new Date(row.created_at) : new Date();
       const parsedWindow = parseCourseWindowText(payload?.windowText, createdAt);
@@ -362,6 +367,12 @@ export const getBusySelectionsForUsers = async (
 
       const studentUserId = Number(row?.student_user_id);
       const mentorUserId = Number(row?.mentor_user_id);
+      if (excludedAppointmentIds.has(Number(row?.id))) {
+        excludedCourseSessionKeys.add(`${studentUserId}:${mentorUserId}:${parsedWindow.startMs}`);
+        continue;
+      }
+      const status = normalizeDecisionStatus(row?.appointment_status);
+      if (status !== 'pending' && status !== 'accepted') continue;
       if (targetSet.has(studentUserId)) {
         addRangeToBuckets(
           buckets,
@@ -411,6 +422,7 @@ export const getBusySelectionsForUsers = async (
 
       const studentUserId = Number(row?.student_user_id);
       const mentorUserId = Number(row?.mentor_user_id);
+      if (excludedCourseSessionKeys.has(`${studentUserId}:${mentorUserId}:${startMs}`)) continue;
       if (targetSet.has(studentUserId)) {
         addRangeToBuckets(
           buckets,

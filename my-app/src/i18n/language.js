@@ -655,6 +655,7 @@ const en = {
   'classroom.enterFailed': 'Failed to enter classroom. Please try again later.',
   'classroom.remoteVideoFetchFailed': 'Failed to load other party video',
   'classroom.micSwitchFailed': 'Failed to switch microphone',
+  'classroom.micControlUnavailable': 'Microphone control is not supported by the current real-time audio/video SDK',
   'classroom.cameraSwitchFailed': 'Failed to switch camera',
   'classroom.sdkUnsupportedScreenShare': 'The current live video SDK does not support screen sharing',
   'classroom.sharingScreen': 'Sharing screen',

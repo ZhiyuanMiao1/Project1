@@ -2864,12 +2864,29 @@ router.get('/threads/:threadId/availability', requireAuth, async (req: Request, 
 
     const studentAvailability = await fetchAccountAvailabilityForUser(studentUserId, 'Asia/Shanghai');
     const mentorAvailability = await fetchAccountAvailabilityForUser(mentorUserId, mentorFallbackTimeZone);
+    const requestedExcludedSourceId = toPositiveIntOrNull(req.query?.excludeSourceAppointmentId);
+    let excludedAppointmentIds: number[] = [];
+    if (requestedExcludedSourceId != null) {
+      const excludedRows = await query<any[]>(
+        `SELECT mi.id
+         FROM message_items mi
+         INNER JOIN appointment_statuses ast ON ast.appointment_message_id = mi.id
+         WHERE mi.id = ?
+           AND mi.thread_id = ?
+           AND mi.message_type = 'appointment_card'
+           AND ast.status = 'rescheduling'
+         LIMIT 1`,
+        [requestedExcludedSourceId, threadId]
+      );
+      if (excludedRows?.[0]) excludedAppointmentIds = [requestedExcludedSourceId];
+    }
     const busySelectionsByUser = await getBusySelectionsForUsers(
       [studentUserId, mentorUserId],
       new Map<number, string>([
         [studentUserId, studentAvailability.timeZone],
         [mentorUserId, mentorAvailability.timeZone],
-      ])
+      ]),
+      { excludedAppointmentIds }
     );
 
     return res.json({

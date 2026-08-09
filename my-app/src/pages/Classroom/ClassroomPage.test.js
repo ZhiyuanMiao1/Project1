@@ -4,6 +4,7 @@ import ClassroomPage from './ClassroomPage';
 import api from '../../api/client';
 
 jest.mock('react-router-dom', () => ({
+  useLocation: () => ({ pathname: '/classroom/42', search: '' }),
   useNavigate: () => jest.fn(),
   useParams: () => ({ courseId: '42' }),
 }), { virtual: true });
@@ -140,6 +141,7 @@ const buildChatResponse = (messages = [], options = {}) => ({
 describe('ClassroomPage remote recovery', () => {
   let startPlayMock;
   let startPushMock;
+  let muteMock;
   let container;
   let root;
   let originalConsoleDebug;
@@ -218,6 +220,7 @@ describe('ClassroomPage remote recovery', () => {
 
     startPlayMock = jest.fn();
     startPushMock = jest.fn(() => Promise.resolve());
+    muteMock = jest.fn();
 
     class MockPusher {
       constructor() {
@@ -232,7 +235,7 @@ describe('ClassroomPage remote recovery', () => {
 
       stopPush = jest.fn(() => Promise.resolve());
 
-      mute = jest.fn();
+      mute = muteMock;
 
       destroy = jest.fn();
 
@@ -320,6 +323,76 @@ describe('ClassroomPage remote recovery', () => {
       ['/api/rtc/classrooms/42/recording/start'],
     ]));
     expect(getPageText()).toContain('录制中');
+  });
+
+  test('toggles microphone without reauthorizing, restarting push, or restarting recording', async () => {
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const getMicButton = () => Array.from(container.querySelectorAll('button'))
+      .find((button) => /开启麦克风|关闭麦克风/.test(button.textContent || ''));
+    const getAuthRequestCount = () => api.get.mock.calls.filter(([url]) => (
+      String(url) === '/api/rtc/classrooms/42/auth'
+    )).length;
+    const getRecordingStartCount = () => api.post.mock.calls.filter(([url]) => (
+      String(url) === '/api/rtc/classrooms/42/recording/start'
+    )).length;
+
+    expect(getAuthRequestCount()).toBe(1);
+    expect(getRecordingStartCount()).toBe(1);
+    expect(startPushMock).toHaveBeenCalledTimes(1);
+    expect(getMicButton()?.getAttribute('aria-pressed')).toBe('false');
+
+    await act(async () => {
+      getMicButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(muteMock).toHaveBeenLastCalledWith(false);
+    expect(getMicButton()?.textContent || '').toContain('关闭麦克风');
+    expect(getMicButton()?.classList.contains('active')).toBe(true);
+    expect(getMicButton()?.getAttribute('aria-pressed')).toBe('true');
+    expect(getAuthRequestCount()).toBe(1);
+    expect(getRecordingStartCount()).toBe(1);
+    expect(startPushMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      getMicButton().dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(muteMock).toHaveBeenLastCalledWith(true);
+    expect(getMicButton()?.textContent || '').toContain('开启麦克风');
+    expect(getMicButton()?.classList.contains('active')).toBe(false);
+    expect(getMicButton()?.getAttribute('aria-pressed')).toBe('false');
+    expect(getAuthRequestCount()).toBe(1);
+    expect(getRecordingStartCount()).toBe(1);
+    expect(startPushMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps microphone state unchanged when the SDK mute call fails', async () => {
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    muteMock.mockImplementationOnce(() => {
+      throw new Error('microphone device failed');
+    });
+
+    const micButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('开启麦克风'));
+
+    await act(async () => {
+      micButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(micButton.textContent || '').toContain('开启麦克风');
+    expect(micButton.getAttribute('aria-pressed')).toBe('false');
+    expect(getAlert()?.textContent || '').toContain('microphone device failed');
   });
 
   test('does not start cloud recording when local push fails', async () => {

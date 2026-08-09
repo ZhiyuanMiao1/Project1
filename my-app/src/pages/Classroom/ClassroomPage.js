@@ -702,6 +702,8 @@ function ClassroomPage() {
   const remotePlaybackActiveRef = useRef(false);
   const remoteStopInFlightRef = useRef(false);
   const localPushActiveRef = useRef(false);
+  const micMutedRef = useRef(true);
+  const micActionPendingRef = useRef(false);
   const cameraMutedRef = useRef(true);
   const appointmentSyncTimerRef = useRef(0);
   const appointmentSyncInFlightRef = useRef(false);
@@ -735,6 +737,7 @@ function ClassroomPage() {
   const [recordingError, setRecordingError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
+  const [micActionPending, setMicActionPending] = useState(false);
   const [cameraMuted, setCameraMuted] = useState(true);
   const [remotePresent, setRemotePresent] = useState(false);
   const [remoteReady, setRemoteReady] = useState(false);
@@ -819,6 +822,7 @@ function ClassroomPage() {
   remoteScreenSharingRef.current = remoteScreenSharing;
   remoteScreenReadyRef.current = remoteScreenReady;
   remoteLabelRef.current = remoteLabel;
+  micMutedRef.current = micMuted;
   cameraMutedRef.current = cameraMuted;
   chatClosedRef.current = chatClosed;
   cleanupEligibleRef.current = cleanupEligible;
@@ -1870,11 +1874,10 @@ function ClassroomPage() {
 
   const syncLocalMicMuteState = useCallback((muted) => {
     const pusher = pusherRef.current;
-    if (!pusher || typeof pusher.mute !== 'function') return;
+    if (!pusher || typeof pusher.mute !== 'function') return false;
 
-    try {
-      pusher.mute(Boolean(muted));
-    } catch {}
+    pusher.mute(Boolean(muted));
+    return true;
   }, []);
 
   const destroyRemotePlayerInstance = useCallback(async (player, options = {}) => {
@@ -2810,7 +2813,7 @@ function ClassroomPage() {
         if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
           await startLocalPush();
         }
-        syncLocalMicMuteState(micMuted);
+        syncLocalMicMuteState(micMutedRef.current);
       } catch {}
     }
 
@@ -2824,7 +2827,7 @@ function ClassroomPage() {
       }
     }
     void syncClassroomPresence({ screenSharing: false });
-  }, [buildJoinedStatusText, clearScreenTrackListener, micMuted, startLocalPush, syncClassroomPresence, syncLocalMicMuteState]);
+  }, [buildJoinedStatusText, clearScreenTrackListener, startLocalPush, syncClassroomPresence, syncLocalMicMuteState]);
 
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) {
@@ -2911,6 +2914,7 @@ function ClassroomPage() {
       remoteRecoveryTimestampRef.current = 0;
       screenActionPendingRef.current = false;
       screenShareCancelSilenceUntilRef.current = 0;
+      micActionPendingRef.current = false;
       cameraActionPendingRef.current = false;
 
       await stopScreenShare({ silent: true });
@@ -2947,7 +2951,9 @@ function ClassroomPage() {
 
       if (mountedRef.current) {
         setJoined(false);
+        micMutedRef.current = true;
         setMicMuted(true);
+        setMicActionPending(false);
         setCameraMuted(true);
         remotePresentRef.current = false;
         setRemotePresent(false);
@@ -3268,7 +3274,10 @@ function ClassroomPage() {
         setRemotePresent(false);
         setRemoteReady(false);
         setRemoteScreenSharing(false);
+        micMutedRef.current = true;
         setMicMuted(true);
+        micActionPendingRef.current = false;
+        setMicActionPending(false);
         setCameraMuted(true);
         setScreenShareSupported(false);
         setScreenSharing(false);
@@ -3516,26 +3525,33 @@ function ClassroomPage() {
 
   const handleToggleMic = useCallback(async () => {
     const pusher = pusherRef.current;
-    if (!pusher || !joinedRef.current) return;
+    if (!pusher || !joinedRef.current || micActionPendingRef.current) return;
 
     const nextMuted = !micMuted;
+    micActionPendingRef.current = true;
+    if (mountedRef.current) setMicActionPending(true);
+
     try {
       if (!nextMuted && !localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
         await startLocalPush();
       }
 
-      if (localPushActiveRef.current || hasActiveLocalPushSession(pusher) || !cameraMuted || screenSharing) {
-        syncLocalMicMuteState(nextMuted);
+      if (!syncLocalMicMuteState(nextMuted)) {
+        throw new Error(t('classroom.micControlUnavailable', '当前实时音视频 SDK 不支持麦克风开关'));
       }
       if (mountedRef.current) {
+        micMutedRef.current = nextMuted;
         setMicMuted(nextMuted);
         setErrorMessage('');
       }
     } catch (error) {
       if (!mountedRef.current) return;
       setErrorMessage(parseErrorMessage(error, t('classroom.micSwitchFailed', '麦克风切换失败')));
+    } finally {
+      micActionPendingRef.current = false;
+      if (mountedRef.current) setMicActionPending(false);
     }
-  }, [cameraMuted, micMuted, screenSharing, startLocalPush, syncLocalMicMuteState, t]);
+  }, [micMuted, startLocalPush, syncLocalMicMuteState, t]);
 
   const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -3870,7 +3886,7 @@ function ClassroomPage() {
   ]);
 
   const controlsDisabled = joining || !joined;
-  const micControlDisabled = controlsDisabled;
+  const micControlDisabled = controlsDisabled || micActionPending;
   const cameraControlDisabled = controlsDisabled || cameraActionPending;
   const screenControlDisabled = controlsDisabled || !screenShareSupported || screenActionPending;
   const nextLessonControlDisabled = controlsDisabled || !threadId || !currentCourseCard || rescheduleSending;
@@ -4007,9 +4023,10 @@ function ClassroomPage() {
         {!isObserverMode ? <section className="classroom-controls">
           <button
             type="button"
-            className="classroom-control-btn"
+            className={`classroom-control-btn ${micMuted ? '' : 'active'}`}
             disabled={micControlDisabled}
             onClick={handleToggleMic}
+            aria-pressed={!micMuted}
           >
             {micMuted ? <FiMicOff size={16} /> : <FiMic size={16} />}
             <span>{micMuted ? t('classroom.openMic', '开启麦克风') : t('classroom.closeMic', '关闭麦克风')}</span>
