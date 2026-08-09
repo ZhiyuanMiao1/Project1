@@ -2034,6 +2034,7 @@ function OrdersPage() {
       {actionError ? <div className="page-action-error" role="alert">{actionError}</div> : null}
       <State loading={loading} error={error}>
         <DataTable
+          className="orders-table"
           columns={orderColumns}
           rows={orders.map((order) => [
             order.id,
@@ -2051,9 +2052,9 @@ function OrdersPage() {
             formatHourValue(order.remaining_hours),
             formatIntegerAmount(order.amount_cny),
             Number(order.refunded_amount_cny) > 0
-              ? `¥${formatIntegerAmount(order.refunded_amount_cny)}`
+              ? formatIntegerAmount(order.refunded_amount_cny)
               : Number(order.pending_refund_amount_cny) > 0
-                ? `¥${formatIntegerAmount(order.pending_refund_amount_cny)}`
+                ? formatIntegerAmount(order.pending_refund_amount_cny)
                 : '-',
             formatDate(order.created_at),
           ])}
