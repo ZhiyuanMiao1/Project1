@@ -1965,13 +1965,6 @@ function OrdersPage() {
 
   const completeManualRefund = async (order) => {
     if (!order?.id || completingRefundOrderId) return;
-    const amount = Number(order.pending_refund_amount_cny || 0);
-    const providerLabel = providerText[String(order.provider || '').toLowerCase()] || '该渠道';
-    const amountLabel = Number.isFinite(amount) && amount > 0
-      ? ` ¥${formatIntegerAmount(amount)}`
-      : '';
-    if (!window.confirm(`确认已经通过${providerLabel}人工退还${amountLabel}？`)) return;
-
     setCompletingRefundOrderId(order.id);
     setActionError('');
     try {

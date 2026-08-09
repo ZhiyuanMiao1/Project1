@@ -78,21 +78,6 @@
   object-fit: contain;
 }
 
-.wechat-transfer-heading h2 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 20px;
-  font-weight: 650;
-  line-height: 1.25;
-}
-
-.wechat-transfer-heading p {
-  margin: 5px 0 0;
-  color: rgba(15, 23, 42, 0.58);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .wechat-transfer-layout {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
@@ -103,17 +88,12 @@
 
 .wechat-transfer-qr-panel {
   min-width: 0;
-  padding: 12px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  background: #f8fafc;
 }
 
 .wechat-transfer-qr {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 12px;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: default;
@@ -186,21 +166,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-.wechat-transfer-steps {
-  display: grid;
-  gap: 7px;
-  margin: 16px 0;
-  padding-left: 22px;
-  color: rgba(15, 23, 42, 0.72);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
 .wechat-transfer-remark {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 16px;
   min-width: 0;
   padding: 13px 14px;
   border: 1px solid rgba(15, 23, 42, 0.16);
@@ -262,16 +233,6 @@
 .wechat-transfer-copy svg {
   width: 15px;
   height: 15px;
-}
-
-.wechat-transfer-warning {
-  margin-top: 13px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f0fdf4;
-  color: #166534;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 .wechat-transfer-error {
@@ -394,10 +355,6 @@
 
   .wechat-transfer-summary > div {
     padding: 12px;
-  }
-
-  .wechat-transfer-steps {
-    margin: 14px 0;
   }
 
   .wechat-transfer-cancel,

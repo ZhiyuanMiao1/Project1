@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FiCheck, FiCopy, FiDownload, FiX } from 'react-icons/fi';
 import { useI18n } from '../../i18n/language';
 import wechatPayLogo from '../../assets/images/WechatPay.svg';
@@ -16,7 +16,6 @@ function WeChatTransferModal({
   onPaid,
 }) {
   const { t } = useI18n();
-  const titleId = useId();
   const closeButtonRef = useRef(null);
   const [studentIdCopied, setStudentIdCopied] = useState(false);
 
@@ -81,7 +80,7 @@ function WeChatTransferModal({
         className="wechat-transfer-modal"
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-label={t('wallet.wechatPaymentDialog', '微信支付')}
       >
         <button
           type="button"
@@ -96,10 +95,6 @@ function WeChatTransferModal({
 
         <header className="wechat-transfer-heading">
           <img className="wechat-transfer-logo" src={wechatPayLogo} alt="WeChat Pay" />
-          <div>
-            <h2 id={titleId}>{t('wallet.wechatTransferTitle', '微信商户码付款')}</h2>
-            <p>{t('wallet.wechatTransferSubtitle', '扫码付款并备注StudentID，Mentory确认到账后增加课时')}</p>
-          </div>
         </header>
 
         <div className="wechat-transfer-layout">
@@ -131,12 +126,6 @@ function WeChatTransferModal({
               </div>
             </div>
 
-            <ol className="wechat-transfer-steps">
-              <li>{t('wallet.wechatStepScan', '打开微信扫一扫；手机端可长按图片识别或先保存收款码')}</li>
-              <li>{t('wallet.wechatStepAmount', '输入上方准确金额，并在确认页核对收款方')}</li>
-              <li>{t('wallet.wechatStepRemark', '点击付款页的“添加备注”，粘贴下方StudentID后再完成付款')}</li>
-            </ol>
-
             <div className="wechat-transfer-remark">
               <div>
                 <span>{t('wallet.wechatRemark', '付款备注（重要）')}</span>
@@ -160,10 +149,6 @@ function WeChatTransferModal({
                     : t('wallet.wechatCopy', '复制')}
                 </span>
               </button>
-            </div>
-
-            <div className="wechat-transfer-warning" role="note">
-              {t('wallet.wechatPaymentNotice', '如果付款页没有“添加备注”或忘记填写StudentID，请不要重复付款，前往帮助中心联系人工处理。')}
             </div>
 
             {errorMessage ? (
