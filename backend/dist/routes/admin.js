@@ -179,7 +179,7 @@ const toObjectLastModifiedIso = (raw) => {
 };
 const toReplayFileName = (ossKey) => {
     const parts = ossKey.split('/').filter(Boolean);
-    return parts[parts.length - 1] || 'recording.mp4';
+    return (0, recordingStorage_1.toRecordingDisplayFileName)(parts[parts.length - 1] || 'recording.mp4');
 };
 const toReplayFileId = (ossKey) => crypto_1.default.createHash('sha1').update(ossKey).digest('hex').slice(0, 16);
 const listReplayMp4Files = async (storagePrefixes) => {

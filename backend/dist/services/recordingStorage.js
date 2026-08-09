@@ -1,11 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveReplayMp4ObjectPrefix = exports.buildRecordingHlsPrefix = exports.buildRecordingMp4Prefix = void 0;
+exports.resolveReplayMp4ObjectPrefix = exports.toRecordingDisplayFileName = exports.buildRecordingHlsPrefix = exports.buildRecordingMp4Prefix = void 0;
 const normalizePrefix = (value) => (typeof value === 'string' ? value.trim().replace(/^\/+|\/+$/g, '') : '');
 const buildRecordingMp4Prefix = (roomId) => (`recordings/mp4/${roomId}`);
 exports.buildRecordingMp4Prefix = buildRecordingMp4Prefix;
 const buildRecordingHlsPrefix = (roomId) => (`recordings/hls/${roomId}`);
 exports.buildRecordingHlsPrefix = buildRecordingHlsPrefix;
+const toRecordingDisplayFileName = (fileName) => {
+    const courseChannelIndex = fileName.indexOf('_course_');
+    return courseChannelIndex >= 0 ? fileName.slice(courseChannelIndex + 1) : fileName;
+};
+exports.toRecordingDisplayFileName = toRecordingDisplayFileName;
 const resolveReplayMp4ObjectPrefix = (storagePrefix) => {
     const normalizedPrefix = normalizePrefix(storagePrefix);
     if (!normalizedPrefix)

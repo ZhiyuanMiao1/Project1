@@ -10,7 +10,7 @@ import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../s
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
 import { createClassroomObserverToken } from '../services/classroomObserverToken';
 import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
-import { resolveReplayMp4ObjectPrefix } from '../services/recordingStorage';
+import { resolveReplayMp4ObjectPrefix, toRecordingDisplayFileName } from '../services/recordingStorage';
 import {
   ensureMentorRecommendationColumns,
   recomputeMentorCompletedSessionCount,
@@ -213,7 +213,7 @@ const toObjectLastModifiedIso = (raw: unknown) => {
 
 const toReplayFileName = (ossKey: string) => {
   const parts = ossKey.split('/').filter(Boolean);
-  return parts[parts.length - 1] || 'recording.mp4';
+  return toRecordingDisplayFileName(parts[parts.length - 1] || 'recording.mp4');
 };
 
 const toReplayFileId = (ossKey: string) => crypto.createHash('sha1').update(ossKey).digest('hex').slice(0, 16);

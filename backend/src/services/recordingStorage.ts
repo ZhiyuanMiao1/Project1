@@ -10,6 +10,11 @@ export const buildRecordingHlsPrefix = (roomId: string) => (
   `recordings/hls/${roomId}`
 );
 
+export const toRecordingDisplayFileName = (fileName: string) => {
+  const courseChannelIndex = fileName.indexOf('_course_');
+  return courseChannelIndex >= 0 ? fileName.slice(courseChannelIndex + 1) : fileName;
+};
+
 export const resolveReplayMp4ObjectPrefix = (storagePrefix: unknown) => {
   const normalizedPrefix = normalizePrefix(storagePrefix);
   if (!normalizedPrefix) return '';
