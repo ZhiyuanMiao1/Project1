@@ -628,13 +628,111 @@ const restoreRescheduleSourceAfterRecall = async (conn, row, recalledAppointment
     await syncCourseSessionForAppointmentDecision(conn, sourceRow, restoredStatus);
 };
 const applyExplicitRescheduleSourceStatuses = async (rowsForThread) => {
+    const cancelledChainUpdates = new Map();
     const rescheduleSourceUpdates = new Map();
     const statusByAppointmentId = new Map();
+    const rowByAppointmentId = new Map();
+    const rescheduleChildrenBySourceId = new Map();
+    const rescheduleNeighborsByAppointmentId = new Map();
+    const explicitCancelledAppointmentIds = new Set();
     for (const row of rowsForThread || []) {
         const appointmentId = toPositiveIntOrNull(row?.id);
         if (appointmentId == null)
             continue;
         statusByAppointmentId.set(appointmentId, normalizeDecisionStatus(row?.appointment_status) || 'pending');
+        rowByAppointmentId.set(appointmentId, row);
+    }
+    const addNeighbor = (fromId, toId) => {
+        if (!rescheduleNeighborsByAppointmentId.has(fromId)) {
+            rescheduleNeighborsByAppointmentId.set(fromId, new Set());
+        }
+        rescheduleNeighborsByAppointmentId.get(fromId)?.add(toId);
+    };
+    for (const row of rowsForThread || []) {
+        const decisionPayload = parseAppointmentDecisionPayload(row?.payload_json);
+        const decisionAppointmentId = toPositiveIntOrNull(decisionPayload?.appointmentId);
+        if (normalizeDecisionStatus(decisionPayload?.status) === 'cancelled'
+            && decisionAppointmentId != null) {
+            explicitCancelledAppointmentIds.add(decisionAppointmentId);
+        }
+        const payload = parseAppointmentPayload(row?.payload_json);
+        if (!payload)
+            continue;
+        if (safeText(payload.intent).toLowerCase() !== 'reschedule')
+            continue;
+        const sourceAppointmentId = toPositiveIntOrNull(payload.sourceAppointmentId);
+        const appointmentId = toPositiveIntOrNull(row?.id);
+        if (sourceAppointmentId == null
+            || appointmentId == null
+            || sourceAppointmentId === appointmentId
+            || !statusByAppointmentId.has(sourceAppointmentId))
+            continue;
+        if (!rescheduleChildrenBySourceId.has(sourceAppointmentId)) {
+            rescheduleChildrenBySourceId.set(sourceAppointmentId, new Set());
+        }
+        rescheduleChildrenBySourceId.get(sourceAppointmentId)?.add(appointmentId);
+        addNeighbor(sourceAppointmentId, appointmentId);
+        addNeighbor(appointmentId, sourceAppointmentId);
+    }
+    // Older cancellations only updated the currently accepted card. Repair those
+    // histories when the terminal card in a reschedule chain is cancelled. A
+    // cancelled non-terminal card is normal after a successful reschedule and
+    // must not cancel its accepted replacement.
+    const visitedAppointmentIds = new Set();
+    for (const seedAppointmentId of rescheduleNeighborsByAppointmentId.keys()) {
+        if (visitedAppointmentIds.has(seedAppointmentId))
+            continue;
+        const componentIds = [];
+        const pendingIds = [seedAppointmentId];
+        visitedAppointmentIds.add(seedAppointmentId);
+        while (pendingIds.length > 0) {
+            const appointmentId = pendingIds.pop();
+            if (appointmentId == null)
+                continue;
+            componentIds.push(appointmentId);
+            for (const neighborId of rescheduleNeighborsByAppointmentId.get(appointmentId) || []) {
+                if (visitedAppointmentIds.has(neighborId))
+                    continue;
+                visitedAppointmentIds.add(neighborId);
+                pendingIds.push(neighborId);
+            }
+        }
+        const explicitlyCancelled = componentIds.some((appointmentId) => (explicitCancelledAppointmentIds.has(appointmentId)));
+        const cancelledTerminalId = componentIds.find((appointmentId) => ((rescheduleChildrenBySourceId.get(appointmentId)?.size || 0) === 0
+            && statusByAppointmentId.get(appointmentId) === 'cancelled'));
+        if (!explicitlyCancelled && cancelledTerminalId == null)
+            continue;
+        const cancelledAnchorId = componentIds.find((appointmentId) => (explicitCancelledAppointmentIds.has(appointmentId)
+            || appointmentId === cancelledTerminalId));
+        const cancelledAnchorRow = cancelledAnchorId == null
+            ? null
+            : rowByAppointmentId.get(cancelledAnchorId);
+        const updatedByUserId = toPositiveIntOrNull(cancelledAnchorRow?.appointment_status_updated_by_user_id)
+            || toPositiveIntOrNull(cancelledAnchorRow?.sender_user_id)
+            || componentIds
+                .map((appointmentId) => rowByAppointmentId.get(appointmentId))
+                .map((row) => toPositiveIntOrNull(row?.appointment_status_updated_by_user_id)
+                || toPositiveIntOrNull(row?.sender_user_id))
+                .find((userId) => userId != null)
+            || null;
+        if (updatedByUserId == null)
+            continue;
+        for (const appointmentId of componentIds) {
+            if (statusByAppointmentId.get(appointmentId) === 'cancelled')
+                continue;
+            cancelledChainUpdates.set(appointmentId, updatedByUserId);
+            statusByAppointmentId.set(appointmentId, 'cancelled');
+        }
+    }
+    for (const [appointmentId, updatedByUserId] of cancelledChainUpdates.entries()) {
+        await (0, db_1.query)(`
+      INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+      VALUES (?, 'cancelled', ?)
+      ON DUPLICATE KEY UPDATE
+        status = 'cancelled',
+        updated_by_user_id = VALUES(updated_by_user_id),
+        updated_at = CURRENT_TIMESTAMP
+      `, [appointmentId, updatedByUserId]);
     }
     for (const row of rowsForThread || []) {
         const payload = parseAppointmentPayload(row?.payload_json);
@@ -667,11 +765,20 @@ const applyExplicitRescheduleSourceStatuses = async (rowsForThread) => {
         updated_at = CURRENT_TIMESTAMP
       `, [sourceAppointmentId, updatedByUserId]);
     }
-    if (rescheduleSourceUpdates.size === 0)
+    if (cancelledChainUpdates.size === 0 && rescheduleSourceUpdates.size === 0) {
         return rowsForThread || [];
+    }
     return (rowsForThread || []).map((row) => {
         const appointmentId = toPositiveIntOrNull(row?.id);
-        if (appointmentId == null || !rescheduleSourceUpdates.has(appointmentId))
+        if (appointmentId == null)
+            return row;
+        if (cancelledChainUpdates.has(appointmentId)) {
+            return {
+                ...row,
+                appointment_status: 'cancelled',
+            };
+        }
+        if (!rescheduleSourceUpdates.has(appointmentId))
             return row;
         return {
             ...row,
@@ -1134,6 +1241,45 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
     catch (error) {
         console.error('Appointment notification mail error:', error);
     }
+};
+const getRescheduleChainAppointmentIds = async (conn, threadId, rootAppointmentId) => {
+    const [rows] = await conn.execute(`SELECT id, payload_json
+     FROM message_items
+     WHERE thread_id = ? AND message_type = 'appointment_card'`, [threadId]);
+    const knownIds = new Set();
+    const adjacency = new Map();
+    for (const item of rows || []) {
+        const id = toPositiveIntOrNull(item?.id);
+        if (id == null)
+            continue;
+        knownIds.add(id);
+        adjacency.set(id, adjacency.get(id) || new Set());
+    }
+    for (const item of rows || []) {
+        const id = toPositiveIntOrNull(item?.id);
+        const payload = parseAppointmentPayload(item?.payload_json);
+        const sourceId = toPositiveIntOrNull(payload?.sourceAppointmentId);
+        if (id == null
+            || sourceId == null
+            || !knownIds.has(sourceId)
+            || safeText(payload?.intent).toLowerCase() !== 'reschedule')
+            continue;
+        adjacency.get(id)?.add(sourceId);
+        adjacency.get(sourceId)?.add(id);
+    }
+    const connected = new Set();
+    const queue = [rootAppointmentId];
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (connected.has(current) || !knownIds.has(current))
+            continue;
+        connected.add(current);
+        for (const neighbor of adjacency.get(current) || []) {
+            if (!connected.has(neighbor))
+                queue.push(neighbor);
+        }
+    }
+    return Array.from(connected);
 };
 router.post('/appointments', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
@@ -1742,12 +1888,40 @@ router.post('/appointments/:appointmentId/lifecycle', auth_1.requireAuth, async 
         updated_by_user_id = VALUES(updated_by_user_id),
         updated_at = CURRENT_TIMESTAMP
       `, [appointmentId, nextStatus, req.user.id]);
+        if (action === 'cancel') {
+            const chainIds = await getRescheduleChainAppointmentIds(conn, Number(row.thread_id), appointmentId);
+            for (const chainAppointmentId of chainIds) {
+                if (chainAppointmentId === appointmentId)
+                    continue;
+                await conn.execute(`INSERT INTO appointment_statuses (appointment_message_id, status, updated_by_user_id)
+           VALUES (?, 'cancelled', ?)
+           ON DUPLICATE KEY UPDATE
+             status = 'cancelled',
+             updated_by_user_id = VALUES(updated_by_user_id),
+             updated_at = CURRENT_TIMESTAMP`, [chainAppointmentId, req.user.id]);
+            }
+        }
         if (shouldCancelSession)
             await cancelAppointmentCourseSession(conn, row);
         if (shouldReopenRequest) {
             await reopenCourseRequestIfNoActiveAppointment(conn, window.payload, Number(row.student_user_id));
         }
-        await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        if (action === 'cancel') {
+            const lifecyclePayload = {
+                kind: 'appointment_decision',
+                appointmentId: String(appointmentId),
+                status: 'cancelled',
+            };
+            const [messageInsert] = await conn.execute(`INSERT INTO message_items (thread_id, sender_user_id, message_type, payload_json)
+         VALUES (?, ?, 'appointment_decision', ?)`, [Number(row.thread_id), req.user.id, JSON.stringify(lifecyclePayload)]);
+            const lifecycleMessageId = Number(messageInsert.insertId);
+            await conn.execute(`UPDATE message_threads
+         SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`, [lifecycleMessageId, Number(row.thread_id)]);
+        }
+        else {
+            await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
+        }
         await conn.commit();
         const studentUserId = Number(row.student_user_id);
         const mentorUserId = Number(row.mentor_user_id);
@@ -3029,7 +3203,9 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
                         return null;
                     const appointmentIdRaw = payload.appointmentId;
                     const appointmentIdNum = toPositiveIntOrNull(appointmentIdRaw);
-                    if (appointmentIdNum != null && hiddenAppointmentIds.has(appointmentIdNum))
+                    if (status !== 'cancelled'
+                        && appointmentIdNum != null
+                        && hiddenAppointmentIds.has(appointmentIdNum))
                         return null;
                     const appointmentIdText = typeof appointmentIdRaw === 'string'
                         ? appointmentIdRaw.trim()

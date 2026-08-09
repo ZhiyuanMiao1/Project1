@@ -847,7 +847,7 @@ function MessagesPage() {
       .map((item, index) => {
         if (!item || typeof item !== 'object') return null;
         const status = typeof item.status === 'string' ? item.status.trim().toLowerCase() : '';
-        if (status !== 'accepted' && status !== 'rejected') return null;
+        if (status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return null;
         if (item.isByMe) return null;
         return {
           id: String(item.id || `decision-${index}`),
@@ -865,7 +865,7 @@ function MessagesPage() {
     if (!latest || typeof latest !== 'object') return [];
     if (latest.isByMe) return [];
     const status = typeof latest.status === 'string' ? latest.status.trim().toLowerCase() : '';
-    if (status !== 'accepted' && status !== 'rejected') return [];
+    if (status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return [];
     return [{
       id: 'latest-decision',
       status,
@@ -1978,8 +1978,12 @@ function MessagesPage() {
                   {timelineItems.map((item) => {
                     if (item.kind === 'decision') {
                       const decisionStatus = item?.decision?.status;
-                      if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected') return null;
-                      const verb = decisionStatus === 'accepted' ? t('appointment.accept', '接受') : t('appointment.reject', '拒绝');
+                      if (decisionStatus !== 'accepted' && decisionStatus !== 'rejected' && decisionStatus !== 'cancelled') return null;
+                      const verb = decisionStatus === 'accepted'
+                        ? t('appointment.accept', '接受')
+                        : decisionStatus === 'rejected'
+                          ? t('appointment.reject', '拒绝')
+                          : t('appointment.cancelled', '取消');
                       const isUnreadIncoming = !item?.decision?.isByMe && !item?.decision?.isRead;
                       return (
                         <div
@@ -1991,8 +1995,12 @@ function MessagesPage() {
                         >
                           <div className="message-decision-notice" role="status">
                             {language === 'en'
-                              ? `${activeCounterpartDisplayName} ${decisionStatus === 'accepted' ? 'accepted' : 'rejected'} your invitation`
-                              : `${activeCounterpartDisplayName}${verb}了你的邀请`}
+                              ? (decisionStatus === 'cancelled'
+                                ? `${activeCounterpartDisplayName} cancelled the course`
+                                : `${activeCounterpartDisplayName} ${decisionStatus === 'accepted' ? 'accepted' : 'rejected'} your invitation`)
+                              : (decisionStatus === 'cancelled'
+                                ? `${activeCounterpartDisplayName}${verb}了课程`
+                                : `${activeCounterpartDisplayName}${verb}了你的邀请`)}
                           </div>
                         </div>
                         );

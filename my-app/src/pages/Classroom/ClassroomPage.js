@@ -3907,6 +3907,19 @@ function ClassroomPage() {
       : recordingStatus === 'failed'
         ? t('classroom.recordingFailed', '录制启动失败')
         : '';
+  const micControlLabel = micMuted
+    ? t('classroom.openMic', '开启麦克风')
+    : t('classroom.closeMic', '关闭麦克风');
+  const cameraControlLabel = cameraMuted
+    ? t('classroom.openCamera', '开启摄像头')
+    : t('classroom.closeCamera', '关闭摄像头');
+  const screenControlLabel = screenSharing
+    ? t('classroom.stopShare', '停止共享')
+    : t('classroom.shareScreen', '共享屏幕');
+  const scheduleControlLabel = t('classroom.scheduleNext', '预约下节课');
+  const leaveControlLabel = isMentorInSession
+    ? t('classroom.end', '结束课堂')
+    : t('classroom.leave', '离开课堂');
 
   return (
     <div className="classroom-page">
@@ -4027,19 +4040,22 @@ function ClassroomPage() {
             disabled={micControlDisabled}
             onClick={handleToggleMic}
             aria-pressed={!micMuted}
+            aria-label={micControlLabel}
           >
-            {micMuted ? <FiMicOff size={16} /> : <FiMic size={16} />}
-            <span>{micMuted ? t('classroom.openMic', '开启麦克风') : t('classroom.closeMic', '关闭麦克风')}</span>
+            {micMuted ? <FiMicOff size={19} /> : <FiMic size={19} />}
+            <span className="classroom-control-tooltip" aria-hidden="true">{micControlLabel}</span>
           </button>
 
           <button
             type="button"
-            className="classroom-control-btn"
+            className={`classroom-control-btn ${cameraMuted ? '' : 'active'}`}
             disabled={cameraControlDisabled}
             onClick={handleToggleCamera}
+            aria-pressed={!cameraMuted}
+            aria-label={cameraControlLabel}
           >
-            {cameraMuted ? <FiVideoOff size={16} /> : <FiVideo size={16} />}
-            <span>{cameraMuted ? t('classroom.openCamera', '开启摄像头') : t('classroom.closeCamera', '关闭摄像头')}</span>
+            {cameraMuted ? <FiVideoOff size={19} /> : <FiVideo size={19} />}
+            <span className="classroom-control-tooltip" aria-hidden="true">{cameraControlLabel}</span>
           </button>
 
           <button
@@ -4048,9 +4064,11 @@ function ClassroomPage() {
             disabled={screenControlDisabled}
             onClick={handleToggleScreenShare}
             title={!screenShareSupported ? t('classroom.unsupportedScreenShare', '当前浏览器不支持共享屏幕') : ''}
+            aria-pressed={screenSharing}
+            aria-label={screenControlLabel}
           >
-            <FiMonitor size={16} />
-            <span>{screenSharing ? t('classroom.stopShare', '停止共享') : t('classroom.shareScreen', '共享屏幕')}</span>
+            <FiMonitor size={19} />
+            <span className="classroom-control-tooltip" aria-hidden="true">{screenControlLabel}</span>
           </button>
 
           <button
@@ -4059,18 +4077,20 @@ function ClassroomPage() {
             disabled={nextLessonControlDisabled}
             onClick={handleOpenNextLesson}
             title={!threadId || !currentCourseCard ? t('classroom.scheduleUnavailable', '当前课堂暂不可预约下节课') : ''}
+            aria-label={scheduleControlLabel}
           >
-            <FiCalendar size={16} />
-            <span>{t('classroom.scheduleNext', '预约下节课')}</span>
+            <FiCalendar size={19} />
+            <span className="classroom-control-tooltip" aria-hidden="true">{scheduleControlLabel}</span>
           </button>
 
           <button
             type="button"
             className="classroom-control-btn leave"
             onClick={isMentorInSession ? handleOpenEndSessionDialog : handleLeaveClassroom}
+            aria-label={leaveControlLabel}
           >
-            <FiPhoneOff size={16} />
-            <span>{isMentorInSession ? t('classroom.end', '结束课堂') : t('classroom.leave', '离开课堂')}</span>
+            <FiPhoneOff size={19} />
+            <span className="classroom-control-tooltip" aria-hidden="true">{leaveControlLabel}</span>
           </button>
         </section> : null}
 

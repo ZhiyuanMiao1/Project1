@@ -933,6 +933,7 @@ const en = {
   'appointment.respondedCannotRecall': 'The other party has responded, so this cannot be recalled',
   'appointment.accept': 'Accept',
   'appointment.reject': 'Reject',
+  'appointment.cancelled': 'Cancel',
   'appointment.reschedule': 'Reschedule',
   'appointment.changeStatusTo': 'Change schedule status to',
   'appointment.moreActions': 'More actions',

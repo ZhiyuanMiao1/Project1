@@ -372,6 +372,28 @@ describe('ClassroomPage remote recovery', () => {
     expect(startPushMock).toHaveBeenCalledTimes(1);
   });
 
+  test('renders classroom actions as accessible icon controls with hover tooltips', async () => {
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const controls = container.querySelector('.classroom-controls');
+    const buttons = Array.from(controls?.querySelectorAll('.classroom-control-btn') || []);
+
+    expect(buttons).toHaveLength(5);
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      '开启麦克风',
+      '开启摄像头',
+      '共享屏幕',
+      '预约下节课',
+      '结束课堂',
+    ]);
+    buttons.forEach((button) => {
+      expect(button.querySelector('.classroom-control-tooltip')).toBeTruthy();
+    });
+  });
+
   test('keeps microphone state unchanged when the SDK mute call fails', async () => {
     startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
 
