@@ -879,8 +879,6 @@ const en = {
   'wallet.refundRetained': 'Hours retained from this top-up',
   'wallet.refundBalanceAfter': 'Wallet balance after refund',
   'wallet.refundScheduleWarning': 'You have about {hours} hours of upcoming lessons. Your balance may be insufficient after this refund, and you may need to top up before entering class.',
-  'wallet.refundConfirmTitle': 'Confirm refund details',
-  'wallet.refundConfirmDescription': '{hours} hours will be deducted from your wallet and {currency} {amount} will be returned to the original payment method. This cannot be undone',
   'wallet.refundHistory': 'Refund history',
   'wallet.refundCompleted': 'Refund completed',
   'wallet.refundFailed': 'Refund failed',
@@ -888,7 +886,6 @@ const en = {
   'wallet.refundProcessing': 'Confirming',
   'wallet.refundSubmitting': 'Submitting...',
   'wallet.refundConfirmSubmit': 'Confirm Refund',
-  'wallet.refundContinue': 'Continue',
   'wallet.refundSuccess': 'Refund Submitted',
   'wallet.refundSuccessDescription': 'Funds will be returned according to the processing status of the original payment method.',
 

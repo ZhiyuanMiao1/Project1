@@ -45,7 +45,6 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
   const [hours, setHours] = useState('');
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -107,7 +106,6 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
     }
     setHours(formatNumber(order.availableHours));
     setQuote(null);
-    setConfirming(false);
     // Only reset the form when the selected order changes, not during status polling.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrderId]);
@@ -141,7 +139,6 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
     window.clearTimeout(quoteTimerRef.current);
     const requestId = ++quoteRequestRef.current;
     setQuote(null);
-    setConfirming(false);
     const parsedHours = Number(hours);
     if (
       !open
@@ -190,12 +187,10 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
       if (payload.wallet) onWalletUpdated?.(payload.wallet);
       const status = String(payload?.refund?.status || '').toUpperCase();
       if (status === 'COMPLETED') onCompleted?.();
-      setConfirming(false);
       await loadData({ silent: true });
     } catch (requestError) {
       const message = requestError?.response?.data?.error || t('wallet.refundSubmitFailed', '退款提交失败，请稍后重试');
       setError(message);
-      if (requestError?.response?.status === 409) setConfirming(false);
     } finally {
       setSubmitting(false);
     }
@@ -388,22 +383,6 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                     </div>
                   )}
 
-                  {confirming && quote && (
-                    <div className="wallet-refund-confirm">
-                      <strong>{t('wallet.refundConfirmTitle', '请确认退款信息')}</strong>
-                      <p>
-                        {t(
-                          'wallet.refundConfirmDescription',
-                          `将从钱包扣除 ${formatNumber(hours)} 小时，并原路退回 ${quote.amount.currency} ${Number(quote.amount.value).toFixed(2)}。提交后无法撤销`,
-                          {
-                            hours: formatNumber(hours),
-                            currency: quote.amount.currency,
-                            amount: Number(quote.amount.value).toFixed(2),
-                          }
-                        )}
-                      </p>
-                    </div>
-                  )}
                 </section>
               )}
 
@@ -433,25 +412,14 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
           <button type="button" className="wallet-refund-cancel" onClick={() => onClose?.()} disabled={submitting}>
             {t('common.cancel', '取消')}
           </button>
-          {confirming ? (
-            <button
-              type="button"
-              className="wallet-refund-submit"
-              onClick={submitRefund}
-              disabled={!quote || submitting}
-            >
-              {submitting ? <LoadingText text={t('wallet.refundSubmitting', '正在提交...')} /> : t('wallet.refundConfirmSubmit', '确认退款')}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="wallet-refund-submit"
-              onClick={() => setConfirming(true)}
-              disabled={!quote || quoteLoading || loading}
-            >
-              {t('wallet.refundContinue', '继续')}
-            </button>
-          )}
+          <button
+            type="button"
+            className="wallet-refund-submit"
+            onClick={submitRefund}
+            disabled={!quote || quoteLoading || loading || submitting}
+          >
+            {submitting ? <LoadingText text={t('wallet.refundSubmitting', '正在提交...')} /> : t('wallet.refundConfirmSubmit', '确认退款')}
+          </button>
         </footer>
       </section>
     </div>
