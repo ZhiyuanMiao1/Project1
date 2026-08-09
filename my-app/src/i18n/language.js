@@ -982,6 +982,7 @@ const en = {
   'lessonHours.pendingTitleMentor': 'The student disputed this lesson’s hours',
   'lessonHours.pendingTitleStudent': 'Confirm the actual hours for this lesson',
   'lessonHours.pendingSubtitle': 'This window will stay open until you respond',
+  'lessonHours.pendingAutoConfirmSubtitle': 'Confirm or dispute by {deadline}. After the deadline, the mentor-submitted hours will be confirmed and deducted automatically.',
   'lessonHours.originalHours': 'Original mentor-submitted hours',
   'lessonHours.mentorSubmittedHours': 'Mentor-submitted hours',
   'lessonHours.studentClaimedHours': 'Student-claimed hours',

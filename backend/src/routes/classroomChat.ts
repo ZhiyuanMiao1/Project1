@@ -69,8 +69,8 @@ const sendLessonHoursSubmittedMailSafely = async ({
       actorDisplayName,
       messageUrl: `${getPublicAppUrl()}/student/messages`,
       description: isEnglish
-        ? `${actorDisplayName} submitted ${proposedHours} lesson hour${singular ? '' : 's'}. Please confirm.`
-        : `${actorDisplayName} 提交了 ${proposedHours} 小时课时，请及时确认。`,
+        ? `${actorDisplayName} submitted ${proposedHours} lesson hour${singular ? '' : 's'}. Please confirm or dispute within 7 days. If no action is taken, the submitted hours will be confirmed and deducted automatically.`
+        : `${actorDisplayName} 提交了 ${proposedHours} 小时课时。请在 7 天内确认或提出异议；逾期未处理，系统将按导师提交的课时自动确认并扣除。`,
       locale: preferences.locale,
     });
   } catch (error) {

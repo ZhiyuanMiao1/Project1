@@ -34,6 +34,7 @@ const normalizePendingLessonHoursItem = (item) => {
     participantName: safeText(item?.participantName),
     participantAvatarUrl: safeText(item?.participantAvatarUrl),
     createdAt: safeText(item?.createdAt),
+    autoConfirmAt: safeText(item?.autoConfirmAt),
     actionRole: safeText(item?.actionRole) === 'mentor' ? 'mentor' : 'student',
     status: safeText(item?.status),
   };

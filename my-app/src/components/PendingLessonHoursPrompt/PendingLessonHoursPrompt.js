@@ -33,6 +33,21 @@ const formatSessionTime = (value, language = 'zh-CN') => {
   }).format(date);
 };
 
+const formatDeadline = (value, language = 'zh-CN') => {
+  const text = safeText(value);
+  if (!text) return '';
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(language === 'en' ? 'en-US' : 'zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+};
+
 function PendingLessonHoursPrompt({
   open,
   confirmation,
@@ -87,7 +102,16 @@ function PendingLessonHoursPrompt({
   if (!open || !confirmation) return null;
 
   const title = isMentorAction ? t('lessonHours.pendingTitleMentor', '学生对本节课时提出了异议') : t('lessonHours.pendingTitleStudent', '请确认本节课实际课时');
-  const subtitle = isMentorAction ? '' : t('lessonHours.pendingSubtitle', '处理完成前，此窗口不会关闭');
+  const deadline = formatDeadline(confirmation?.autoConfirmAt, language);
+  const subtitle = isMentorAction
+    ? ''
+    : deadline
+      ? t(
+        'lessonHours.pendingAutoConfirmSubtitle',
+        '请在 {deadline} 前确认或提出异议，逾期将按导师提交的课时自动确认并扣除',
+        { deadline }
+      )
+      : t('lessonHours.pendingSubtitle', '处理完成前，此窗口不会关闭');
   const valueLabel = isMentorAction ? t('lessonHours.originalHours', '导师原提交课时') : t('lessonHours.mentorSubmittedHours', '导师提交课时');
   const disputedHoursText = formatHours(confirmation?.disputedHours);
   const tipText = isMentorAction

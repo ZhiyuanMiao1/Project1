@@ -11,6 +11,7 @@ const mailService_1 = require("../services/mailService");
 const mentorResponseTime_1 = require("../services/mentorResponseTime");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const walletHours_1 = require("../services/walletHours");
+const lessonHoursAutoConfirmation_1 = require("../services/lessonHoursAutoConfirmation");
 const router = express_1.default.Router();
 let appointmentLifecycleSchemaPromise = null;
 const ensureAppointmentLifecycleStatuses = async () => {
@@ -2798,6 +2799,7 @@ router.get('/pending-lesson-hours', auth_1.requireAuth, async (req, res) => {
                 participantName,
                 participantAvatarUrl,
                 createdAt: row?.created_at ? new Date(row.created_at).toISOString() : '',
+                autoConfirmAt: (0, lessonHoursAutoConfirmation_1.getLessonHoursAutoConfirmAt)(row?.created_at)?.toISOString() || '',
                 actionRole,
                 status,
             };

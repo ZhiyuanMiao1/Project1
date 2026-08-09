@@ -20,6 +20,7 @@ import {
   touchMentorLastRepliedWithConnection,
 } from '../services/mentorRecommendation';
 import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
+import { getLessonHoursAutoConfirmAt } from '../services/lessonHoursAutoConfirmation';
 
 const router = express.Router();
 
@@ -3389,6 +3390,7 @@ router.get('/pending-lesson-hours', requireAuth, async (req: Request, res: Respo
           participantName,
           participantAvatarUrl,
           createdAt: row?.created_at ? new Date(row.created_at).toISOString() : '',
+          autoConfirmAt: getLessonHoursAutoConfirmAt(row?.created_at)?.toISOString() || '',
           actionRole,
           status,
         };
