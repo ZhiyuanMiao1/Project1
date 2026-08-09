@@ -24,6 +24,12 @@ type AppointmentNotificationMailInput = {
   windowText?: string;
   messageUrl?: string;
   description: string;
+  locale?: 'zh-CN' | 'en';
+};
+
+export type EmailNotificationPreferences = {
+  enabled: boolean;
+  locale: 'zh-CN' | 'en';
 };
 
 const parseBoolean = (value: any, fallback = false) => {
@@ -156,6 +162,38 @@ export const areEmailNotificationsEnabledForUser = async (userId: number) => {
   return Number(rows[0]?.email_notifications) === 1;
 };
 
+export const getEmailNotificationPreferencesForUser = async (
+  userId: number
+): Promise<EmailNotificationPreferences> => {
+  if (!Number.isFinite(userId) || userId <= 0) return { enabled: false, locale: 'zh-CN' };
+
+  try {
+    const rows = await query<Array<{
+      email_notifications: number | string | null;
+      preferred_language: string | null;
+    }>>(
+      `SELECT COALESCE(email_notifications, 1) AS email_notifications, preferred_language
+       FROM account_settings
+       WHERE user_id = ?
+       LIMIT 1`,
+      [userId]
+    );
+    if (!Array.isArray(rows) || rows.length === 0) return { enabled: true, locale: 'zh-CN' };
+    return {
+      enabled: Number(rows[0]?.email_notifications) === 1,
+      locale: String(rows[0]?.preferred_language || '').toLowerCase() === 'en' ? 'en' : 'zh-CN',
+    };
+  } catch (error: any) {
+    // Keep notifications working during a rolling deployment before the new
+    // language column has been applied. The schema default remains Chinese.
+    if (String(error?.code || '') !== 'ER_BAD_FIELD_ERROR') throw error;
+    return {
+      enabled: await areEmailNotificationsEnabledForUser(userId),
+      locale: 'zh-CN',
+    };
+  }
+};
+
 export const sendNotificationMail = async ({
   recipientUserId,
   to,
@@ -231,21 +269,25 @@ export const sendAppointmentNotificationMail = async ({
   windowText = '',
   messageUrl = '',
   description,
+  locale = 'zh-CN',
 }: AppointmentNotificationMailInput) => {
-  const safeActor = actorDisplayName.trim() || '对方';
+  const isEnglish = locale === 'en';
+  const safeActor = actorDisplayName.trim() || (isEnglish ? 'The other participant' : '对方');
   const safeWindowText = windowText.trim();
   const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
 
   const details = [
-    { label: '操作人', value: safeActor },
-    ...(safeWindowText ? [{ label: '预约时间', value: safeWindowText }] : []),
+    { label: isEnglish ? 'From' : '操作人', value: safeActor },
+    ...(safeWindowText ? [{ label: isEnglish ? 'Time' : '预约时间', value: safeWindowText }] : []),
   ];
 
   const text = [
     `Mentory ${eventTitle}`,
     description,
     ...details.map((item) => `${item.label}：${item.value}`),
-    safeMessageUrl ? `消息页面：${safeMessageUrl}` : '请登录 Mentory 查看完整课程预约消息。',
+    safeMessageUrl
+      ? `${isEnglish ? 'Messages' : '消息页面'}：${safeMessageUrl}`
+      : (isEnglish ? 'Sign in to Mentory to view the full update.' : '请登录 Mentory 查看完整消息。'),
   ].join('\n');
 
   const detailRowsHtml = details.map((item) => `
@@ -264,10 +306,10 @@ export const sendAppointmentNotificationMail = async ({
           ${detailRowsHtml}
         </table>
       </div>
-      <div style="margin-top: 18px; font-size: 14px; color: #475569;">请登录 Mentory 查看完整课程预约消息。</div>
+      <div style="margin-top: 18px; font-size: 14px; color: #475569;">${isEnglish ? 'Sign in to Mentory to view the full update.' : '请登录 Mentory 查看完整消息。'}</div>
       ${safeMessageUrl ? `
         <div style="margin-top: 18px;">
-          <a href="${escapeHtml(safeMessageUrl)}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">打开Mentory</a>
+          <a href="${escapeHtml(safeMessageUrl)}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">${isEnglish ? 'Open Mentory' : '打开 Mentory'}</a>
         </div>
       ` : ''}
     `

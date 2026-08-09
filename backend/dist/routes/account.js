@@ -12,6 +12,25 @@ const refreshTokens_1 = require("../auth/refreshTokens");
 const availabilityBusy_1 = require("../services/availabilityBusy");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const adminSchema_1 = require("../services/adminSchema");
+let preferredLanguageColumnEnsured = false;
+const ensurePreferredLanguageColumn = async () => {
+    if (preferredLanguageColumnEnsured)
+        return true;
+    try {
+        await (0, db_1.query)("ALTER TABLE account_settings ADD COLUMN preferred_language ENUM('zh-CN','en') NOT NULL DEFAULT 'zh-CN'");
+        preferredLanguageColumnEnsured = true;
+        return true;
+    }
+    catch (e) {
+        const code = String(e?.code || '');
+        const message = String(e?.message || '');
+        if (code === 'ER_DUP_FIELDNAME' || message.includes('Duplicate column name')) {
+            preferredLanguageColumnEnsured = true;
+            return true;
+        }
+        return false;
+    }
+};
 const toInt = (value, fallback = 0) => {
     const n = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
     return Number.isFinite(n) ? n : fallback;
@@ -768,6 +787,27 @@ router.put('/notifications', auth_1.requireAuth, [
     }
     catch (e) {
         console.error('Account notifications update error:', e);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.put('/language', auth_1.requireAuth, [(0, express_validator_1.body)('language').isIn(['zh-CN', 'en']).withMessage('语言设置无效')], async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: '未授权' });
+    const errors = (0, express_validator_1.validationResult)(req);
+    if (!errors.isEmpty())
+        return res.status(400).json({ errors: errors.array() });
+    try {
+        if (!(await ensurePreferredLanguageColumn())) {
+            return res.status(500).json({ error: '数据库升级失败，请先执行 backend/schema.sql' });
+        }
+        const language = req.body.language === 'en' ? 'en' : 'zh-CN';
+        await (0, db_1.query)(`INSERT INTO account_settings (user_id, preferred_language)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE preferred_language = VALUES(preferred_language), updated_at = CURRENT_TIMESTAMP`, [req.user.id, language]);
+        return res.json({ message: '保存成功', language });
+    }
+    catch (e) {
+        console.error('Account language update error:', e);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });

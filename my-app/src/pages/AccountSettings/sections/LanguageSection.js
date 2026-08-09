@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FiChevronDown, FiMenu } from 'react-icons/fi';
 import { DIRECTION_ICON_MAP, DIRECTION_OPTIONS } from '../../../constants/courseMappings';
 import { LANGUAGE_OPTIONS, useI18n } from '../../../i18n/language';
+import api from '../../../api/client';
 
 export const DEFAULT_HOME_COURSE_ORDER_IDS = DIRECTION_OPTIONS.map((opt) => opt.id);
 
@@ -190,6 +191,10 @@ function LanguageSection({
   const { language, setLanguage, t } = useI18n();
   const [homeCourseOrderExpanded, setHomeCourseOrderExpanded] = useState(false);
   const [languageDialogOpen, setLanguageDialogOpen] = useState(false);
+
+  useEffect(() => {
+    api.put('/api/account/language', { language }).catch(() => {});
+  }, [language]);
 
   const isHomeCourseOrderCustomized = useMemo(() => {
     if (!Array.isArray(homeCourseOrderIds) || homeCourseOrderIds.length !== DEFAULT_HOME_COURSE_ORDER_IDS.length) return false;

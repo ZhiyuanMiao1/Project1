@@ -103,6 +103,7 @@ DELIMITER ;
 CREATE TABLE IF NOT EXISTS `account_settings` (
   `user_id` INT NOT NULL,
   `email_notifications` TINYINT(1) NOT NULL DEFAULT 1,
+  `preferred_language` ENUM('zh-CN','en') NOT NULL DEFAULT 'zh-CN',
   `home_course_order_json` TEXT NULL,
   `availability_json` TEXT NULL,
   `availability_updated_at` TIMESTAMP NULL DEFAULT NULL,
@@ -112,6 +113,21 @@ CREATE TABLE IF NOT EXISTS `account_settings` (
   PRIMARY KEY (`user_id`),
   CONSTRAINT `fk_account_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_preferred_language := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'account_settings'
+    AND COLUMN_NAME = 'preferred_language'
+);
+SET @__mx_sql := IF(
+  @__mx_has_preferred_language = 0,
+  'ALTER TABLE `account_settings` ADD COLUMN `preferred_language` ENUM(''zh-CN'',''en'') NOT NULL DEFAULT ''zh-CN'' AFTER `email_notifications`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 SET @__mx_has_availability_updated_at := (
   SELECT COUNT(*)

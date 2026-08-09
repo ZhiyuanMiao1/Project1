@@ -6,6 +6,7 @@ const auth_1 = require("../middleware/auth");
 const ossClient_1 = require("../services/ossClient");
 const classroomAccess_1 = require("../services/classroomAccess");
 const classroomObserverToken_1 = require("../services/classroomObserverToken");
+const mailService_1 = require("../services/mailService");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const router = (0, express_1.Router)();
 const MAX_TEXT_LENGTH = 4000;
@@ -13,6 +14,41 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const MESSAGE_FETCH_LIMIT = 200;
 const SIGNED_URL_EXPIRE_SECONDS = 120;
 const ALLOWED_FILE_EXTS = new Set(['pdf', 'ppt', 'pptx', 'doc', 'docx', 'png', 'jpg', 'jpeg', 'zip']);
+const sendLessonHoursSubmittedMailSafely = async ({ mentorUserId, studentUserId, proposedHours, }) => {
+    try {
+        const preferences = await (0, mailService_1.getEmailNotificationPreferencesForUser)(studentUserId);
+        if (!preferences.enabled)
+            return;
+        const rows = await (0, db_1.query)(`SELECT su.email, COALESCE(mp.display_name, mu.username, mr.public_id, '') AS actor_name
+       FROM users su
+       INNER JOIN users mu ON mu.id = ?
+       LEFT JOIN mentor_profiles mp ON mp.user_id = mu.id
+       LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
+       WHERE su.id = ?
+       LIMIT 1`, [mentorUserId, studentUserId]);
+        const to = (0, classroomAccess_1.safeText)(rows?.[0]?.email);
+        if (!to)
+            return;
+        const actorDisplayName = (0, classroomAccess_1.safeText)(rows?.[0]?.actor_name) || (preferences.locale === 'en' ? 'Your mentor' : '导师');
+        const isEnglish = preferences.locale === 'en';
+        const singular = proposedHours === 1;
+        await (0, mailService_1.sendAppointmentNotificationMail)({
+            recipientUserId: studentUserId,
+            to,
+            subject: isEnglish ? 'Mentory: Lesson hours to confirm' : 'Mentory 待确认课时',
+            eventTitle: isEnglish ? 'Lesson hours submitted' : '课时待确认',
+            actorDisplayName,
+            messageUrl: `${(0, mailService_1.getPublicAppUrl)()}/student/messages`,
+            description: isEnglish
+                ? `${actorDisplayName} submitted ${proposedHours} lesson hour${singular ? '' : 's'}. Please confirm.`
+                : `${actorDisplayName} 提交了 ${proposedHours} 小时课时，请及时确认。`,
+            locale: preferences.locale,
+        });
+    }
+    catch (error) {
+        console.error('Lesson hours notification mail error:', error);
+    }
+};
 const isHex32 = (value) => typeof value === 'string' && /^[0-9a-f]{32}$/i.test(value.trim());
 const isMissingClassroomChatSchemaError = (err) => {
     if ((0, classroomAccess_1.isMissingClassroomSchemaError)(err))
@@ -438,6 +474,11 @@ router.post('/:courseId/end-session', auth_1.requireAuth, async (req, res) => {
       WHERE id = ?
       `, [messageItemId, Number(context.threadId)]);
         await conn.commit();
+        void sendLessonHoursSubmittedMailSafely({
+            mentorUserId: context.mentorUserId,
+            studentUserId: context.studentUserId,
+            proposedHours,
+        });
         return res.json({
             ok: true,
             messageId: String(messageItemId),

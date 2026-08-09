@@ -165,9 +165,9 @@ const HELP_CONTENT = {
               '可以的，导师自动也会有StudentID，可在主页切换到学生，然后请教其它导师上课',
           },
           {
-            question: '如何减少无效沟通？',
+            question: '成为Mentory导师后最先应该做什么？',
             answer:
-              '把课程范围、预期结果、排课方式和材料要求说清楚。前置信息越完整，后续确认成本就越低',
+              '推荐先完善个人名片，不是所有项都为必填，但是导师资料越完整有更高概率被展示在首页',
           },
         ],
       },
@@ -210,7 +210,7 @@ const HELP_CONTENT = {
       },
       {
         id: 'payments-and-classroom',
-        title: '课堂准备',
+        title: '支付与课堂',
         layout: 'grid',
         items: [
           {

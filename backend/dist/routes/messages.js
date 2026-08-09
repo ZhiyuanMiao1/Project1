@@ -924,8 +924,32 @@ const syncCourseSessionForAppointmentDecision = async (conn, row, status) => {
     WHERE id = ?
     `, [existingId]);
 };
-const getAppointmentNotificationCopy = (kind, actorDisplayName) => {
-    const actor = actorDisplayName || '对方';
+const getAppointmentNotificationCopy = (kind, actorDisplayName, locale, hours) => {
+    const isEnglish = locale === 'en';
+    const actor = actorDisplayName || (isEnglish ? 'The other participant' : '对方');
+    const hourText = Number.isFinite(Number(hours)) ? Number(hours) : null;
+    if (isEnglish) {
+        const copies = {
+            new_appointment: { subject: 'Mentory: New course booking', eventTitle: 'New course booking', description: `${actor} sent you a course booking.` },
+            new_time: { subject: 'Mentory: New course time', eventTitle: 'New course time', description: `${actor} proposed a new course time. Please review it.` },
+            accepted: { subject: 'Mentory: Course booking accepted', eventTitle: 'Course booking accepted', description: `${actor} accepted your course booking.` },
+            rejected: { subject: 'Mentory: Course booking declined', eventTitle: 'Course booking declined', description: `${actor} declined your course booking.` },
+            rescheduling: { subject: 'Mentory: New course time requested', eventTitle: 'Reschedule requested', description: `${actor} requested a new course time.` },
+            recalled: { subject: 'Mentory: Course booking withdrawn', eventTitle: 'Course booking withdrawn', description: `${actor} withdrew a course booking.` },
+            cancelled: { subject: 'Mentory: Course cancelled', eventTitle: 'Course cancelled', description: `${actor} cancelled the scheduled course.` },
+            not_held_requested: { subject: 'Mentory: Missed-course confirmation needed', eventTitle: 'Missed-course confirmation', description: `${actor} reported that this course did not take place. Please respond.` },
+            not_held_confirmed: { subject: 'Mentory: Course marked as not held', eventTitle: 'Course not held', description: `${actor} confirmed that the course did not take place.` },
+            not_held_kept: { subject: 'Mentory: Course kept as held', eventTitle: 'Course kept as held', description: `${actor} indicated that the course took place.` },
+            not_held_withdrawn: { subject: 'Mentory: Missed-course request withdrawn', eventTitle: 'Request withdrawn', description: `${actor} withdrew the missed-course confirmation request.` },
+            hours_submitted: { subject: 'Mentory: Lesson hours to confirm', eventTitle: 'Lesson hours submitted', description: `${actor} submitted ${hourText ?? ''} lesson hour${hourText === 1 ? '' : 's'}. Please confirm.` },
+            hours_confirmed: { subject: 'Mentory: Lesson hours confirmed', eventTitle: 'Lesson hours confirmed', description: `${actor} confirmed ${hourText ?? ''} lesson hour${hourText === 1 ? '' : 's'}.` },
+            hours_disputed: { subject: 'Mentory: Lesson hours disputed', eventTitle: 'Lesson hours disputed', description: `${actor} proposed ${hourText ?? ''} lesson hour${hourText === 1 ? '' : 's'} instead. Please respond.` },
+            hours_resubmitted: { subject: 'Mentory: Lesson hours resubmitted', eventTitle: 'Lesson hours resubmitted', description: `${actor} resubmitted ${hourText ?? ''} lesson hour${hourText === 1 ? '' : 's'}. Please confirm.` },
+            hours_dispute_accepted: { subject: 'Mentory: Lesson-hours dispute accepted', eventTitle: 'Dispute accepted', description: `${actor} accepted the revised total of ${hourText ?? ''} lesson hour${hourText === 1 ? '' : 's'}.` },
+            hours_platform_review: { subject: 'Mentory: Lesson hours sent for review', eventTitle: 'Platform review requested', description: `${actor} sent the lesson-hours dispute to Mentory for review.` },
+        };
+        return copies[kind];
+    }
     if (kind === 'new_appointment') {
         return {
             subject: 'Mentory 新的课程预约',
@@ -954,11 +978,28 @@ const getAppointmentNotificationCopy = (kind, actorDisplayName) => {
             description: `${actor} 已拒绝您的课程预约。`,
         };
     }
-    return {
-        subject: 'Mentory 课程预约已撤回',
-        eventTitle: '课程预约已撤回',
-        description: `${actor} 已撤回一条课程预约。`,
+    if (kind === 'rescheduling') {
+        return {
+            subject: 'Mentory 请求更换课程时间',
+            eventTitle: '请求更换课程时间',
+            description: `${actor} 请求重新安排课程时间。`,
+        };
+    }
+    const copies = {
+        recalled: { subject: 'Mentory 课程预约已撤回', eventTitle: '课程预约已撤回', description: `${actor} 已撤回一条课程预约。` },
+        cancelled: { subject: 'Mentory 课程已取消', eventTitle: '课程已取消', description: `${actor} 已取消已安排的课程。` },
+        not_held_requested: { subject: 'Mentory 待确认本节未上课', eventTitle: '本节未上课确认', description: `${actor} 发起了本节未上课确认，请及时处理。` },
+        not_held_confirmed: { subject: 'Mentory 已确认本节未上课', eventTitle: '本节未上课', description: `${actor} 已确认本节课程未进行。` },
+        not_held_kept: { subject: 'Mentory 课程保留为已上课', eventTitle: '课程保留为已上课', description: `${actor} 确认本节课程已正常进行。` },
+        not_held_withdrawn: { subject: 'Mentory 已撤回未上课确认', eventTitle: '已撤回未上课确认', description: `${actor} 已撤回本节未上课确认。` },
+        hours_submitted: { subject: 'Mentory 待确认课时', eventTitle: '课时待确认', description: `${actor} 提交了 ${hourText ?? ''} 小时课时，请及时确认。` },
+        hours_confirmed: { subject: 'Mentory 课时已确认', eventTitle: '课时已确认', description: `${actor} 已确认 ${hourText ?? ''} 小时课时。` },
+        hours_disputed: { subject: 'Mentory 课时有异议', eventTitle: '课时有异议', description: `${actor} 提议将课时调整为 ${hourText ?? ''} 小时，请及时处理。` },
+        hours_resubmitted: { subject: 'Mentory 课时已重新提交', eventTitle: '课时已重新提交', description: `${actor} 重新提交了 ${hourText ?? ''} 小时课时，请及时确认。` },
+        hours_dispute_accepted: { subject: 'Mentory 课时异议已接受', eventTitle: '课时异议已接受', description: `${actor} 已接受调整后的 ${hourText ?? ''} 小时课时。` },
+        hours_platform_review: { subject: 'Mentory 课时已提交平台审核', eventTitle: '课时平台审核', description: `${actor} 已将课时异议提交 Mentory 平台审核。` },
     };
+    return copies[kind];
 };
 const getUserRoleInThread = (userId, studentUserId, mentorUserId) => {
     if (Number.isFinite(userId) && userId === studentUserId)
@@ -999,13 +1040,13 @@ const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentor
         const mentorName = displayName || username;
         if (mentorName && publicId && mentorName !== publicId)
             return `${mentorName}（${publicId}）`;
-        return mentorName || publicId || '导师';
+        return mentorName || publicId;
     }
     if (username)
         return username;
-    return publicId || '对方';
+    return publicId;
 };
-const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientUserId, studentUserId, mentorUserId, payload, }) => {
+const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientUserId, studentUserId, mentorUserId, payload, hours, }) => {
     try {
         if (!Number.isFinite(actorUserId) || actorUserId <= 0)
             return;
@@ -1013,13 +1054,16 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
             return;
         if (actorUserId === recipientUserId)
             return;
+        const preferences = await (0, mailService_1.getEmailNotificationPreferencesForUser)(recipientUserId);
+        if (!preferences.enabled)
+            return;
         const recipientRows = await (0, db_1.query)('SELECT email FROM users WHERE id = ? LIMIT 1', [recipientUserId]);
         const recipient = recipientRows?.[0];
         const to = typeof recipient?.email === 'string' ? recipient.email.trim() : '';
         if (!to)
             return;
         const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId);
-        const copy = getAppointmentNotificationCopy(kind, actorDisplayName);
+        const copy = getAppointmentNotificationCopy(kind, actorDisplayName, preferences.locale, hours);
         await (0, mailService_1.sendAppointmentNotificationMail)({
             recipientUserId,
             to,
@@ -1029,6 +1073,7 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
             windowText: safeText(payload?.windowText),
             messageUrl: buildMessagesPageUrl(getUserRoleInThread(recipientUserId, studentUserId, mentorUserId)),
             description: copy.description,
+            locale: preferences.locale,
         });
     }
     catch (error) {
@@ -1478,13 +1523,15 @@ router.post('/appointments/:appointmentId/decision', auth_1.requireAuth, async (
             await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
         }
         await conn.commit();
-        if (status === 'accepted' || status === 'rejected') {
+        if (status === 'accepted' || status === 'rejected' || status === 'rescheduling') {
+            const studentUserId = Number(row.student_user_id);
+            const mentorUserId = Number(row.mentor_user_id);
             void sendAppointmentNotificationSafely({
                 kind: status,
                 actorUserId: req.user.id,
-                recipientUserId: Number(row.sender_user_id),
-                studentUserId: Number(row.student_user_id),
-                mentorUserId: Number(row.mentor_user_id),
+                recipientUserId: req.user.id === studentUserId ? mentorUserId : studentUserId,
+                studentUserId,
+                mentorUserId,
                 payload: parseAppointmentPayload(row.payload_json),
             });
         }
@@ -1644,6 +1691,23 @@ router.post('/appointments/:appointmentId/lifecycle', auth_1.requireAuth, async 
         }
         await conn.execute(`UPDATE message_threads SET updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [Number(row.thread_id)]);
         await conn.commit();
+        const studentUserId = Number(row.student_user_id);
+        const mentorUserId = Number(row.mentor_user_id);
+        const lifecycleKindByAction = {
+            cancel: 'cancelled',
+            start_not_held: 'not_held_requested',
+            confirm_not_held: 'not_held_confirmed',
+            keep_as_held: 'not_held_kept',
+            withdraw_not_held: 'not_held_withdrawn',
+        };
+        void sendAppointmentNotificationSafely({
+            kind: lifecycleKindByAction[action],
+            actorUserId: req.user.id,
+            recipientUserId: req.user.id === studentUserId ? mentorUserId : studentUserId,
+            studentUserId,
+            mentorUserId,
+            payload: window.payload,
+        });
         return res.json({
             ok: true,
             appointmentId: String(appointmentId),
@@ -1780,6 +1844,15 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
       WHERE id = ?
       `, [messageId, Number(row.thread_id)]);
         await conn.commit();
+        void sendAppointmentNotificationSafely({
+            kind: status === 'confirmed' ? 'hours_confirmed' : 'hours_disputed',
+            actorUserId: req.user.id,
+            recipientUserId: Number(row.mentor_user_id),
+            studentUserId: Number(row.student_user_id),
+            mentorUserId: Number(row.mentor_user_id),
+            payload: null,
+            hours: status === 'confirmed' ? proposedHours : disputedHours,
+        });
         return res.json({
             ok: true,
             messageId: String(messageId),
@@ -1898,6 +1971,15 @@ router.post('/lesson-hour-confirmations/:messageId/retry', auth_1.requireAuth, a
       WHERE id = ?
       `, [nextMessageId, Number(row.thread_id)]);
         await conn.commit();
+        void sendAppointmentNotificationSafely({
+            kind: 'hours_resubmitted',
+            actorUserId: req.user.id,
+            recipientUserId: Number(row.student_user_id),
+            studentUserId: Number(row.student_user_id),
+            mentorUserId: Number(row.mentor_user_id),
+            payload: null,
+            hours: proposedHours,
+        });
         return res.json({
             ok: true,
             messageId: String(nextMessageId),
@@ -2014,6 +2096,15 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', auth_1.requi
       WHERE id = ?
       `, [messageId, Number(row.thread_id)]);
         await conn.commit();
+        void sendAppointmentNotificationSafely({
+            kind: status === 'dispute_confirmed' ? 'hours_dispute_accepted' : 'hours_platform_review',
+            actorUserId: req.user.id,
+            recipientUserId: Number(row.student_user_id),
+            studentUserId: Number(row.student_user_id),
+            mentorUserId: Number(row.mentor_user_id),
+            payload: null,
+            hours: status === 'dispute_confirmed' ? disputedHours : null,
+        });
         return res.json({
             ok: true,
             messageId: String(messageId),
