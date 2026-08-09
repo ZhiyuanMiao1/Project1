@@ -117,37 +117,39 @@ function WeChatTransferModal({
           <form className="wechat-transfer-form" onSubmit={submitPaymentReport}>
             <div className="wechat-transfer-form-content">
               <div className="wechat-transfer-details">
-                <div className="wechat-transfer-detail-row">
-                  <span>{t('wallet.wechatAmount', '应付金额')}</span>
-                  <strong>{formattedAmount}</strong>
+                <div className="wechat-transfer-detail">
+                  <div className="wechat-transfer-label">{t('wallet.wechatAmount', '应付金额')}</div>
+                  <strong className="wechat-transfer-amount">{formattedAmount}</strong>
                 </div>
-                <div className="wechat-transfer-detail-row">
-                  <span>{t('wallet.wechatExpectedMerchant', '请核对收款方')}</span>
-                  <strong>{t('wallet.wechatMerchantName', 'Mentory的店铺')}</strong>
+                <div className="wechat-transfer-detail">
+                  <div className="wechat-transfer-label">{t('wallet.wechatExpectedMerchant', '请核对收款方')}</div>
+                  <div className="wechat-transfer-value-row">
+                    <strong className="wechat-transfer-value">{t('wallet.wechatMerchantName', 'Mentory的店铺')}</strong>
+                  </div>
                 </div>
-                <div className="wechat-transfer-remark">
-                  <div>
-                    <span>{t('wallet.wechatRemark', '付款备注（重要）')}</span>
-                    <strong>
+                <div className="wechat-transfer-detail">
+                  <div className="wechat-transfer-label">{t('wallet.wechatRemark', '付款备注（重要）')}</div>
+                  <div className="wechat-transfer-value-row">
+                    <strong className="wechat-transfer-value">
                       {studentIdLoading
                         ? t('common.loading', '加载中...')
                         : normalizedStudentId || t('wallet.wechatStudentIdUnavailable', 'StudentID 获取失败')}
                     </strong>
+                    <button
+                      type="button"
+                      className="wechat-transfer-copy"
+                      onClick={copyStudentId}
+                      disabled={studentIdLoading || !normalizedStudentId}
+                      aria-label={t('wallet.wechatCopyStudentId', '复制 StudentID')}
+                    >
+                      {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
+                      <span>
+                        {studentIdCopied
+                          ? t('wallet.wechatCopied', '已复制')
+                          : t('wallet.wechatCopy', '复制')}
+                      </span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="wechat-transfer-copy"
-                    onClick={copyStudentId}
-                    disabled={studentIdLoading || !normalizedStudentId}
-                    aria-label={t('wallet.wechatCopyStudentId', '复制 StudentID')}
-                  >
-                    {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-                    <span>
-                      {studentIdCopied
-                        ? t('wallet.wechatCopied', '已复制')
-                        : t('wallet.wechatCopy', '复制')}
-                    </span>
-                  </button>
                 </div>
               </div>
 

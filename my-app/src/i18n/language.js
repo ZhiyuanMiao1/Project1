@@ -853,7 +853,6 @@ const en = {
   'wallet.wechatReportSuccess': 'Your lesson hours will be added after Mentory confirms receipt',
   'wallet.wechatReportFailed': 'Failed to submit payment details. Please try again later.',
   'wallet.wechatClose': 'Close WeChat Pay instructions',
-  'wallet.tipManualWeChat': 'Pay with Mentory’s official WeChat merchant QR code and add your StudentID as the note. Lesson hours are added after manual verification.',
   'wallet.selectedFallback': 'Selected method',
   'wallet.selectedMethod': 'Selected {method}, hours {hours}, unit price CNY {unitPrice}/hour, total CNY {total}. Top-up is under development.',
   'wallet.refundAction': 'Request Refund',

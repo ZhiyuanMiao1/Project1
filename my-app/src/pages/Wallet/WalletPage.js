@@ -605,15 +605,10 @@ function WalletPage() {
           'wallet.tipRealtimePayPal',
           '充值成功后余额实时到账，海外Visa/Master等也可以通过Paypal访客身份付款'
         )
-      : selectedTopUpMethod === 'wechat'
-        ? t(
-            'wallet.tipManualWeChat',
-            '使用Mentory官方微信商户码付款；请备注StudentID，经人工核验后课时才会到账'
-          )
-        : t(
-            'wallet.tipNonRealtimeLocal',
-            '充值成功后非实时到账，Mentory还在完善中，正在改进支付体验'
-          );
+      : t(
+          'wallet.tipNonRealtimeLocal',
+          '充值成功后非实时到账，Mentory还在完善中，正在改进支付体验'
+        );
 
   const toggleStudentAuthModal = () => {
     setShowStudentAuth((prev) => !prev);
