@@ -127,31 +127,30 @@
   min-width: 0;
 }
 
-.wechat-transfer-summary {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.wechat-transfer-details {
   overflow: hidden;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 16px;
 }
 
-.wechat-transfer-summary > div {
+.wechat-transfer-detail-row {
   min-width: 0;
   padding: 14px;
 }
 
-.wechat-transfer-summary > div + div {
-  border-left: 1px solid rgba(15, 23, 42, 0.08);
+.wechat-transfer-detail-row + .wechat-transfer-detail-row,
+.wechat-transfer-remark {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
-.wechat-transfer-summary span {
+.wechat-transfer-detail-row span {
   display: block;
   color: rgba(15, 23, 42, 0.56);
   font-size: 12px;
   font-weight: 600;
 }
 
-.wechat-transfer-summary strong {
+.wechat-transfer-detail-row strong {
   display: block;
   margin-top: 6px;
   color: #0f172a;
@@ -161,7 +160,7 @@
   overflow-wrap: anywhere;
 }
 
-.wechat-transfer-summary > div:first-child strong {
+.wechat-transfer-detail-row:first-child strong {
   font-size: 24px;
   font-variant-numeric: tabular-nums;
 }
@@ -171,11 +170,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 16px;
   min-width: 0;
   padding: 13px 14px;
-  border: 1px solid rgba(15, 23, 42, 0.16);
-  border-radius: 14px;
   background: #fff;
 }
 
@@ -336,11 +332,6 @@
     height: 36px;
   }
 
-  .wechat-transfer-heading h2 {
-    margin-top: 8px;
-    font-size: 18px;
-  }
-
   .wechat-transfer-layout {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -353,7 +344,7 @@
     justify-self: center;
   }
 
-  .wechat-transfer-summary > div {
+  .wechat-transfer-detail-row {
     padding: 12px;
   }
 
@@ -364,15 +355,6 @@
 }
 
 @media (max-width: 359px) {
-  .wechat-transfer-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .wechat-transfer-summary > div + div {
-    border-top: 1px solid rgba(15, 23, 42, 0.08);
-    border-left: 0;
-  }
-
   .wechat-transfer-actions {
     grid-template-columns: 1fr;
   }
