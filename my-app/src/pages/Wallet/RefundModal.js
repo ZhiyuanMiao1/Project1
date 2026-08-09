@@ -348,7 +348,11 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                         </strong>
                       </div>
                       <div>
-                        <span>{t('wallet.refundOriginalAmount', '原路退回')}</span>
+                        <span>
+                          {['alipay', 'wechat'].includes(String(selectedOrder.provider || '').toLowerCase())
+                            ? t('wallet.refundOriginalAmountNonRealtime', '原路退回（非实时）')
+                            : t('wallet.refundOriginalAmount', '原路退回')}
+                        </span>
                         <strong>
                           {quote
                             ? `${quote.amount.currency} ${Number(quote.amount.value).toFixed(2)}`

@@ -876,6 +876,7 @@ const en = {
   'wallet.refundCalculating': 'Calculating refund...',
   'wallet.refundReferenceCny': 'CNY reference refund',
   'wallet.refundOriginalAmount': 'Returned to original payment',
+  'wallet.refundOriginalAmountNonRealtime': 'Returned to original payment (not real-time)',
   'wallet.refundRetained': 'Hours retained from this top-up',
   'wallet.refundBalanceAfter': 'Wallet balance after refund',
   'wallet.refundScheduleWarning': 'You have about {hours} hours of upcoming lessons. Your balance may be insufficient after this refund, and you may need to top up before entering class.',

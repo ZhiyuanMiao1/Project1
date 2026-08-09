@@ -294,7 +294,24 @@ const providerText = {
   wechat: '微信',
 };
 
-function OrderStatusBadge({ order, confirming = false, onConfirm }) {
+function OrderStatusBadge({
+  order,
+  confirming = false,
+  onConfirm,
+  completingRefund = false,
+  onCompleteRefund,
+}) {
+  const refundStatus = String(order?.refund_status || '').toUpperCase();
+  if (['PENDING', 'PROCESSING', 'REFUNDED', 'PARTIALLY_REFUNDED', 'FAILED'].includes(refundStatus)) {
+    return (
+      <RefundStatusBadge
+        order={order}
+        completing={completingRefund}
+        onComplete={onCompleteRefund}
+      />
+    );
+  }
+
   const meta = getOrderStatusMeta(order);
   const providerKey = String(order?.provider || '').toLowerCase();
   const providerLabel = providerText[providerKey] || '人工付款';
@@ -2005,7 +2022,6 @@ function OrdersPage() {
     '可退课时',
     <SortHeader label={'\u91d1\u989d'} field="amount_cny" sort={sort} onSort={updateSort} />,
     '退款',
-    '退款状态',
     <SortHeader label={'\u521b\u5efa\u65f6\u95f4'} field="created_at" sort={sort} onSort={updateSort} />,
   ];
 
@@ -2027,7 +2043,9 @@ function OrdersPage() {
             <OrderStatusBadge
               order={order}
               confirming={confirmingOrderId === order.id}
-                  onConfirm={confirmManualPayment}
+              onConfirm={confirmManualPayment}
+              completingRefund={completingRefundOrderId === order.id}
+              onCompleteRefund={completeManualRefund}
             />,
             order.topup_hours,
             formatHourValue(order.remaining_hours),
@@ -2037,11 +2055,6 @@ function OrdersPage() {
               : Number(order.pending_refund_amount_cny) > 0
                 ? `¥${formatIntegerAmount(order.pending_refund_amount_cny)}`
                 : '-',
-            <RefundStatusBadge
-              order={order}
-              completing={completingRefundOrderId === order.id}
-              onComplete={completeManualRefund}
-            />,
             formatDate(order.created_at),
           ])}
         />
