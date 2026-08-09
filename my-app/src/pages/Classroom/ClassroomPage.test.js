@@ -141,7 +141,9 @@ const buildChatResponse = (messages = [], options = {}) => ({
 describe('ClassroomPage remote recovery', () => {
   let startPlayMock;
   let startPushMock;
-  let muteMock;
+  let pusherInitMock;
+  let startMicrophoneMock;
+  let stopMicrophoneMock;
   let container;
   let root;
   let originalConsoleDebug;
@@ -220,7 +222,9 @@ describe('ClassroomPage remote recovery', () => {
 
     startPlayMock = jest.fn();
     startPushMock = jest.fn(() => Promise.resolve());
-    muteMock = jest.fn();
+    pusherInitMock = jest.fn(() => Promise.resolve());
+    startMicrophoneMock = jest.fn(() => Promise.resolve());
+    stopMicrophoneMock = jest.fn(() => Promise.resolve());
 
     class MockPusher {
       constructor() {
@@ -229,13 +233,15 @@ describe('ClassroomPage remote recovery', () => {
         this.info = createEmitter();
       }
 
-      init = jest.fn(() => Promise.resolve());
+      init = pusherInitMock;
 
       startPush = startPushMock;
 
       stopPush = jest.fn(() => Promise.resolve());
 
-      mute = muteMock;
+      startMicrophone = startMicrophoneMock;
+
+      stopMicrophone = stopMicrophoneMock;
 
       destroy = jest.fn();
 
@@ -319,6 +325,12 @@ describe('ClassroomPage remote recovery', () => {
     await flushPromises();
 
     expect(startPushMock).toHaveBeenCalledWith('artc://push');
+    expect(pusherInitMock).toHaveBeenCalledWith(expect.objectContaining({
+      audio: false,
+      video: false,
+    }));
+    expect(startMicrophoneMock).not.toHaveBeenCalled();
+    expect(stopMicrophoneMock).not.toHaveBeenCalled();
     expect(api.post.mock.calls).toEqual(expect.arrayContaining([
       ['/api/rtc/classrooms/42/recording/start'],
     ]));
@@ -350,7 +362,8 @@ describe('ClassroomPage remote recovery', () => {
     });
     await flushPromises();
 
-    expect(muteMock).toHaveBeenLastCalledWith(false);
+    expect(startMicrophoneMock).toHaveBeenCalledTimes(1);
+    expect(stopMicrophoneMock).not.toHaveBeenCalled();
     expect(getMicButton()?.textContent || '').toContain('关闭麦克风');
     expect(getMicButton()?.classList.contains('active')).toBe(true);
     expect(getMicButton()?.getAttribute('aria-pressed')).toBe('true');
@@ -363,7 +376,7 @@ describe('ClassroomPage remote recovery', () => {
     });
     await flushPromises();
 
-    expect(muteMock).toHaveBeenLastCalledWith(true);
+    expect(stopMicrophoneMock).toHaveBeenCalledTimes(1);
     expect(getMicButton()?.textContent || '').toContain('开启麦克风');
     expect(getMicButton()?.classList.contains('active')).toBe(false);
     expect(getMicButton()?.getAttribute('aria-pressed')).toBe('false');
@@ -394,15 +407,13 @@ describe('ClassroomPage remote recovery', () => {
     });
   });
 
-  test('keeps microphone state unchanged when the SDK mute call fails', async () => {
+  test('keeps microphone state unchanged when starting the microphone fails', async () => {
     startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
 
     await renderClassroomPage();
     await flushPromises();
 
-    muteMock.mockImplementationOnce(() => {
-      throw new Error('microphone device failed');
-    });
+    startMicrophoneMock.mockRejectedValueOnce(new Error('microphone device failed'));
 
     const micButton = Array.from(container.querySelectorAll('button'))
       .find((button) => (button.textContent || '').includes('开启麦克风'));
@@ -415,6 +426,30 @@ describe('ClassroomPage remote recovery', () => {
     expect(micButton.textContent || '').toContain('开启麦克风');
     expect(micButton.getAttribute('aria-pressed')).toBe('false');
     expect(getAlert()?.textContent || '').toContain('microphone device failed');
+  });
+
+  test('releases the microphone when media push cannot start after enabling it', async () => {
+    startPushMock
+      .mockRejectedValueOnce(new Error('initial push failed'))
+      .mockRejectedValueOnce(new Error('retry push failed'));
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const micButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('开启麦克风'));
+
+    await act(async () => {
+      micButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(startMicrophoneMock).toHaveBeenCalledTimes(1);
+    expect(stopMicrophoneMock).toHaveBeenCalledTimes(1);
+    expect(micButton.textContent || '').toContain('开启麦克风');
+    expect(micButton.getAttribute('aria-pressed')).toBe('false');
+    expect(getAlert()?.textContent || '').toContain('retry push failed');
   });
 
   test('does not start cloud recording when local push fails', async () => {

@@ -1872,11 +1872,14 @@ function ClassroomPage() {
     localPushActiveRef.current = false;
   }, []);
 
-  const syncLocalMicMuteState = useCallback((muted) => {
+  const setLocalMicrophoneActive = useCallback(async (active) => {
     const pusher = pusherRef.current;
-    if (!pusher || typeof pusher.mute !== 'function') return false;
+    if (!pusher) return false;
 
-    pusher.mute(Boolean(muted));
+    const methodName = active ? 'startMicrophone' : 'stopMicrophone';
+    if (typeof pusher[methodName] !== 'function') return false;
+
+    await pusher[methodName]();
     return true;
   }, []);
 
@@ -2813,7 +2816,6 @@ function ClassroomPage() {
         if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
           await startLocalPush();
         }
-        syncLocalMicMuteState(micMutedRef.current);
       } catch {}
     }
 
@@ -2827,7 +2829,7 @@ function ClassroomPage() {
       }
     }
     void syncClassroomPresence({ screenSharing: false });
-  }, [buildJoinedStatusText, clearScreenTrackListener, startLocalPush, syncClassroomPresence, syncLocalMicMuteState]);
+  }, [buildJoinedStatusText, clearScreenTrackListener, startLocalPush, syncClassroomPresence]);
 
   const leaveAndDestroy = useCallback(async () => {
     if (cleaningRef.current) {
@@ -3433,9 +3435,11 @@ function ClassroomPage() {
           setStatusText(message);
         });
 
+        // Privacy-first: the previous audio:true + pusher.mute(true) approach kept
+        // the microphone device captured even while the classroom UI showed it off.
         const initConfig = {
-          audio: true,
-          video: true,
+          audio: false,
+          video: false,
           connectRetryCount: 3,
           logLevel: resolveAliyunSdkLogLevelNone(sdk),
         };
@@ -3454,7 +3458,6 @@ function ClassroomPage() {
           await pusher.stopCamera?.();
         } catch {}
         detachVisibleCameraPreview();
-        syncLocalMicMuteState(true);
 
         if (cancelled || !mountedRef.current) return;
 
@@ -3468,7 +3471,6 @@ function ClassroomPage() {
 
         try {
           await startLocalPush();
-          syncLocalMicMuteState(true);
         } catch (pushError) {
           if (mountedRef.current) {
             setErrorMessage(parseErrorMessage(pushError, t('classroom.mediaOnlineFailed', '课堂媒体上线失败，可尝试重新进入课堂')));
@@ -3506,7 +3508,6 @@ function ClassroomPage() {
     startObserverPlayback,
     startRemotePlayback,
     syncClassroomPresence,
-    syncLocalMicMuteState,
     t,
   ]);
 
@@ -3528,30 +3529,39 @@ function ClassroomPage() {
     if (!pusher || !joinedRef.current || micActionPendingRef.current) return;
 
     const nextMuted = !micMuted;
+    let microphoneStarted = false;
     micActionPendingRef.current = true;
     if (mountedRef.current) setMicActionPending(true);
 
     try {
+      const microphoneChanged = await setLocalMicrophoneActive(!nextMuted);
+      if (!microphoneChanged) {
+        throw new Error(t('classroom.micControlUnavailable', '当前实时音视频 SDK 不支持麦克风开关'));
+      }
+      microphoneStarted = !nextMuted;
+
       if (!nextMuted && !localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
         await startLocalPush();
       }
 
-      if (!syncLocalMicMuteState(nextMuted)) {
-        throw new Error(t('classroom.micControlUnavailable', '当前实时音视频 SDK 不支持麦克风开关'));
-      }
       if (mountedRef.current) {
         micMutedRef.current = nextMuted;
         setMicMuted(nextMuted);
         setErrorMessage('');
       }
     } catch (error) {
+      if (microphoneStarted) {
+        try {
+          await setLocalMicrophoneActive(false);
+        } catch {}
+      }
       if (!mountedRef.current) return;
       setErrorMessage(parseErrorMessage(error, t('classroom.micSwitchFailed', '麦克风切换失败')));
     } finally {
       micActionPendingRef.current = false;
       if (mountedRef.current) setMicActionPending(false);
     }
-  }, [micMuted, startLocalPush, syncLocalMicMuteState, t]);
+  }, [micMuted, setLocalMicrophoneActive, startLocalPush, t]);
 
   const handleToggleCamera = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -3570,7 +3580,6 @@ function ClassroomPage() {
         if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
           await startLocalPush();
         }
-        syncLocalMicMuteState(micMuted);
         await startVisibleCameraPreview();
       }
       if (mountedRef.current) {
@@ -3590,7 +3599,7 @@ function ClassroomPage() {
       cameraActionPendingRef.current = false;
       if (mountedRef.current) setCameraActionPending(false);
     }
-  }, [cameraMuted, detachVisibleCameraPreview, micMuted, startLocalPush, startVisibleCameraPreview, syncLocalMicMuteState, t]);
+  }, [cameraMuted, detachVisibleCameraPreview, startLocalPush, startVisibleCameraPreview, t]);
 
   const handleToggleScreenShare = useCallback(async () => {
     const pusher = pusherRef.current;
@@ -3647,7 +3656,6 @@ function ClassroomPage() {
         }
       }
 
-      syncLocalMicMuteState(micMuted);
       if (!localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
         await startLocalPush();
       }
@@ -3673,7 +3681,7 @@ function ClassroomPage() {
       screenActionPendingRef.current = false;
       if (mountedRef.current) setScreenActionPending(false);
     }
-  }, [micMuted, screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, syncLocalMicMuteState, t]);
+  }, [screenShareSupported, screenSharing, startLocalPush, stopScreenShare, syncClassroomPresence, t]);
 
   const handleSendChatMessage = useCallback(async () => {
     const normalizedCourseId = safeText(courseId);
