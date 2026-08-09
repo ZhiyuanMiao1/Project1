@@ -115,44 +115,46 @@ function WeChatTransferModal({
           </div>
 
           <form className="wechat-transfer-form" onSubmit={submitPaymentReport}>
-            <div className="wechat-transfer-details">
-              <div className="wechat-transfer-detail-row">
-                <span>{t('wallet.wechatAmount', '应付金额')}</span>
-                <strong>{formattedAmount}</strong>
-              </div>
-              <div className="wechat-transfer-detail-row">
-                <span>{t('wallet.wechatExpectedMerchant', '请核对收款方')}</span>
-                <strong>{t('wallet.wechatMerchantName', 'Mentory的店铺')}</strong>
-              </div>
-              <div className="wechat-transfer-remark">
-                <div>
-                  <span>{t('wallet.wechatRemark', '付款备注（重要）')}</span>
-                  <strong>
-                    {studentIdLoading
-                      ? t('common.loading', '加载中...')
-                      : normalizedStudentId || t('wallet.wechatStudentIdUnavailable', 'StudentID 获取失败')}
-                  </strong>
+            <div className="wechat-transfer-form-content">
+              <div className="wechat-transfer-details">
+                <div className="wechat-transfer-detail-row">
+                  <span>{t('wallet.wechatAmount', '应付金额')}</span>
+                  <strong>{formattedAmount}</strong>
                 </div>
-                <button
-                  type="button"
-                  className="wechat-transfer-copy"
-                  onClick={copyStudentId}
-                  disabled={studentIdLoading || !normalizedStudentId}
-                  aria-label={t('wallet.wechatCopyStudentId', '复制 StudentID')}
-                >
-                  {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
-                  <span>
-                    {studentIdCopied
-                      ? t('wallet.wechatCopied', '已复制')
-                      : t('wallet.wechatCopy', '复制')}
-                  </span>
-                </button>
+                <div className="wechat-transfer-detail-row">
+                  <span>{t('wallet.wechatExpectedMerchant', '请核对收款方')}</span>
+                  <strong>{t('wallet.wechatMerchantName', 'Mentory的店铺')}</strong>
+                </div>
+                <div className="wechat-transfer-remark">
+                  <div>
+                    <span>{t('wallet.wechatRemark', '付款备注（重要）')}</span>
+                    <strong>
+                      {studentIdLoading
+                        ? t('common.loading', '加载中...')
+                        : normalizedStudentId || t('wallet.wechatStudentIdUnavailable', 'StudentID 获取失败')}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    className="wechat-transfer-copy"
+                    onClick={copyStudentId}
+                    disabled={studentIdLoading || !normalizedStudentId}
+                    aria-label={t('wallet.wechatCopyStudentId', '复制 StudentID')}
+                  >
+                    {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
+                    <span>
+                      {studentIdCopied
+                        ? t('wallet.wechatCopied', '已复制')
+                        : t('wallet.wechatCopy', '复制')}
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {errorMessage ? (
-              <div className="wechat-transfer-error" role="alert">{errorMessage}</div>
-            ) : null}
+              {errorMessage ? (
+                <div className="wechat-transfer-error" role="alert">{errorMessage}</div>
+              ) : null}
+            </div>
 
             <div className="wechat-transfer-actions">
               <button type="button" className="wechat-transfer-cancel" onClick={onClose} disabled={submitting}>

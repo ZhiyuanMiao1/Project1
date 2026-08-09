@@ -100,7 +100,7 @@
 }
 
 .wechat-transfer-download {
-  min-height: 44px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -135,7 +135,7 @@
 
 .wechat-transfer-detail-row {
   min-width: 0;
-  padding: 14px;
+  padding: 16px;
 }
 
 .wechat-transfer-detail-row + .wechat-transfer-detail-row,
@@ -171,7 +171,7 @@
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  padding: 13px 14px;
+  padding: 16px;
   background: #fff;
 }
 
@@ -288,6 +288,27 @@
 
 .wechat-transfer-done:hover:not(:disabled) {
   background: #06ad56;
+}
+
+@media (min-width: 600px) {
+  .wechat-transfer-layout {
+    align-items: stretch;
+  }
+
+  .wechat-transfer-form {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) 48px;
+    gap: 10px;
+  }
+
+  .wechat-transfer-form-content {
+    align-self: center;
+    min-width: 0;
+  }
+
+  .wechat-transfer-actions {
+    margin-top: 0;
+  }
 }
 
 @media (min-width: 600px) and (max-width: 899px) {
