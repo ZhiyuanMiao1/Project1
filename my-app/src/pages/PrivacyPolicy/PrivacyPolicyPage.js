@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -11,18 +10,8 @@ import './PrivacyPolicyPage.css';
 
 const POLICY_CONTENT = {
   'zh-CN': {
-    breadcrumb: ['帮助中心', '规则', '隐私政策'],
-    helpPath: '/student/help',
-    title: 'Mentory 隐私政策',
-    eyebrow: '让每一次学习连接，都建立在信任之上',
-    intro: '本隐私政策说明 Mentory 在你使用平台、预约课程、进入在线课堂或与我们联系时，如何收集、使用、共享和保护你的个人信息，以及你可以如何管理自己的信息。',
-    updated: '最后更新：2026年8月11日',
-    effective: '生效日期：2026年8月11日',
+    title: '隐私政策',
     tocTitle: '本文内容',
-    relatedTitle: '还需要帮助？',
-    relatedText: '如果你对个人信息处理方式、账户数据或隐私权利有疑问，我们愿意为你提供帮助。',
-    relatedAction: '前往帮助中心',
-    contactAction: '联系我们',
     top: '返回顶部',
     sections: [
       {
@@ -129,18 +118,8 @@ const POLICY_CONTENT = {
     ],
   },
   en: {
-    breadcrumb: ['Help Center', 'Policies', 'Privacy Policy'],
-    helpPath: '/student/help',
-    title: 'Mentory Privacy Policy',
-    eyebrow: 'Every learning connection should begin with trust',
-    intro: 'This Privacy Policy explains how Mentory collects, uses, shares, and protects your personal information when you use our platform, book lessons, join online classrooms, or contact us—and how you can manage that information.',
-    updated: 'Last updated: August 11, 2026',
-    effective: 'Effective: August 11, 2026',
+    title: 'Privacy Policy',
     tocTitle: 'In this article',
-    relatedTitle: 'Still need help?',
-    relatedText: 'If you have questions about your account data, privacy rights, or how we handle personal information, we are here to help.',
-    relatedAction: 'Visit Help Center',
-    contactAction: 'Contact us',
     top: 'Back to top',
     sections: [
       { id: 'scope', title: '1. Scope', paragraphs: ['This Policy applies to the website, online classroom, messaging, payments, and related services Mentory provides to students, mentors, and visitors. A service-specific privacy notice, where provided, applies together with this Policy.', 'By using Mentory, you acknowledge that you have read and understood this Policy. We will not reduce the quality of core services because you decline optional data processing.'] },
@@ -188,8 +167,11 @@ function PrivacyPolicyPage() {
   const { isEnglish, t } = useI18n();
   const content = POLICY_CONTENT[isEnglish ? 'en' : 'zh-CN'];
   const menuAnchorRef = useRef(null);
+  const tocNavRef = useRef(null);
+  const tocLinkRefs = useRef(new Map());
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
+  const [activeSectionId, setActiveSectionId] = useState('scope');
   const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: ['student'] });
 
   useEffect(() => {
@@ -204,6 +186,60 @@ function PrivacyPolicyPage() {
     window.addEventListener('auth:changed', handleAuthChanged);
     return () => window.removeEventListener('auth:changed', handleAuthChanged);
   }, []);
+
+  useEffect(() => {
+    const sectionIds = content.sections.map((section) => section.id);
+    let animationFrame = 0;
+    let scheduled = false;
+
+    const updateActiveSection = () => {
+      scheduled = false;
+      const marker = Math.min(window.innerHeight * 0.28, 240);
+      const atPageBottom = window.innerHeight + window.scrollY
+        >= document.documentElement.scrollHeight - 4;
+      let nextSectionId = sectionIds[0];
+
+      if (atPageBottom) {
+        nextSectionId = sectionIds[sectionIds.length - 1];
+      } else {
+        sectionIds.forEach((sectionId) => {
+          const section = document.getElementById(sectionId);
+          if (section && section.getBoundingClientRect().top <= marker) {
+            nextSectionId = sectionId;
+          }
+        });
+      }
+
+      setActiveSectionId((current) => (
+        current === nextSectionId ? current : nextSectionId
+      ));
+    };
+
+    const scheduleUpdate = () => {
+      if (scheduled) return;
+      scheduled = true;
+      animationFrame = window.requestAnimationFrame(updateActiveSection);
+    };
+
+    scheduleUpdate();
+    window.addEventListener('scroll', scheduleUpdate, { passive: true });
+    window.addEventListener('resize', scheduleUpdate);
+    return () => {
+      window.removeEventListener('scroll', scheduleUpdate);
+      window.removeEventListener('resize', scheduleUpdate);
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [content.sections]);
+
+  useEffect(() => {
+    const nav = tocNavRef.current;
+    const activeLink = tocLinkRefs.current.get(activeSectionId);
+    if (!nav || !activeLink || nav.scrollWidth <= nav.clientWidth) return;
+
+    const targetLeft = activeLink.offsetLeft
+      - ((nav.clientWidth - activeLink.offsetWidth) / 2);
+    nav.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+  }, [activeSectionId]);
 
   return (
     <div className="privacy-policy-page" id="privacy-policy-top">
@@ -234,31 +270,28 @@ function PrivacyPolicyPage() {
         </header>
 
         <main className="privacy-policy__main">
-          <nav className="privacy-policy__breadcrumb" aria-label={isEnglish ? 'Breadcrumb' : '面包屑导航'}>
-            <Link to={content.helpPath}>{content.breadcrumb[0]}</Link>
-            <span aria-hidden="true">/</span>
-            <span>{content.breadcrumb[1]}</span>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">{content.breadcrumb[2]}</span>
-          </nav>
-
           <section className="privacy-policy__hero">
-            <p className="privacy-policy__eyebrow">{content.eyebrow}</p>
             <h1>{content.title}</h1>
-            <p className="privacy-policy__intro">{content.intro}</p>
-            <div className="privacy-policy__dates">
-              <span>{content.updated}</span>
-              <span aria-hidden="true">·</span>
-              <span>{content.effective}</span>
-            </div>
           </section>
 
           <div className="privacy-policy__layout">
             <aside className="privacy-policy__toc" aria-label={content.tocTitle}>
               <h2>{content.tocTitle}</h2>
-              <nav>
+              <nav ref={tocNavRef}>
                 {content.sections.map((section) => (
-                  <a key={section.id} href={`#${section.id}`}>{section.title.replace(/^\d+\.\s*/, '')}</a>
+                  <a
+                    key={section.id}
+                    ref={(node) => {
+                      if (node) tocLinkRefs.current.set(section.id, node);
+                      else tocLinkRefs.current.delete(section.id);
+                    }}
+                    href={`#${section.id}`}
+                    className={activeSectionId === section.id ? 'is-active' : undefined}
+                    aria-current={activeSectionId === section.id ? 'location' : undefined}
+                    onClick={() => setActiveSectionId(section.id)}
+                  >
+                    {section.title.replace(/^\d+\.\s*/, '')}
+                  </a>
                 ))}
               </nav>
             </aside>
@@ -269,17 +302,6 @@ function PrivacyPolicyPage() {
             </article>
           </div>
 
-          <section className="privacy-policy__support" aria-labelledby="privacy-policy-support-title">
-            <div>
-              <p className="privacy-policy__support-kicker">Mentory Support</p>
-              <h2 id="privacy-policy-support-title">{content.relatedTitle}</h2>
-              <p>{content.relatedText}</p>
-            </div>
-            <div className="privacy-policy__support-actions">
-              <Link to={content.helpPath}>{content.relatedAction}</Link>
-              <a href="mailto:contact@mentory.cc">{content.contactAction}</a>
-            </div>
-          </section>
         </main>
 
         <SiteFooter mode="student" />
