@@ -92,7 +92,7 @@ function SiteFooter({ mode = 'student' }) {
           expandedSection={expandedSection}
           onToggle={toggleSection}
         >
-          <span>{t('footer.privacy', '隐私政策')}</span>
+          <Link to="/privacy">{t('footer.privacy', '隐私政策')}</Link>
           <span>{t('footer.terms', '服务条款')}</span>
           <span>{t('footer.refundRules', '退款/取消规则')}</span>
         </FooterColumn>

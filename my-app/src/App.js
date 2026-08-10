@@ -21,6 +21,7 @@ import {
   loadFavoriteCollectionPage,
   loadFavoritesPage,
   loadHelpCenterPage,
+  loadPrivacyPolicyPage,
   loadMentorDetailPage,
   loadMentorPage,
   loadMentorProfileEditorPage,
@@ -46,6 +47,7 @@ const LazyCourseRequestDetailPage = lazy(loadCourseRequestDetailPage);
 const LazyWalletPage = lazy(loadWalletPage);
 const LazyClassroomPage = lazy(loadClassroomPage);
 const LazyHelpCenterPage = lazy(loadHelpCenterPage);
+const LazyPrivacyPolicyPage = lazy(loadPrivacyPolicyPage);
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -66,6 +68,8 @@ const ROUTE_TITLE_MAP = [
   { path: '/mentor/messages', title: '消息', titleKey: 'app.route.messages' },
   { path: '/mentor/settings', title: '设置', titleKey: 'app.route.settings' },
   { path: '/mentor/help', title: '帮助中心', titleKey: 'app.route.help' },
+  { path: '/privacy', title: '隐私政策', titleKey: 'footer.privacy' },
+  { path: '/privacy-policy', title: '隐私政策', titleKey: 'footer.privacy' },
   { path: '/classroom/:courseId', title: '课堂', titleKey: 'app.route.classroom' },
 ];
 
@@ -340,6 +344,10 @@ function App() {
           <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
           <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />
           <Route path="/mentor/help" element={withRouteSuspense(<LazyHelpCenterPage mode="mentor" />)} />
+
+          {/* 公共规则页面 */}
+          <Route path="/privacy" element={withRouteSuspense(<LazyPrivacyPolicyPage />)} />
+          <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
 
           {/* 导师页面 */}
           <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
