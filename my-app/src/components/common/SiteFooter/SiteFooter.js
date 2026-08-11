@@ -74,15 +74,16 @@ function SiteFooter({ mode = 'student' }) {
         </FooterColumn>
 
         <FooterColumn
+          as="nav"
           id="about"
           title={t('footer.about', '关于我们')}
           isPhone={isPhone}
           expandedSection={expandedSection}
           onToggle={toggleSection}
         >
-          <span>{t('footer.introduction', '介绍')}</span>
-          <span>{t('footer.mentorOpportunities', '导师工作机会')}</span>
-          <span>{t('footer.businessCooperation', '商务合作')}</span>
+          <Link to="/about">{t('footer.introduction', '介绍')}</Link>
+          <Link to="/mentor-opportunities">{t('footer.mentorOpportunities', '导师工作机会')}</Link>
+          <Link to="/business-cooperation">{t('footer.businessCooperation', '商务合作')}</Link>
         </FooterColumn>
 
         <FooterColumn

@@ -15,6 +15,7 @@ import { formatQuarterHourValue, normalizeQuarterHourValue } from './utils/lesso
 import { inferRequiredRoleFromPath, setPostLoginRedirect } from './utils/postLoginRedirect';
 import {
   loadAccountSettingsPage,
+  loadAboutPage,
   loadClassroomPage,
   loadCourseRequestDetailPage,
   loadCoursesPage,
@@ -52,6 +53,7 @@ const LazyHelpCenterPage = lazy(loadHelpCenterPage);
 const LazyPrivacyPolicyPage = lazy(loadPrivacyPolicyPage);
 const LazyTermsOfServicePage = lazy(loadTermsOfServicePage);
 const LazyRefundCancellationPolicyPage = lazy(loadRefundCancellationPolicyPage);
+const LazyAboutPage = lazy(loadAboutPage);
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -78,6 +80,9 @@ const ROUTE_TITLE_MAP = [
   { path: '/terms-of-service', title: '服务条款', titleKey: 'footer.terms' },
   { path: '/refund-cancellation', title: '退款/取消规则', titleKey: 'footer.refundRules' },
   { path: '/refund-cancellation-policy', title: '退款/取消规则', titleKey: 'footer.refundRules' },
+  { path: '/about', title: '介绍', titleKey: 'footer.introduction' },
+  { path: '/mentor-opportunities', title: '导师工作机会', titleKey: 'footer.mentorOpportunities' },
+  { path: '/business-cooperation', title: '商务合作', titleKey: 'footer.businessCooperation' },
   { path: '/classroom/:courseId', title: '课堂', titleKey: 'app.route.classroom' },
 ];
 
@@ -360,6 +365,11 @@ function App() {
           <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
           <Route path="/refund-cancellation" element={withRouteSuspense(<LazyRefundCancellationPolicyPage />)} />
           <Route path="/refund-cancellation-policy" element={<Navigate to="/refund-cancellation" replace />} />
+
+          {/* 关于 Mentory */}
+          <Route path="/about" element={withRouteSuspense(<LazyAboutPage pageKey="introduction" />)} />
+          <Route path="/mentor-opportunities" element={withRouteSuspense(<LazyAboutPage pageKey="mentorOpportunities" />)} />
+          <Route path="/business-cooperation" element={withRouteSuspense(<LazyAboutPage pageKey="businessCooperation" />)} />
 
           {/* 导师页面 */}
           <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
