@@ -584,7 +584,7 @@ router.get('/users/:userId', adminAuth_1.requireAdminAuth, async (req, res) => {
         const user = users?.[0];
         if (!user)
             return res.status(404).json({ error: '未找到用户' });
-        const [roles, mentorProfiles, orderSummary, courseSummary] = await Promise.all([
+        const [roles, mentorProfiles, orderSummary, courseSummary, reviews] = await Promise.all([
             (0, db_1.query)(`SELECT role, public_id, mentor_approved, mentor_review_status, mentor_review_note,
                 mentor_reviewed_at, mentor_reviewed_by_admin_id, created_at
          FROM user_roles WHERE user_id = ? ORDER BY role`, [userId]),
@@ -601,6 +601,23 @@ router.get('/users/:userId', adminAuth_1.requireAdminAuth, async (req, res) => {
            SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) AS scheduledCourseCount,
            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completedCourseCount
          FROM course_sessions WHERE student_user_id = ? OR mentor_user_id = ?`, [userId, userId, userId, userId]),
+            (0, db_1.query)(`SELECT
+           csr.id, csr.course_session_id, csr.overall_score,
+           csr.clarity_score, csr.communication_score, csr.preparation_score,
+           csr.expertise_score, csr.punctuality_score, csr.comment_text,
+           csr.created_at, csr.updated_at, cs.starts_at, cs.duration_hours,
+           csr.mentor_user_id AS counterpart_user_id,
+           mentor_role.public_id AS counterpart_public_id,
+           COALESCE(mp.display_name, mentor.username, mentor.email) AS counterpart_name,
+           mentor.email AS counterpart_email, mentor.account_status AS counterpart_account_status
+         FROM course_session_reviews csr
+         JOIN course_sessions cs ON cs.id = csr.course_session_id
+         JOIN users mentor ON mentor.id = csr.mentor_user_id
+         LEFT JOIN user_roles mentor_role
+           ON mentor_role.user_id = csr.mentor_user_id AND mentor_role.role = 'mentor'
+         LEFT JOIN mentor_profiles mp ON mp.user_id = csr.mentor_user_id
+         WHERE csr.student_user_id = ?
+         ORDER BY csr.created_at DESC, csr.id DESC`, [userId]),
         ]);
         const mentorProfile = mentorProfiles?.[0] || null;
         if (mentorProfile) {
@@ -613,6 +630,7 @@ router.get('/users/:userId', adminAuth_1.requireAdminAuth, async (req, res) => {
             mentorProfile,
             orderSummary: orderSummary?.[0] || {},
             courseSummary: courseSummary?.[0] || {},
+            reviews: reviews || [],
         });
     }
     catch (error) {
@@ -650,6 +668,54 @@ router.patch('/users/:userId/status', adminAuth_1.requireAdminAuth, async (req, 
     }
     catch (error) {
         console.error('Admin update user status error:', error);
+        return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.delete('/reviews/:reviewId/comment', adminAuth_1.requireAdminAuth, async (req, res) => {
+    const reviewId = toPositiveInt(req.params.reviewId, 0);
+    const reason = readReason(req);
+    if (!reviewId)
+        return res.status(400).json({ error: '无效评价ID' });
+    if (!reason)
+        return res.status(400).json({ error: '请填写删除原因' });
+    try {
+        const beforeRows = await (0, db_1.query)(`SELECT id, course_session_id, student_user_id, mentor_user_id, comment_text, created_at, updated_at
+       FROM course_session_reviews
+       WHERE id = ?
+       LIMIT 1`, [reviewId]);
+        const before = beforeRows?.[0];
+        if (!before)
+            return res.status(404).json({ error: '未找到评价' });
+        if (!safeString(before.comment_text, 10000)) {
+            return res.status(409).json({ error: '该评价已无文字评论' });
+        }
+        await (0, db_1.query)(`UPDATE course_session_reviews
+       SET comment_text = NULL
+       WHERE id = ?`, [reviewId]);
+        const after = { ...before, comment_text: null };
+        const auditBefore = {
+            id: before.id,
+            course_session_id: before.course_session_id,
+            student_user_id: before.student_user_id,
+            mentor_user_id: before.mentor_user_id,
+            comment_present: true,
+            created_at: before.created_at,
+            updated_at: before.updated_at,
+        };
+        const auditAfter = { ...auditBefore, comment_present: false };
+        await audit({
+            req,
+            action: 'review.comment.delete',
+            targetType: 'course_session_review',
+            targetId: reviewId,
+            reason,
+            before: auditBefore,
+            after: auditAfter,
+        });
+        return res.json({ review: after });
+    }
+    catch (error) {
+        console.error('Admin delete review comment error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
     }
 });
@@ -882,7 +948,8 @@ router.get('/mentors/:userId/review', adminAuth_1.requireAdminAuth, async (req, 
     if (!userId)
         return res.status(400).json({ error: '无效导师ID' });
     try {
-        const rows = await (0, db_1.query)(`SELECT
+        const [rows, reviews] = await Promise.all([
+            (0, db_1.query)(`SELECT
          ur.user_id, ur.public_id, ur.mentor_approved, ur.mentor_review_status,
          ur.mentor_review_note, ur.mentor_qs_top100, ur.mentor_reviewed_at, ur.mentor_reviewed_by_admin_id,
          COALESCE(resume_admin.display_name, resume_admin.username) AS mentor_reviewed_by_admin_name,
@@ -901,7 +968,24 @@ router.get('/mentors/:userId/review', adminAuth_1.requireAdminAuth, async (req, 
        LEFT JOIN admin_users resume_admin ON resume_admin.id = ur.mentor_reviewed_by_admin_id
        LEFT JOIN admin_users interview_admin ON interview_admin.id = ur.mentor_interviewed_by_admin_id
        WHERE ur.user_id = ? AND ur.role = 'mentor'
-       LIMIT 1`, [userId]);
+         LIMIT 1`, [userId]),
+            (0, db_1.query)(`SELECT
+           csr.id, csr.course_session_id, csr.overall_score,
+           csr.clarity_score, csr.communication_score, csr.preparation_score,
+           csr.expertise_score, csr.punctuality_score, csr.comment_text,
+           csr.created_at, csr.updated_at, cs.starts_at, cs.duration_hours,
+           csr.student_user_id AS counterpart_user_id,
+           student_role.public_id AS counterpart_public_id,
+           COALESCE(student.username, student.email) AS counterpart_name,
+           student.email AS counterpart_email, student.account_status AS counterpart_account_status
+         FROM course_session_reviews csr
+         JOIN course_sessions cs ON cs.id = csr.course_session_id
+         JOIN users student ON student.id = csr.student_user_id
+         LEFT JOIN user_roles student_role
+           ON student_role.user_id = csr.student_user_id AND student_role.role = 'student'
+         WHERE csr.mentor_user_id = ?
+         ORDER BY csr.created_at DESC, csr.id DESC`, [userId]),
+        ]);
         const mentor = rows?.[0];
         if (!mentor)
             return res.status(404).json({ error: '未找到导师申请' });
@@ -910,7 +994,7 @@ router.get('/mentors/:userId/review', adminAuth_1.requireAdminAuth, async (req, 
         mentor.availability = maybeParseJson(mentor.availability_json, null);
         mentor.resumeUrls = parseUrlList(mentor.mentor_resume_url);
         mentor.mentor_resume_url = mentor.resumeUrls[0] || null;
-        return res.json({ mentor });
+        return res.json({ mentor, reviews: reviews || [] });
     }
     catch (error) {
         console.error('Admin mentor review detail error:', error);

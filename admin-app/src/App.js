@@ -86,6 +86,26 @@ const formatDate = (value) => {
   return date.toLocaleString('zh-CN', { hour12: false });
 };
 
+const formatCourseTimeRange = (startsAt, durationHours) => {
+  const start = new Date(startsAt);
+  const duration = Number(durationHours);
+  if (Number.isNaN(start.getTime()) || !Number.isFinite(duration)) return '-';
+  const end = new Date(start.getTime() + duration * 60 * 60 * 1000);
+  const offsetMinutes = -start.getTimezoneOffset();
+  const offsetSign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteOffset = Math.abs(offsetMinutes);
+  const offsetHours = Math.floor(absoluteOffset / 60);
+  const offsetRemainder = absoluteOffset % 60;
+  const timezone = `UTC${offsetMinutes === 0 ? '' : `${offsetSign}${offsetHours}${offsetRemainder ? `:${String(offsetRemainder).padStart(2, '0')}` : ''}`}`;
+  const sameDate = start.getFullYear() === end.getFullYear()
+    && start.getMonth() === end.getMonth()
+    && start.getDate() === end.getDate();
+  const endText = sameDate
+    ? end.toLocaleTimeString('zh-CN', { hour12: false })
+    : formatDate(end);
+  return `${timezone} ${formatDate(start)} - ${endText}`;
+};
+
 const formatIntegerAmount = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return '-';
@@ -385,20 +405,60 @@ function SearchBox({ value, onChange, placeholder = '搜索邮箱、ID、关键�
 
 function ReasonDialog({ config, onClose, onSubmit }) {
   const [reason, setReason] = useState('');
+  const [selectedReasons, setSelectedReasons] = useState([]);
   const [qsTop100, setQsTop100] = useState(false);
   if (!config) return null;
+  const reasonOptions = Array.isArray(config.reasonOptions) ? config.reasonOptions : [];
+  const multipleReasons = Boolean(config.multipleReasons);
   const reasonRequired = config.reasonRequired !== false;
   const minLength = reasonRequired ? (config.minLength || 2) : 0;
   const maxLength = config.maxLength || 1000;
   const showQsTop100 = Boolean(config.showQsTop100);
   const showReason = !config.hideReason;
-  const payload = showQsTop100 ? { qsTop100, reason: reason.trim() } : reason;
+  const resolvedReason = multipleReasons ? selectedReasons.join('；') : reason.trim();
+  const payload = showQsTop100 ? { qsTop100, reason: resolvedReason } : resolvedReason;
   return (
     <div className="modal-backdrop" role="presentation">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reason-title">
         <h2 id="reason-title">{config.title}</h2>
-        <p>{config.description}</p>
-        {showReason ? (
+        {config.description ? <p>{config.description}</p> : null}
+        {showReason && reasonOptions.length && multipleReasons ? (
+          <fieldset className="reason-option-list">
+            <legend>{config.reasonPlaceholder || '选择操作原因（可多选）'}</legend>
+            {reasonOptions.map((option) => {
+              const value = typeof option === 'string' ? option : option.value;
+              const label = typeof option === 'string' ? option : option.label;
+              return (
+                <label key={value}>
+                  <input
+                    type="checkbox"
+                    checked={selectedReasons.includes(value)}
+                    onChange={(event) => setSelectedReasons((previous) => (
+                      event.target.checked
+                        ? [...previous, value]
+                        : previous.filter((item) => item !== value)
+                    ))}
+                  />
+                  <span>{label}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+        ) : showReason && reasonOptions.length ? (
+          <select
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            autoFocus
+            aria-label="选择操作原因"
+          >
+            <option value="">{config.reasonPlaceholder || '请选择操作原因'}</option>
+            {reasonOptions.map((option) => {
+              const value = typeof option === 'string' ? option : option.value;
+              const label = typeof option === 'string' ? option : option.label;
+              return <option value={value} key={value}>{label}</option>;
+            })}
+          </select>
+        ) : showReason ? (
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}
@@ -421,7 +481,7 @@ function ReasonDialog({ config, onClose, onSubmit }) {
           <button className="ghost" onClick={onClose}>取消</button>
           <button
             onClick={() => onSubmit(payload)}
-            disabled={showReason && reason.trim().length < minLength}
+            disabled={showReason && resolvedReason.length < minLength}
           >
             {config.confirmLabel || '确认'}
           </button>
@@ -1535,9 +1595,10 @@ function DashboardTopbarDateRangeFilter() {
 }
 
 function UserDrawer({ userId, onClose }) {
-  const { loading, error, data } = useAsync(() => api(`/api/admin/users/${userId}`), [userId]);
+  const [reload, setReload] = useState(0);
+  const { loading, error, data } = useAsync(() => api(`/api/admin/users/${userId}`), [userId, reload]);
   return (
-    <aside className="drawer">
+    <aside className="drawer wide-drawer">
       <button className="drawer-close" onClick={onClose}>×</button>
       <State loading={loading} error={error}>
         <h2>{data?.user?.email}</h2>
@@ -1555,7 +1616,18 @@ function UserDrawer({ userId, onClose }) {
         <DataTable
           compact
           columns={['角色', 'Public ID', '导师审核']}
-          rows={(data?.roles || []).map((role) => [role.role, role.public_id, <Badge value={role.mentor_review_status || '-'} />])}
+          rows={(data?.roles || []).map((role) => [
+            role.role,
+            role.public_id,
+            role.role === 'mentor' ? <Badge value={role.mentor_review_status || '-'} /> : <span aria-hidden="true" />,
+          ])}
+        />
+        <h3>对导师做出的评价</h3>
+        <ReviewHistory
+          reviews={data?.reviews || []}
+          counterpartLabel="被评价导师"
+          showCounterpartEmail={false}
+          onCommentDeleted={() => setReload((value) => value + 1)}
         />
       </State>
     </aside>
@@ -1572,6 +1644,83 @@ function DetailGrid({ items }) {
         </React.Fragment>
       ))}
     </dl>
+  );
+}
+
+function ReviewHistory({ reviews, counterpartLabel, showCounterpartEmail = true, onCommentDeleted }) {
+  const [commentToDelete, setCommentToDelete] = useState(null);
+  if (!reviews.length) return <div className="state review-empty">暂无评价</div>;
+
+  const deleteComment = async (reason) => {
+    await api(`/api/admin/reviews/${commentToDelete.id}/comment`, {
+      method: 'DELETE',
+      body: { reason },
+    });
+    setCommentToDelete(null);
+    onCommentDeleted?.();
+  };
+
+  return (
+    <>
+      <div className="review-history">
+        {reviews.map((review) => (
+          <article className="review-card" key={review.id}>
+          <div className="review-card-header">
+            <div>
+              <strong>{counterpartLabel}：{review.counterpart_public_id || review.counterpart_name || '-'}</strong>
+              {showCounterpartEmail ? <span>{review.counterpart_email || review.counterpart_name || '-'}</span> : null}
+            </div>
+            <div className="review-overall">
+              <strong>{formatReviewScore(review.overall_score)}</strong>
+              <span>综合评分</span>
+            </div>
+          </div>
+          <div className="review-meta">
+            <span>课程 #{review.course_session_id}</span>
+            <span>{formatCourseTimeRange(review.starts_at, review.duration_hours)}</span>
+          </div>
+          <dl className="review-score-grid">
+            <div><dt>清晰讲解</dt><dd>{formatReviewScore(review.clarity_score)}</dd></div>
+            <div><dt>沟通顺畅</dt><dd>{formatReviewScore(review.communication_score)}</dd></div>
+            <div><dt>准备充分</dt><dd>{formatReviewScore(review.preparation_score)}</dd></div>
+            <div><dt>专业能力</dt><dd>{formatReviewScore(review.expertise_score)}</dd></div>
+            <div><dt>准时程度</dt><dd>{formatReviewScore(review.punctuality_score)}</dd></div>
+          </dl>
+            <div className="review-comment">
+              <div className="review-comment-heading">
+                <span>文字评价</span>
+                {review.comment_text ? (
+                  <button type="button" onClick={() => setCommentToDelete(review)}>删除评论</button>
+                ) : null}
+              </div>
+              <p>{review.comment_text || '未填写文字评价'}</p>
+            </div>
+          <div className="review-timestamp">评价时间：{formatDate(review.created_at)}</div>
+          </article>
+        ))}
+      </div>
+      <ReasonDialog
+        key={commentToDelete ? `delete-review-comment-${commentToDelete.id}` : 'delete-review-comment'}
+        config={commentToDelete ? {
+          title: '删除不当评论',
+          reasonPlaceholder: '请选择删除原因',
+          multipleReasons: true,
+          reasonOptions: [
+            '骚扰、辱骂、歧视或威胁',
+            '违法、侵权或欺诈内容',
+            '虚假、误导或恶意评价',
+            '泄露个人隐私或敏感信息',
+            '与课程无关或明显不适当',
+            '广告、垃圾信息或重复内容',
+          ],
+          minLength: 1,
+          maxLength: 500,
+          confirmLabel: '确认删除评论',
+        } : null}
+        onClose={() => setCommentToDelete(null)}
+        onSubmit={deleteComment}
+      />
+    </>
   );
 }
 
@@ -1843,7 +1992,8 @@ function MentorReviewsPage() {
 }
 
 function MentorDrawer({ userId, onClose, onStatusAction }) {
-  const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId]);
+  const [reload, setReload] = useState(0);
+  const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId, reload]);
   const mentor = data?.mentor || {};
   const resumeUrl = parseUrlList(mentor.resumeUrls || mentor.mentor_resume_url)[0] || '';
   const reviewStatus = String(mentor.mentor_review_status || '');
@@ -1869,7 +2019,7 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
     window.open(buildAdminPreviewUrl(`/api/admin/mentors/${userId}/resume-preview`, token), '_blank');
   };
   return (
-    <aside className="drawer">
+    <aside className="drawer wide-drawer">
       <button className="drawer-close" onClick={onClose}>×</button>
       <State loading={loading} error={error}>
         <h2>{mentor.public_id} · {mentor.email}</h2>
@@ -1904,6 +2054,12 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
         <div className="chip-row">{(mentor.courses || []).map((item) => <span className="chip" key={item}>{item}</span>)}</div>
         <h3>授课语言</h3>
         <div className="chip-row">{(mentor.teachingLanguages || []).map((item) => <span className="chip" key={item}>{item}</span>)}</div>
+        <h3>收到的学生评价</h3>
+        <ReviewHistory
+          reviews={data?.reviews || []}
+          counterpartLabel="评价学生"
+          onCommentDeleted={() => setReload((value) => value + 1)}
+        />
       </State>
     </aside>
   );

@@ -366,10 +366,24 @@
 
   .privacy-policy__details {
     grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .privacy-policy__detail {
-    padding: 19px;
+    padding: 22px 0;
+    border: 0;
+    border-bottom: 1px solid var(--privacy-line);
+    border-radius: 0;
+    background: none;
+  }
+
+  .privacy-policy__detail:first-child {
+    padding-top: 0;
+  }
+
+  .privacy-policy__detail:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
   }
 
   #collection .privacy-policy__detail {
