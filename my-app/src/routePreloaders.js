@@ -13,6 +13,7 @@ export const loadWalletPage = () => import('./pages/Wallet/WalletPage');
 export const loadClassroomPage = () => import('./pages/Classroom/ClassroomPage');
 export const loadHelpCenterPage = () => import('./pages/HelpCenter/HelpCenterPage');
 export const loadPrivacyPolicyPage = () => import('./pages/PrivacyPolicy/PrivacyPolicyPage');
+export const loadTermsOfServicePage = () => import('./pages/TermsOfService/TermsOfServicePage');
 
 const ROUTE_LOADERS = {
   mentorHome: loadMentorPage,
@@ -31,6 +32,7 @@ const ROUTE_LOADERS = {
   classroom: loadClassroomPage,
   helpCenter: loadHelpCenterPage,
   privacyPolicy: loadPrivacyPolicyPage,
+  termsOfService: loadTermsOfServicePage,
 };
 
 const preloadCache = new Map();
