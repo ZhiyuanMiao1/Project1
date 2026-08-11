@@ -94,7 +94,7 @@ function SiteFooter({ mode = 'student' }) {
         >
           <Link to="/privacy">{t('footer.privacy', '隐私政策')}</Link>
           <Link to="/terms">{t('footer.terms', '服务条款')}</Link>
-          <span>{t('footer.refundRules', '退款/取消规则')}</span>
+          <Link to="/refund-cancellation">{t('footer.refundRules', '退款/取消规则')}</Link>
         </FooterColumn>
       </div>
 

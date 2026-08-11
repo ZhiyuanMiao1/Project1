@@ -1596,41 +1596,48 @@ function DashboardTopbarDateRangeFilter() {
 
 function UserDrawer({ userId, onClose }) {
   const [reload, setReload] = useState(0);
+  const [selectedMentorId, setSelectedMentorId] = useState(null);
   const { loading, error, data } = useAsync(() => api(`/api/admin/users/${userId}`), [userId, reload]);
   return (
-    <aside className="drawer wide-drawer">
-      <button className="drawer-close" onClick={onClose}>×</button>
-      <State loading={loading} error={error}>
-        <h2>{data?.user?.email}</h2>
-        <DetailGrid
-          items={[
-            ['StudentID', data?.roles?.find((role) => role.role === 'student')?.public_id],
-            ['状态', <Badge value={data?.user?.account_status} />],
-            ['课时余额', data?.user?.lesson_balance_hours],
-            ['最近登录', formatDate(data?.user?.last_login_at)],
-            ['订单数', data?.orderSummary?.orderCount],
-            ['已付金额', `CNY ${asNumber(data?.orderSummary?.paidAmountCny).toFixed(2)}`],
-          ]}
-        />
-        <h3>角色</h3>
-        <DataTable
-          compact
-          columns={['角色', 'Public ID', '导师审核']}
-          rows={(data?.roles || []).map((role) => [
-            role.role,
-            role.public_id,
-            role.role === 'mentor' ? <Badge value={role.mentor_review_status || '-'} /> : <span aria-hidden="true" />,
-          ])}
-        />
-        <h3>对导师做出的评价</h3>
-        <ReviewHistory
-          reviews={data?.reviews || []}
-          counterpartLabel="被评价导师"
-          showCounterpartEmail={false}
-          onCommentDeleted={() => setReload((value) => value + 1)}
-        />
-      </State>
-    </aside>
+    <>
+      <aside className="drawer wide-drawer">
+        <button className="drawer-close" onClick={onClose}>×</button>
+        <State loading={loading} error={error}>
+          <h2>{data?.user?.email}</h2>
+          <DetailGrid
+            items={[
+              ['StudentID', data?.roles?.find((role) => role.role === 'student')?.public_id],
+              ['状态', <Badge value={data?.user?.account_status} />],
+              ['课时余额', data?.user?.lesson_balance_hours],
+              ['最近登录', formatDate(data?.user?.last_login_at)],
+              ['订单数', data?.orderSummary?.orderCount],
+              ['已付金额', `CNY ${asNumber(data?.orderSummary?.paidAmountCny).toFixed(2)}`],
+            ]}
+          />
+          <h3>角色</h3>
+          <DataTable
+            compact
+            columns={['角色', 'Public ID', '导师审核']}
+            rows={(data?.roles || []).map((role) => [
+              role.role,
+              role.public_id,
+              role.role === 'mentor' ? <Badge value={role.mentor_review_status || '-'} /> : <span aria-hidden="true" />,
+            ])}
+          />
+          <h3>对导师做出的评价</h3>
+          <ReviewHistory
+            reviews={data?.reviews || []}
+            counterpartLabel="被评价导师"
+            showCounterpartEmail={false}
+            onCounterpartClick={(review) => setSelectedMentorId(review.counterpart_user_id)}
+            onCommentDeleted={() => setReload((value) => value + 1)}
+          />
+        </State>
+      </aside>
+      {selectedMentorId ? (
+        <MentorDrawer userId={selectedMentorId} onClose={() => setSelectedMentorId(null)} />
+      ) : null}
+    </>
   );
 }
 
@@ -1647,7 +1654,13 @@ function DetailGrid({ items }) {
   );
 }
 
-function ReviewHistory({ reviews, counterpartLabel, showCounterpartEmail = true, onCommentDeleted }) {
+function ReviewHistory({
+  reviews,
+  counterpartLabel,
+  showCounterpartEmail = true,
+  onCounterpartClick,
+  onCommentDeleted,
+}) {
   const [commentToDelete, setCommentToDelete] = useState(null);
   if (!reviews.length) return <div className="state review-empty">暂无评价</div>;
 
@@ -1667,7 +1680,18 @@ function ReviewHistory({ reviews, counterpartLabel, showCounterpartEmail = true,
           <article className="review-card" key={review.id}>
           <div className="review-card-header">
             <div>
-              <strong>{counterpartLabel}：{review.counterpart_public_id || review.counterpart_name || '-'}</strong>
+              <strong>
+                {counterpartLabel}：{' '}
+                {onCounterpartClick ? (
+                  <button
+                    type="button"
+                    className="review-counterpart-link"
+                    onClick={() => onCounterpartClick(review)}
+                  >
+                    {review.counterpart_public_id || review.counterpart_name || '-'}
+                  </button>
+                ) : (review.counterpart_public_id || review.counterpart_name || '-')}
+              </strong>
               {showCounterpartEmail ? <span>{review.counterpart_email || review.counterpart_name || '-'}</span> : null}
             </div>
             <div className="review-overall">
@@ -1849,21 +1873,21 @@ function MentorReviewsPage() {
           <button
             type="button"
             className={status === 'actionable' ? 'active' : ''}
-            onClick={() => setStatus('actionable')}
+            onClick={() => setStatus((current) => current === 'actionable' ? '' : 'actionable')}
           >
             全部待处理 <span>{asNumber(data?.summary?.actionable)}</span>
           </button>
           <button
             type="button"
             className={status === 'pending' ? 'active' : ''}
-            onClick={() => setStatus('pending')}
+            onClick={() => setStatus((current) => current === 'pending' ? '' : 'pending')}
           >
             待审简历 <span>{asNumber(data?.summary?.resumePending)}</span>
           </button>
           <button
             type="button"
             className={status === 'interview_pending' ? 'active' : ''}
-            onClick={() => setStatus('interview_pending')}
+            onClick={() => setStatus((current) => current === 'interview_pending' ? '' : 'interview_pending')}
           >
             待面试 <span>{asNumber(data?.summary?.interviewPending)}</span>
           </button>
@@ -1955,11 +1979,6 @@ function MentorReviewsPage() {
         <MentorDrawer
           userId={detail}
           onClose={() => setDetail(null)}
-          onStatusAction={(mentor) => setAccountDialog({
-            mentor,
-            nextStatus: mentor.account_status === 'suspended' ? 'active' : 'suspended',
-            title: mentor.account_status === 'suspended' ? '解封导师账号' : '封禁导师账号',
-          })}
         />
       ) : null}
       <ReasonDialog
@@ -1991,7 +2010,7 @@ function MentorReviewsPage() {
   );
 }
 
-function MentorDrawer({ userId, onClose, onStatusAction }) {
+function MentorDrawer({ userId, onClose }) {
   const [reload, setReload] = useState(0);
   const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId, reload]);
   const mentor = data?.mentor || {};
@@ -2041,15 +2060,6 @@ function MentorDrawer({ userId, onClose, onStatusAction }) {
             ['面评', mentor.mentor_interview_note],
           ]}
         />
-        <div className="drawer-actions">
-          <button
-            type="button"
-            className="ghost status-action"
-            onClick={() => onStatusAction?.(mentor)}
-          >
-            {mentor.account_status === 'suspended' ? '解封账号' : '封禁账号'}
-          </button>
-        </div>
         <h3>课程方向</h3>
         <div className="chip-row">{(mentor.courses || []).map((item) => <span className="chip" key={item}>{item}</span>)}</div>
         <h3>授课语言</h3>

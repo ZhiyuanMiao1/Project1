@@ -14,6 +14,7 @@ export const loadClassroomPage = () => import('./pages/Classroom/ClassroomPage')
 export const loadHelpCenterPage = () => import('./pages/HelpCenter/HelpCenterPage');
 export const loadPrivacyPolicyPage = () => import('./pages/PrivacyPolicy/PrivacyPolicyPage');
 export const loadTermsOfServicePage = () => import('./pages/TermsOfService/TermsOfServicePage');
+export const loadRefundCancellationPolicyPage = () => import('./pages/RefundCancellationPolicy/RefundCancellationPolicyPage');
 
 const ROUTE_LOADERS = {
   mentorHome: loadMentorPage,
@@ -33,6 +34,7 @@ const ROUTE_LOADERS = {
   helpCenter: loadHelpCenterPage,
   privacyPolicy: loadPrivacyPolicyPage,
   termsOfService: loadTermsOfServicePage,
+  refundCancellationPolicy: loadRefundCancellationPolicyPage,
 };
 
 const preloadCache = new Map();

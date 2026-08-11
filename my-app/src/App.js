@@ -22,6 +22,7 @@ import {
   loadFavoritesPage,
   loadHelpCenterPage,
   loadPrivacyPolicyPage,
+  loadRefundCancellationPolicyPage,
   loadTermsOfServicePage,
   loadMentorDetailPage,
   loadMentorPage,
@@ -50,6 +51,7 @@ const LazyClassroomPage = lazy(loadClassroomPage);
 const LazyHelpCenterPage = lazy(loadHelpCenterPage);
 const LazyPrivacyPolicyPage = lazy(loadPrivacyPolicyPage);
 const LazyTermsOfServicePage = lazy(loadTermsOfServicePage);
+const LazyRefundCancellationPolicyPage = lazy(loadRefundCancellationPolicyPage);
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -74,6 +76,8 @@ const ROUTE_TITLE_MAP = [
   { path: '/privacy-policy', title: '隐私政策', titleKey: 'footer.privacy' },
   { path: '/terms', title: '服务条款', titleKey: 'footer.terms' },
   { path: '/terms-of-service', title: '服务条款', titleKey: 'footer.terms' },
+  { path: '/refund-cancellation', title: '退款/取消规则', titleKey: 'footer.refundRules' },
+  { path: '/refund-cancellation-policy', title: '退款/取消规则', titleKey: 'footer.refundRules' },
   { path: '/classroom/:courseId', title: '课堂', titleKey: 'app.route.classroom' },
 ];
 
@@ -354,6 +358,8 @@ function App() {
           <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
           <Route path="/terms" element={withRouteSuspense(<LazyTermsOfServicePage />)} />
           <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
+          <Route path="/refund-cancellation" element={withRouteSuspense(<LazyRefundCancellationPolicyPage />)} />
+          <Route path="/refund-cancellation-policy" element={<Navigate to="/refund-cancellation" replace />} />
 
           {/* 导师页面 */}
           <Route path="/mentor" element={withRouteSuspense(<LazyMentorPage />)} />
