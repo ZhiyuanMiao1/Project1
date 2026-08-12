@@ -139,3 +139,36 @@
     margin-bottom: 22px;
   }
 }
+
+@media (max-width: 599px) {
+  .settings-written-review-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+    column-gap: 14px;
+    row-gap: 0;
+  }
+
+  .settings-written-review-avatar {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+  }
+
+  .settings-written-review-body {
+    display: contents;
+  }
+
+  .settings-written-review-meta {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .settings-written-review-rating {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 8px;
+  }
+
+  .settings-written-review-text {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
