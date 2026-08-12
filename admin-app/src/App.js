@@ -336,7 +336,7 @@ function OrderStatusBadge({
   const providerKey = String(order?.provider || '').toLowerCase();
   const providerLabel = providerText[providerKey] || '人工付款';
   const supportsManualConfirmation = providerKey === 'alipay' || providerKey === 'wechat';
-  if (meta.key === 'pending-receipt' && supportsManualConfirmation && typeof onConfirm === 'function') {
+  if ((meta.key === 'pending-receipt' || meta.key === 'pending') && supportsManualConfirmation && typeof onConfirm === 'function') {
     return (
       <button
         type="button"

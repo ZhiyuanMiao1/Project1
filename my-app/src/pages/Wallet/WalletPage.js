@@ -5,7 +5,6 @@ import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import apiClient from '../../api/client';
-import { fetchAccountProfile } from '../../api/account';
 import { ensurePayPalReady, getPayPalWarmupSnapshot } from '../../services/paypalWarmup';
 import { getAuthToken } from '../../utils/authStorage';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
@@ -21,13 +20,6 @@ const FX_EXPIRED_CODE = 'FX_QUOTE_EXPIRED';
 const FX_INVALID_CODE = 'FX_QUOTE_INVALID';
 const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 
-const createPaymentReference = () => {
-  if (typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function') {
-    return window.crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
-};
-
 function WalletPage() {
   const { t } = useI18n();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
@@ -40,13 +32,14 @@ function WalletPage() {
   const [isPaySuccessOpen, setIsPaySuccessOpen] = useState(false);
   const [isAlipayTransferOpen, setIsAlipayTransferOpen] = useState(false);
   const [isAlipayReporting, setIsAlipayReporting] = useState(false);
+  const [isLocalOrderCreating, setIsLocalOrderCreating] = useState(false);
   const [alipayReportError, setAlipayReportError] = useState('');
-  const [alipayClientReference, setAlipayClientReference] = useState('');
+  const [alipayOrder, setAlipayOrder] = useState(null);
   const [isAlipayReportSuccessOpen, setIsAlipayReportSuccessOpen] = useState(false);
   const [isWeChatTransferOpen, setIsWeChatTransferOpen] = useState(false);
   const [isWeChatReporting, setIsWeChatReporting] = useState(false);
   const [weChatReportError, setWeChatReportError] = useState('');
-  const [weChatClientReference, setWeChatClientReference] = useState('');
+  const [weChatOrder, setWeChatOrder] = useState(null);
   const [isWeChatReportSuccessOpen, setIsWeChatReportSuccessOpen] = useState(false);
   const [isRefundOpen, setIsRefundOpen] = useState(false);
   const [isRefundSuccessOpen, setIsRefundSuccessOpen] = useState(false);
@@ -56,8 +49,6 @@ function WalletPage() {
     monthNetSpendingCny: 0,
     totalTopUpCny: 0,
   }));
-  const [studentId, setStudentId] = useState('');
-  const [isStudentIdLoading, setIsStudentIdLoading] = useState(false);
 
   const [fxQuote, setFxQuote] = useState(null);
   const [isFxLoading, setIsFxLoading] = useState(false);
@@ -232,29 +223,9 @@ function WalletPage() {
         monthNetSpendingCny: 0,
         totalTopUpCny: 0,
       });
-      setStudentId('');
-      setIsStudentIdLoading(false);
       return;
     }
     fetchWalletSummary().catch((err) => console.error('Wallet summary load error:', err));
-    let active = true;
-    setIsStudentIdLoading(true);
-    fetchAccountProfile()
-      .then((res) => {
-        if (!active) return;
-        setStudentId(typeof res?.data?.studentId === 'string' ? res.data.studentId.trim() : '');
-      })
-      .catch((err) => {
-        if (!active) return;
-        setStudentId('');
-        console.error('StudentID load error:', err);
-      })
-      .finally(() => {
-        if (active) setIsStudentIdLoading(false);
-      });
-    return () => {
-      active = false;
-    };
   }, [fetchWalletSummary, isLoggedIn]);
 
   useEffect(() => {
@@ -526,20 +497,37 @@ function WalletPage() {
     [t]
   );
 
-  const handleTopUp = () => {
-    if (!canSubmitTopUp) return;
-    if (selectedTopUpMethod === 'alipay') {
+  const handleTopUp = async () => {
+    if (!canSubmitTopUp || isLocalOrderCreating) return;
+    if (selectedTopUpMethod === 'alipay' || selectedTopUpMethod === 'wechat') {
+      const provider = selectedTopUpMethod;
+      const setError = provider === 'alipay' ? setAlipayReportError : setWeChatReportError;
       setTopUpNotice('');
-      setAlipayReportError('');
-      setAlipayClientReference(createPaymentReference());
-      setIsAlipayTransferOpen(true);
-      return;
-    }
-    if (selectedTopUpMethod === 'wechat') {
-      setTopUpNotice('');
-      setWeChatReportError('');
-      setWeChatClientReference(createPaymentReference());
-      setIsWeChatTransferOpen(true);
+      setError('');
+      setIsLocalOrderCreating(true);
+      try {
+        const response = await apiClient.post(`/api/${provider}/transfers/create`, {
+          hours: Number(hoursNumber.toFixed(2)),
+        });
+        const order = response?.data?.order;
+        if (!order?.id || !order?.paymentReference) {
+          throw new Error(t('wallet.localOrderCreateFailed', '充值订单创建失败，请稍后重试'));
+        }
+        if (provider === 'alipay') {
+          setAlipayOrder(order);
+          setIsAlipayTransferOpen(true);
+        } else {
+          setWeChatOrder(order);
+          setIsWeChatTransferOpen(true);
+        }
+      } catch (err) {
+        const message = err?.response?.data?.error
+          || err?.message
+          || t('wallet.localOrderCreateFailed', '充值订单创建失败，请稍后重试');
+        setTopUpNotice(message);
+      } finally {
+        setIsLocalOrderCreating(false);
+      }
       return;
     }
     const methodLabel = topUpMethods.find((method) => method.id === selectedTopUpMethod)?.title ?? t('wallet.selectedFallback', '所选方式');
@@ -553,13 +541,12 @@ function WalletPage() {
   };
 
   const handleAlipayPaid = async () => {
-    if (isAlipayReporting || !alipayClientReference) return;
+    if (isAlipayReporting || !alipayOrder?.id) return;
     setIsAlipayReporting(true);
     setAlipayReportError('');
     try {
       await apiClient.post('/api/alipay/transfers/report', {
-        hours: Number(hoursNumber.toFixed(2)),
-        clientReference: alipayClientReference,
+        orderId: alipayOrder.id,
       });
       setIsAlipayTransferOpen(false);
       setIsAlipayReportSuccessOpen(true);
@@ -578,13 +565,12 @@ function WalletPage() {
   };
 
   const handleWeChatPaid = async () => {
-    if (isWeChatReporting || !weChatClientReference) return;
+    if (isWeChatReporting || !weChatOrder?.id) return;
     setIsWeChatReporting(true);
     setWeChatReportError('');
     try {
       await apiClient.post('/api/wechat/transfers/report', {
-        hours: Number(hoursNumber.toFixed(2)),
-        clientReference: weChatClientReference,
+        orderId: weChatOrder.id,
       });
       setIsWeChatTransferOpen(false);
       setIsWeChatReportSuccessOpen(true);
@@ -847,7 +833,7 @@ function WalletPage() {
                         type="button"
                         className={`wallet-primary wallet-local-payment-primary wallet-local-payment-primary--${selectedTopUpMethod}`}
                         onClick={handleTopUp}
-                        disabled={!canSubmitTopUp}
+                        disabled={!canSubmitTopUp || isLocalOrderCreating}
                       >
                         <span className="wallet-local-payment-primary-content">
                           <img
@@ -856,7 +842,11 @@ function WalletPage() {
                             alt=""
                             aria-hidden="true"
                           />
-                          <span>{t('wallet.topUpNow', '立即充值')}</span>
+                          <span>
+                            {isLocalOrderCreating
+                              ? t('wallet.localOrderCreating', '正在创建订单...')
+                              : t('wallet.topUpNow', '立即充值')}
+                          </span>
                         </span>
                       </button>
                     )}
@@ -897,9 +887,8 @@ function WalletPage() {
       <SuccessModal open={isPaySuccessOpen} title={t('wallet.paySuccess', '支付成功')} autoCloseMs={2200} onClose={handleClosePaySuccess} />
       <AlipayTransferModal
         open={isAlipayTransferOpen}
-        amountCny={amountCnyNumber}
-        studentId={studentId}
-        studentIdLoading={isStudentIdLoading}
+        amountCny={alipayOrder?.amount_cny ?? amountCnyNumber}
+        paymentReference={alipayOrder?.paymentReference}
         submitting={isAlipayReporting}
         errorMessage={alipayReportError}
         onPaid={handleAlipayPaid}
@@ -916,9 +905,8 @@ function WalletPage() {
       />
       <WeChatTransferModal
         open={isWeChatTransferOpen}
-        amountCny={amountCnyNumber}
-        studentId={studentId}
-        studentIdLoading={isStudentIdLoading}
+        amountCny={weChatOrder?.amount_cny ?? amountCnyNumber}
+        paymentReference={weChatOrder?.paymentReference}
         submitting={isWeChatReporting}
         errorMessage={weChatReportError}
         onPaid={handleWeChatPaid}

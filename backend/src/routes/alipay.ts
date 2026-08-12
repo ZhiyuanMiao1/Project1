@@ -2,6 +2,11 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { query } from '../db';
 import { computeTopUpPrice, parseTopUpHours } from '../services/paypal';
+import {
+  createManualTopUpOrder,
+  manualTopUpErrorStatus,
+  reportManualTopUpPaid,
+} from '../services/manualTopUp';
 
 const router = Router();
 
@@ -10,9 +15,35 @@ const normalizeClientReference = (value: unknown) => {
   return /^[A-Za-z0-9_-]{8,80}$/.test(reference) ? reference : null;
 };
 
+router.post('/transfers/create', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const order = await createManualTopUpOrder(req.user.id, 'alipay', (req.body as any)?.hours);
+    return res.status(201).json({ order });
+  } catch (error: any) {
+    console.error('Alipay order creation error:', error);
+    return res.status(manualTopUpErrorStatus(error)).json({
+      error: error?.message || '充值订单创建失败，请稍后重试',
+    });
+  }
+});
+
 router.post('/transfers/report', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
+  if ((req.body as any)?.orderId !== undefined) {
+    try {
+      const order = await reportManualTopUpPaid(req.user.id, 'alipay', (req.body as any).orderId);
+      return res.status(200).json({ order });
+    } catch (error: any) {
+      console.error('Alipay payment report error:', error);
+      return res.status(manualTopUpErrorStatus(error)).json({
+        error: error?.message || '付款申报保存失败，请稍后重试',
+      });
+    }
+  }
+
+  // Compatibility for clients deployed before orders were created on opening the payment dialog.
   const hours = parseTopUpHours((req.body as any)?.hours);
   const clientReference = normalizeClientReference((req.body as any)?.clientReference);
   if (!hours) return res.status(400).json({ error: '请输入正确的充值课时' });

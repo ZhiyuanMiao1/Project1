@@ -1485,9 +1485,10 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
     }
 
     alreadyConfirmed = Boolean(before.credited_at);
-    if (!alreadyConfirmed && String(before.status || '').toUpperCase() !== 'PENDING_RECEIPT') {
+    const paymentStatus = String(before.status || '').toUpperCase();
+    if (!alreadyConfirmed && !['CREATED', 'APPROVED', 'PENDING_RECEIPT'].includes(paymentStatus)) {
       await conn.rollback();
-      return res.status(409).json({ error: '该订单当前不是待收款状态，请刷新后重试' });
+      return res.status(409).json({ error: '该订单当前不能确认收款，请刷新后重试' });
     }
 
     if (!alreadyConfirmed) {

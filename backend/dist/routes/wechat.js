@@ -4,14 +4,44 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const db_1 = require("../db");
 const paypal_1 = require("../services/paypal");
+const manualTopUp_1 = require("../services/manualTopUp");
 const router = (0, express_1.Router)();
 const normalizeClientReference = (value) => {
     const reference = typeof value === 'string' ? value.trim() : '';
     return /^[A-Za-z0-9_-]{8,60}$/.test(reference) ? reference : null;
 };
+router.post('/transfers/create', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ code: 'UNAUTHORIZED', error: 'Unauthorized' });
+    try {
+        const order = await (0, manualTopUp_1.createManualTopUpOrder)(req.user.id, 'wechat', req.body?.hours);
+        return res.status(201).json({ order });
+    }
+    catch (error) {
+        console.error('WeChat order creation error:', error);
+        return res.status((0, manualTopUp_1.manualTopUpErrorStatus)(error)).json({
+            code: 'PAYMENT_ORDER_CREATE_FAILED',
+            error: error?.message || '充值订单创建失败，请稍后重试',
+        });
+    }
+});
 router.post('/transfers/report', auth_1.requireAuth, async (req, res) => {
     if (!req.user)
         return res.status(401).json({ code: 'UNAUTHORIZED', error: 'Unauthorized' });
+    if (req.body?.orderId !== undefined) {
+        try {
+            const order = await (0, manualTopUp_1.reportManualTopUpPaid)(req.user.id, 'wechat', req.body.orderId);
+            return res.status(200).json({ order });
+        }
+        catch (error) {
+            console.error('WeChat payment report error:', error);
+            return res.status((0, manualTopUp_1.manualTopUpErrorStatus)(error)).json({
+                code: 'PAYMENT_REPORT_SAVE_FAILED',
+                error: error?.message || '付款申报保存失败，请稍后重试',
+            });
+        }
+    }
+    // Compatibility for clients deployed before orders were created on opening the payment dialog.
     const hours = (0, paypal_1.parseTopUpHours)(req.body?.hours);
     const clientReference = normalizeClientReference(req.body?.clientReference);
     if (!hours) {

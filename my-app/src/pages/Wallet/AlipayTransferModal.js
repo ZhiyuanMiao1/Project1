@@ -9,8 +9,7 @@ const ALIPAY_ACCOUNT = 'pay@mentory.cc';
 function AlipayTransferModal({
   open,
   amountCny,
-  studentId,
-  studentIdLoading,
+  paymentReference,
   submitting = false,
   errorMessage = '',
   onClose,
@@ -49,7 +48,7 @@ function AlipayTransferModal({
   const formattedAmount = Number.isFinite(Number(amountCny))
     ? `¥${Number(amountCny).toFixed(2)}`
     : '¥0.00';
-  const normalizedStudentId = String(studentId || '').trim();
+  const normalizedPaymentReference = String(paymentReference || '').trim();
 
   const copyValue = async (field, value) => {
     if (!value) return;
@@ -135,14 +134,12 @@ function AlipayTransferModal({
             <div className="alipay-transfer-label">{t('wallet.alipayRemark', '转账备注（重要）')}</div>
             <div className="alipay-transfer-value-row">
               <strong className="alipay-transfer-value alipay-transfer-student-id">
-                {studentIdLoading
-                  ? t('common.loading', '加载中...')
-                  : normalizedStudentId || t('wallet.alipayStudentIdUnavailable', 'StudentID 获取失败')}
+                {normalizedPaymentReference || t('wallet.paymentReferenceUnavailable', '订单备注获取失败')}
               </strong>
               {renderCopyButton(
-                'studentId',
-                normalizedStudentId,
-                t('wallet.alipayCopyStudentId', '复制 StudentID')
+                'paymentReference',
+                normalizedPaymentReference,
+                t('wallet.copyPaymentReference', '复制订单备注')
               )}
             </div>
           </div>
@@ -163,7 +160,7 @@ function AlipayTransferModal({
             type="button"
             className="alipay-transfer-done"
             onClick={onPaid}
-            disabled={submitting || studentIdLoading || !normalizedStudentId}
+            disabled={submitting || !normalizedPaymentReference}
           >
             {submitting
               ? t('wallet.alipayReporting', '正在提交...')

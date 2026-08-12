@@ -8,8 +8,7 @@ import './WeChatTransferModal.css';
 function WeChatTransferModal({
   open,
   amountCny,
-  studentId,
-  studentIdLoading,
+  paymentReference,
   submitting = false,
   errorMessage = '',
   onClose,
@@ -49,18 +48,18 @@ function WeChatTransferModal({
   const formattedAmount = Number.isFinite(Number(amountCny))
     ? `¥${Number(amountCny).toFixed(2)}`
     : '¥0.00';
-  const normalizedStudentId = String(studentId || '').trim();
+  const normalizedPaymentReference = String(paymentReference || '').trim();
 
   const submitPaymentReport = (event) => {
     event.preventDefault();
-    if (submitting || studentIdLoading || !normalizedStudentId) return;
+    if (submitting || !normalizedPaymentReference) return;
     onPaid?.();
   };
 
   const copyStudentId = async () => {
-    if (!normalizedStudentId) return;
+    if (!normalizedPaymentReference) return;
     try {
-      await navigator.clipboard.writeText(normalizedStudentId);
+      await navigator.clipboard.writeText(normalizedPaymentReference);
       setStudentIdCopied(true);
       window.setTimeout(() => setStudentIdCopied(false), 1800);
     } catch {
@@ -131,16 +130,14 @@ function WeChatTransferModal({
                   <div className="wechat-transfer-label">{t('wallet.wechatRemark', '付款备注（重要）')}</div>
                   <div className="wechat-transfer-value-row">
                     <strong className="wechat-transfer-value">
-                      {studentIdLoading
-                        ? t('common.loading', '加载中...')
-                        : normalizedStudentId || t('wallet.wechatStudentIdUnavailable', 'StudentID 获取失败')}
+                      {normalizedPaymentReference || t('wallet.paymentReferenceUnavailable', '订单备注获取失败')}
                     </strong>
                     <button
                       type="button"
                       className="wechat-transfer-copy"
                       onClick={copyStudentId}
-                      disabled={studentIdLoading || !normalizedStudentId}
-                      aria-label={t('wallet.wechatCopyStudentId', '复制 StudentID')}
+                      disabled={!normalizedPaymentReference}
+                      aria-label={t('wallet.copyPaymentReference', '复制订单备注')}
                     >
                       {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
                       <span>
@@ -165,7 +162,7 @@ function WeChatTransferModal({
               <button
                 type="submit"
                 className="wechat-transfer-done"
-                disabled={submitting || studentIdLoading || !normalizedStudentId}
+                disabled={submitting || !normalizedPaymentReference}
               >
                 {submitting
                   ? t('wallet.wechatReporting', '正在提交...')
