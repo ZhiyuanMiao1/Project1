@@ -214,12 +214,14 @@
 }
 
 .about-page--introduction #how-it-works .privacy-policy__details,
-.about-page--introduction #values .privacy-policy__details {
+.about-page--introduction #values .privacy-policy__details,
+.about-page--introduction #community .privacy-policy__details {
   gap: 0;
 }
 
 .about-page--introduction #how-it-works .privacy-policy__detail,
-.about-page--introduction #values .privacy-policy__detail {
+.about-page--introduction #values .privacy-policy__detail,
+.about-page--introduction #community .privacy-policy__detail {
   padding: 24px 28px;
   border: 0;
   border-radius: 0;
@@ -227,18 +229,24 @@
 }
 
 .about-page--introduction #how-it-works .privacy-policy__detail:nth-child(odd),
-.about-page--introduction #values .privacy-policy__detail:nth-child(odd) {
+.about-page--introduction #values .privacy-policy__detail:nth-child(odd),
+.about-page--introduction #community .privacy-policy__detail:nth-child(odd) {
   padding-left: 0;
   border-right: 1px solid var(--privacy-line);
 }
 
 .about-page--introduction #how-it-works .privacy-policy__detail:nth-child(even),
-.about-page--introduction #values .privacy-policy__detail:nth-child(even) {
+.about-page--introduction #values .privacy-policy__detail:nth-child(even),
+.about-page--introduction #community .privacy-policy__detail:nth-child(even) {
   padding-right: 0;
 }
 
 .about-page--introduction #how-it-works .privacy-policy__detail:nth-child(-n + 2),
 .about-page--introduction #values .privacy-policy__detail:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--privacy-line);
+}
+
+.about-page--introduction #community .privacy-policy__detail:nth-child(-n + 4) {
   border-bottom: 1px solid var(--privacy-line);
 }
 
@@ -444,23 +452,27 @@
   }
 
   .about-page--introduction #how-it-works .privacy-policy__detail,
-  .about-page--introduction #values .privacy-policy__detail {
+  .about-page--introduction #values .privacy-policy__detail,
+  .about-page--introduction #community .privacy-policy__detail {
     padding: 22px 0;
     border-bottom: 1px solid var(--privacy-line);
   }
 
   .about-page--introduction #how-it-works .privacy-policy__detail:nth-child(odd),
-  .about-page--introduction #values .privacy-policy__detail:nth-child(odd) {
+  .about-page--introduction #values .privacy-policy__detail:nth-child(odd),
+  .about-page--introduction #community .privacy-policy__detail:nth-child(odd) {
     border-right: 0;
   }
 
   .about-page--introduction #how-it-works .privacy-policy__detail:first-child,
-  .about-page--introduction #values .privacy-policy__detail:first-child {
+  .about-page--introduction #values .privacy-policy__detail:first-child,
+  .about-page--introduction #community .privacy-policy__detail:first-child {
     padding-top: 0;
   }
 
   .about-page--introduction #how-it-works .privacy-policy__detail:last-child,
-  .about-page--introduction #values .privacy-policy__detail:last-child {
+  .about-page--introduction #values .privacy-policy__detail:last-child,
+  .about-page--introduction #community .privacy-policy__detail:last-child {
     padding-bottom: 0;
     border-bottom: 0;
   }

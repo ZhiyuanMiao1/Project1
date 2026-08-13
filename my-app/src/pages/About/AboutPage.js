@@ -46,10 +46,15 @@ const ABOUT_CONTENT = {
         },
         {
           id: 'community',
-          title: '4. 面向学习者与导师',
-          paragraphs: [
-            '对学习者而言，Mentory 提供更灵活的选择：你可以主动寻找导师，也可以先发布需求，让导师根据自己的专长与你联系。',
-            '对导师而言，Mentory 提供展示专业背景、发现真实需求、组织课程和管理教学过程的工具。我们期待导师不仅传递答案，也帮助学习者建立方法、信心和独立思考能力。',
+          title: '4. 学生为什么选择Mentory',
+          lead: 'Mentory 从费用、时间、导师选择、退款、隐私和课后复习等方面，为学生提供更清晰、更灵活，也更可控的学习体验：',
+          items: [
+            ['价格合理透明', '课时收费标准固定明确，充值金额、适用优惠和课时余额清晰可见，让你在开始学习前了解实际费用。'],
+            ['时间安排灵活', '根据自己的时区、日程和学习节奏与导师协商上课时间，需要调整时也可以通过平台提出改期。'],
+            ['导师选择自由', '主动浏览导师资料并寻找合适的人，或发布具体的课程需求，让具备相关专长的导师主动与你联系。'],
+            ['退款流程清晰', '符合条件的未使用课时可在钱包申请退款，提交前查看预计金额，提交后继续查看退款记录与处理状态。'],
+            ['Student ID 保护隐私', '使用 Student ID 完成平台识别和相关流程，减少不必要展示真实姓名或其他个人信息，降低隐私暴露。'],
+            ['课程内容可以回顾', '课程生成可用回放后，可以返回查看授课内容、复习知识重点，让一次课程产生更持久的学习价值。'],
           ],
         },
         {
@@ -67,10 +72,10 @@ const ABOUT_CONTENT = {
       tocTitle: 'On this page',
       top: 'Back to top',
       sections: [
-        { id: 'hello', title: '1. Make learning go further', paragraphs: ['Mentory is an online learning platform that connects learners with mentors. We make it easier for people to find guidance that fits, while helping knowledgeable and thoughtful mentors share their expertise through meaningful lessons.', 'Whether you are working through a course, preparing for an important exam, exploring a new field, or turning your own expertise into valuable teaching, Mentory aims to be a trusted connection along the way.'] },
+        { id: 'hello', title: '1. What is Mentory', paragraphs: ['Mentory is an online learning platform that connects learners with mentors. We make it easier for people to find guidance that fits, while helping knowledgeable and thoughtful mentors share their expertise through meaningful lessons.', 'Whether you are working through a course, preparing for an important exam, exploring a new field, or turning your own expertise into valuable teaching, Mentory aims to be a trusted connection along the way.'] },
         { id: 'how-it-works', title: '2. How Mentory works', lead: 'We support the journey from finding a mentor to completing a lesson around a learner’s real goals:', items: [['Discover the right mentor', 'Browse mentor profiles by time zone, subject, and personal needs, including education, expertise, and lesson topics.'], ['Post a lesson request', 'Describe your goals, subject, and schedule so relevant mentors can understand the need and reach out.'], ['Communicate and learn online', 'Confirm a plan through messages, then teach, interact, and share learning materials in the online classroom.'], ['Manage learning over time', 'Keep lessons, hours, reviews, and related records together so progress stays clear and traceable.']] },
         { id: 'values', title: '3. What matters to us', items: [['Fit, not just choice', 'A good learning experience starts with the right match between expertise, communication style, schedule, and goals.'], ['Clarity and trust', 'Transparent profiles, requests, messages, and lesson-hour confirmation help both sides set clear expectations.'], ['Respect for every path', 'There is no single template for learning. Every background, stage, and ambition deserves thoughtful support.'], ['Lasting value', 'Mentory is not only about finishing one class. We hope to enable learning relationships that build knowledge and confidence over time.']] },
-        { id: 'community', title: '4. For learners and mentors', paragraphs: ['Learners can either search for a mentor directly or post a request and let relevant mentors get in touch based on their expertise.', 'Mentors can present their background, discover real learning needs, organize lessons, and manage teaching. We value mentors who help learners build methods, confidence, and independent thinking—not only find an answer.'] },
+        { id: 'community', title: '4. Why students choose Mentory', lead: 'From pricing and scheduling to mentor choice, refunds, privacy, and lesson review, Mentory gives students a clearer, more flexible, and more manageable learning experience:', items: [['Fair, transparent pricing', 'Lesson-hour pricing follows clear, fixed rules. Top-up totals, applicable discounts, and hour balances are visible, so you understand the cost before learning begins.'], ['Flexible scheduling', 'Coordinate lesson times with a mentor around your time zone, schedule, and learning pace, and propose a change through the platform when plans need to move.'], ['Freedom to choose a mentor', 'Browse mentor profiles and find the right person directly, or post a specific lesson request so mentors with relevant expertise can reach out to you.'], ['A clear refund process', 'Request a refund for eligible unused hours from the Wallet, review the estimated amount before submitting, and follow the refund record and processing status afterward.'], ['Privacy protected by Student ID', 'Use a Student ID for platform identification and related workflows, reducing unnecessary exposure of your real name or other personal information.'], ['Lessons you can revisit', 'Once a lesson replay is available, return to review the session and revisit key ideas so the value of a lesson continues after class.']] },
         { id: 'future', title: '5. Shape Mentory with us', paragraphs: ['Mentory is continuing to grow. We use feedback from learners and mentors to improve matching, communication, classrooms, and support, making knowledge easier to share across regions and disciplines.'], note: 'For product suggestions, feedback, or partnership ideas, email contact@mentory.cc' },
       ],
     },
