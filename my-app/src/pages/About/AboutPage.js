@@ -17,7 +17,7 @@ const ABOUT_CONTENT = {
       sections: [
         {
           id: 'hello',
-          title: '1. 让学习走得更远',
+          title: '1. 什么是Mentory',
           paragraphs: [
             'Mentory 是一个连接学习者与导师的在线学习平台。我们希望让每个人都能更方便地找到适合自己的导师，也让有专业知识和教学热情的人更轻松地分享经验、开展课程。',
             '无论你正在攻克一门课程、准备一次重要考试、探索新的专业方向，还是希望把自己的知识转化为有价值的教学，Mentory 都希望成为这段旅程中可靠的连接者。',
@@ -308,7 +308,7 @@ function AboutPage({ pageKey = 'introduction' }) {
   }, [activeSectionId]);
 
   return (
-    <div className="privacy-policy-page" id={pageTopId}>
+    <div className={`privacy-policy-page about-page about-page--${pageKey}`} id={pageTopId}>
       <div className="privacy-policy__frame">
         <header className="privacy-policy__inner-header">
           <BrandMark className="nav-logo-text" to="/student" />
