@@ -237,6 +237,16 @@
   line-height: 1.75;
 }
 
+.privacy-policy__example strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #352d56;
+}
+
+.privacy-policy__example span {
+  display: block;
+}
+
 .privacy-policy__back-top {
   min-height: 44px;
   display: inline-flex;

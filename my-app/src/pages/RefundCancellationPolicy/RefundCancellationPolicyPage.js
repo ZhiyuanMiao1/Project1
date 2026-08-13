@@ -73,8 +73,12 @@ const POLICY_CONTENT = {
         title: '7. 退款金额计算',
         paragraphs: [
           '退款金额以提交前页面展示的实时计算结果为准。全额退回某笔订单剩余课时时，退款不超过该订单尚未退回的实际支付金额。',
-          '部分退款后保留的课时会按照原充值订单适用的阶梯价格和优惠条件重新核算。若保留课时不再达到原优惠门槛，优惠差额会在退款金额中扣除，因此退款金额可能不等于“退款课时 × 原优惠单价”。',
+          '课时费用按固定标准计算；如原充值订单享受了满额优惠，部分退款后会根据保留课时重新核算该项优惠。若保留课时不再达到原优惠门槛，原订单的优惠金额会从可退款金额中扣除，因此退款金额可能不等于“退款课时 × 固定课时单价”。',
         ],
+        example: {
+          label: '示例',
+          text: '假设固定课时费为 600 元/小时，购买 10 课时原价 6,000 元，因满足满 10 课时的优惠条件减免 1,000 元，实际支付 5,000 元。申请退回 6 课时后只保留 4 课时，不再满足该优惠条件：可退款金额 = 实付 5,000 元 − 保留课时费用（4 × 600 元）= 2,600 元',
+        },
       },
       {
         id: 'processing',
@@ -106,7 +110,7 @@ const POLICY_CONTENT = {
       { id: 'not-held', title: '4. Lessons not held and no-shows', paragraphs: ['After the scheduled start time, the lesson can no longer use the before-start cancellation flow. If it did not take place, either party may start a “Lesson Not Held” confirmation from the appointment card for the other party to review.', 'If the other party confirms that the lesson was not held, the lesson is removed and no student hours are deducted. If they confirm that it did take place, the lesson remains and proceeds through actual-hours confirmation. The requester may withdraw the not-held request before the other party responds.'], note: 'If the parties disagree about whether a lesson took place or its duration, Mentory may review messages, classroom status, recordings, hour submissions, and other relevant records' },
       { id: 'lesson-hours', title: '5. Lesson hours and deductions', paragraphs: ['After a lesson, the mentor submits the actual teaching duration. Hours are deducted from the student wallet after the student confirms it. A student who disagrees may enter the duration they believe is correct in 0.25-hour increments and submit a dispute.', 'If the student neither confirms nor disputes the submission within one week, the system may confirm the mentor’s submitted hours automatically. Where there is a dispute, the hours finally determined by the platform apply.'] },
       { id: 'eligibility', title: '6. Top-up refund eligibility', lead: 'After signing in as a student, you may request a refund of eligible unused top-up hours from the Wallet. Generally, all of the following must apply:', bullets: ['The top-up was successfully credited and paid through a currently refundable Mentory method: PayPal, Alipay, or WeChat Pay;', 'The requested hours remain unused under that top-up order, and the student wallet has enough hours to remove them;', 'The request uses 0.25-hour increments and does not exceed the refundable hours shown;', 'After the original order discount is recalculated, the refundable amount still meets the payment provider’s minimum processing amount.'], note: 'The Wallet warns if the post-refund balance may not cover upcoming lessons. A refund does not cancel future lessons automatically, and the student must still have enough hours before class' },
-      { id: 'calculation', title: '7. How the refund amount is calculated', paragraphs: ['The amount shown in the live quote immediately before submission controls. When all remaining hours from an order are refunded, the refund cannot exceed the actual amount from that order that has not already been refunded.', 'After a partial refund, retained hours are repriced using the tiers and discount conditions that applied to the original top-up order. If the retained hours no longer qualify for the original discount, the discount difference is deducted from the refund. The result may therefore differ from “refunded hours × original discounted unit price.”'] },
+      { id: 'calculation', title: '7. How the refund amount is calculated', paragraphs: ['The amount shown in the live quote immediately before submission controls. When all remaining hours from an order are refunded, the refund cannot exceed the actual amount from that order that has not already been refunded.', 'Lesson hours are charged at a fixed rate. If the original top-up order received a volume discount, that discount is recalculated after a partial refund based on the hours retained. If the retained hours no longer meet the original discount threshold, the order-level discount is deducted from the refundable amount. The result may therefore differ from “refunded hours × fixed hourly rate.”'], example: { label: 'Example', text: 'Suppose the fixed rate is CNY 600 per hour. Ten hours normally cost CNY 6,000, but a CNY 1,000 discount for buying 10 hours reduces the amount paid to CNY 5,000. If you request a refund for 6 hours, the 4 retained hours no longer qualify for that discount: refund = CNY 5,000 paid − (4 × CNY 600 retained) = CNY 2,600' } },
       { id: 'processing', title: '8. Submission, arrival, and failed refunds', paragraphs: ['When a refund is submitted, the requested hours are first removed from the wallet and the available balance of the original top-up order. Approved funds are generally returned to the original payment account and cannot be redirected to another account.', 'Mentory then begins processing the refund. Arrival time depends on PayPal, Alipay, WeChat Pay, the card issuer, or another financial institution. The Wallet refund history shows whether a request is processing, pending, completed, or failed.', 'If the payment provider confirms that a refund failed, the hours reserved for that request are restored to the wallet and the corresponding top-up order. Check the final status before requesting the refund again.'] },
       { id: 'contact', title: '9. Exceptions and contact', paragraphs: ['Mentory may pause a refund or lesson action because of a technical failure, duplicate transaction, safety risk, suspected fraud, force majeure, or legal requirement. After review, we may refund funds, restore hours, adjust a schedule, or take another reasonable remedial step.', 'If you cannot complete an action in the product, or have questions about a cancellation, hours deduction, refund amount, or status, email contact@mentory.cc with your account details, the relevant lesson or top-up order, and a description of the issue. To protect accounts and transactions, we may verify your identity and relevant facts first.'] },
     ],
@@ -120,6 +124,12 @@ function PolicySection({ section }) {
       {section.lead ? <p>{section.lead}</p> : null}
       {section.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
       {section.bullets ? <ul>{section.bullets.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+      {section.example ? (
+        <aside className="privacy-policy__note privacy-policy__example">
+          <strong>{section.example.label}</strong>
+          <span>{section.example.text}</span>
+        </aside>
+      ) : null}
       {section.note ? <aside className="privacy-policy__note">{section.note}</aside> : null}
     </section>
   );

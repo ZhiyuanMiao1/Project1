@@ -878,7 +878,7 @@ const en = {
   'wallet.refundOriginalAmountNonRealtime': 'Returned to original payment (not real-time)',
   'wallet.refundRetained': 'Hours retained from this top-up',
   'wallet.refundBalanceAfter': 'Wallet balance after refund',
-  'wallet.refundScheduleWarning': 'You have about {hours} hours of upcoming lessons. Your balance may be insufficient after this refund, and you may need to top up before entering class.',
+  'wallet.refundScheduleWarning': 'You have about {hours} hours of upcoming lessons. Your balance may be insufficient after this refund, and you may need to top up before entering class',
   'wallet.refundHistory': 'Refund history',
   'wallet.refundCompleted': 'Refund completed',
   'wallet.refundFailed': 'Refund failed',

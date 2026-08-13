@@ -381,7 +381,7 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                     <div className="wallet-refund-warning">
                       {t(
                         'wallet.refundScheduleWarning',
-                        `你已有约 ${formatNumber(quote.upcomingScheduledHours)} 小时待上课程，退款后余额可能不足，届时需再次充值才能进入课堂。`,
+                        `你已有约 ${formatNumber(quote.upcomingScheduledHours)} 小时待上课程，退款后余额可能不足，届时需再次充值才能进入课堂`,
                         { hours: formatNumber(quote.upcomingScheduledHours) }
                       )}
                     </div>
