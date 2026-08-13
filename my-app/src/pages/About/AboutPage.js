@@ -58,8 +58,21 @@ const ABOUT_CONTENT = {
           ],
         },
         {
+          id: 'mentor-choice',
+          title: '5. 导师为什么选择Mentory',
+          lead: 'Mentory 为导师提供更自主、更灵活的在线教学方式，帮助导师展示专业能力、积累教学口碑，并获得更多发展机会：',
+          items: [
+            ['自主选择授课机会', '根据自己的专业方向、教学经验、时间安排和能力边界判断课程是否适合，并自主决定是否向学生发出邀约。'],
+            ['灵活安排教学时间', '不受固定授课地点限制，可以结合自己的时区、工作和生活安排，与学生协商合适的课程时间。'],
+            ['用个人名片展示自己', '通过编辑个人名片展示教育经历、专业方向、擅长领域、可授课内容和个人介绍，让合适的学生更快了解你，提高匹配的概率。'],
+            ['持续积累教学口碑', '通过真实的授课经历和学生评价逐步建立可信度，让更多学生了解你的教学方式，并有机会形成长期的学习关系。'],
+            ['免费获得官方流量支持', '每位导师都可以自主选择与 Mentory 官方合作，通过平台官方渠道获得免费的流量支持，增加个人名片和教学内容的曝光，接触更多潜在学生。'],
+            ['获得更高且固定的时薪', 'Mentory 为导师提供更有竞争力且标准固定的时薪，无需与不同学生反复议价，让你能够把更多精力集中在课程准备和教学质量上。'],
+          ],
+        },
+        {
           id: 'future',
-          title: '5. 一起塑造 Mentory',
+          title: '6. 一起塑造 Mentory',
           paragraphs: [
             'Mentory 仍在持续成长。我们会根据学习者和导师的反馈改进匹配、沟通、课堂与服务体验，让跨地区、跨学科的知识连接更自然。',
           ],
@@ -76,7 +89,8 @@ const ABOUT_CONTENT = {
         { id: 'how-it-works', title: '2. How Mentory works', lead: 'We support the journey from finding a mentor to completing a lesson around a learner’s real goals:', items: [['Discover the right mentor', 'Browse mentor profiles by time zone, subject, and personal needs, including education, expertise, and lesson topics.'], ['Post a lesson request', 'Describe your goals, subject, and schedule so relevant mentors can understand the need and reach out.'], ['Communicate and learn online', 'Confirm a plan through messages, then teach, interact, and share learning materials in the online classroom.'], ['Manage learning over time', 'Keep lessons, hours, reviews, and related records together so progress stays clear and traceable.']] },
         { id: 'values', title: '3. What matters to us', items: [['Fit, not just choice', 'A good learning experience starts with the right match between expertise, communication style, schedule, and goals.'], ['Clarity and trust', 'Transparent profiles, requests, messages, and lesson-hour confirmation help both sides set clear expectations.'], ['Respect for every path', 'There is no single template for learning. Every background, stage, and ambition deserves thoughtful support.'], ['Lasting value', 'Mentory is not only about finishing one class. We hope to enable learning relationships that build knowledge and confidence over time.']] },
         { id: 'community', title: '4. Why students choose Mentory', lead: 'From pricing and scheduling to mentor choice, refunds, privacy, and lesson review, Mentory gives students a clearer, more flexible, and more manageable learning experience:', items: [['Fair, transparent pricing', 'Lesson-hour pricing follows clear, fixed rules. Top-up totals, applicable discounts, and hour balances are visible, so you understand the cost before learning begins.'], ['Flexible scheduling', 'Coordinate lesson times with a mentor around your time zone, schedule, and learning pace, and propose a change through the platform when plans need to move.'], ['Freedom to choose a mentor', 'Browse mentor profiles and find the right person directly, or post a specific lesson request so mentors with relevant expertise can reach out to you.'], ['A clear refund process', 'Request a refund for eligible unused hours from the Wallet, review the estimated amount before submitting, and follow the refund record and processing status afterward.'], ['Privacy protected by Student ID', 'Use a Student ID for platform identification and related workflows, reducing unnecessary exposure of your real name or other personal information.'], ['Lessons you can revisit', 'Once a lesson replay is available, return to review the session and revisit key ideas so the value of a lesson continues after class.']] },
-        { id: 'future', title: '5. Shape Mentory with us', paragraphs: ['Mentory is continuing to grow. We use feedback from learners and mentors to improve matching, communication, classrooms, and support, making knowledge easier to share across regions and disciplines.'], note: 'For product suggestions, feedback, or partnership ideas, email contact@mentory.cc' },
+        { id: 'mentor-choice', title: '5. Why mentors choose Mentory', lead: 'Mentory gives mentors greater independence and flexibility in online teaching, while helping them present their expertise, build a professional reputation, and access more opportunities:', items: [['Choose teaching opportunities independently', 'Decide whether a lesson is right for you based on your subject expertise, teaching experience, availability, and professional boundaries, then choose whether to send the student an invitation.'], ['Teach on a flexible schedule', 'Teach online without being tied to a fixed location, and coordinate lesson times with students around your time zone, work, and personal schedule.'], ['Present yourself with a personal card', 'Edit your personal card to present your education, subject expertise, teaching areas, and introduction, helping suitable students understand you and improving the likelihood of a good match.'], ['Build your teaching reputation', 'Establish credibility through genuine teaching experience and student reviews, helping more students understand your approach and creating opportunities for lasting learning relationships.'], ['Receive free official traffic support', 'Every mentor can choose to collaborate with Mentory and receive free exposure through official platform channels, helping their personal card and teaching content reach more potential students.'], ['Earn a higher, fixed hourly rate', 'Mentory offers mentors a more competitive hourly rate based on a clear, fixed standard. There is no need to renegotiate the rate with each student, so you can focus on lesson preparation and teaching quality.']] },
+        { id: 'future', title: '6. Shape Mentory with us', paragraphs: ['Mentory is continuing to grow. We use feedback from learners and mentors to improve matching, communication, classrooms, and support, making knowledge easier to share across regions and disciplines.'], note: 'For product suggestions, feedback, or partnership ideas, email contact@mentory.cc' },
       ],
     },
   },
