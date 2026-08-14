@@ -255,6 +255,30 @@
   border-bottom: 1px solid var(--privacy-line);
 }
 
+.about-page--mentorOpportunities #subjects .privacy-policy__details {
+  gap: 0;
+}
+
+.about-page--mentorOpportunities #subjects .privacy-policy__detail {
+  padding: 24px 28px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.about-page--mentorOpportunities #subjects .privacy-policy__detail:nth-child(odd) {
+  padding-left: 0;
+  border-right: 1px solid var(--privacy-line);
+}
+
+.about-page--mentorOpportunities #subjects .privacy-policy__detail:nth-child(even) {
+  padding-right: 0;
+}
+
+.about-page--mentorOpportunities #subjects .privacy-policy__detail:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--privacy-line);
+}
+
 .privacy-policy__detail h3 {
   margin: 0 0 8px;
   color: #21293a;
@@ -482,6 +506,24 @@
   .about-page--introduction #values .privacy-policy__detail:last-child,
   .about-page--introduction #community .privacy-policy__detail:last-child,
   .about-page--introduction #mentor-choice .privacy-policy__detail:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .about-page--mentorOpportunities #subjects .privacy-policy__detail {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--privacy-line);
+  }
+
+  .about-page--mentorOpportunities #subjects .privacy-policy__detail:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .about-page--mentorOpportunities #subjects .privacy-policy__detail:first-child {
+    padding-top: 0;
+  }
+
+  .about-page--mentorOpportunities #subjects .privacy-policy__detail:last-child {
     padding-bottom: 0;
     border-bottom: 0;
   }
