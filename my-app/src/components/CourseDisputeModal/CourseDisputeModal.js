@@ -37,6 +37,7 @@ function CourseDisputeModal({
   const { isEnglish, t } = useI18n();
   const titleId = useId();
   const descriptionId = useId();
+  const descriptionLabelId = useId();
   const dialogRef = useRef(null);
   const existingDispute = course?.courseDispute || null;
   const [reasonCode, setReasonCode] = useState('');
@@ -233,9 +234,12 @@ function CourseDisputeModal({
             </fieldset>
 
             <div className="course-dispute-modal__field">
-              <label htmlFor={descriptionId}>{t('courseDispute.descriptionLabel', '情况说明')}</label>
+              <div id={descriptionLabelId} className="course-dispute-modal__field-label">
+                {t('courseDispute.descriptionLabel', '情况说明')}
+              </div>
               <textarea
                 id={descriptionId}
+                aria-labelledby={descriptionLabelId}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder={t('courseDispute.descriptionPlaceholder', '请具体说明发生了什么，以及与原约定不一致的地方')}
@@ -244,9 +248,6 @@ function CourseDisputeModal({
                 maxLength={2000}
                 disabled={submitting}
               />
-              <span className="course-dispute-modal__count">
-                {t('courseDispute.descriptionCount', '{count}/2000', { count: descriptionLength })}
-              </span>
             </div>
 
             <fieldset className="course-dispute-modal__field">

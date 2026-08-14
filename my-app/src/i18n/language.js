@@ -264,7 +264,6 @@ const en = {
   'courseDispute.reasonLabel': 'Issue type',
   'courseDispute.descriptionLabel': 'What happened',
   'courseDispute.descriptionPlaceholder': 'Describe what happened and how it differed from what was agreed',
-  'courseDispute.descriptionCount': '{count}/2000',
   'courseDispute.resolutionLabel': 'Preferred resolution',
   'courseDispute.submitting': 'Submitting...',
   'courseDispute.submit': 'Submit Concern',

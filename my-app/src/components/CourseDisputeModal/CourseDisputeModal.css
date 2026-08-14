@@ -214,6 +214,7 @@
 }
 
 .course-dispute-modal__field > label,
+.course-dispute-modal__field > .course-dispute-modal__field-label,
 .course-dispute-modal__field > legend {
   display: block;
   margin: 0 0 9px;
@@ -290,14 +291,6 @@
 
 .course-dispute-modal__field textarea::placeholder {
   color: #94a3b8;
-}
-
-.course-dispute-modal__count {
-  display: block;
-  margin-top: 5px;
-  color: #94a3b8;
-  font-size: 12px;
-  text-align: right;
 }
 
 .course-dispute-modal__resolution-list {
