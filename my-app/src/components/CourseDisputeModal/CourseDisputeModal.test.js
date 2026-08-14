@@ -52,6 +52,7 @@ describe('CourseDisputeModal', () => {
     expect(container.textContent).toContain('1h');
     expect(container.textContent).not.toContain('MentorID');
     expect(container.textContent).toContain('m2');
+    expect(container.querySelector('input[value="lesson_hours"]')).toBeNull();
     const submitButton = [...container.querySelectorAll('button')]
       .find((button) => button.textContent === '提交异议');
     expect(submitButton.disabled).toBe(true);
@@ -60,11 +61,22 @@ describe('CourseDisputeModal', () => {
     const textarea = container.querySelector('textarea');
 
     act(() => reasonInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(reasonInput.checked).toBe(true);
+    act(() => reasonInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(reasonInput.checked).toBe(false);
+    act(() => reasonInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     act(() => {
       const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
       setter.call(textarea, '异');
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
+
+    const resolutionInput = container.querySelector('input[value="platform_review"]');
+    act(() => resolutionInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(resolutionInput.checked).toBe(false);
+    expect(submitButton.disabled).toBe(true);
+    act(() => resolutionInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    expect(resolutionInput.checked).toBe(true);
 
     expect(submitButton.disabled).toBe(false);
     act(() => submitButton.dispatchEvent(new MouseEvent('click', { bubbles: true })));

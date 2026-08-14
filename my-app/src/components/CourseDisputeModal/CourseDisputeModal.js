@@ -8,8 +8,11 @@ const REASON_OPTIONS = [
   ['lesson_not_delivered', '未按约定授课', 'Lesson was not delivered as agreed'],
   ['content_mismatch', '课程内容与描述不符', 'Lesson content did not match the description'],
   ['mentor_conduct', '导师行为问题', 'Mentor conduct issue'],
-  ['lesson_hours', '课时或扣费问题', 'Lesson hours or charge issue'],
   ['other', '其他问题', 'Other issue'],
+];
+
+const LEGACY_REASON_OPTIONS = [
+  ['lesson_hours', '课时或扣费问题', 'Lesson hours or charge issue'],
 ];
 
 const RESOLUTION_OPTIONS = [
@@ -184,7 +187,7 @@ function CourseDisputeModal({
               </div>
               <div>
                 <dt>{t('courseDispute.reasonLabel', '问题类型')}</dt>
-                <dd>{getOptionLabel(REASON_OPTIONS, reasonCode, isEnglish)}</dd>
+                <dd>{getOptionLabel([...REASON_OPTIONS, ...LEGACY_REASON_OPTIONS], reasonCode, isEnglish)}</dd>
               </div>
               <div>
                 <dt>{t('courseDispute.resolutionLabel', '期望处理方式')}</dt>
@@ -219,7 +222,8 @@ function CourseDisputeModal({
                       name="course-dispute-reason"
                       value={value}
                       checked={reasonCode === value}
-                      onChange={() => setReasonCode(value)}
+                      onClick={() => setReasonCode((current) => (current === value ? '' : value))}
+                      readOnly
                       disabled={submitting}
                     />
                     <span>{isEnglish ? enLabel : zhLabel}</span>
@@ -255,7 +259,8 @@ function CourseDisputeModal({
                       name="course-dispute-resolution"
                       value={value}
                       checked={preferredResolution === value}
-                      onChange={() => setPreferredResolution(value)}
+                      onClick={() => setPreferredResolution((current) => (current === value ? '' : value))}
+                      readOnly
                       disabled={submitting}
                     />
                     <span>{isEnglish ? enLabel : zhLabel}</span>
