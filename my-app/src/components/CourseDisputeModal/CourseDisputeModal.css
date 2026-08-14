@@ -283,8 +283,9 @@
 }
 
 .course-dispute-modal__field textarea:focus {
-  outline: 2px solid rgba(15, 23, 42, 0.16);
+  outline: none;
   border-color: #0f172a;
+  box-shadow: inset 0 0 0 1px #0f172a;
 }
 
 .course-dispute-modal__field textarea::placeholder {
