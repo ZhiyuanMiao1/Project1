@@ -222,6 +222,37 @@
   align-self: center;
 }
 
+.course-detail-dispute-link {
+  position: absolute;
+  right: 28px;
+  bottom: 6px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  -webkit-text-fill-color: #6b7280;
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.course-detail-dispute-link:hover {
+  color: #374151;
+  -webkit-text-fill-color: #374151;
+  text-decoration: underline;
+}
+
+.course-detail-dispute-link:focus-visible {
+  outline: 2px solid rgba(17, 24, 39, 0.35);
+  outline-offset: 3px;
+}
+
 .course-detail-classroom-btn {
   border: none;
   border-radius: 12px;
@@ -312,5 +343,11 @@
   .course-detail-modal__actions {
     margin-top: 4px;
     padding-top: 14px;
+  }
+
+  .course-detail-dispute-link {
+    right: 18px;
+    bottom: 0;
+    min-height: 44px;
   }
 }

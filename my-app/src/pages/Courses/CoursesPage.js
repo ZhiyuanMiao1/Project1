@@ -10,6 +10,7 @@ import MentorAuthModal from '../../components/AuthModal/MentorAuthModal';
 import CourseDetailModal from '../../components/CourseDetailModal/CourseDetailModal';
 import CourseReplayModal from '../../components/CourseReplayModal/CourseReplayModal';
 import CourseReviewModal from '../../components/CourseReviewModal/CourseReviewModal';
+import CourseDisputeModal from '../../components/CourseDisputeModal/CourseDisputeModal';
 import LessonHoursDialog from '../../components/LessonHoursDialog/LessonHoursDialog';
 import SuccessModal from '../../components/SuccessModal/SuccessModal';
 import api from '../../api/client';
@@ -164,6 +165,20 @@ const normalizeReviewScores = (source) => {
   return next;
 };
 
+const normalizeCourseDispute = (source) => {
+  if (!source || typeof source !== 'object') return null;
+  const id = safeText(source?.id || source?.publicId);
+  if (!id) return null;
+  return {
+    id,
+    reasonCode: safeText(source?.reasonCode),
+    description: safeText(source?.description),
+    preferredResolution: safeText(source?.preferredResolution),
+    status: safeText(source?.status).toLowerCase() || 'submitted',
+    submittedAt: safeText(source?.submittedAt),
+  };
+};
+
 const hasSubmittedReview = (course) => Boolean(safeText(course?.reviewSubmittedAt));
 
 const normalizeStudentCourse = (row) => {
@@ -208,6 +223,7 @@ const normalizeStudentCourse = (row) => {
     reviewScores: normalizeReviewScores(row?.reviewScores || row?.review_scores),
     reviewOverallScore: toRating(row?.reviewOverallScore ?? row?.review_overall_score),
     reviewComment: normalizeReviewComment(row?.reviewComment ?? row?.review_comment),
+    courseDispute: normalizeCourseDispute(row?.courseDispute || row?.course_dispute),
     latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
     latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
     latestLessonHoursProposedHours: toDurationHours(
@@ -360,6 +376,10 @@ function CoursesPage({ entryRole = 'student' }) {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitError, setReviewSubmitError] = useState('');
   const [showReviewThanks, setShowReviewThanks] = useState(false);
+  const [courseDisputeCourse, setCourseDisputeCourse] = useState(null);
+  const [courseDisputeSubmitting, setCourseDisputeSubmitting] = useState(false);
+  const [courseDisputeError, setCourseDisputeError] = useState('');
+  const [showCourseDisputeThanks, setShowCourseDisputeThanks] = useState(false);
   const [reviewSuccessCopy, setReviewSuccessCopy] = useState(() => getReviewSuccessCopy('review_submitted', t));
   const [userTimeZone, setUserTimeZone] = useState(() => getDefaultTimeZone());
   const [timeZoneLoading, setTimeZoneLoading] = useState(() => !!getAuthToken());
@@ -622,6 +642,12 @@ function CoursesPage({ entryRole = 'student' }) {
     };
   };
 
+  const applyCourseDisputeResultToCourse = (course, payload = {}) => {
+    if (!course) return course;
+    const nextDispute = normalizeCourseDispute(payload?.dispute || payload);
+    return nextDispute ? { ...course, courseDispute: nextDispute } : course;
+  };
+
   const syncReviewedCourseState = (courseId, payload = {}) => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId) return;
@@ -649,6 +675,21 @@ function CoursesPage({ entryRole = 'student' }) {
     ));
     setLessonHoursCourse((prev) => (
       safeText(prev?.id) === normalizedCourseId ? applyLessonHoursResultToCourse(prev, payload) : prev
+    ));
+  };
+
+  const syncCourseDisputeState = (courseId, payload = {}) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return;
+
+    setCourses((prev) => prev.map((course) => (
+      safeText(course?.id) === normalizedCourseId ? applyCourseDisputeResultToCourse(course, payload) : course
+    )));
+    setActiveCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyCourseDisputeResultToCourse(prev, payload) : prev
+    ));
+    setCourseDisputeCourse((prev) => (
+      safeText(prev?.id) === normalizedCourseId ? applyCourseDisputeResultToCourse(prev, payload) : prev
     ));
   };
 
@@ -755,6 +796,69 @@ function CoursesPage({ entryRole = 'student' }) {
     if (course?.roleInCourse && course.roleInCourse !== 'student') return;
     setReviewSubmitError('');
     setReviewCourse(course);
+  };
+
+  const handleOpenCourseDispute = (course) => {
+    if (course?.roleInCourse && course.roleInCourse !== 'student') return;
+    const normalizedTitle = normalizeCourseLabel(course?.title) || safeText(course?.title);
+    const typeLabel = safeText(course?.type) || '其他课程类型';
+    setCourseDisputeError('');
+    setCourseDisputeCourse({
+      ...course,
+      disputeDisplayTitle: getCourseDirectionDisplayLabel(
+        course?.directionId || normalizedTitle,
+        normalizedTitle
+      ),
+      disputeDisplayType: getCourseTypeLabel(course?.courseTypeId || typeLabel, typeLabel),
+      disputeDateLabel: getCourseDisplayDateText(course, userTimeZone),
+      disputeTimeLabel: getCourseDisplayTimeText(course, userTimeZone),
+      disputeTitleIcon: DIRECTION_LABEL_ICON_MAP[normalizedTitle] || FaEllipsisH,
+      disputeTypeIcon: COURSE_TYPE_LABEL_ICON_MAP[typeLabel] || FaEllipsisH,
+    });
+  };
+
+  const handleCourseDisputeClose = () => {
+    if (courseDisputeSubmitting) return;
+    setCourseDisputeCourse(null);
+    setCourseDisputeError('');
+  };
+
+  const handleCourseDisputeSubmit = async (form) => {
+    const courseId = safeText(courseDisputeCourse?.id);
+    if (!courseId || courseDisputeSubmitting) return;
+
+    setCourseDisputeSubmitting(true);
+    setCourseDisputeError('');
+
+    try {
+      const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/disputes`, form);
+      const payload = response?.data || {};
+      syncCourseDisputeState(courseId, payload);
+      setCourseDisputeCourse(null);
+      setActiveCourse(null);
+      setShowCourseDisputeThanks(true);
+    } catch (err) {
+      const payload = err?.response?.data || {};
+      const errorCode = safeText(payload?.error);
+
+      if (errorCode === 'course_dispute_exists' && payload?.dispute) {
+        syncCourseDisputeState(courseId, payload);
+        return;
+      }
+
+      const messageMap = {
+        invalid_course_id: t('courses.invalidCourseId', '课程信息无效，请刷新后重试'),
+        invalid_dispute_reason: t('courseDispute.invalidReason', '请选择问题类型'),
+        invalid_dispute_resolution: t('courseDispute.invalidResolution', '请选择期望处理方式'),
+        invalid_dispute_description: t('courseDispute.invalidDescription', '请填写情况说明，最多2000个字符'),
+        course_not_found: t('courseDispute.courseNotFound', '未找到这节课程，暂时无法提交异议'),
+        course_not_completed: t('courseDispute.courseNotCompleted', '课程尚未结束，暂时还不能提交异议'),
+        submit_course_dispute_failed: t('courseDispute.submitFailed', '提交失败，请稍后再试'),
+      };
+      setCourseDisputeError(messageMap[errorCode] || err?.message || t('courseDispute.submitFailed', '提交失败，请稍后再试'));
+    } finally {
+      setCourseDisputeSubmitting(false);
+    }
   };
 
   const handleReviewSubmit = async (reviewForm) => {
@@ -1023,21 +1127,30 @@ function CoursesPage({ entryRole = 'student' }) {
             onClose={handleCourseClose}
             actions={isCompleted ? (
               activeCourse.roleInCourse === 'student' ? (
-                <div className="course-detail-action-row">
-                  <Button
-                    className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
-                    onClick={() => handleOpenReplay(activeCourse)}
+                <>
+                  <div className="course-detail-action-row">
+                    <Button
+                      className="course-detail-classroom-btn course-detail-classroom-btn--secondary"
+                      onClick={() => handleOpenReplay(activeCourse)}
+                    >
+                      {t('courses.viewReplay', '查看回放')}
+                    </Button>
+                    <Button
+                      className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                      onClick={() => handleOpenReview(activeCourse)}
+                      disabled={reviewSubmitting}
+                    >
+                      {isReviewed ? t('courses.myReview', '我的评价') : t('courses.reviewMentor', '评价导师')}
+                    </Button>
+                  </div>
+                  <button
+                    type="button"
+                    className="course-detail-dispute-link"
+                    onClick={() => handleOpenCourseDispute(activeCourse)}
                   >
-                    {t('courses.viewReplay', '查看回放')}
-                  </Button>
-                  <Button
-                    className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
-                    onClick={() => handleOpenReview(activeCourse)}
-                    disabled={reviewSubmitting}
-                  >
-                    {isReviewed ? t('courses.myReview', '我的评价') : t('courses.reviewMentor', '评价导师')}
-                  </Button>
-                </div>
+                    {t('courses.courseDispute', '对本节课有异议？')}
+                  </button>
+                </>
               ) : (
                 <div className="course-detail-action-row">
                   <Button
@@ -1089,6 +1202,16 @@ function CoursesPage({ entryRole = 'student' }) {
         />
       ) : null}
 
+      {courseDisputeCourse ? (
+        <CourseDisputeModal
+          course={courseDisputeCourse}
+          onClose={handleCourseDisputeClose}
+          onSubmit={handleCourseDisputeSubmit}
+          submitting={courseDisputeSubmitting}
+          error={courseDisputeError}
+        />
+      ) : null}
+
       <LessonHoursDialog
         open={Boolean(lessonHoursCourse)}
         title={t('courses.submitLessonHoursTitle', '提交本节课实际课时')}
@@ -1106,6 +1229,14 @@ function CoursesPage({ entryRole = 'student' }) {
         description={reviewSuccessCopy.description}
         autoCloseMs={2200}
         onClose={handleReviewThanksClose}
+      />
+
+      <SuccessModal
+        open={showCourseDisputeThanks}
+        title={t('courseDispute.successTitle', '异议已提交')}
+        description={t('courseDispute.successDescription', 'Mentory会核实课程记录，并通过站内消息或注册邮箱联系你')}
+        autoCloseMs={2600}
+        onClose={() => setShowCourseDisputeThanks(false)}
       />
     </div>
   );

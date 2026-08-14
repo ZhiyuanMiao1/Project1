@@ -189,6 +189,10 @@ function MentorPage() {
   const location = useLocation();
   const askedLoginRef = useRef(false);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.key]);
+
   const currentPath = useMemo(() => {
     try {
       const { pathname, search, hash } = window.location;

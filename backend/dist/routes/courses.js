@@ -20,10 +20,26 @@ const REVIEW_SCORE_KEYS = [
     'punctuality',
 ];
 const REVIEW_COMMENT_MAX_LENGTH = 1000;
+const COURSE_DISPUTE_DESCRIPTION_MIN_LENGTH = 1;
+const COURSE_DISPUTE_DESCRIPTION_MAX_LENGTH = 2000;
+const COURSE_DISPUTE_REASON_CODES = new Set([
+    'lesson_not_delivered',
+    'content_mismatch',
+    'mentor_conduct',
+    'lesson_hours',
+    'other',
+]);
+const COURSE_DISPUTE_RESOLUTION_CODES = new Set([
+    'platform_review',
+    'reschedule',
+    'partial_refund',
+    'full_refund',
+]);
 const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
+let courseDisputeSchemaEnsured = false;
 let courseAlertColumnsEnsured = false;
 const isMissingCoursesSchemaError = (err) => {
     const code = typeof err?.code === 'string' ? err.code : '';
@@ -240,6 +256,35 @@ const ensureCourseReviewSchema = async () => {
     courseReviewSchemaEnsured = commentColumnReady;
     return courseReviewSchemaEnsured;
 };
+const ensureCourseDisputeSchema = async () => {
+    if (courseDisputeSchemaEnsured)
+        return true;
+    await (0, db_1.query)(`
+    CREATE TABLE IF NOT EXISTS course_session_disputes (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      public_id VARCHAR(32) NOT NULL,
+      course_session_id BIGINT NOT NULL,
+      student_user_id INT NOT NULL,
+      mentor_user_id INT NOT NULL,
+      reason_code VARCHAR(40) NOT NULL,
+      description_text TEXT NOT NULL,
+      preferred_resolution VARCHAR(40) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'submitted',
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_course_session_disputes_public_id (public_id),
+      UNIQUE KEY uniq_course_session_disputes_session_student (course_session_id, student_user_id),
+      KEY idx_course_session_disputes_status_created (status, created_at),
+      KEY idx_course_session_disputes_student_created (student_user_id, created_at),
+      CONSTRAINT fk_course_session_disputes_session FOREIGN KEY (course_session_id) REFERENCES course_sessions(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_session_disputes_student FOREIGN KEY (student_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_session_disputes_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+    courseDisputeSchemaEnsured = true;
+    return true;
+};
 const ensureCourseAlertColumns = async () => {
     if (courseAlertColumnsEnsured)
         return true;
@@ -383,6 +428,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 return res.status(500).json({ error: 'mentor_rating_init_failed' });
             }
             await ensureCourseReviewSchema();
+            await ensureCourseDisputeSchema();
         }
         const sql = view === 'student'
             ? `
@@ -406,6 +452,12 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           csr.punctuality_score AS review_punctuality_score,
           csr.comment_text AS review_comment,
           csr.overall_score AS review_overall_score,
+          csd.public_id AS dispute_public_id,
+          csd.reason_code AS dispute_reason_code,
+          csd.description_text AS dispute_description,
+          csd.preferred_resolution AS dispute_preferred_resolution,
+          csd.status AS dispute_status,
+          csd.created_at AS dispute_created_at,
           latest_lhc.message_item_id AS latest_lesson_hours_message_id,
           latest_lhc.proposed_hours AS latest_lesson_hours_proposed_hours,
           latest_lhc.final_hours AS latest_lesson_hours_final_hours,
@@ -419,6 +471,8 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           ON mp.user_id = cs.mentor_user_id
         LEFT JOIN course_session_reviews csr
           ON csr.course_session_id = cs.id AND csr.student_user_id = ?
+        LEFT JOIN course_session_disputes csd
+          ON csd.course_session_id = cs.id AND csd.student_user_id = ?
         LEFT JOIN (
           SELECT
             latest.course_session_id,
@@ -493,7 +547,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
         ORDER BY cs.starts_at DESC, cs.id DESC
         LIMIT 500
       `;
-        const params = view === 'student' ? [req.user.id, req.user.id] : [req.user.id];
+        const params = view === 'student' ? [req.user.id, req.user.id, req.user.id] : [req.user.id];
         const rows = await (0, db_1.query)(sql, params);
         const courses = (rows || []).map((row) => {
             const durationHours = toNumber(row?.duration_hours) ?? 0;
@@ -517,6 +571,16 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 latestLessonHoursStatus: typeof row?.latest_lesson_hours_status === 'string'
                     ? row.latest_lesson_hours_status.trim().toLowerCase()
                     : '',
+                courseDispute: row?.dispute_public_id ? {
+                    id: String(row.dispute_public_id),
+                    reasonCode: typeof row?.dispute_reason_code === 'string' ? row.dispute_reason_code.trim() : '',
+                    description: typeof row?.dispute_description === 'string' ? row.dispute_description.trim() : '',
+                    preferredResolution: typeof row?.dispute_preferred_resolution === 'string'
+                        ? row.dispute_preferred_resolution.trim()
+                        : '',
+                    status: typeof row?.dispute_status === 'string' ? row.dispute_status.trim().toLowerCase() : 'submitted',
+                    submittedAt: toIsoString(row?.dispute_created_at),
+                } : null,
                 ...buildReviewPayload(row),
             };
         });
@@ -613,6 +677,122 @@ router.get('/:courseId/replay-files', auth_1.requireAuth, async (req, res) => {
         }
         console.error('Fetch replay files error:', e);
         return res.status(500).json({ error: 'server_error' });
+    }
+});
+router.post('/:courseId/disputes', auth_1.requireAuth, async (req, res) => {
+    if (!req.user)
+        return res.status(401).json({ error: 'unauthorized' });
+    const courseId = toInt(req.params?.courseId);
+    if (!courseId || courseId <= 0) {
+        return res.status(400).json({ error: 'invalid_course_id' });
+    }
+    const reasonCode = typeof req.body?.reasonCode === 'string' ? req.body.reasonCode.trim() : '';
+    const preferredResolution = typeof req.body?.preferredResolution === 'string'
+        ? req.body.preferredResolution.trim()
+        : '';
+    const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+    if (!COURSE_DISPUTE_REASON_CODES.has(reasonCode)) {
+        return res.status(400).json({ error: 'invalid_dispute_reason' });
+    }
+    if (!COURSE_DISPUTE_RESOLUTION_CODES.has(preferredResolution)) {
+        return res.status(400).json({ error: 'invalid_dispute_resolution' });
+    }
+    if (description.length < COURSE_DISPUTE_DESCRIPTION_MIN_LENGTH
+        || description.length > COURSE_DISPUTE_DESCRIPTION_MAX_LENGTH) {
+        return res.status(400).json({ error: 'invalid_dispute_description' });
+    }
+    try {
+        await ensureCourseDisputeSchema();
+    }
+    catch (e) {
+        console.error('Ensure course dispute schema error:', e);
+        return res.status(500).json({ error: 'course_dispute_schema_init_failed' });
+    }
+    const connection = await db_1.pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [sessionRowsRaw] = await connection.query(`
+        SELECT id, student_user_id, mentor_user_id, starts_at, duration_hours, status
+        FROM course_sessions
+        WHERE id = ?
+        LIMIT 1
+      `, [courseId]);
+        const sessionRows = sessionRowsRaw;
+        const session = sessionRows?.[0];
+        if (!session || Number(session.student_user_id) !== req.user.id) {
+            await connection.rollback();
+            return res.status(404).json({ error: 'course_not_found' });
+        }
+        if (!isCourseEligibleForReview(session)) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'course_not_completed' });
+        }
+        const [existingRowsRaw] = await connection.query(`
+        SELECT public_id, reason_code, description_text, preferred_resolution, status, created_at
+        FROM course_session_disputes
+        WHERE course_session_id = ? AND student_user_id = ?
+        LIMIT 1
+      `, [courseId, req.user.id]);
+        const existingRows = existingRowsRaw;
+        const existing = existingRows?.[0];
+        if (existing) {
+            await connection.rollback();
+            return res.status(409).json({
+                error: 'course_dispute_exists',
+                dispute: {
+                    id: String(existing.public_id),
+                    reasonCode: String(existing.reason_code || ''),
+                    description: String(existing.description_text || ''),
+                    preferredResolution: String(existing.preferred_resolution || ''),
+                    status: String(existing.status || 'submitted').toLowerCase(),
+                    submittedAt: toIsoString(existing.created_at),
+                },
+            });
+        }
+        const publicId = `CD${Date.now().toString(36)}${crypto_1.default.randomBytes(4).toString('hex')}`.toUpperCase();
+        await connection.query(`
+        INSERT INTO course_session_disputes (
+          public_id,
+          course_session_id,
+          student_user_id,
+          mentor_user_id,
+          reason_code,
+          description_text,
+          preferred_resolution,
+          status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')
+      `, [
+            publicId,
+            courseId,
+            req.user.id,
+            Number(session.mentor_user_id),
+            reasonCode,
+            description,
+            preferredResolution,
+        ]);
+        await connection.commit();
+        return res.status(201).json({
+            message: 'course_dispute_submitted',
+            dispute: {
+                id: publicId,
+                reasonCode,
+                description,
+                preferredResolution,
+                status: 'submitted',
+                submittedAt: new Date().toISOString(),
+            },
+        });
+    }
+    catch (e) {
+        try {
+            await connection.rollback();
+        }
+        catch { }
+        console.error('Submit course dispute error:', e);
+        return res.status(500).json({ error: 'submit_course_dispute_failed' });
+    }
+    finally {
+        connection.release();
     }
 });
 router.post('/:courseId/review', auth_1.requireAuth, async (req, res) => {
