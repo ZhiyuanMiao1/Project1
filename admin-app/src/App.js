@@ -2890,24 +2890,14 @@ const DisputeStatusBadge = ({ value }) => <span className={`badge badge-${value 
 function CourseDisputesPage() {
   const [searchParams] = useSearchParams();
   const [q, setQ] = useState(searchParams.get('q') || '');
-  const [status, setStatus] = useState('');
-  const [reason, setReason] = useState('');
-  const [resolution, setResolution] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [selectedId, setSelectedId] = useState('');
   const [reload, setReload] = useState(0);
-  const state = useAsync(() => api('/api/admin/course-disputes', { params: { q, status, reason, resolution, startDate, endDate, limit: 100 } }), [q, status, reason, resolution, startDate, endDate, reload]);
+  const state = useAsync(() => api('/api/admin/course-disputes', { params: { q, limit: 100 } }), [q, reload]);
   return (
     <section>
       <PageTitle title="异议管理" subtitle="受理课程投诉并执行反馈、课时补偿或退款" />
       <Toolbar>
         <SearchBox value={q} onChange={setQ} placeholder="搜索异议编号、课堂ID、StudentID、MentorID" />
-        <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">全部状态</option><option value="submitted">待受理</option><option value="reviewing">处理中</option><option value="action_pending">执行中</option><option value="resolved">已解决</option><option value="rejected">不予支持</option></select>
-        <select value={reason} onChange={(e) => setReason(e.target.value)}><option value="">全部问题</option>{Object.entries(disputeReasonLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <select value={resolution} onChange={(e) => setResolution(e.target.value)}><option value="">全部诉求</option>{Object.entries(disputeResolutionLabels).slice(0, 3).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} aria-label="提交开始日期" />
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-label="提交结束日期" />
       </Toolbar>
       <State loading={state.loading} error={state.error}>
         <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '处理人', '操作']} rows={(state.data?.disputes || []).map((item) => [
