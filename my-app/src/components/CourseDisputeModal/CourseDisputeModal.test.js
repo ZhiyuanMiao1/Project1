@@ -53,6 +53,13 @@ describe('CourseDisputeModal', () => {
     expect(container.textContent).not.toContain('MentorID');
     expect(container.textContent).toContain('m2');
     expect(container.querySelector('input[value="lesson_hours"]')).toBeNull();
+    expect(container.querySelector('input[value="feedback_only"]').checked).toBe(true);
+    expect(container.querySelector('input[value="lesson_credit"]')).not.toBeNull();
+    expect(container.querySelector('input[value="refund_review"]')).not.toBeNull();
+    expect(container.querySelector('input[value="platform_review"]')).toBeNull();
+    expect(container.querySelector('input[value="reschedule"]')).toBeNull();
+    expect(container.querySelector('input[value="partial_refund"]')).toBeNull();
+    expect(container.querySelector('input[value="full_refund"]')).toBeNull();
     const submitButton = [...container.querySelectorAll('button')]
       .find((button) => button.textContent === '提交异议');
     expect(submitButton.disabled).toBe(true);
@@ -71,7 +78,7 @@ describe('CourseDisputeModal', () => {
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    const resolutionInput = container.querySelector('input[value="platform_review"]');
+    const resolutionInput = container.querySelector('input[value="feedback_only"]');
     act(() => resolutionInput.dispatchEvent(new MouseEvent('click', { bubbles: true })));
     expect(resolutionInput.checked).toBe(false);
     expect(submitButton.disabled).toBe(true);
@@ -83,7 +90,7 @@ describe('CourseDisputeModal', () => {
 
     expect(onSubmit).toHaveBeenCalledWith({
       reasonCode: 'content_mismatch',
-      preferredResolution: 'platform_review',
+      preferredResolution: 'feedback_only',
       description: '异',
     });
   });

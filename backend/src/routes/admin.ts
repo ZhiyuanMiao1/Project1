@@ -16,6 +16,9 @@ import {
   recomputeMentorCompletedSessionCount,
 } from '../services/mentorRecommendation';
 import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
+import { computeRefundPricing, parseRefundHours } from '../services/refundPricing';
+import { processRefundById } from './refunds';
+import { sendCourseDisputeResultMail } from '../services/mailService';
 
 const router = Router();
 
@@ -26,6 +29,8 @@ const LESSON_HOURS_STATUSES = new Set(['none', 'pending', 'confirmed', 'disputed
 const REPLAY_STATUSES = new Set(['none', 'running', 'ready', 'failed']);
 const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
+const COURSE_DISPUTE_STATUSES = new Set(['submitted', 'reviewing', 'action_pending', 'resolved', 'rejected']);
+const COURSE_DISPUTE_OUTCOMES = new Set(['feedback_only', 'lesson_credit', 'refund', 'rejected']);
 
 type AuditPayload = {
   req: Request;
@@ -355,6 +360,86 @@ const audit = async ({ req, action, targetType, targetId, reason = null, before,
       safeString(req.get('user-agent') || '', 255) || null,
     ]
   );
+};
+
+const toDisputeStatusPayload = (row: any) => ({
+  id: String(row?.public_id || ''),
+  status: String(row?.status || 'submitted').toLowerCase(),
+  outcomeCode: row?.outcome_code ? String(row.outcome_code) : '',
+  resultMessage: row?.result_message ? String(row.result_message) : '',
+  resolvedHours: Number(row?.resolved_hours || 0),
+  refundStatus: row?.refund_status ? String(row.refund_status).toLowerCase() : '',
+  acceptedAt: toIsoString(row?.accepted_at),
+  resolvedAt: toIsoString(row?.resolved_at),
+  version: Number(row?.version || 1),
+});
+
+const loadDisputeRefundQuote = async (conn: any, dispute: any, requestedHours: number) => {
+  const [allocationRows] = await conn.query(
+    `SELECT bha.billing_order_id, SUM(bha.hours) AS allocated_hours,
+            bo.provider, bo.topup_hours, bo.amount_cny, bo.currency_code,
+            COALESCE(bo.amount_usd, bo.amount_cny) AS amount_original,
+            COALESCE(bo.standard_unit_price_cny, 600) AS standard_unit_price_cny,
+            COALESCE(bo.discount_threshold_hours, 10) AS discount_threshold_hours,
+            COALESCE(bo.discount_unit_price_cny, 500) AS discount_unit_price_cny
+     FROM billing_hour_allocations bha
+     JOIN billing_orders bo ON bo.id = bha.billing_order_id
+     WHERE bha.course_session_id = ? AND bha.user_id = ?
+     GROUP BY bha.billing_order_id, bo.provider, bo.topup_hours, bo.amount_cny, bo.currency_code,
+              bo.amount_usd, bo.standard_unit_price_cny, bo.discount_threshold_hours, bo.discount_unit_price_cny
+     ORDER BY bha.billing_order_id ASC
+     FOR UPDATE`,
+    [dispute.course_session_id, dispute.student_user_id]
+  );
+  const [handledRows] = await conn.query(
+    `SELECT COALESCE(SUM(cdr.hours), 0) AS handled_hours
+     FROM course_dispute_refunds cdr WHERE cdr.dispute_id = ?`,
+    [dispute.id]
+  );
+  const alreadyHandled = Number(handledRows?.[0]?.handled_hours || 0);
+  const maxHours = Number(Math.min(
+    Number(dispute.final_hours || dispute.duration_hours || 0),
+    Math.max(0, (allocationRows || []).reduce((sum: number, row: any) => sum + Number(row.allocated_hours || 0), 0) - alreadyHandled)
+  ).toFixed(2));
+  if (requestedHours > maxHours + 0.000001) throw Object.assign(new Error('退款课时超过本节可处理上限'), { statusCode: 409 });
+
+  let remaining = requestedHours;
+  const lines: any[] = [];
+  for (const order of allocationRows || []) {
+    if (remaining <= 0.000001) break;
+    const lineHours = Number(Math.min(Number(order.allocated_hours || 0), remaining).toFixed(2));
+    if (lineHours <= 0) continue;
+    const [refundRows] = await conn.query(
+      `SELECT COALESCE(SUM(requested_hours),0) AS hours,
+              COALESCE(SUM(amount_cny),0) AS cny,
+              COALESCE(SUM(amount_original),0) AS original
+       FROM billing_refunds
+       WHERE billing_order_id = ? AND status IN ('PENDING','PROCESSING','COMPLETED')`,
+      [order.billing_order_id]
+    );
+    const prior = refundRows?.[0] || {};
+    const quote = computeRefundPricing({
+      purchasedHours: Number(order.topup_hours || 0),
+      requestedHours: lineHours,
+      priorActiveRefundHours: Number(prior.hours || 0),
+      originalAmountCny: Number(order.amount_cny || 0),
+      originalAmount: Number(order.amount_original || 0),
+      priorActiveRefundCny: Number(prior.cny || 0),
+      priorActiveRefundOriginal: Number(prior.original || 0),
+      standardUnitPriceCny: Number(order.standard_unit_price_cny || 600),
+      discountThresholdHours: Number(order.discount_threshold_hours || 10),
+      discountUnitPriceCny: Number(order.discount_unit_price_cny || 500),
+    });
+    if (quote.refundAmountOriginal < 0.01) throw Object.assign(new Error('优惠重算后该课时暂无可退金额'), { statusCode: 422 });
+    lines.push({
+      orderId: Number(order.billing_order_id), provider: String(order.provider || ''), hours: lineHours,
+      amountCny: quote.refundAmountCny, amountOriginal: quote.refundAmountOriginal,
+      currencyCode: String(order.currency_code || 'CNY').toUpperCase(),
+    });
+    remaining = Number((remaining - lineHours).toFixed(2));
+  }
+  if (remaining > 0.000001) throw Object.assign(new Error('未找到足够的原始扣费记录'), { statusCode: 409 });
+  return { maxHours, requestedHours, lines };
 };
 
 router.use(async (_req, res, next) => {
@@ -1560,6 +1645,7 @@ router.post('/orders/:orderId/complete-manual-refund', requireAdminAuth, async (
   let before: any[] = [];
   let after: any[] = [];
   let provider = '';
+  let completedDisputes: any[] = [];
 
   try {
     conn = await pool.getConnection();
@@ -1638,6 +1724,24 @@ router.post('/orders/:orderId/complete-manual-refund', requireAdminAuth, async (
       [orderId]
     );
     after = updatedRows || [];
+    const [candidateDisputes] = await conn.query<any[]>(
+      `SELECT DISTINCT csd.id, csd.public_id, csd.student_user_id, csd.outcome_code, csd.result_message, u.email AS student_email
+       FROM course_dispute_refunds cdr
+       JOIN course_session_disputes csd ON csd.id = cdr.dispute_id
+       JOIN users u ON u.id = csd.student_user_id
+       WHERE cdr.billing_refund_id IN (${pendingRefunds.map(() => '?').join(',')})`,
+      pendingRefunds.map((refund) => refund.id)
+    );
+    for (const dispute of candidateDisputes || []) {
+      const [openRows] = await conn.query<any[]>(
+        `SELECT COUNT(*) AS count FROM course_dispute_refunds cdr JOIN billing_refunds br ON br.id = cdr.billing_refund_id WHERE cdr.dispute_id = ? AND br.status <> 'COMPLETED'`,
+        [dispute.id]
+      );
+      if (Number(openRows?.[0]?.count || 0) === 0) {
+        await conn.query(`UPDATE course_session_disputes SET status = 'resolved', refund_status = 'completed', resolved_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id = ? AND status = 'action_pending'`, [dispute.id]);
+        completedDisputes.push(dispute);
+      }
+    }
     await conn.commit();
 
     try {
@@ -1652,6 +1756,13 @@ router.post('/orders/:orderId/complete-manual-refund', requireAdminAuth, async (
       });
     } catch (auditError) {
       console.error('Admin manual refund audit error:', auditError);
+    }
+
+    for (const dispute of completedDisputes) {
+      try {
+        const sent = await sendCourseDisputeResultMail({ recipientUserId: Number(dispute.student_user_id), to: String(dispute.student_email || ''), disputeId: String(dispute.public_id), outcome: String(dispute.outcome_code), resultMessage: String(dispute.result_message || '') });
+        if (sent) await query('UPDATE course_session_disputes SET result_email_sent_at = COALESCE(result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [dispute.id]);
+      } catch (mailError) { console.error('Manual refund dispute result mail error:', mailError); }
     }
 
     return res.json({
@@ -1788,6 +1899,7 @@ router.get('/classrooms', requireAdminAuth, async (req: Request, res: Response) 
       GROUP BY course_session_id
     ) rec ON rec.course_session_id = cs.id
     LEFT JOIN course_session_reviews csr ON csr.course_session_id = cs.id
+    LEFT JOIN course_session_disputes csd ON csd.course_session_id = cs.id
   `;
 
   try {
@@ -1810,6 +1922,7 @@ router.get('/classrooms', requireAdminAuth, async (req: Request, res: Response) 
          COALESCE(rec.stopped_recording_count, 0) AS stopped_recording_count,
          rec.latest_recording_status,
          csr.id AS review_id, csr.overall_score AS review_overall_score, csr.created_at AS review_created_at
+         ,csd.public_id AS course_dispute_id, csd.status AS course_dispute_status
        ${joins}
        WHERE ${where.join(' AND ')}
        ORDER BY cs.starts_at DESC, cs.id DESC
@@ -1848,12 +1961,14 @@ router.get('/classrooms/:courseId', requireAdminAuth, async (req: Request, res: 
          csr.id AS review_id, csr.clarity_score, csr.communication_score, csr.preparation_score,
          csr.expertise_score, csr.punctuality_score, csr.comment_text, csr.overall_score,
          csr.created_at AS review_created_at, csr.updated_at AS review_updated_at
+         ,csd.public_id AS course_dispute_id, csd.status AS course_dispute_status
        FROM course_sessions cs
        JOIN users su ON su.id = cs.student_user_id
        JOIN users mu ON mu.id = cs.mentor_user_id
        LEFT JOIN user_roles sr ON sr.user_id = cs.student_user_id AND sr.role = 'student'
        LEFT JOIN user_roles mr ON mr.user_id = cs.mentor_user_id AND mr.role = 'mentor'
        LEFT JOIN mentor_profiles mp ON mp.user_id = cs.mentor_user_id
+       LEFT JOIN course_session_disputes csd ON csd.course_session_id = cs.id
        LEFT JOIN course_session_reviews csr ON csr.course_session_id = cs.id
        WHERE cs.id = ?
        LIMIT 1`,
@@ -2210,6 +2325,276 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
     console.error('Admin classroom observer auth error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
+});
+
+router.get('/course-disputes/stats', requireAdminAuth, async (_req: Request, res: Response) => {
+  try {
+    const rows = await query<any[]>(
+      `SELECT status, COUNT(*) AS count FROM course_session_disputes GROUP BY status`
+    );
+    const counts = Object.fromEntries((rows || []).map((row) => [String(row.status), Number(row.count || 0)]));
+    return res.json({ counts, openCount: Number(counts.submitted || 0) + Number(counts.reviewing || 0) + Number(counts.action_pending || 0) });
+  } catch (error) {
+    console.error('Admin dispute stats error:', error);
+    return res.status(500).json({ error: '异议统计加载失败' });
+  }
+});
+
+router.get('/course-disputes', requireAdminAuth, async (req: Request, res: Response) => {
+  const { page, limit, offset } = getPaging(req);
+  const q = safeString(req.query.q, 100);
+  const status = safeString(req.query.status, 32).toLowerCase();
+  const reason = safeString(req.query.reason, 40);
+  const resolution = safeString(req.query.resolution, 40);
+  const startDate = parseDateKey(req.query.startDate);
+  const endDate = parseDateKey(req.query.endDate);
+  const where = ['1=1'];
+  const params: any[] = [];
+  if (q) {
+    const like = `%${escapeLike(q)}%`;
+    where.push(`(csd.public_id LIKE ? ESCAPE '\\\\' OR sr.public_id LIKE ? ESCAPE '\\\\' OR mr.public_id LIKE ? ESCAPE '\\\\' OR CAST(csd.course_session_id AS CHAR) = ?)`);
+    params.push(like, like, like, q);
+  }
+  if (COURSE_DISPUTE_STATUSES.has(status)) { where.push('csd.status = ?'); params.push(status); }
+  if (reason) { where.push('csd.reason_code = ?'); params.push(reason); }
+  if (resolution) { where.push('csd.preferred_resolution = ?'); params.push(resolution); }
+  if (startDate) { where.push('csd.created_at >= ?'); params.push(`${startDate} 00:00:00`); }
+  if (endDate) { where.push('csd.created_at <= ?'); params.push(`${endDate} 23:59:59`); }
+  const joins = `FROM course_session_disputes csd
+    JOIN course_sessions cs ON cs.id = csd.course_session_id
+    LEFT JOIN user_roles sr ON sr.user_id = csd.student_user_id AND sr.role = 'student'
+    LEFT JOIN user_roles mr ON mr.user_id = csd.mentor_user_id AND mr.role = 'mentor'
+    LEFT JOIN admin_users au ON au.id = csd.assigned_admin_id`;
+  try {
+    const countRows = await query<any[]>(`SELECT COUNT(*) AS total ${joins} WHERE ${where.join(' AND ')}`, params);
+    const rows = await query<any[]>(
+      `SELECT csd.*, sr.public_id AS student_public_id, mr.public_id AS mentor_public_id,
+              cs.course_direction, cs.course_type, cs.starts_at, cs.duration_hours,
+              au.display_name AS admin_display_name, au.username AS admin_username
+       ${joins} WHERE ${where.join(' AND ')} ORDER BY csd.created_at DESC ${pagingSql(limit, offset)}`,
+      params
+    );
+    return res.json({ page, limit, total: Number(countRows?.[0]?.total || 0), disputes: (rows || []).map((row) => ({
+      ...row, id: String(row.public_id), internalId: Number(row.id), submittedAt: toIsoString(row.created_at),
+      updatedAt: toIsoString(row.updated_at), startsAt: toIsoString(row.starts_at),
+      assignedAdmin: row.admin_display_name || row.admin_username || '',
+    })) });
+  } catch (error) {
+    console.error('Admin disputes list error:', error);
+    return res.status(500).json({ error: '异议列表加载失败' });
+  }
+});
+
+router.get('/course-disputes/:disputeId', requireAdminAuth, async (req: Request, res: Response) => {
+  const disputeId = safeString(req.params.disputeId, 40);
+  try {
+    const rows = await query<any[]>(
+      `SELECT csd.*, cs.course_direction, cs.course_type, cs.starts_at, cs.duration_hours,
+              su.email AS student_email, sr.public_id AS student_public_id,
+              mu.email AS mentor_email, mr.public_id AS mentor_public_id, mp.display_name AS mentor_name,
+              au.display_name AS admin_display_name, au.username AS admin_username,
+              lhc.status AS lesson_hours_status, lhc.proposed_hours, lhc.disputed_hours, lhc.final_hours
+       FROM course_session_disputes csd
+       JOIN course_sessions cs ON cs.id = csd.course_session_id
+       JOIN users su ON su.id = csd.student_user_id JOIN users mu ON mu.id = csd.mentor_user_id
+       LEFT JOIN user_roles sr ON sr.user_id = csd.student_user_id AND sr.role = 'student'
+       LEFT JOIN user_roles mr ON mr.user_id = csd.mentor_user_id AND mr.role = 'mentor'
+       LEFT JOIN mentor_profiles mp ON mp.user_id = csd.mentor_user_id
+       LEFT JOIN admin_users au ON au.id = csd.assigned_admin_id
+       LEFT JOIN lesson_hour_confirmations lhc ON lhc.id = (SELECT MAX(x.id) FROM lesson_hour_confirmations x WHERE x.course_session_id = cs.id)
+       WHERE csd.public_id = ? LIMIT 1`,
+      [disputeId]
+    );
+    const dispute = rows?.[0];
+    if (!dispute) return res.status(404).json({ error: '未找到异议' });
+    const [events, refunds, allocations] = await Promise.all([
+      query<any[]>(`SELECT cde.*, au.display_name, au.username FROM course_dispute_events cde LEFT JOIN admin_users au ON au.id = cde.admin_id WHERE cde.dispute_id = ? ORDER BY cde.id ASC`, [dispute.id]),
+      query<any[]>(`SELECT br.*, cdr.hours AS dispute_hours FROM course_dispute_refunds cdr JOIN billing_refunds br ON br.id = cdr.billing_refund_id WHERE cdr.dispute_id = ? ORDER BY cdr.id ASC`, [dispute.id]),
+      query<any[]>(`SELECT bha.billing_order_id, SUM(bha.hours) AS hours, bo.provider, bo.currency_code, bo.amount_cny FROM billing_hour_allocations bha JOIN billing_orders bo ON bo.id = bha.billing_order_id WHERE bha.course_session_id = ? GROUP BY bha.billing_order_id, bo.provider, bo.currency_code, bo.amount_cny`, [dispute.course_session_id]),
+    ]);
+    return res.json({ dispute: {
+      ...dispute, internalId: Number(dispute.id), submittedAt: toIsoString(dispute.created_at),
+      updatedAt: toIsoString(dispute.updated_at), startsAt: toIsoString(dispute.starts_at),
+      assignedAdmin: dispute.admin_display_name || dispute.admin_username || '',
+      ...toDisputeStatusPayload(dispute), events, refunds, allocations,
+    } });
+  } catch (error) {
+    console.error('Admin dispute detail error:', error);
+    return res.status(500).json({ error: '异议详情加载失败' });
+  }
+});
+
+router.post('/course-disputes/:disputeId/accept', requireAdminAuth, async (req: Request, res: Response) => {
+  const disputeId = safeString(req.params.disputeId, 40);
+  const version = toPositiveInt((req.body as any)?.version, 0);
+  try {
+    const result = await query<any>(
+      `UPDATE course_session_disputes SET status = 'reviewing', assigned_admin_id = ?, accepted_at = COALESCE(accepted_at, CURRENT_TIMESTAMP), version = version + 1
+       WHERE public_id = ? AND status IN ('submitted','reviewing') AND version = ?`,
+      [req.admin?.adminId, disputeId, version]
+    );
+    if (Number(result?.affectedRows || 0) !== 1) return res.status(409).json({ error: '异议已被其他管理员更新，请刷新' });
+    const rows = await query<any[]>('SELECT * FROM course_session_disputes WHERE public_id = ? LIMIT 1', [disputeId]);
+    await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type) VALUES (?, ?, 'accepted')`, [rows[0].id, req.admin?.adminId]);
+    await audit({ req, action: 'course_dispute.accept', targetType: 'course_dispute', targetId: disputeId, after: rows[0] });
+    return res.json({ dispute: toDisputeStatusPayload(rows[0]) });
+  } catch (error) {
+    console.error('Admin accept dispute error:', error);
+    return res.status(500).json({ error: '受理失败' });
+  }
+});
+
+router.post('/course-disputes/:disputeId/notes', requireAdminAuth, async (req: Request, res: Response) => {
+  const disputeId = safeString(req.params.disputeId, 40);
+  const note = safeString((req.body as any)?.note, 4000);
+  if (!note) return res.status(400).json({ error: '请输入内部备注' });
+  const rows = await query<any[]>('SELECT id FROM course_session_disputes WHERE public_id = ? LIMIT 1', [disputeId]);
+  if (!rows?.[0]) return res.status(404).json({ error: '未找到异议' });
+  await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, note_text) VALUES (?, ?, 'internal_note', ?)`, [rows[0].id, req.admin?.adminId, note]);
+  await audit({ req, action: 'course_dispute.note', targetType: 'course_dispute', targetId: disputeId, reason: note });
+  return res.status(201).json({ ok: true });
+});
+
+router.post('/course-disputes/:disputeId/refund-quote', requireAdminAuth, async (req: Request, res: Response) => {
+  const hours = parseRefundHours((req.body as any)?.hours);
+  if (!hours) return res.status(400).json({ error: '退款课时需为0.25小时倍数' });
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query<any[]>(`SELECT csd.*, cs.duration_hours, lhc.final_hours FROM course_session_disputes csd JOIN course_sessions cs ON cs.id = csd.course_session_id LEFT JOIN lesson_hour_confirmations lhc ON lhc.id = (SELECT MAX(x.id) FROM lesson_hour_confirmations x WHERE x.course_session_id = cs.id) WHERE csd.public_id = ? LIMIT 1 FOR UPDATE`, [safeString(req.params.disputeId, 40)]);
+    if (!rows?.[0]) { await conn.rollback(); return res.status(404).json({ error: '未找到异议' }); }
+    const quote = await loadDisputeRefundQuote(conn, rows[0], hours);
+    await conn.rollback();
+    return res.json({ quote });
+  } catch (error: any) {
+    try { await conn.rollback(); } catch {}
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || '退款报价失败' });
+  } finally { conn.release(); }
+});
+
+router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req: Request, res: Response) => {
+  const publicId = safeString(req.params.disputeId, 40);
+  const outcome = safeString((req.body as any)?.outcome, 32);
+  const resultMessage = safeString((req.body as any)?.resultMessage, 4000);
+  const version = toPositiveInt((req.body as any)?.version, 0);
+  const hours = parseRefundHours((req.body as any)?.hours);
+  if (!COURSE_DISPUTE_OUTCOMES.has(outcome)) return res.status(400).json({ error: '无效处理结果' });
+  if (!resultMessage) return res.status(400).json({ error: '请填写学生可见的处理说明' });
+  if ((outcome === 'lesson_credit' || outcome === 'refund') && !hours) return res.status(400).json({ error: '课时需为0.25小时倍数' });
+  const conn = await pool.getConnection();
+  let finalRow: any = null;
+  let refundIds: number[] = [];
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query<any[]>(`SELECT csd.*, cs.duration_hours, su.email AS student_email, lhc.final_hours FROM course_session_disputes csd JOIN course_sessions cs ON cs.id = csd.course_session_id JOIN users su ON su.id = csd.student_user_id LEFT JOIN lesson_hour_confirmations lhc ON lhc.id = (SELECT MAX(x.id) FROM lesson_hour_confirmations x WHERE x.course_session_id = cs.id) WHERE csd.public_id = ? LIMIT 1 FOR UPDATE`, [publicId]);
+    const dispute = rows?.[0];
+    if (!dispute) { await conn.rollback(); return res.status(404).json({ error: '未找到异议' }); }
+    if (Number(dispute.version || 1) !== version || !['submitted','reviewing'].includes(String(dispute.status))) { await conn.rollback(); return res.status(409).json({ error: '异议已被更新，请刷新' }); }
+    const maxHours = Number(dispute.final_hours || dispute.duration_hours || 0);
+    if (hours && hours > maxHours + 0.000001) { await conn.rollback(); return res.status(409).json({ error: '处理课时超过本节实际扣除' }); }
+    let nextStatus = outcome === 'rejected' ? 'rejected' : 'resolved';
+    let refundStatus: string | null = null;
+    if (outcome === 'lesson_credit') {
+      const grantId = `PC${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`.toUpperCase();
+      await conn.query(`INSERT INTO platform_lesson_hour_grants (public_id, user_id, dispute_id, granted_hours, remaining_hours) VALUES (?, ?, ?, ?, ?)`, [grantId, dispute.student_user_id, dispute.id, hours, hours]);
+      await conn.query('UPDATE users SET lesson_balance_hours = lesson_balance_hours + ? WHERE id = ?', [hours, dispute.student_user_id]);
+    } else if (outcome === 'refund') {
+      const quote = await loadDisputeRefundQuote(conn, dispute, Number(hours));
+      for (const line of quote.lines) {
+        const refundPublicId = crypto.randomUUID();
+        const initialStatus = line.provider === 'paypal' ? 'PROCESSING' : 'PENDING';
+        const [insert] = await conn.query<any>(`INSERT INTO billing_refunds (public_id, user_id, billing_order_id, provider, requested_hours, amount_cny, currency_code, amount_original, paypal_request_id, status, balance_reserved) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`, [refundPublicId, dispute.student_user_id, line.orderId, line.provider, line.hours, line.amountCny, line.currencyCode, line.amountOriginal, refundPublicId, initialStatus]);
+        refundIds.push(Number(insert.insertId));
+        await conn.query(`INSERT INTO course_dispute_refunds (dispute_id, billing_refund_id, hours) VALUES (?, ?, ?)`, [dispute.id, insert.insertId, line.hours]);
+      }
+      nextStatus = 'action_pending'; refundStatus = 'processing';
+    }
+    await conn.query(`UPDATE course_session_disputes SET status = ?, assigned_admin_id = COALESCE(assigned_admin_id, ?), accepted_at = COALESCE(accepted_at, CURRENT_TIMESTAMP), outcome_code = ?, result_message = ?, resolved_hours = ?, refund_status = ?, resolved_at = CASE WHEN ? IN ('resolved','rejected') THEN CURRENT_TIMESTAMP ELSE NULL END, version = version + 1 WHERE id = ?`, [nextStatus, req.admin?.adminId, outcome, resultMessage, hours || null, refundStatus, nextStatus, dispute.id]);
+    await conn.query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, note_text, payload_json) VALUES (?, ?, 'decision', ?, ?)`, [dispute.id, req.admin?.adminId, resultMessage, JSON.stringify({ outcome, hours: hours || null })]);
+    await conn.commit();
+    const afterRows = await query<any[]>('SELECT csd.*, u.email AS student_email FROM course_session_disputes csd JOIN users u ON u.id = csd.student_user_id WHERE csd.id = ? LIMIT 1', [dispute.id]);
+    finalRow = afterRows[0];
+    await audit({ req, action: 'course_dispute.resolve', targetType: 'course_dispute', targetId: publicId, before: dispute, after: finalRow, reason: resultMessage });
+  } catch (error: any) {
+    try { await conn.rollback(); } catch {}
+    console.error('Admin resolve dispute error:', error);
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || '处理异议失败' });
+  } finally { conn.release(); }
+
+  if (refundIds.length) {
+    let processed: any[] = [];
+    try {
+      processed = await Promise.all(refundIds.map((id) => processRefundById(id)));
+    } catch (error: any) {
+      console.error('Course dispute refund execution error:', error);
+      await query(
+        `UPDATE course_session_disputes SET status = 'action_pending', refund_status = 'failed', version = version + 1 WHERE public_id = ?`,
+        [publicId]
+      );
+      await query(
+        `INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, note_text, payload_json)
+         SELECT id, ?, 'refund_failed', ?, ? FROM course_session_disputes WHERE public_id = ?`,
+        [req.admin?.adminId, error?.message || '退款渠道执行失败', JSON.stringify({ refundIds }), publicId]
+      );
+      finalRow = (await query<any[]>(
+        'SELECT csd.*, u.email AS student_email FROM course_session_disputes csd JOIN users u ON u.id = csd.student_user_id WHERE csd.public_id = ? LIMIT 1',
+        [publicId]
+      ))[0];
+    }
+    const allCompleted = processed.every((row: any) => String(row?.status || '').toUpperCase() === 'COMPLETED');
+    const anyFailed = processed.some((row: any) => String(row?.status || '').toUpperCase() === 'FAILED');
+    if (processed.length) {
+      await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = ?, version = version + 1 WHERE public_id = ?`, [allCompleted ? 'resolved' : 'action_pending', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? new Date() : null, publicId]);
+      finalRow = (await query<any[]>('SELECT csd.*, u.email AS student_email FROM course_session_disputes csd JOIN users u ON u.id = csd.student_user_id WHERE csd.public_id = ? LIMIT 1', [publicId]))[0];
+    }
+  }
+  if (finalRow && ['resolved','rejected'].includes(String(finalRow.status))) {
+    try {
+      const sent = await sendCourseDisputeResultMail({ recipientUserId: Number(finalRow.student_user_id), to: String(finalRow.student_email || ''), disputeId: publicId, outcome: String(finalRow.outcome_code), resultMessage: String(finalRow.result_message || '') });
+      if (sent) await query('UPDATE course_session_disputes SET result_email_sent_at = COALESCE(result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [finalRow.id]);
+    } catch (error) { console.error('Course dispute result mail error:', error); }
+  }
+  return res.json({ dispute: toDisputeStatusPayload(finalRow) });
+});
+
+router.post('/course-disputes/:disputeId/refresh-refunds', requireAdminAuth, async (req: Request, res: Response) => {
+  const publicId = safeString(req.params.disputeId, 40);
+  const rows = await query<any[]>(
+    `SELECT csd.*, u.email AS student_email FROM course_session_disputes csd JOIN users u ON u.id = csd.student_user_id WHERE csd.public_id = ? LIMIT 1`,
+    [publicId]
+  );
+  const dispute = rows?.[0];
+  if (!dispute) return res.status(404).json({ error: '未找到异议' });
+  if (String(dispute.status) !== 'action_pending' || String(dispute.outcome_code) !== 'refund') return res.status(409).json({ error: '该异议没有待执行退款' });
+  const refundRows = await query<any[]>(`SELECT br.id, br.status, br.provider FROM course_dispute_refunds cdr JOIN billing_refunds br ON br.id = cdr.billing_refund_id WHERE cdr.dispute_id = ?`, [dispute.id]);
+  for (const refund of refundRows || []) {
+    if (String(refund.status).toUpperCase() === 'FAILED' && String(refund.provider).toLowerCase() === 'paypal') {
+      await query(`UPDATE billing_refunds SET status = 'PROCESSING', failure_code = NULL, failure_message = NULL WHERE id = ?`, [refund.id]);
+    }
+  }
+  let processed: any[] = [];
+  try {
+    processed = await Promise.all((refundRows || []).map((refund) => processRefundById(Number(refund.id))));
+  } catch (error: any) {
+    console.error('Admin refresh dispute refunds error:', error);
+    await query(`UPDATE course_session_disputes SET refund_status = 'failed', version = version + 1 WHERE id = ?`, [dispute.id]);
+    await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, note_text) VALUES (?, ?, 'refund_failed', ?)`, [dispute.id, req.admin?.adminId, error?.message || '退款渠道执行失败']);
+    const updated = (await query<any[]>('SELECT * FROM course_session_disputes WHERE id = ? LIMIT 1', [dispute.id]))[0];
+    return res.status(502).json({ error: '退款渠道执行失败，请稍后重试', dispute: toDisputeStatusPayload(updated) });
+  }
+  const allCompleted = processed.length > 0 && processed.every((row: any) => String(row?.status || '').toUpperCase() === 'COMPLETED');
+  const anyFailed = processed.some((row: any) => String(row?.status || '').toUpperCase() === 'FAILED');
+  await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE resolved_at END, version = version + 1 WHERE id = ?`, [allCompleted ? 'resolved' : 'action_pending', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? 1 : 0, dispute.id]);
+  await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, payload_json) VALUES (?, ?, 'refund_refresh', ?)`, [dispute.id, req.admin?.adminId, JSON.stringify({ allCompleted, anyFailed })]);
+  await audit({ req, action: 'course_dispute.refund.refresh', targetType: 'course_dispute', targetId: publicId, after: { allCompleted, anyFailed } });
+  if (allCompleted && !dispute.result_email_sent_at) {
+    try {
+      const sent = await sendCourseDisputeResultMail({ recipientUserId: Number(dispute.student_user_id), to: String(dispute.student_email || ''), disputeId: publicId, outcome: 'refund', resultMessage: String(dispute.result_message || '') });
+      if (sent) await query('UPDATE course_session_disputes SET result_email_sent_at = CURRENT_TIMESTAMP WHERE id = ?', [dispute.id]);
+    } catch (error) { console.error('Refund refresh result mail error:', error); }
+  }
+  const updated = (await query<any[]>('SELECT * FROM course_session_disputes WHERE id = ? LIMIT 1', [dispute.id]))[0];
+  return res.json({ dispute: toDisputeStatusPayload(updated), refunds: processed });
 });
 
 router.get('/audit-logs', requireAdminAuth, async (req: Request, res: Response) => {

@@ -79,6 +79,84 @@ export const ensureAdminSchema = async () => {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_session_disputes (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      public_id VARCHAR(32) NOT NULL,
+      course_session_id BIGINT NOT NULL,
+      student_user_id INT NOT NULL,
+      mentor_user_id INT NOT NULL,
+      reason_code VARCHAR(40) NOT NULL,
+      description_text TEXT NOT NULL,
+      preferred_resolution VARCHAR(40) NOT NULL,
+      status VARCHAR(32) NOT NULL DEFAULT 'submitted',
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_course_session_disputes_public_id (public_id),
+      UNIQUE KEY uniq_course_session_disputes_session_student (course_session_id, student_user_id),
+      KEY idx_course_session_disputes_status_created (status, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_dispute_events (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      dispute_id BIGINT NOT NULL,
+      admin_id BIGINT NULL,
+      event_type VARCHAR(40) NOT NULL,
+      note_text TEXT NULL,
+      payload_json LONGTEXT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      KEY idx_course_dispute_events_dispute_created (dispute_id, created_at),
+      CONSTRAINT fk_course_dispute_events_dispute FOREIGN KEY (dispute_id) REFERENCES course_session_disputes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_dispute_refunds (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      dispute_id BIGINT NOT NULL,
+      billing_refund_id BIGINT NOT NULL,
+      hours DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_course_dispute_refund (dispute_id, billing_refund_id),
+      CONSTRAINT fk_course_dispute_refunds_dispute FOREIGN KEY (dispute_id) REFERENCES course_session_disputes(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_dispute_refunds_refund FOREIGN KEY (billing_refund_id) REFERENCES billing_refunds(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS platform_lesson_hour_grants (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      public_id VARCHAR(40) NOT NULL,
+      user_id INT NOT NULL,
+      dispute_id BIGINT NOT NULL,
+      granted_hours DECIMAL(10,2) NOT NULL,
+      remaining_hours DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_platform_grant_public_id (public_id),
+      UNIQUE KEY uniq_platform_grant_dispute (dispute_id),
+      KEY idx_platform_grants_user_remaining (user_id, remaining_hours),
+      CONSTRAINT fk_platform_grants_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_platform_grants_dispute FOREIGN KEY (dispute_id) REFERENCES course_session_disputes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN assigned_admin_id BIGINT NULL AFTER status');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN accepted_at TIMESTAMP NULL DEFAULT NULL AFTER assigned_admin_id');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN outcome_code VARCHAR(32) NULL AFTER accepted_at');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN result_message TEXT NULL AFTER outcome_code');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN resolved_hours DECIMAL(10,2) NULL AFTER result_message');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN refund_status VARCHAR(24) NULL AFTER resolved_hours');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN resolved_at TIMESTAMP NULL DEFAULT NULL AFTER refund_status');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN result_email_sent_at TIMESTAMP NULL DEFAULT NULL AFTER resolved_at');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN version INT NOT NULL DEFAULT 1 AFTER result_email_sent_at');
+
   await addColumnIfMissing(
     "ALTER TABLE users ADD COLUMN account_status ENUM('active','suspended') NOT NULL DEFAULT 'active' AFTER last_login_at"
   );

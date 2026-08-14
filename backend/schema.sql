@@ -644,6 +644,76 @@ CREATE TABLE IF NOT EXISTS `billing_refunds` (
   CONSTRAINT `fk_billing_refunds_order` FOREIGN KEY (`billing_order_id`) REFERENCES `billing_orders`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Course dispute workflow and non-refundable platform lesson-hour grants.
+CREATE TABLE IF NOT EXISTS `course_session_disputes` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `public_id` VARCHAR(32) NOT NULL,
+  `course_session_id` BIGINT NOT NULL,
+  `student_user_id` INT NOT NULL,
+  `mentor_user_id` INT NOT NULL,
+  `reason_code` VARCHAR(40) NOT NULL,
+  `description_text` TEXT NOT NULL,
+  `preferred_resolution` VARCHAR(40) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'submitted',
+  `assigned_admin_id` BIGINT NULL,
+  `accepted_at` TIMESTAMP NULL DEFAULT NULL,
+  `outcome_code` VARCHAR(32) NULL,
+  `result_message` TEXT NULL,
+  `resolved_hours` DECIMAL(10,2) NULL,
+  `refund_status` VARCHAR(24) NULL,
+  `resolved_at` TIMESTAMP NULL DEFAULT NULL,
+  `result_email_sent_at` TIMESTAMP NULL DEFAULT NULL,
+  `version` INT NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_session_disputes_public_id` (`public_id`),
+  UNIQUE KEY `uniq_course_session_disputes_session_student` (`course_session_id`, `student_user_id`),
+  KEY `idx_course_session_disputes_status_created` (`status`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `course_dispute_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `dispute_id` BIGINT NOT NULL,
+  `admin_id` BIGINT NULL,
+  `event_type` VARCHAR(40) NOT NULL,
+  `note_text` TEXT NULL,
+  `payload_json` LONGTEXT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_course_dispute_events_dispute_created` (`dispute_id`, `created_at`),
+  CONSTRAINT `fk_course_dispute_events_dispute` FOREIGN KEY (`dispute_id`) REFERENCES `course_session_disputes`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `course_dispute_refunds` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `dispute_id` BIGINT NOT NULL,
+  `billing_refund_id` BIGINT NOT NULL,
+  `hours` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_dispute_refund` (`dispute_id`, `billing_refund_id`),
+  CONSTRAINT `fk_course_dispute_refunds_dispute` FOREIGN KEY (`dispute_id`) REFERENCES `course_session_disputes`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_dispute_refunds_refund` FOREIGN KEY (`billing_refund_id`) REFERENCES `billing_refunds`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `platform_lesson_hour_grants` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `public_id` VARCHAR(40) NOT NULL,
+  `user_id` INT NOT NULL,
+  `dispute_id` BIGINT NOT NULL,
+  `granted_hours` DECIMAL(10,2) NOT NULL,
+  `remaining_hours` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_platform_grant_public_id` (`public_id`),
+  UNIQUE KEY `uniq_platform_grant_dispute` (`dispute_id`),
+  KEY `idx_platform_grants_user_remaining` (`user_id`, `remaining_hours`),
+  CONSTRAINT `fk_platform_grants_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_platform_grants_dispute` FOREIGN KEY (`dispute_id`) REFERENCES `course_session_disputes`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 12b) Ensure PayPal FX quote fields exist for upgraded databases.
 SET @__mx_has_billing_fx_quote_id := (
   SELECT COUNT(*)

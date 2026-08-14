@@ -16,10 +16,23 @@ const LEGACY_REASON_OPTIONS = [
 ];
 
 const RESOLUTION_OPTIONS = [
+  ['feedback_only', '仅反馈问题', 'Report the issue only'],
+  ['lesson_credit', '补偿课时', 'Lesson credit'],
+  ['refund_review', '评估退款', 'Refund assessment'],
+];
+
+const LEGACY_RESOLUTION_OPTIONS = [
   ['platform_review', '平台协助处理', 'Platform review'],
   ['reschedule', '补课或重新安排', 'Make-up lesson or reschedule'],
   ['partial_refund', '希望评估部分退款', 'Assess a partial refund'],
   ['full_refund', '希望评估全额退款', 'Assess a full refund'],
+];
+
+const OUTCOME_OPTIONS = [
+  ['feedback_only', '反馈已记录', 'Feedback recorded'],
+  ['lesson_credit', '已补偿课时', 'Lesson credit issued'],
+  ['refund', '退款处理', 'Refund processed'],
+  ['rejected', '不予支持', 'Not approved'],
 ];
 
 const getOptionLabel = (options, value, isEnglish) => {
@@ -41,12 +54,12 @@ function CourseDisputeModal({
   const dialogRef = useRef(null);
   const existingDispute = course?.courseDispute || null;
   const [reasonCode, setReasonCode] = useState('');
-  const [preferredResolution, setPreferredResolution] = useState('platform_review');
+  const [preferredResolution, setPreferredResolution] = useState('feedback_only');
   const [description, setDescription] = useState('');
 
   useEffect(() => {
     setReasonCode(existingDispute?.reasonCode || '');
-    setPreferredResolution(existingDispute?.preferredResolution || 'platform_review');
+    setPreferredResolution(existingDispute?.preferredResolution || 'feedback_only');
     setDescription(existingDispute?.description || '');
   }, [course?.id, existingDispute?.description, existingDispute?.preferredResolution, existingDispute?.reasonCode]);
 
@@ -92,6 +105,8 @@ function CourseDisputeModal({
       hour12: false,
     })
     : '';
+  const isClosed = ['resolved', 'rejected'].includes(existingDispute?.status);
+  const isActionPending = existingDispute?.status === 'action_pending';
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -177,8 +192,16 @@ function CourseDisputeModal({
             <div className="course-dispute-modal__status">
               <FiCheckCircle aria-hidden="true" />
               <div>
-                <strong>{t('courseDispute.submittedStatus', '异议已提交')}</strong>
-                <span>{t('courseDispute.submittedHint', '平台正在核实，你无需重复提交')}</span>
+                <strong>{isClosed
+                  ? t('courseDispute.resolvedStatus', '异议已处理')
+                  : isActionPending
+                    ? t('courseDispute.actionPendingStatus', '处理结果执行中')
+                    : t('courseDispute.submittedStatus', '异议已提交')}</strong>
+                <span>{isClosed
+                  ? t('courseDispute.resolvedHint', '以下是平台的最终处理结果')
+                  : isActionPending
+                    ? t('courseDispute.actionPendingHint', '退款或补偿正在执行，请稍后查看结果')
+                    : t('courseDispute.submittedHint', '平台正在核实，你无需重复提交')}</span>
               </div>
             </div>
             <dl className="course-dispute-modal__summary-list">
@@ -192,7 +215,7 @@ function CourseDisputeModal({
               </div>
               <div>
                 <dt>{t('courseDispute.resolutionLabel', '期望处理方式')}</dt>
-                <dd>{getOptionLabel(RESOLUTION_OPTIONS, preferredResolution, isEnglish)}</dd>
+                <dd>{getOptionLabel([...RESOLUTION_OPTIONS, ...LEGACY_RESOLUTION_OPTIONS], preferredResolution, isEnglish)}</dd>
               </div>
               {submittedAt ? (
                 <div>
@@ -204,6 +227,24 @@ function CourseDisputeModal({
                 <dt>{t('courseDispute.descriptionLabel', '情况说明')}</dt>
                 <dd>{description}</dd>
               </div>
+              {existingDispute.outcomeCode ? (
+                <div>
+                  <dt>{t('courseDispute.outcomeLabel', '处理结果')}</dt>
+                  <dd>{getOptionLabel(OUTCOME_OPTIONS, existingDispute.outcomeCode, isEnglish)}</dd>
+                </div>
+              ) : null}
+              {existingDispute.resolvedHours > 0 ? (
+                <div>
+                  <dt>{t('courseDispute.resolvedHours', '处理课时')}</dt>
+                  <dd>{existingDispute.resolvedHours}h</dd>
+                </div>
+              ) : null}
+              {existingDispute.resultMessage ? (
+                <div className="course-dispute-modal__summary-description">
+                  <dt>{t('courseDispute.resultMessage', '平台说明')}</dt>
+                  <dd>{existingDispute.resultMessage}</dd>
+                </div>
+              ) : null}
             </dl>
             <footer className="course-dispute-modal__actions">
               <button type="button" className="course-dispute-modal__primary" onClick={onClose}>

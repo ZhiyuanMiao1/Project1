@@ -43,6 +43,7 @@ const navItems = [
   { to: '/mentors/reviews', label: '导师管理', icon: faClipboardCheck },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
   { to: '/classrooms', label: '课堂管理', icon: faChalkboardUser },
+  { to: '/course-disputes', label: '异议管理', icon: faTriangleExclamation },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
 ];
 
@@ -68,6 +69,8 @@ const statusText = {
   disputed: '待导师处理',
   dispute_confirmed: '已确认',
   platform_review: '平台介入',
+  submitted: '待受理',
+  action_pending: '执行中',
   running: '录制中',
   ready: '已生成',
   reviewed: '已评价',
@@ -543,6 +546,7 @@ const getTopbarTitle = (pathname) => {
   if (pathname === '/mentors/reviews') return { title: '导师管理' };
   if (pathname === '/orders') return { title: '订单管理' };
   if (pathname === '/classrooms') return { title: '课堂管理' };
+  if (pathname === '/course-disputes') return { title: '异议管理' };
   if (pathname === '/audit-logs') return { title: '审计日志', subtitle: '后台写操作记录' };
   const watchMatch = pathname.match(/^\/classrooms\/(\d+)\/watch$/);
   if (watchMatch) return { title: `课堂旁观 #${watchMatch[1]}`, subtitle: '只读模式，不会触发学生或导师操作' };
@@ -553,6 +557,8 @@ function Shell({ onLogout }) {
   const location = useLocation();
   const topbarTitle = getTopbarTitle(location.pathname);
   const isDashboard = location.pathname === '/dashboard';
+  const isCourseDisputes = location.pathname === '/course-disputes';
+  const disputeStats = useAsync(() => api('/api/admin/course-disputes/stats'), [location.pathname]);
 
   return (
     <div className="app-shell">
@@ -568,6 +574,7 @@ function Shell({ onLogout }) {
             <NavLink key={item.to} to={item.to}>
               <FontAwesomeIcon icon={item.icon} />
               <span>{item.label}</span>
+              {item.to === '/course-disputes' && disputeStats.data?.openCount > 0 ? <em className="nav-count">{disputeStats.data.openCount}</em> : null}
             </NavLink>
           ))}
         </nav>
@@ -579,14 +586,18 @@ function Shell({ onLogout }) {
             {topbarTitle.subtitle ? <span>{topbarTitle.subtitle}</span> : null}
           </div>
           {isDashboard ? <DashboardTopbarDateRangeFilter /> : null}
-          <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
-            <FontAwesomeIcon icon={faRotateRight} />
-            刷新
-          </button>
-          <button className="ghost icon-text" onClick={onLogout}>
-            <FontAwesomeIcon icon={faRightFromBracket} />
-            退出
-          </button>
+          {!isCourseDisputes ? (
+            <>
+              <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
+                <FontAwesomeIcon icon={faRotateRight} />
+                刷新
+              </button>
+              <button className="ghost icon-text" onClick={onLogout}>
+                <FontAwesomeIcon icon={faRightFromBracket} />
+                退出
+              </button>
+            </>
+          ) : null}
         </header>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -594,6 +605,7 @@ function Shell({ onLogout }) {
           <Route path="/mentors/reviews" element={<MentorReviewsPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/classrooms" element={<ClassroomsPage />} />
+          <Route path="/course-disputes" element={<CourseDisputesPage />} />
           <Route path="/classrooms/:courseId/watch" element={<ClassroomWatchPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -2616,6 +2628,7 @@ function ClassroomsPage() {
 }
 
 function ClassroomDrawer({ courseId, onClose }) {
+  const navigate = useNavigate();
   const { loading, error, data } = useAsync(() => api(`/api/admin/classrooms/${courseId}`), [courseId]);
   const replayState = useAsync(() => api(`/api/admin/classrooms/${courseId}/replay-files`), [courseId]);
   const chatState = useAsync(() => api(`/api/admin/classrooms/${courseId}/chat`), [courseId]);
@@ -2625,7 +2638,7 @@ function ClassroomDrawer({ courseId, onClose }) {
   const replayFiles = replayState.data?.files || [];
   const chatMessages = chatState.data?.messages || [];
   return (
-    <aside className="drawer wide-drawer">
+    <aside className="drawer wide-drawer classroom-detail-drawer">
       <button className="drawer-close" onClick={onClose}>×</button>
       <State loading={loading} error={error}>
         <h2>课堂 #{classroom.id}</h2>
@@ -2641,18 +2654,32 @@ function ClassroomDrawer({ courseId, onClose }) {
             ['更新时间', formatDate(classroom.updatedAt || classroom.updated_at)],
           ]}
         />
-        <h3>学生 / 导师</h3>
-        <DetailGrid
-          items={[
-            ['学生用户ID', classroom.student_user_id],
-            ['StudentID', classroom.student_public_id],
-            ['学生邮箱', classroom.student_email],
-            ['导师用户ID', classroom.mentor_user_id],
-            ['MentorID', classroom.mentor_public_id],
-            ['导师', classroom.mentor_display_name || classroom.mentor_username],
-            ['导师邮箱', classroom.mentor_email],
-          ]}
-        />
+        <div className="classroom-party-columns">
+          <section className="classroom-party-column">
+            <h4>学生</h4>
+            <DetailGrid
+              items={[
+                ['用户ID', classroom.student_user_id],
+                ['StudentID', classroom.student_public_id],
+                ['邮箱', classroom.student_email],
+              ]}
+            />
+          </section>
+          <section className="classroom-party-column">
+            <h4>导师</h4>
+            <DetailGrid
+              items={[
+                ['用户ID', classroom.mentor_user_id],
+                ['MentorID', classroom.mentor_public_id],
+                ['姓名', classroom.mentor_display_name || classroom.mentor_username],
+                ['邮箱', classroom.mentor_email],
+              ]}
+            />
+          </section>
+        </div>
+        {classroom.course_dispute_id ? (
+          <><h3>课程异议</h3><button type="button" onClick={() => navigate(`/course-disputes?q=${encodeURIComponent(classroom.course_dispute_id)}`)}><Badge value={classroom.course_dispute_status} /> 查看 {classroom.course_dispute_id}</button></>
+        ) : null}
         <h3>最新课时确认</h3>
         <DetailGrid
           items={[
@@ -2848,6 +2875,90 @@ function ClassroomWatchPage() {
         </div>
       </State>
     </section>
+  );
+}
+
+const disputeReasonLabels = {
+  lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容与描述不符', mentor_conduct: '导师行为问题', other: '其他问题', lesson_hours: '课时或扣费问题',
+};
+const disputeResolutionLabels = {
+  feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款', platform_review: '平台协助处理', reschedule: '补课或重新安排', partial_refund: '部分退款', full_refund: '全额退款',
+};
+const disputeStatusLabels = { submitted: '待受理', reviewing: '处理中', action_pending: '执行中', resolved: '已解决', rejected: '不予支持' };
+const DisputeStatusBadge = ({ value }) => <span className={`badge badge-${value || 'none'}`}>{disputeStatusLabels[value] || value || '-'}</span>;
+
+function CourseDisputesPage() {
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get('q') || '');
+  const [status, setStatus] = useState('');
+  const [reason, setReason] = useState('');
+  const [resolution, setResolution] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [reload, setReload] = useState(0);
+  const state = useAsync(() => api('/api/admin/course-disputes', { params: { q, status, reason, resolution, startDate, endDate, limit: 100 } }), [q, status, reason, resolution, startDate, endDate, reload]);
+  return (
+    <section>
+      <PageTitle title="异议管理" subtitle="受理课程投诉并执行反馈、课时补偿或退款" />
+      <Toolbar>
+        <SearchBox value={q} onChange={setQ} placeholder="搜索异议编号、课堂ID、StudentID、MentorID" />
+        <select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">全部状态</option><option value="submitted">待受理</option><option value="reviewing">处理中</option><option value="action_pending">执行中</option><option value="resolved">已解决</option><option value="rejected">不予支持</option></select>
+        <select value={reason} onChange={(e) => setReason(e.target.value)}><option value="">全部问题</option>{Object.entries(disputeReasonLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <select value={resolution} onChange={(e) => setResolution(e.target.value)}><option value="">全部诉求</option>{Object.entries(disputeResolutionLabels).slice(0, 3).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} aria-label="提交开始日期" />
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} aria-label="提交结束日期" />
+      </Toolbar>
+      <State loading={state.loading} error={state.error}>
+        <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '处理人', '操作']} rows={(state.data?.disputes || []).map((item) => [
+          <strong>{item.id}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, item.assignedAdmin || '-', <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
+        ])} />
+      </State>
+      {selectedId ? <CourseDisputeDrawer disputeId={selectedId} onClose={() => setSelectedId('')} onChanged={() => setReload((v) => v + 1)} /> : null}
+    </section>
+  );
+}
+
+function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
+  const [reload, setReload] = useState(0);
+  const state = useAsync(() => api(`/api/admin/course-disputes/${encodeURIComponent(disputeId)}`), [disputeId, reload]);
+  const replayState = useAsync(() => state.data?.dispute?.course_session_id ? api(`/api/admin/classrooms/${state.data.dispute.course_session_id}/replay-files`) : Promise.resolve({ files: [] }), [state.data?.dispute?.course_session_id]);
+  const chatState = useAsync(() => state.data?.dispute?.course_session_id ? api(`/api/admin/classrooms/${state.data.dispute.course_session_id}/chat`) : Promise.resolve({ messages: [] }), [state.data?.dispute?.course_session_id]);
+  const [note, setNote] = useState('');
+  const [outcome, setOutcome] = useState('feedback_only');
+  const [hours, setHours] = useState('');
+  const [resultMessage, setResultMessage] = useState('');
+  const [quote, setQuote] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const dispute = state.data?.dispute || {};
+  const refresh = () => { setReload((v) => v + 1); onChanged(); };
+  const run = async (fn) => { setBusy(true); setActionError(''); try { await fn(); refresh(); } catch (e) { setActionError(e.message || '操作失败'); } finally { setBusy(false); } };
+  const accept = () => run(() => api(`/api/admin/course-disputes/${disputeId}/accept`, { method: 'POST', body: { version: dispute.version } }));
+  const addNote = () => run(async () => { await api(`/api/admin/course-disputes/${disputeId}/notes`, { method: 'POST', body: { note } }); setNote(''); });
+  const getQuote = () => run(async () => { const data = await api(`/api/admin/course-disputes/${disputeId}/refund-quote`, { method: 'POST', body: { hours: Number(hours) } }); setQuote(data.quote); });
+  const resolve = () => run(() => api(`/api/admin/course-disputes/${disputeId}/resolve`, { method: 'POST', body: { version: dispute.version, outcome, hours: ['lesson_credit', 'refund'].includes(outcome) ? Number(hours) : undefined, resultMessage } }));
+  const refreshRefunds = () => run(() => api(`/api/admin/course-disputes/${disputeId}/refresh-refunds`, { method: 'POST' }));
+  return (
+    <aside className="drawer wide-drawer dispute-drawer">
+      <button className="drawer-close" type="button" onClick={onClose}>×</button>
+      <State loading={state.loading} error={state.error}>
+        <h2>异议 {dispute.id}</h2>
+        <DetailGrid items={[[ '状态', <DisputeStatusBadge value={dispute.status} /> ], ['课堂', `#${dispute.course_session_id}`], ['StudentID', dispute.student_public_id], ['MentorID', dispute.mentor_public_id], ['课程', `${formatCourseDirection(dispute.course_direction)} / ${formatCourseType(dispute.course_type)}`], ['上课时间', formatDate(dispute.startsAt)], ['实际扣除', formatHours(dispute.final_hours || dispute.duration_hours)], ['处理人', dispute.assignedAdmin || '-']]} />
+        <h3>学生提交</h3><DetailGrid items={[[ '问题类型', disputeReasonLabels[dispute.reason_code] || dispute.reason_code], ['期望方案', disputeResolutionLabels[dispute.preferred_resolution] || dispute.preferred_resolution], ['情况说明', dispute.description_text]]} />
+        <h3>原始扣费订单</h3><DataTable compact columns={['订单', '渠道', '扣除课时', '原金额']} rows={(dispute.allocations || []).map((row) => [row.billing_order_id, row.provider, formatHours(row.hours), `${row.amount_cny} CNY`])} />
+        <h3>课堂回放</h3><State loading={replayState.loading} error={replayState.error}><div className="replay-list embedded">{(replayState.data?.files || []).map((file) => <div className="replay-item" key={file.fileId || file.fileName}><strong>{file.fileName}</strong><button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}>播放</button></div>)}{!replayState.data?.files?.length ? <div className="empty">暂无回放</div> : null}</div></State>
+        <h3>聊天记录</h3><State loading={chatState.loading} error={chatState.error}><div className="classroom-chat-history">{(chatState.data?.messages || []).map((message) => <article className="classroom-chat-history-item" key={message.id}><strong>{message.senderLabel}</strong><time>{formatDate(message.createdAt)}</time><p>{message.textContent || message.file?.fileName || '-'}</p></article>)}{!chatState.data?.messages?.length ? <div className="empty">暂无聊天记录</div> : null}</div></State>
+        <h3>内部时间线</h3><div className="dispute-timeline">{(dispute.events || []).map((event) => <article key={event.id}><strong>{event.event_type}</strong><span>{event.display_name || event.username || '系统'} · {formatDate(event.created_at)}</span>{event.note_text ? <p>{event.note_text}</p> : null}</article>)}</div>
+        {dispute.status === 'submitted' ? <button type="button" onClick={accept} disabled={busy}>受理异议</button> : null}
+        {dispute.status === 'action_pending' && dispute.outcome_code === 'refund' ? <button type="button" onClick={refreshRefunds} disabled={busy}>刷新 / 重试退款</button> : null}
+        {!['resolved', 'rejected'].includes(dispute.status) ? <>
+          <h3>内部备注</h3><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录外部联系导师摘要或核实过程" /><button className="ghost" type="button" onClick={addNote} disabled={busy || !note.trim()}>保存备注</button>
+          <h3>最终裁决</h3><div className="dispute-resolution-form"><select value={outcome} onChange={(e) => { setOutcome(e.target.value); setQuote(null); }}><option value="feedback_only">仅记录反馈</option><option value="lesson_credit">补偿课时</option><option value="refund">退款</option><option value="rejected">不予支持</option></select>{['lesson_credit', 'refund'].includes(outcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}{outcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}<textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />{quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}<button type="button" onClick={resolve} disabled={busy || !resultMessage.trim() || (outcome === 'refund' && !quote)}>确认裁决</button></div>
+        </> : <><h3>最终结果</h3><DetailGrid items={[[ '结果', dispute.outcome_code], ['处理课时', formatHours(dispute.resolved_hours)], ['退款状态', dispute.refund_status || '-'], ['平台说明', dispute.result_message], ['完成时间', formatDate(dispute.resolved_at)]]} /></>}
+        {actionError ? <div className="error">{actionError}</div> : null}
+      </State>
+    </aside>
   );
 }
 

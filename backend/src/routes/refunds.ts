@@ -405,7 +405,7 @@ async function processPayPalRefund(refundId: number) {
   }
 }
 
-async function processRefund(refundId: number) {
+export async function processRefundById(refundId: number) {
   const refund = await fetchRefundRow(refundId);
   if (!refund) return null;
   return normalizeProvider(refund.provider) === 'paypal'
@@ -653,7 +653,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       await conn.commit();
     }
 
-    const processed = await processRefund(refundId);
+    const processed = await processRefundById(refundId);
     if (!processed) return res.status(404).json({ error: '退款记录不存在' });
     const wallet = await getWalletSummary(req.user.id);
     return res.status(201).json({ refund: toPublicRefund(processed), wallet });
@@ -677,7 +677,7 @@ router.get('/:refundId/status', requireAuth, async (req: Request, res: Response)
     );
     const id = Number(rows?.[0]?.id || 0);
     if (!id) return res.status(404).json({ error: '退款记录不存在' });
-    const processed = await processRefund(id);
+    const processed = await processRefundById(id);
     const wallet = await getWalletSummary(req.user.id);
     return res.json({ refund: processed ? toPublicRefund(processed) : null, wallet });
   } catch (error) {

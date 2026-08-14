@@ -29,6 +29,28 @@ async function consumeLessonHours(conn, userId, courseSessionId, rawHours) {
     if (balance + EPSILON < hours) {
         throw new WalletHoursError('INSUFFICIENT_HOURS', '剩余课时不足，请先充值后再确认');
     }
+    let unallocated = hours;
+    try {
+        const [grantRows] = await conn.query(`SELECT id, remaining_hours
+       FROM platform_lesson_hour_grants
+       WHERE user_id = ? AND remaining_hours > 0
+       ORDER BY created_at ASC, id ASC
+       FOR UPDATE`, [userId]);
+        for (const grant of grantRows || []) {
+            if (unallocated <= EPSILON)
+                break;
+            const available = toNumber(grant?.remaining_hours, 0);
+            const allocated = Number(Math.min(available, unallocated).toFixed(2));
+            if (allocated <= 0)
+                continue;
+            await conn.query('UPDATE platform_lesson_hour_grants SET remaining_hours = remaining_hours - ? WHERE id = ? AND remaining_hours >= ?', [allocated, grant.id, allocated]);
+            unallocated = Number((unallocated - allocated).toFixed(2));
+        }
+    }
+    catch (error) {
+        if (String(error?.code || '') !== 'ER_NO_SUCH_TABLE')
+            throw error;
+    }
     const [orderRows] = await conn.query(`SELECT id, remaining_hours
      FROM billing_orders
      WHERE user_id = ?
@@ -36,7 +58,6 @@ async function consumeLessonHours(conn, userId, courseSessionId, rawHours) {
        AND remaining_hours > 0
      ORDER BY credited_at ASC, id ASC
      FOR UPDATE`, [userId]);
-    let unallocated = hours;
     const allocations = [];
     for (const order of orderRows || []) {
         if (unallocated <= EPSILON)

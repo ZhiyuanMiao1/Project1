@@ -30,8 +30,11 @@ const COURSE_DISPUTE_REASON_CODES = new Set([
     'other',
 ]);
 const COURSE_DISPUTE_RESOLUTION_CODES = new Set([
+    'feedback_only',
+    'lesson_credit',
     'platform_review',
     'reschedule',
+    'refund_review',
     'partial_refund',
     'full_refund',
 ]);
@@ -282,6 +285,20 @@ const ensureCourseDisputeSchema = async () => {
       CONSTRAINT fk_course_session_disputes_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+    const ensureDisputeColumn = async (sql) => {
+        try {
+            await (0, db_1.query)(sql);
+        }
+        catch (e) {
+            if (String(e?.code || '') !== 'ER_DUP_FIELDNAME' && !String(e?.message || '').includes('Duplicate column name'))
+                throw e;
+        }
+    };
+    await ensureDisputeColumn('ALTER TABLE course_session_disputes ADD COLUMN outcome_code VARCHAR(32) NULL AFTER status');
+    await ensureDisputeColumn('ALTER TABLE course_session_disputes ADD COLUMN result_message TEXT NULL AFTER outcome_code');
+    await ensureDisputeColumn('ALTER TABLE course_session_disputes ADD COLUMN resolved_hours DECIMAL(10,2) NULL AFTER result_message');
+    await ensureDisputeColumn('ALTER TABLE course_session_disputes ADD COLUMN refund_status VARCHAR(24) NULL AFTER resolved_hours');
+    await ensureDisputeColumn('ALTER TABLE course_session_disputes ADD COLUMN resolved_at TIMESTAMP NULL DEFAULT NULL AFTER refund_status');
     courseDisputeSchemaEnsured = true;
     return true;
 };
@@ -457,6 +474,11 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           csd.description_text AS dispute_description,
           csd.preferred_resolution AS dispute_preferred_resolution,
           csd.status AS dispute_status,
+          csd.outcome_code AS dispute_outcome_code,
+          csd.result_message AS dispute_result_message,
+          csd.resolved_hours AS dispute_resolved_hours,
+          csd.refund_status AS dispute_refund_status,
+          csd.resolved_at AS dispute_resolved_at,
           csd.created_at AS dispute_created_at,
           latest_lhc.message_item_id AS latest_lesson_hours_message_id,
           latest_lhc.proposed_hours AS latest_lesson_hours_proposed_hours,
@@ -579,6 +601,11 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                         ? row.dispute_preferred_resolution.trim()
                         : '',
                     status: typeof row?.dispute_status === 'string' ? row.dispute_status.trim().toLowerCase() : 'submitted',
+                    outcomeCode: typeof row?.dispute_outcome_code === 'string' ? row.dispute_outcome_code.trim() : '',
+                    resultMessage: typeof row?.dispute_result_message === 'string' ? row.dispute_result_message.trim() : '',
+                    resolvedHours: toNumber(row?.dispute_resolved_hours),
+                    refundStatus: typeof row?.dispute_refund_status === 'string' ? row.dispute_refund_status.trim().toLowerCase() : '',
+                    resolvedAt: toIsoString(row?.dispute_resolved_at),
                     submittedAt: toIsoString(row?.dispute_created_at),
                 } : null,
                 ...buildReviewPayload(row),

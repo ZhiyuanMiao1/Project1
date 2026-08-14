@@ -319,3 +319,39 @@ export const sendAppointmentNotificationMail = async ({
 
   await sendNotificationMail({ recipientUserId, to, subject, text, html });
 };
+
+export const sendCourseDisputeResultMail = async ({
+  recipientUserId,
+  to,
+  disputeId,
+  outcome,
+  resultMessage,
+}: {
+  recipientUserId: number;
+  to: string;
+  disputeId: string;
+  outcome: string;
+  resultMessage: string;
+}) => {
+  const preferences = await getEmailNotificationPreferencesForUser(recipientUserId);
+  if (!preferences.enabled) return false;
+  const isEnglish = preferences.locale === 'en';
+  const outcomeLabels: Record<string, [string, string]> = {
+    feedback_only: ['反馈已记录', 'Feedback recorded'],
+    lesson_credit: ['已补偿课时', 'Lesson credit issued'],
+    refund: ['退款已处理', 'Refund processed'],
+    rejected: ['异议未获支持', 'Request not approved'],
+  };
+  const outcomeLabel = outcomeLabels[outcome]?.[isEnglish ? 1 : 0] || outcome;
+  const subject = isEnglish ? `Mentory dispute result · ${disputeId}` : `Mentory 课程异议处理结果 · ${disputeId}`;
+  const text = isEnglish
+    ? `Your course dispute has been resolved.\nResult: ${outcomeLabel}\n${resultMessage}\nSign in to Mentory for details.`
+    : `你的课程异议已处理完成。\n处理结果：${outcomeLabel}\n${resultMessage}\n请登录 Mentory 查看详情。`;
+  const html = buildMailCardHtml(
+    isEnglish ? 'Course dispute result' : '课程异议处理结果',
+    `<div style="font-size:14px;color:#475569;margin-bottom:14px;">${escapeHtml(outcomeLabel)}</div>
+     <div style="padding:14px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;">${escapeHtml(resultMessage)}</div>`
+  );
+  await sendMail({ to, subject, text, html });
+  return true;
+};

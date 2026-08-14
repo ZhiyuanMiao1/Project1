@@ -175,6 +175,11 @@ const normalizeCourseDispute = (source) => {
     description: safeText(source?.description),
     preferredResolution: safeText(source?.preferredResolution),
     status: safeText(source?.status).toLowerCase() || 'submitted',
+    outcomeCode: safeText(source?.outcomeCode),
+    resultMessage: safeText(source?.resultMessage),
+    resolvedHours: Number(source?.resolvedHours || 0),
+    refundStatus: safeText(source?.refundStatus).toLowerCase(),
+    resolvedAt: safeText(source?.resolvedAt),
     submittedAt: safeText(source?.submittedAt),
   };
 };

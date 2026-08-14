@@ -141,6 +141,7 @@
 
 .course-card {
   width: 100%;
+  box-sizing: border-box;
   background: transparent;
   border: none;
   border-radius: 16px;
@@ -367,12 +368,6 @@
 
   .month-cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 899px) {
-  .course-card {
-    box-sizing: border-box;
   }
 }
 
