@@ -313,6 +313,33 @@
   display: block;
 }
 
+.about-page__text-action {
+  min-height: 44px;
+  margin-top: 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #4f3ed8;
+  -webkit-text-fill-color: #4f3ed8;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.about-page__text-action:hover:not(:disabled) {
+  color: #3f2fc5;
+  -webkit-text-fill-color: #3f2fc5;
+}
+
+.about-page__text-action:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
 .privacy-policy__back-top {
   min-height: 44px;
   display: inline-flex;

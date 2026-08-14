@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
+import RegisterPopup from '../../components/RegisterPopup/RegisterPopup';
+import LoginPopup from '../../components/LoginPopup/LoginPopup';
+import MentorActivationPopup from '../../components/MentorActivationPopup/MentorActivationPopup';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
 import SiteFooter from '../../components/common/SiteFooter/SiteFooter';
 import useMenuBadgeSummary from '../../hooks/useMenuBadgeSummary';
-import { getAuthToken } from '../../utils/authStorage';
+import { getAuthToken, getAuthUser } from '../../utils/authStorage';
 import { useI18n } from '../../i18n/language';
 import '../PrivacyPolicy/PrivacyPolicyPage.css';
 
@@ -150,6 +155,7 @@ const ABOUT_CONTENT = {
           id: 'apply',
           title: '6. 准备开始了吗',
           paragraphs: ['你可以直接进入 Mentory 导师端注册并完善资料。请真实、具体地介绍你的背景、擅长内容和教学方式，这会帮助学习者更准确地了解你。'],
+          action: { type: 'mentor-registration', label: '注册导师', ariaLabel: '注册成为 Mentory 导师' },
           note: '如对导师加入、资质展示或平台合作有疑问，请发送邮件至 contact@mentory.cc，并在主题中注明“导师合作”',
         },
       ],
@@ -164,7 +170,7 @@ const ABOUT_CONTENT = {
         { id: 'subjects', title: '3. What you can teach', items: [['Academic subjects', 'Mathematics, physics, computer science, engineering, economics, and other university or professional subjects.'], ['Research and further study', 'Study planning, research methods, thesis direction, interview preparation, and academic-path experience.'], ['Career and industry skills', 'Programming, data, product, design, business, and other skills that can be taught effectively online.'], ['Language and cross-cultural learning', 'Language practice, professional communication, and experience studying or working across regions.']] },
         { id: 'journey', title: '4. The mentoring journey', bullets: ['Register as a mentor and complete your public profile, education, expertise, and time zone;', 'Browse relevant lesson requests, or let learners discover your profile and contact you;', 'Use platform messages to align on goals, scope, timing, and expectations;', 'Teach in the online classroom and complete the required lesson-hour confirmation afterward;', 'Build a teaching reputation through authentic reviews and an increasingly useful profile.'] },
         { id: 'support', title: '5. Support from Mentory', paragraphs: ['Mentory provides profile presentation, lesson-request discovery, messaging, an online classroom, lesson-hour records, and related settlement tools so you can focus more on teaching. Current mentor-side rules govern specific features, fees, and settlement arrangements.'] },
-        { id: 'apply', title: '6. Ready to begin?', paragraphs: ['Go to the Mentory mentor experience, register, and complete your profile. A specific and accurate description of your background, subjects, and teaching style helps learners understand whether you are a good fit.'], note: 'For questions about joining, credentials, or mentor partnerships, email contact@mentory.cc with “Mentor partnership” in the subject line' },
+        { id: 'apply', title: '6. Ready to begin?', paragraphs: ['Go to the Mentory mentor experience, register, and complete your profile. A specific and accurate description of your background, subjects, and teaching style helps learners understand whether you are a good fit.'], action: { type: 'mentor-registration', label: 'Register as a mentor', ariaLabel: 'Register as a Mentory mentor' }, note: 'For questions about joining, credentials, or mentor partnerships, email contact@mentory.cc with “Mentor partnership” in the subject line' },
       ],
     },
   },
@@ -235,7 +241,7 @@ const ABOUT_CONTENT = {
   },
 };
 
-function AboutSection({ section }) {
+function AboutSection({ section, onAction, actionLoading = false }) {
   return (
     <section id={section.id} className="privacy-policy__section">
       <h2>{section.title}</h2>
@@ -254,6 +260,18 @@ function AboutSection({ section }) {
       {section.bullets ? (
         <ul>{section.bullets.map((item) => <li key={item}>{item}</li>)}</ul>
       ) : null}
+      {section.action ? (
+        <button
+          type="button"
+          className="about-page__text-action"
+          onClick={() => onAction?.(section.action)}
+          disabled={actionLoading}
+          aria-label={section.action.ariaLabel}
+          aria-busy={actionLoading}
+        >
+          {section.action.label}<span aria-hidden="true"> →</span>
+        </button>
+      ) : null}
       {section.note ? <aside className="privacy-policy__note">{section.note}</aside> : null}
     </section>
   );
@@ -261,15 +279,54 @@ function AboutSection({ section }) {
 
 function AboutPage({ pageKey = 'introduction' }) {
   const { isEnglish, t } = useI18n();
+  const navigate = useNavigate();
   const content = ABOUT_CONTENT[pageKey][isEnglish ? 'en' : 'zh-CN'];
   const pageTopId = `about-${pageKey}-top`;
   const menuAnchorRef = useRef(null);
   const tocNavRef = useRef(null);
   const tocLinkRefs = useRef(new Map());
   const [showStudentAuth, setShowStudentAuth] = useState(false);
+  const [showMentorRegister, setShowMentorRegister] = useState(false);
+  const [showMentorLogin, setShowMentorLogin] = useState(false);
+  const [showMentorActivation, setShowMentorActivation] = useState(false);
+  const [mentorActionLoading, setMentorActionLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [activeSectionId, setActiveSectionId] = useState(content.sections[0].id);
   const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: ['student'] });
+
+  const handleSectionAction = async (action) => {
+    if (action?.type !== 'mentor-registration' || mentorActionLoading) return;
+    if (!getAuthToken()) {
+      setShowMentorRegister(true);
+      return;
+    }
+
+    setMentorActionLoading(true);
+    try {
+      const account = await api.get('/api/account/ids').then((response) => response?.data || {});
+      const reviewStatus = String(account.mentorReviewStatus || '').toLowerCase();
+      if (!account.mentorId || ['rejected', 'interview_rejected'].includes(reviewStatus)) {
+        setShowMentorActivation(true);
+        return;
+      }
+
+      if (getAuthUser()?.role === 'mentor') {
+        navigate('/mentor');
+        return;
+      }
+
+      setShowMentorLogin(true);
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        setIsLoggedIn(false);
+        setShowMentorRegister(true);
+      } else {
+        alert(error?.response?.data?.error || t('auth.actionFailed', '操作失败，请稍后再试'));
+      }
+    } finally {
+      setMentorActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     const handleAuthChanged = (event) => {
@@ -371,7 +428,14 @@ function AboutPage({ pageKey = 'introduction' }) {
               </nav>
             </aside>
             <article className="privacy-policy__article">
-              {content.sections.map((section) => <AboutSection key={section.id} section={section} />)}
+              {content.sections.map((section) => (
+                <AboutSection
+                  key={section.id}
+                  section={section}
+                  onAction={handleSectionAction}
+                  actionLoading={mentorActionLoading}
+                />
+              ))}
               <a className="privacy-policy__back-top" href={`#${pageTopId}`}>{content.top} ↑</a>
             </article>
           </div>
@@ -389,6 +453,31 @@ function AboutPage({ pageKey = 'introduction' }) {
           isLoggedIn={isLoggedIn}
           align="right"
           alignOffset={23}
+        />
+      ) : null}
+
+      {showMentorRegister ? (
+        <RegisterPopup
+          initialRole="mentor"
+          onClose={() => setShowMentorRegister(false)}
+        />
+      ) : null}
+
+      {showMentorLogin ? (
+        <LoginPopup
+          role="mentor"
+          onClose={() => setShowMentorLogin(false)}
+          onGoRegister={() => {
+            setShowMentorLogin(false);
+            setShowMentorRegister(true);
+          }}
+          onSuccess={() => navigate('/mentor')}
+        />
+      ) : null}
+
+      {showMentorActivation ? (
+        <MentorActivationPopup
+          onClose={() => setShowMentorActivation(false)}
         />
       ) : null}
     </div>

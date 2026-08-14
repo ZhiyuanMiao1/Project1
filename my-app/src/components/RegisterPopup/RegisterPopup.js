@@ -32,12 +32,12 @@ const translateAuthMessage = (message, t) => {
   return map[raw] || raw;
 };
 
-const RegisterPopup = ({ onClose, onSuccess }) => {
+const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [role, setRole] = useState(initialRole === 'mentor' ? 'mentor' : 'student');
   const [submitting, setSubmitting] = useState(false);
   const [fieldError, setFieldError] = useState('');
   const [errorField, setErrorField] = useState('');
