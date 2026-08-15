@@ -106,7 +106,6 @@ function CourseDisputeModal({
     })
     : '';
   const isClosed = ['resolved', 'rejected'].includes(existingDispute?.status);
-  const isActionPending = existingDispute?.status === 'action_pending';
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -194,14 +193,10 @@ function CourseDisputeModal({
               <div>
                 <strong>{isClosed
                   ? t('courseDispute.resolvedStatus', '异议已处理')
-                  : isActionPending
-                    ? t('courseDispute.actionPendingStatus', '处理结果执行中')
-                    : t('courseDispute.submittedStatus', '异议已提交')}</strong>
+                  : t('courseDispute.submittedStatus', '异议已提交')}</strong>
                 <span>{isClosed
                   ? t('courseDispute.resolvedHint', '以下是平台的最终处理结果')
-                  : isActionPending
-                    ? t('courseDispute.actionPendingHint', '退款或补偿正在执行，请稍后查看结果')
-                    : t('courseDispute.submittedHint', '平台正在核实，你无需重复提交')}</span>
+                  : t('courseDispute.submittedHint', '平台正在核实，你无需重复提交')}</span>
               </div>
             </div>
             <dl className="course-dispute-modal__summary-list">

@@ -43,11 +43,7 @@ const COURSE_DISPUTE_REASON_CODES = new Set([
 const COURSE_DISPUTE_RESOLUTION_CODES = new Set([
   'feedback_only',
   'lesson_credit',
-  'platform_review',
-  'reschedule',
   'refund_review',
-  'partial_refund',
-  'full_refund',
 ]);
 const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;

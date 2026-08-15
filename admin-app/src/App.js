@@ -294,6 +294,19 @@ function Badge({ value }) {
   return <span className={`badge badge-${key}`}>{statusText[key] || value || '-'}</span>;
 }
 
+const lessonHoursStatusText = {
+  none: '无记录',
+  pending: '待学生确认',
+  disputed: '待导师处理',
+  confirmed: '已确认',
+  platform_review: '平台介入',
+};
+
+function LessonHoursStatusBadge({ value }) {
+  const key = String(value || 'none').toLowerCase();
+  return <span className={`badge badge-${key}`}>{lessonHoursStatusText[key] || value || '-'}</span>;
+}
+
 const getOrderStatusMeta = (order) => {
   const status = String(order?.status || '').toUpperCase();
   if (order?.credited_at || status === 'COMPLETED' || status === 'CAPTURED') {
@@ -2280,7 +2293,7 @@ function ReplayDialog({ course, onClose }) {
 
 function PlatformReviewStatus({ classroom, onOpen }) {
   if (classroom.lesson_hours_status !== 'platform_review') {
-    return <Badge value={classroom.lesson_hours_status || 'none'} />;
+    return <LessonHoursStatusBadge value={classroom.lesson_hours_status} />;
   }
   return (
     <button
@@ -2289,7 +2302,7 @@ function PlatformReviewStatus({ classroom, onOpen }) {
       onClick={() => onOpen(classroom)}
       title="处理平台介入"
     >
-      <Badge value="platform_review" />
+      <LessonHoursStatusBadge value="platform_review" />
     </button>
   );
 }
@@ -2877,15 +2890,15 @@ const disputeReasonLabels = {
   lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容与描述不符', mentor_conduct: '导师行为问题', other: '其他问题',
 };
 const disputeResolutionLabels = {
-  feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款', platform_review: '平台协助处理', reschedule: '补课或重新安排', partial_refund: '部分退款', full_refund: '全额退款',
+  feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款',
 };
-const disputeStatusLabels = { submitted: '待受理', reviewing: '处理中', action_pending: '执行中', resolved: '已解决', rejected: '不予支持' };
+const disputeStatusLabels = { submitted: '待受理', resolved: '已解决', rejected: '不予支持' };
 const disputeReasonOptions = [{ value: '', label: '全部' }, ...Object.entries(disputeReasonLabels).map(([value, label]) => ({ value, label }))];
-const disputeResolutionOptions = [{ value: '', label: '全部学生期望' }, ...Object.entries(disputeResolutionLabels).map(([value, label]) => ({ value, label }))];
+const disputeResolutionOptions = [{ value: '', label: '全部' }, ...Object.entries(disputeResolutionLabels).map(([value, label]) => ({ value, label }))];
 const disputeStatusOptions = [{ value: '', label: '全部状态' }, ...Object.entries(disputeStatusLabels).map(([value, label]) => ({ value, label }))];
 const DisputeStatusBadge = ({ value }) => <span className={`badge badge-${value || 'none'}`}>{disputeStatusLabels[value] || value || '-'}</span>;
 const disputeReasonTones = { lesson_not_delivered: 'red', content_mismatch: 'amber', mentor_conduct: 'red', other: 'neutral' };
-const disputeResolutionTones = { feedback_only: 'neutral', lesson_credit: 'green', refund_review: 'amber', platform_review: 'purple', reschedule: 'blue', partial_refund: 'amber', full_refund: 'red' };
+const disputeResolutionTones = { feedback_only: 'neutral', lesson_credit: 'green', refund_review: 'amber' };
 const DisputeTag = ({ value, labels, tones }) => (
   <span className={`badge badge-dispute-${tones[value] || 'neutral'}`}>{labels[value] || value || '-'}</span>
 );
@@ -2941,9 +2954,9 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const dispute = state.data?.dispute || {};
+  const hasPendingRefund = dispute.status === 'submitted' && dispute.outcome_code === 'refund';
   const refresh = () => { setReload((v) => v + 1); onChanged(); };
   const run = async (fn) => { setBusy(true); setActionError(''); try { await fn(); refresh(); } catch (e) { setActionError(e.message || '操作失败'); } finally { setBusy(false); } };
-  const accept = () => run(() => api(`/api/admin/course-disputes/${disputeId}/accept`, { method: 'POST', body: { version: dispute.version } }));
   const addNote = () => run(async () => { await api(`/api/admin/course-disputes/${disputeId}/notes`, { method: 'POST', body: { note } }); setNote(''); });
   const getQuote = () => run(async () => { const data = await api(`/api/admin/course-disputes/${disputeId}/refund-quote`, { method: 'POST', body: { hours: Number(hours) } }); setQuote(data.quote); });
   const resolve = () => run(() => api(`/api/admin/course-disputes/${disputeId}/resolve`, { method: 'POST', body: { version: dispute.version, outcome, hours: ['lesson_credit', 'refund'].includes(outcome) ? Number(hours) : undefined, resultMessage } }));
@@ -2959,11 +2972,10 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
         <h3>课堂回放</h3><State loading={replayState.loading} error={replayState.error}><div className="replay-list embedded">{(replayState.data?.files || []).map((file) => <div className="replay-item" key={file.fileId || file.fileName}><strong>{file.fileName}</strong><button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}>播放</button></div>)}{!replayState.data?.files?.length ? <div className="empty">暂无回放</div> : null}</div></State>
         <h3>聊天记录</h3><State loading={chatState.loading} error={chatState.error}><div className="classroom-chat-history">{(chatState.data?.messages || []).map((message) => <article className="classroom-chat-history-item" key={message.id}><strong>{message.senderLabel}</strong><time>{formatDate(message.createdAt)}</time><p>{message.textContent || message.file?.fileName || '-'}</p></article>)}{!chatState.data?.messages?.length ? <div className="empty">暂无聊天记录</div> : null}</div></State>
         <h3>内部时间线</h3><div className="dispute-timeline">{(dispute.events || []).map((event) => <article key={event.id}><strong>{event.event_type}</strong><span>{event.display_name || event.username || '系统'} · {formatDate(event.created_at)}</span>{event.note_text ? <p>{event.note_text}</p> : null}</article>)}</div>
-        {dispute.status === 'submitted' ? <button type="button" onClick={accept} disabled={busy}>受理异议</button> : null}
-        {dispute.status === 'action_pending' && dispute.outcome_code === 'refund' ? <button type="button" onClick={refreshRefunds} disabled={busy}>刷新 / 重试退款</button> : null}
+        {hasPendingRefund ? <button type="button" onClick={refreshRefunds} disabled={busy}>刷新 / 重试退款</button> : null}
         {!['resolved', 'rejected'].includes(dispute.status) ? <>
           <h3>内部备注</h3><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="记录外部联系导师摘要或核实过程" /><button className="ghost" type="button" onClick={addNote} disabled={busy || !note.trim()}>保存备注</button>
-          <h3>最终裁决</h3><div className="dispute-resolution-form"><select value={outcome} onChange={(e) => { setOutcome(e.target.value); setQuote(null); }}><option value="feedback_only">仅记录反馈</option><option value="lesson_credit">补偿课时</option><option value="refund">退款</option><option value="rejected">不予支持</option></select>{['lesson_credit', 'refund'].includes(outcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}{outcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}<textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />{quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}<button type="button" onClick={resolve} disabled={busy || !resultMessage.trim() || (outcome === 'refund' && !quote)}>确认裁决</button></div>
+          {!hasPendingRefund ? <><h3>最终裁决</h3><div className="dispute-resolution-form"><select value={outcome} onChange={(e) => { setOutcome(e.target.value); setQuote(null); }}><option value="feedback_only">仅记录反馈</option><option value="lesson_credit">补偿课时</option><option value="refund">退款</option><option value="rejected">不予支持</option></select>{['lesson_credit', 'refund'].includes(outcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}{outcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}<textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />{quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}<button type="button" onClick={resolve} disabled={busy || !resultMessage.trim() || (outcome === 'refund' && !quote)}>确认裁决</button></div></> : null}
         </> : <><h3>最终结果</h3><DetailGrid items={[[ '结果', dispute.outcome_code], ['处理课时', formatHours(dispute.resolved_hours)], ['退款状态', dispute.refund_status || '-'], ['平台说明', dispute.result_message], ['完成时间', formatDate(dispute.resolved_at)]]} /></>}
         {actionError ? <div className="error">{actionError}</div> : null}
       </State>

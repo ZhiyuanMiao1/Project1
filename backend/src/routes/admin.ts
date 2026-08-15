@@ -29,7 +29,7 @@ const LESSON_HOURS_STATUSES = new Set(['none', 'pending', 'confirmed', 'disputed
 const REPLAY_STATUSES = new Set(['none', 'running', 'ready', 'failed']);
 const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
-const COURSE_DISPUTE_STATUSES = new Set(['submitted', 'reviewing', 'action_pending', 'resolved', 'rejected']);
+const COURSE_DISPUTE_STATUSES = new Set(['submitted', 'resolved', 'rejected']);
 const COURSE_DISPUTE_OUTCOMES = new Set(['feedback_only', 'lesson_credit', 'refund', 'rejected']);
 
 type AuditPayload = {
@@ -1738,7 +1738,7 @@ router.post('/orders/:orderId/complete-manual-refund', requireAdminAuth, async (
         [dispute.id]
       );
       if (Number(openRows?.[0]?.count || 0) === 0) {
-        await conn.query(`UPDATE course_session_disputes SET status = 'resolved', refund_status = 'completed', resolved_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id = ? AND status = 'action_pending'`, [dispute.id]);
+        await conn.query(`UPDATE course_session_disputes SET status = 'resolved', refund_status = 'completed', resolved_at = CURRENT_TIMESTAMP, version = version + 1 WHERE id = ? AND status = 'submitted'`, [dispute.id]);
         completedDisputes.push(dispute);
       }
     }
@@ -2333,7 +2333,7 @@ router.get('/course-disputes/stats', requireAdminAuth, async (_req: Request, res
       `SELECT status, COUNT(*) AS count FROM course_session_disputes GROUP BY status`
     );
     const counts = Object.fromEntries((rows || []).map((row) => [String(row.status), Number(row.count || 0)]));
-    return res.json({ counts, openCount: Number(counts.submitted || 0) + Number(counts.reviewing || 0) + Number(counts.action_pending || 0) });
+    return res.json({ counts, openCount: Number(counts.submitted || 0) });
   } catch (error) {
     console.error('Admin dispute stats error:', error);
     return res.status(500).json({ error: '异议统计加载失败' });
@@ -2425,26 +2425,6 @@ router.get('/course-disputes/:disputeId', requireAdminAuth, async (req: Request,
   }
 });
 
-router.post('/course-disputes/:disputeId/accept', requireAdminAuth, async (req: Request, res: Response) => {
-  const disputeId = safeString(req.params.disputeId, 40);
-  const version = toPositiveInt((req.body as any)?.version, 0);
-  try {
-    const result = await query<any>(
-      `UPDATE course_session_disputes SET status = 'reviewing', assigned_admin_id = ?, accepted_at = COALESCE(accepted_at, CURRENT_TIMESTAMP), version = version + 1
-       WHERE public_id = ? AND status IN ('submitted','reviewing') AND version = ?`,
-      [req.admin?.adminId, disputeId, version]
-    );
-    if (Number(result?.affectedRows || 0) !== 1) return res.status(409).json({ error: '异议已被其他管理员更新，请刷新' });
-    const rows = await query<any[]>('SELECT * FROM course_session_disputes WHERE public_id = ? LIMIT 1', [disputeId]);
-    await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type) VALUES (?, ?, 'accepted')`, [rows[0].id, req.admin?.adminId]);
-    await audit({ req, action: 'course_dispute.accept', targetType: 'course_dispute', targetId: disputeId, after: rows[0] });
-    return res.json({ dispute: toDisputeStatusPayload(rows[0]) });
-  } catch (error) {
-    console.error('Admin accept dispute error:', error);
-    return res.status(500).json({ error: '受理失败' });
-  }
-});
-
 router.post('/course-disputes/:disputeId/notes', requireAdminAuth, async (req: Request, res: Response) => {
   const disputeId = safeString(req.params.disputeId, 40);
   const note = safeString((req.body as any)?.note, 4000);
@@ -2490,7 +2470,8 @@ router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req:
     const [rows] = await conn.query<any[]>(`SELECT csd.*, cs.duration_hours, su.email AS student_email, lhc.final_hours FROM course_session_disputes csd JOIN course_sessions cs ON cs.id = csd.course_session_id JOIN users su ON su.id = csd.student_user_id LEFT JOIN lesson_hour_confirmations lhc ON lhc.id = (SELECT MAX(x.id) FROM lesson_hour_confirmations x WHERE x.course_session_id = cs.id) WHERE csd.public_id = ? LIMIT 1 FOR UPDATE`, [publicId]);
     const dispute = rows?.[0];
     if (!dispute) { await conn.rollback(); return res.status(404).json({ error: '未找到异议' }); }
-    if (Number(dispute.version || 1) !== version || !['submitted','reviewing'].includes(String(dispute.status))) { await conn.rollback(); return res.status(409).json({ error: '异议已被更新，请刷新' }); }
+    if (Number(dispute.version || 1) !== version || String(dispute.status) !== 'submitted') { await conn.rollback(); return res.status(409).json({ error: '异议已被更新，请刷新' }); }
+    if (String(dispute.outcome_code) === 'refund' && dispute.refund_status) { await conn.rollback(); return res.status(409).json({ error: '退款已提交，请使用刷新 / 重试退款' }); }
     const maxHours = Number(dispute.final_hours || dispute.duration_hours || 0);
     if (hours && hours > maxHours + 0.000001) { await conn.rollback(); return res.status(409).json({ error: '处理课时超过本节实际扣除' }); }
     let nextStatus = outcome === 'rejected' ? 'rejected' : 'resolved';
@@ -2508,7 +2489,7 @@ router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req:
         refundIds.push(Number(insert.insertId));
         await conn.query(`INSERT INTO course_dispute_refunds (dispute_id, billing_refund_id, hours) VALUES (?, ?, ?)`, [dispute.id, insert.insertId, line.hours]);
       }
-      nextStatus = 'action_pending'; refundStatus = 'processing';
+      nextStatus = 'submitted'; refundStatus = 'processing';
     }
     await conn.query(`UPDATE course_session_disputes SET status = ?, assigned_admin_id = COALESCE(assigned_admin_id, ?), accepted_at = COALESCE(accepted_at, CURRENT_TIMESTAMP), outcome_code = ?, result_message = ?, resolved_hours = ?, refund_status = ?, resolved_at = CASE WHEN ? IN ('resolved','rejected') THEN CURRENT_TIMESTAMP ELSE NULL END, version = version + 1 WHERE id = ?`, [nextStatus, req.admin?.adminId, outcome, resultMessage, hours || null, refundStatus, nextStatus, dispute.id]);
     await conn.query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, note_text, payload_json) VALUES (?, ?, 'decision', ?, ?)`, [dispute.id, req.admin?.adminId, resultMessage, JSON.stringify({ outcome, hours: hours || null })]);
@@ -2529,7 +2510,7 @@ router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req:
     } catch (error: any) {
       console.error('Course dispute refund execution error:', error);
       await query(
-        `UPDATE course_session_disputes SET status = 'action_pending', refund_status = 'failed', version = version + 1 WHERE public_id = ?`,
+        `UPDATE course_session_disputes SET status = 'submitted', refund_status = 'failed', version = version + 1 WHERE public_id = ?`,
         [publicId]
       );
       await query(
@@ -2545,7 +2526,7 @@ router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req:
     const allCompleted = processed.every((row: any) => String(row?.status || '').toUpperCase() === 'COMPLETED');
     const anyFailed = processed.some((row: any) => String(row?.status || '').toUpperCase() === 'FAILED');
     if (processed.length) {
-      await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = ?, version = version + 1 WHERE public_id = ?`, [allCompleted ? 'resolved' : 'action_pending', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? new Date() : null, publicId]);
+      await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = ?, version = version + 1 WHERE public_id = ?`, [allCompleted ? 'resolved' : 'submitted', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? new Date() : null, publicId]);
       finalRow = (await query<any[]>('SELECT csd.*, u.email AS student_email FROM course_session_disputes csd JOIN users u ON u.id = csd.student_user_id WHERE csd.public_id = ? LIMIT 1', [publicId]))[0];
     }
   }
@@ -2566,7 +2547,7 @@ router.post('/course-disputes/:disputeId/refresh-refunds', requireAdminAuth, asy
   );
   const dispute = rows?.[0];
   if (!dispute) return res.status(404).json({ error: '未找到异议' });
-  if (String(dispute.status) !== 'action_pending' || String(dispute.outcome_code) !== 'refund') return res.status(409).json({ error: '该异议没有待执行退款' });
+  if (String(dispute.status) !== 'submitted' || String(dispute.outcome_code) !== 'refund') return res.status(409).json({ error: '该异议没有待执行退款' });
   const refundRows = await query<any[]>(`SELECT br.id, br.status, br.provider FROM course_dispute_refunds cdr JOIN billing_refunds br ON br.id = cdr.billing_refund_id WHERE cdr.dispute_id = ?`, [dispute.id]);
   for (const refund of refundRows || []) {
     if (String(refund.status).toUpperCase() === 'FAILED' && String(refund.provider).toLowerCase() === 'paypal') {
@@ -2585,7 +2566,7 @@ router.post('/course-disputes/:disputeId/refresh-refunds', requireAdminAuth, asy
   }
   const allCompleted = processed.length > 0 && processed.every((row: any) => String(row?.status || '').toUpperCase() === 'COMPLETED');
   const anyFailed = processed.some((row: any) => String(row?.status || '').toUpperCase() === 'FAILED');
-  await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE resolved_at END, version = version + 1 WHERE id = ?`, [allCompleted ? 'resolved' : 'action_pending', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? 1 : 0, dispute.id]);
+  await query(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE resolved_at END, version = version + 1 WHERE id = ?`, [allCompleted ? 'resolved' : 'submitted', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? 1 : 0, dispute.id]);
   await query(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, payload_json) VALUES (?, ?, 'refund_refresh', ?)`, [dispute.id, req.admin?.adminId, JSON.stringify({ allCompleted, anyFailed })]);
   await audit({ req, action: 'course_dispute.refund.refresh', targetType: 'course_dispute', targetId: publicId, after: { allCompleted, anyFailed } });
   if (allCompleted && !dispute.result_email_sent_at) {
