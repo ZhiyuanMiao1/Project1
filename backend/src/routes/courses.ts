@@ -38,7 +38,6 @@ const COURSE_DISPUTE_REASON_CODES = new Set([
   'lesson_not_delivered',
   'content_mismatch',
   'mentor_conduct',
-  'lesson_hours',
   'other',
 ]);
 const COURSE_DISPUTE_RESOLUTION_CODES = new Set([

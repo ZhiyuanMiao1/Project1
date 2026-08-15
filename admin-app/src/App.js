@@ -2874,21 +2874,34 @@ function ClassroomWatchPage() {
 }
 
 const disputeReasonLabels = {
-  lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容与描述不符', mentor_conduct: '导师行为问题', other: '其他问题', lesson_hours: '课时或扣费问题',
+  lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容与描述不符', mentor_conduct: '导师行为问题', other: '其他问题',
 };
 const disputeResolutionLabels = {
   feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款', platform_review: '平台协助处理', reschedule: '补课或重新安排', partial_refund: '部分退款', full_refund: '全额退款',
 };
 const disputeStatusLabels = { submitted: '待受理', reviewing: '处理中', action_pending: '执行中', resolved: '已解决', rejected: '不予支持' };
+const disputeReasonOptions = [{ value: '', label: '全部' }, ...Object.entries(disputeReasonLabels).map(([value, label]) => ({ value, label }))];
+const disputeResolutionOptions = [{ value: '', label: '全部学生期望' }, ...Object.entries(disputeResolutionLabels).map(([value, label]) => ({ value, label }))];
+const disputeStatusOptions = [{ value: '', label: '全部状态' }, ...Object.entries(disputeStatusLabels).map(([value, label]) => ({ value, label }))];
 const DisputeStatusBadge = ({ value }) => <span className={`badge badge-${value || 'none'}`}>{disputeStatusLabels[value] || value || '-'}</span>;
+const disputeReasonTones = { lesson_not_delivered: 'red', content_mismatch: 'amber', mentor_conduct: 'red', other: 'neutral' };
+const disputeResolutionTones = { feedback_only: 'neutral', lesson_credit: 'green', refund_review: 'amber', platform_review: 'purple', reschedule: 'blue', partial_refund: 'amber', full_refund: 'red' };
+const DisputeTag = ({ value, labels, tones }) => (
+  <span className={`badge badge-dispute-${tones[value] || 'neutral'}`}>{labels[value] || value || '-'}</span>
+);
+const DisputeReasonTag = ({ value }) => <DisputeTag value={value} labels={disputeReasonLabels} tones={disputeReasonTones} />;
+const DisputeResolutionTag = ({ value }) => <DisputeTag value={value} labels={disputeResolutionLabels} tones={disputeResolutionTones} />;
 const formatDisputeNumber = (dispute) => dispute?.internalId ? `#${dispute.internalId}` : String(dispute?.id || '-');
 
 function CourseDisputesPage() {
   const [searchParams] = useSearchParams();
   const [q, setQ] = useState(searchParams.get('q') || '');
+  const [reason, setReason] = useState(searchParams.get('reason') || '');
+  const [resolution, setResolution] = useState(searchParams.get('resolution') || '');
+  const [status, setStatus] = useState(searchParams.get('status') || '');
   const [selectedId, setSelectedId] = useState('');
   const [reload, setReload] = useState(0);
-  const state = useAsync(() => api('/api/admin/course-disputes', { params: { q, limit: 100 } }), [q, reload]);
+  const state = useAsync(() => api('/api/admin/course-disputes', { params: { q, reason, resolution, status, limit: 100 } }), [q, reason, resolution, status, reload]);
   return (
     <section>
       <PageTitle title="异议管理" subtitle="受理课程投诉并执行反馈、课时补偿或退款" />
@@ -2896,8 +2909,18 @@ function CourseDisputesPage() {
         <SearchBox value={q} onChange={setQ} placeholder="搜索异议编号、课堂ID、StudentID、MentorID" />
       </Toolbar>
       <State loading={state.loading} error={state.error}>
-        <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '操作']} rows={(state.data?.disputes || []).map((item) => [
-          <strong title={item.id}>{formatDisputeNumber(item)}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
+        <DataTable columns={[
+          '异议编号',
+          '提交时间',
+          '课堂',
+          '学生',
+          '导师',
+          <StatusFilterHeader value={reason} options={disputeReasonOptions} onChange={setReason} defaultLabel="问题类型" ariaLabel="问题类型筛选" />,
+          <StatusFilterHeader value={resolution} options={disputeResolutionOptions} onChange={setResolution} defaultLabel="学生期望" ariaLabel="学生期望筛选" />,
+          <StatusFilterHeader value={status} options={disputeStatusOptions} onChange={setStatus} defaultLabel="状态" ariaLabel="异议状态筛选" />,
+          '操作',
+        ]} rows={(state.data?.disputes || []).map((item) => [
+          <strong title={item.id}>{formatDisputeNumber(item)}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', <DisputeReasonTag value={item.reason_code} />, <DisputeResolutionTag value={item.preferred_resolution} />, <DisputeStatusBadge value={item.status} />, <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
         ])} />
       </State>
       {selectedId ? <CourseDisputeDrawer disputeId={selectedId} onClose={() => setSelectedId('')} onChanged={() => setReload((v) => v + 1)} /> : null}
@@ -2931,7 +2954,7 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
       <State loading={state.loading} error={state.error}>
         <h2>异议 {formatDisputeNumber(dispute)}</h2>
         <DetailGrid items={[[ '状态', <DisputeStatusBadge value={dispute.status} /> ], ['课堂', `#${dispute.course_session_id}`], ['StudentID', dispute.student_public_id], ['MentorID', dispute.mentor_public_id], ['课程', `${formatCourseDirection(dispute.course_direction)} / ${formatCourseType(dispute.course_type)}`], ['上课时间', formatDate(dispute.startsAt)], ['实际扣除', formatHours(dispute.final_hours || dispute.duration_hours)], ['处理人', dispute.assignedAdmin || '-']]} />
-        <h3>学生提交</h3><DetailGrid items={[[ '问题类型', disputeReasonLabels[dispute.reason_code] || dispute.reason_code], ['期望方案', disputeResolutionLabels[dispute.preferred_resolution] || dispute.preferred_resolution], ['情况说明', dispute.description_text]]} />
+        <h3>学生提交</h3><DetailGrid items={[[ '问题类型', <DisputeReasonTag value={dispute.reason_code} />], ['期望方案', <DisputeResolutionTag value={dispute.preferred_resolution} />], ['情况说明', dispute.description_text]]} />
         <h3>原始扣费订单</h3><DataTable compact columns={['订单', '渠道', '扣除课时', '原金额']} rows={(dispute.allocations || []).map((row) => [row.billing_order_id, row.provider, formatHours(row.hours), `${row.amount_cny} CNY`])} />
         <h3>课堂回放</h3><State loading={replayState.loading} error={replayState.error}><div className="replay-list embedded">{(replayState.data?.files || []).map((file) => <div className="replay-item" key={file.fileId || file.fileName}><strong>{file.fileName}</strong><button type="button" onClick={() => window.open(file.url, '_blank', 'noopener,noreferrer')}>播放</button></div>)}{!replayState.data?.files?.length ? <div className="empty">暂无回放</div> : null}</div></State>
         <h3>聊天记录</h3><State loading={chatState.loading} error={chatState.error}><div className="classroom-chat-history">{(chatState.data?.messages || []).map((message) => <article className="classroom-chat-history-item" key={message.id}><strong>{message.senderLabel}</strong><time>{formatDate(message.createdAt)}</time><p>{message.textContent || message.file?.fileName || '-'}</p></article>)}{!chatState.data?.messages?.length ? <div className="empty">暂无聊天记录</div> : null}</div></State>

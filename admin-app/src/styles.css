@@ -2391,6 +2391,7 @@ tr:last-child td {
 
 .badge-pending,
 .badge-open,
+.badge-submitted,
 .badge-high,
 .badge-order-pending,
 .badge-order-unknown {
@@ -2502,6 +2503,150 @@ tr:last-child td {
 .badge-platform_review {
   background: #f0e8ff;
   color: #6d28d9;
+}
+
+.badge-action_pending,
+.badge-dispute-purple {
+  background: #f0e8ff;
+  color: #6d28d9;
+}
+
+.badge-dispute-neutral {
+  background: #eef2f7;
+  color: #51627d;
+}
+
+.badge-dispute-blue {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.badge-dispute-green {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.badge-dispute-amber {
+  background: #fff4df;
+  color: #9a5b00;
+}
+
+.badge-dispute-red {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header:is(
+  .status-filter-header-lesson_not_delivered,
+  .status-filter-header-mentor_conduct,
+  .status-filter-header-full_refund
+) .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
+.status-filter-header:is(
+  .status-filter-header-content_mismatch,
+  .status-filter-header-refund_review,
+  .status-filter-header-partial_refund,
+  .status-filter-header-submitted
+) .status-filter-trigger {
+  background: #fff4df;
+  color: #9a5b00;
+}
+
+.status-filter-header:is(
+  .status-filter-header-reschedule,
+  .status-filter-header-reviewing
+) .status-filter-trigger {
+  background: #e7f0ff;
+  color: #1f5eaa;
+}
+
+.status-filter-header:is(
+  .status-filter-header-lesson_credit,
+  .status-filter-header-resolved
+) .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header:is(
+  .status-filter-header-platform_review,
+  .status-filter-header-action_pending
+) .status-filter-trigger {
+  background: #f0e8ff;
+  color: #6d28d9;
+}
+
+.status-filter-header:is(
+  .status-filter-header-other,
+  .status-filter-header-feedback_only
+) .status-filter-trigger {
+  background: #eef2f7;
+  color: #51627d;
+}
+
+.status-filter-menu :is(
+  .status-filter-option-lesson_not_delivered,
+  .status-filter-option-mentor_conduct,
+  .status-filter-option-full_refund
+) {
+  --status-tag-bg: #fde8e6;
+  --status-tag-color: #b42318;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu :is(
+  .status-filter-option-content_mismatch,
+  .status-filter-option-refund_review,
+  .status-filter-option-partial_refund,
+  .status-filter-option-submitted
+) {
+  --status-tag-bg: #fff4df;
+  --status-tag-color: #9a5b00;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu :is(
+  .status-filter-option-reschedule,
+  .status-filter-option-reviewing
+) {
+  --status-tag-bg: #e7f0ff;
+  --status-tag-color: #1f5eaa;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu :is(
+  .status-filter-option-lesson_credit,
+  .status-filter-option-resolved
+) {
+  --status-tag-bg: #e7f6ee;
+  --status-tag-color: #0f6b3d;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu :is(
+  .status-filter-option-platform_review,
+  .status-filter-option-action_pending
+) {
+  --status-tag-bg: #f0e8ff;
+  --status-tag-color: #6d28d9;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu :is(
+  .status-filter-option-other,
+  .status-filter-option-feedback_only
+) {
+  --status-tag-bg: #eef2f7;
+  --status-tag-color: #51627d;
+  color: var(--status-tag-color);
+}
+
+.status-filter-menu button[class*="status-filter-option-"]:is(:hover, :focus-visible, .active) {
+  background: var(--status-tag-bg, #dff3f2);
+  color: var(--status-tag-color, #006c73);
 }
 
 .platform-review-status {
