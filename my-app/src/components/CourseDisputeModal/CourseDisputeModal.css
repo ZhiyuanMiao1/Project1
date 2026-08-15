@@ -478,12 +478,13 @@
   }
 
   .course-dispute-modal__course-card {
-    margin-top: 4px;
+    margin-top: 2px;
     padding-bottom: 15px;
   }
 
   .course-dispute-modal__form {
-    margin-top: 10px;
+    gap: 17px;
+    margin-top: 9px;
   }
 
   .course-dispute-modal__mentor-id {
