@@ -225,14 +225,31 @@ button.link-button {
 
 .dispute-resolution-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(140px, 0.6fr) auto;
+  grid-template-columns: minmax(180px, 1fr) auto;
   gap: 10px;
   align-items: center;
 }
 
+.dispute-resolution-expectation,
 .dispute-resolution-form textarea,
-.dispute-resolution-form .refund-quote {
+.dispute-resolution-form .refund-quote,
+.dispute-resolution-actions {
   grid-column: 1 / -1;
+}
+
+.dispute-resolution-expectation,
+.dispute-resolution-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dispute-resolution-expectation > span {
+  color: #66758d;
+}
+
+.dispute-resolution-actions {
+  justify-content: flex-end;
 }
 
 .refund-quote {

@@ -2892,6 +2892,7 @@ const disputeReasonLabels = {
 const disputeResolutionLabels = {
   feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款',
 };
+const disputePreferredOutcomes = { feedback_only: 'feedback_only', lesson_credit: 'lesson_credit', refund_review: 'refund' };
 const disputeStatusLabels = { submitted: '待受理', resolved: '已解决', rejected: '不予支持' };
 const disputeReasonOptions = [{ value: '', label: '全部' }, ...Object.entries(disputeReasonLabels).map(([value, label]) => ({ value, label }))];
 const disputeResolutionOptions = [{ value: '', label: '全部' }, ...Object.entries(disputeResolutionLabels).map(([value, label]) => ({ value, label }))];
@@ -2946,18 +2947,18 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
   const state = useAsync(() => api(`/api/admin/course-disputes/${encodeURIComponent(disputeId)}`), [disputeId, reload]);
   const replayState = useAsync(() => state.data?.dispute?.course_session_id ? api(`/api/admin/classrooms/${state.data.dispute.course_session_id}/replay-files`) : Promise.resolve({ files: [] }), [state.data?.dispute?.course_session_id]);
   const chatState = useAsync(() => state.data?.dispute?.course_session_id ? api(`/api/admin/classrooms/${state.data.dispute.course_session_id}/chat`) : Promise.resolve({ messages: [] }), [state.data?.dispute?.course_session_id]);
-  const [outcome, setOutcome] = useState('feedback_only');
   const [hours, setHours] = useState('');
   const [resultMessage, setResultMessage] = useState('');
   const [quote, setQuote] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
   const dispute = state.data?.dispute || {};
+  const preferredOutcome = disputePreferredOutcomes[dispute.preferred_resolution] || 'feedback_only';
   const hasPendingRefund = dispute.status === 'submitted' && dispute.outcome_code === 'refund';
   const refresh = () => { setReload((v) => v + 1); onChanged(); };
   const run = async (fn) => { setBusy(true); setActionError(''); try { await fn(); refresh(); } catch (e) { setActionError(e.message || '操作失败'); } finally { setBusy(false); } };
   const getQuote = () => run(async () => { const data = await api(`/api/admin/course-disputes/${disputeId}/refund-quote`, { method: 'POST', body: { hours: Number(hours) } }); setQuote(data.quote); });
-  const resolve = () => run(() => api(`/api/admin/course-disputes/${disputeId}/resolve`, { method: 'POST', body: { version: dispute.version, outcome, hours: ['lesson_credit', 'refund'].includes(outcome) ? Number(hours) : undefined, resultMessage } }));
+  const resolve = (outcome) => run(() => api(`/api/admin/course-disputes/${disputeId}/resolve`, { method: 'POST', body: { version: dispute.version, outcome, hours: ['lesson_credit', 'refund'].includes(outcome) ? Number(hours) : undefined, resultMessage } }));
   const refreshRefunds = () => run(() => api(`/api/admin/course-disputes/${disputeId}/refresh-refunds`, { method: 'POST' }));
   return (
     <aside className="drawer wide-drawer dispute-drawer">
@@ -2970,7 +2971,17 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
         <h3>聊天记录</h3><State loading={chatState.loading} error={chatState.error}><div className="classroom-chat-history">{(chatState.data?.messages || []).map((message) => <article className="classroom-chat-history-item" key={message.id}><strong>{message.senderLabel}</strong><time>{formatDate(message.createdAt)}</time><p>{message.textContent || message.file?.fileName || '-'}</p></article>)}{!chatState.data?.messages?.length ? <div className="empty">暂无聊天记录</div> : null}</div></State>
         {hasPendingRefund ? <button type="button" onClick={refreshRefunds} disabled={busy}>刷新 / 重试退款</button> : null}
         {!['resolved', 'rejected'].includes(dispute.status) ? <>
-          {!hasPendingRefund ? <><h3>最终裁决</h3><div className="dispute-resolution-form"><select value={outcome} onChange={(e) => { setOutcome(e.target.value); setQuote(null); }}><option value="feedback_only">仅记录反馈</option><option value="lesson_credit">补偿课时</option><option value="refund">退款</option><option value="rejected">不予支持</option></select>{['lesson_credit', 'refund'].includes(outcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}{outcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}<textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />{quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}<button type="button" onClick={resolve} disabled={busy || !resultMessage.trim() || (outcome === 'refund' && !quote)}>确认裁决</button></div></> : null}
+          {!hasPendingRefund ? <><h3>最终裁决</h3><div className="dispute-resolution-form">
+            <div className="dispute-resolution-expectation"><span>学生期望</span><DisputeResolutionTag value={dispute.preferred_resolution} /></div>
+            {['lesson_credit', 'refund'].includes(preferredOutcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}
+            {preferredOutcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}
+            <textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />
+            {quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}
+            <div className="dispute-resolution-actions">
+              <button className="ghost" type="button" onClick={() => resolve('rejected')} disabled={busy || !resultMessage.trim()}>不予支持</button>
+              <button type="button" onClick={() => resolve(preferredOutcome)} disabled={busy || !resultMessage.trim() || (['lesson_credit', 'refund'].includes(preferredOutcome) && !hours) || (preferredOutcome === 'refund' && !quote)}>{preferredOutcome === 'lesson_credit' ? '确认补偿课时' : preferredOutcome === 'refund' ? '确认退款' : '确认记录反馈'}</button>
+            </div>
+          </div></> : null}
         </> : <><h3>最终结果</h3><DetailGrid items={[[ '结果', dispute.outcome_code], ['处理课时', formatHours(dispute.resolved_hours)], ['退款状态', dispute.refund_status || '-'], ['平台说明', dispute.result_message], ['完成时间', formatDate(dispute.resolved_at)]]} /></>}
         {actionError ? <div className="error">{actionError}</div> : null}
       </State>

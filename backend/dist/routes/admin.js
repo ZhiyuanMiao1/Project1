@@ -31,6 +31,11 @@ const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
 const COURSE_DISPUTE_STATUSES = new Set(['submitted', 'resolved', 'rejected']);
 const COURSE_DISPUTE_OUTCOMES = new Set(['feedback_only', 'lesson_credit', 'refund', 'rejected']);
+const COURSE_DISPUTE_PREFERRED_OUTCOMES = {
+    feedback_only: 'feedback_only',
+    lesson_credit: 'lesson_credit',
+    refund_review: 'refund',
+};
 const safeString = (value, max = 255) => {
     const text = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
     return text.slice(0, max);
@@ -2199,6 +2204,11 @@ router.post('/course-disputes/:disputeId/resolve', adminAuth_1.requireAdminAuth,
         if (String(dispute.outcome_code) === 'refund' && dispute.refund_status) {
             await conn.rollback();
             return res.status(409).json({ error: '退款已提交，请使用刷新 / 重试退款' });
+        }
+        const preferredOutcome = COURSE_DISPUTE_PREFERRED_OUTCOMES[String(dispute.preferred_resolution)];
+        if (!preferredOutcome || (outcome !== preferredOutcome && outcome !== 'rejected')) {
+            await conn.rollback();
+            return res.status(400).json({ error: '处理方式必须与学生期望一致' });
         }
         const maxHours = Number(dispute.final_hours || dispute.duration_hours || 0);
         if (hours && hours > maxHours + 0.000001) {

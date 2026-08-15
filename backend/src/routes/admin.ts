@@ -31,6 +31,11 @@ const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
 const COURSE_DISPUTE_STATUSES = new Set(['submitted', 'resolved', 'rejected']);
 const COURSE_DISPUTE_OUTCOMES = new Set(['feedback_only', 'lesson_credit', 'refund', 'rejected']);
+const COURSE_DISPUTE_PREFERRED_OUTCOMES: Record<string, string> = {
+  feedback_only: 'feedback_only',
+  lesson_credit: 'lesson_credit',
+  refund_review: 'refund',
+};
 
 type AuditPayload = {
   req: Request;
@@ -2472,6 +2477,8 @@ router.post('/course-disputes/:disputeId/resolve', requireAdminAuth, async (req:
     if (!dispute) { await conn.rollback(); return res.status(404).json({ error: '未找到异议' }); }
     if (Number(dispute.version || 1) !== version || String(dispute.status) !== 'submitted') { await conn.rollback(); return res.status(409).json({ error: '异议已被更新，请刷新' }); }
     if (String(dispute.outcome_code) === 'refund' && dispute.refund_status) { await conn.rollback(); return res.status(409).json({ error: '退款已提交，请使用刷新 / 重试退款' }); }
+    const preferredOutcome = COURSE_DISPUTE_PREFERRED_OUTCOMES[String(dispute.preferred_resolution)];
+    if (!preferredOutcome || (outcome !== preferredOutcome && outcome !== 'rejected')) { await conn.rollback(); return res.status(400).json({ error: '处理方式必须与学生期望一致' }); }
     const maxHours = Number(dispute.final_hours || dispute.duration_hours || 0);
     if (hours && hours > maxHours + 0.000001) { await conn.rollback(); return res.status(409).json({ error: '处理课时超过本节实际扣除' }); }
     let nextStatus = outcome === 'rejected' ? 'rejected' : 'resolved';
