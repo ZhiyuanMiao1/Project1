@@ -2900,8 +2900,8 @@ function CourseDisputesPage() {
         <SearchBox value={q} onChange={setQ} placeholder="搜索异议编号、课堂ID、StudentID、MentorID" />
       </Toolbar>
       <State loading={state.loading} error={state.error}>
-        <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '处理人', '操作']} rows={(state.data?.disputes || []).map((item) => [
-          <strong>{item.id}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, item.assignedAdmin || '-', <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
+        <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '操作']} rows={(state.data?.disputes || []).map((item) => [
+          <strong>{item.id}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
         ])} />
       </State>
       {selectedId ? <CourseDisputeDrawer disputeId={selectedId} onClose={() => setSelectedId('')} onChanged={() => setReload((v) => v + 1)} /> : null}
