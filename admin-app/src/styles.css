@@ -2781,6 +2781,15 @@ tr:last-child td {
   background: #dbe3ed;
 }
 
+.dispute-drawer > h3::before {
+  content: "";
+  display: block;
+  width: 88px;
+  height: 1px;
+  margin: 28px 0 20px;
+  background: #dbe3ed;
+}
+
 @media (max-width: 860px) {
   .classroom-party-columns {
     grid-template-columns: 1fr;
