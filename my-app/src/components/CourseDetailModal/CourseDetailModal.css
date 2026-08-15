@@ -343,11 +343,74 @@
   .course-detail-modal__actions {
     margin-top: 4px;
     padding-top: 14px;
+    flex: 0 0 auto;
   }
 
   .course-detail-dispute-link {
-    right: 18px;
-    bottom: 0;
+    position: static;
+    align-self: flex-end;
     min-height: 44px;
+    margin: 0 0 -6px;
+  }
+}
+
+@media (max-width: 599px) {
+  .course-detail-modal__overlay {
+    padding: 12px;
+  }
+
+  .course-detail-modal__card {
+    width: 100%;
+    max-width: 420px;
+    max-height: calc(100dvh - 24px);
+    padding: 18px 16px 12px;
+    border-radius: 18px;
+  }
+
+  .course-detail-modal__mentor {
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-right: 34px;
+  }
+
+  .course-detail-modal__avatar {
+    width: 64px;
+    height: 64px;
+  }
+
+  .course-detail-modal__mentor-name {
+    font-size: 17px;
+  }
+
+  .course-detail-modal__rating {
+    gap: 6px;
+  }
+
+  .course-detail-modal__stars {
+    gap: 2px;
+  }
+
+  .course-detail-modal__rating-value {
+    font-size: 14px;
+  }
+
+  .course-detail-modal__body {
+    padding-top: 4px;
+    gap: 8px;
+  }
+
+  .course-detail-modal__title {
+    margin-bottom: 4px;
+    font-size: 18px;
+  }
+
+  .course-detail-modal__actions {
+    margin-top: 4px;
+    padding-top: 12px;
+    gap: 4px;
+  }
+
+  .course-detail-classroom-btn {
+    height: 44px;
   }
 }
