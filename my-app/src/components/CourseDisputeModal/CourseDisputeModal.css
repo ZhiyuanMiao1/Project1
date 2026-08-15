@@ -457,6 +457,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .course-dispute-modal__option {
+    box-sizing: border-box;
+    min-height: 52px;
+    padding: 7px 10px;
+  }
+
   .course-dispute-modal__course-details {
     grid-template-columns: 1fr;
   }
@@ -476,7 +482,7 @@
   }
 
   .course-dispute-modal__form {
-    margin-top: 10px;
+    margin-top: 6px;
   }
 
   .course-dispute-modal__mentor-id {
