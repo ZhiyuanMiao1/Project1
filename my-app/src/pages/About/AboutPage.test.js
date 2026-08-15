@@ -51,12 +51,16 @@ describe('business cooperation content and actions', () => {
       'trusted-connections',
       'priorities',
       'investment',
-      'how-we-start',
       'connect',
     ]);
     expect(english.sections.map(({ id }) => id)).toEqual(chinese.sections.map(({ id }) => id));
-    expect(chinese.sections.find(({ id }) => id === 'priorities').items).toHaveLength(6);
-    expect(english.sections.find(({ id }) => id === 'priorities').items).toHaveLength(6);
+    const chinesePriorities = chinese.sections.find(({ id }) => id === 'priorities').items;
+    const englishPriorities = english.sections.find(({ id }) => id === 'priorities').items;
+    expect(chinesePriorities).toHaveLength(6);
+    expect(englishPriorities).toHaveLength(6);
+    expect(chinesePriorities.every(([, description]) => !/[。.\s]$/.test(description))).toBe(true);
+    expect(englishPriorities.every(([, description]) => !/[.\s]$/.test(description))).toBe(true);
+    expect(chinesePriorities.at(-1)[1]).toBe('寻找能够在产品、技术、教育运营、增长或国际化方面长期投入的同行者');
     expect(chinese.sections.find(({ id }) => id === 'connect').actions).toHaveLength(3);
     expect(english.sections.find(({ id }) => id === 'connect').actions).toHaveLength(3);
   });

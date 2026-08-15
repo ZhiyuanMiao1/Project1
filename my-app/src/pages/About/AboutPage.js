@@ -184,7 +184,7 @@ export const ABOUT_CONTENT = {
           id: 'trusted-connections',
           title: '1. 一起构建更值得信任的学习连接',
           paragraphs: [
-            'Mentory 正在构建一个连接学习者与专业导师的在线学习平台。目前，平台已覆盖导师资料展示、课程需求发布、匹配沟通、在线课堂、课时确认、交易记录与课程回顾等学习环节。',
+            'Mentory 正在构建一个连接学习者与专业导师的在线学习平台。目前，平台已覆盖导师资料展示、课程需求发布、匹配沟通、在线课堂、交易记录与课程回顾等学习环节。',
             '现阶段，我们希望扩大优质导师与专家供给，连接更多真实、明确的学习需求，也期待与认同长期教育价值的伙伴共同验证新的学习场景和可持续合作方式。',
           ],
         },
@@ -192,12 +192,12 @@ export const ABOUT_CONTENT = {
           id: 'priorities',
           title: '2. 我们重点寻找的合作',
           items: [
-            ['导师与专家', '邀请具备专业背景、实践经验和教学能力的导师、研究者及行业专家加入平台，服务真实、具体的学习目标。'],
-            ['高校与学习社群', '面向高校、学生组织和专业社群，围绕课程辅导、研究方法、升学与职业探索开展小范围学习项目。'],
-            ['企业与团队学习', '针对团队明确的学科或技能需求，试行导师匹配、专题课程或线上分享，并共同定义验证目标。'],
-            ['内容、品牌与活动', '共创具有实际学习价值的专题内容、专家访谈、线上活动或品牌教育项目，让专业知识触达合适的人群。'],
-            ['业务与区域伙伴', '共同拓展特定地区、学科或用户群体，在合作前明确双方投入的资源、责任边界和预期成果。'],
-            ['核心创业伙伴', '寻找能够在产品、技术、教育运营、增长或国际化方面长期投入的同行者。具体的雇佣、股权或合伙关系以双方充分了解及正式协议为准。'],
+            ['导师与专家', '邀请具备专业背景、实践经验和教学能力的导师、研究者及行业专家加入平台，服务真实、具体的学习目标'],
+            ['高校与学习社群', '面向高校、学生组织和专业社群，围绕课程辅导、研究方法、升学与职业探索开展小范围学习项目'],
+            ['企业与团队学习', '针对团队明确的学科或技能需求，试行导师匹配、专题课程或线上分享，并共同定义验证目标'],
+            ['内容、品牌与活动', '共创具有实际学习价值的专题内容、专家访谈、线上活动或品牌教育项目，让专业知识触达合适的人群'],
+            ['业务与区域伙伴', '共同拓展特定地区、学科或用户群体，在合作前明确双方投入的资源、责任边界和预期成果'],
+            ['核心创业伙伴', '寻找能够在产品、技术、教育运营、增长或国际化方面长期投入的同行者'],
           ],
         },
         {
@@ -209,19 +209,8 @@ export const ABOUT_CONTENT = {
           ],
         },
         {
-          id: 'how-we-start',
-          title: '4. 我们如何开始合作',
-          bullets: [
-            '介绍背景：说明你或机构的背景、可投入资源、合作目标、目标群体和时间范围；',
-            '确认匹配：共同判断合作是否符合 Mentory 用户价值、质量要求与当前产品阶段；',
-            '选择路径：业务合作优先通过小范围试点验证；核心伙伴和投资合作进入深入沟通、必要的尽调及正式约定；',
-            '落地复盘：依据双方事先确认的目标推进和复盘，不以无法验证的学习或商业效果作为承诺。',
-          ],
-          note: '所有合作都应清楚说明关系、内容边界、数据使用和各方责任，并遵守适用法律、隐私要求与 Mentory 平台规则',
-        },
-        {
           id: 'connect',
-          title: '5. 选择你的合作方式',
+          title: '4. 选择你的合作方式',
           paragraphs: ['选择与你最匹配的入口。业务、核心创业伙伴及投资线索暂时统一由 contact@mentory.cc 接收，并通过邮件主题分类处理。'],
           actions: [
             { type: 'mentor-registration', title: '分享你的专业知识', description: '注册导师身份，完善你的专业背景、擅长领域与教学方式。', label: '成为 Mentory 导师', ariaLabel: '注册成为 Mentory 导师' },
@@ -236,11 +225,10 @@ export const ABOUT_CONTENT = {
       tocTitle: 'On this page',
       top: 'Back to top',
       sections: [
-        { id: 'trusted-connections', title: '1. Build trusted learning connections together', paragraphs: ['Mentory is building an online learning platform that connects learners with professional mentors. Today, the platform supports mentor profiles, lesson requests, matching and communication, online classrooms, lesson-hour confirmation, transaction records, and lesson review.', 'At this stage, we are focused on growing the supply of high-quality mentors and experts, connecting more real and well-defined learning needs, and working with long-term partners to validate new learning scenarios and sustainable ways to collaborate.'] },
-        { id: 'priorities', title: '2. Partnership priorities', items: [['Mentors & experts', 'Invite mentors, researchers, and industry experts with strong subject knowledge, practical experience, and teaching ability to serve real, specific learning goals.'], ['Universities & learning communities', 'Run focused learning pilots with universities, student organizations, and professional communities around subject support, research methods, further study, and career exploration.'], ['Team learning pilots', 'Test mentor matching, focused lessons, or online talks around a team’s clearly defined subject or skill needs, with shared validation goals.'], ['Content, brands & events', 'Co-create educational content, expert conversations, online events, or brand learning projects that bring useful knowledge to the right audience.'], ['Business & regional partners', 'Develop a subject, region, or user segment together, with resources, responsibilities, boundaries, and intended outcomes agreed in advance.'], ['Core venture partners', 'Meet people ready to contribute over the long term across product, technology, education operations, growth, or international expansion. Any employment, equity, or partnership relationship is subject to mutual understanding and a formal agreement.']] },
+        { id: 'trusted-connections', title: '1. Build trusted learning connections together', paragraphs: ['Mentory is building an online learning platform that connects learners with professional mentors. Today, the platform supports mentor profiles, lesson requests, matching and communication, online classrooms, transaction records, and lesson review.', 'At this stage, we are focused on growing the supply of high-quality mentors and experts, connecting more real and well-defined learning needs, and working with long-term partners to validate new learning scenarios and sustainable ways to collaborate.'] },
+        { id: 'priorities', title: '2. Partnership priorities', items: [['Mentors & experts', 'Invite mentors, researchers, and industry experts with strong subject knowledge, practical experience, and teaching ability to serve real, specific learning goals'], ['Universities & learning communities', 'Run focused learning pilots with universities, student organizations, and professional communities around subject support, research methods, further study, and career exploration'], ['Team learning pilots', 'Test mentor matching, focused lessons, or online talks around a team’s clearly defined subject or skill needs, with shared validation goals'], ['Content, brands & events', 'Co-create educational content, expert conversations, online events, or brand learning projects that bring useful knowledge to the right audience'], ['Business & regional partners', 'Develop a subject, region, or user segment together, with resources, responsibilities, boundaries, and intended outcomes agreed in advance'], ['Core venture partners', 'Meet people ready to contribute over the long term across product, technology, education operations, growth, or international expansion']] },
         { id: 'investment', title: '3. Investment & strategic partnership', paragraphs: ['Mentory is open to investment and strategic conversations with investors and organizations that share a long-term view of education and can contribute complementary resources in education, platform technology, market development, or international expansion.', 'We want capital partnerships to support sustainable platform growth while strengthening the connection between excellent mentors, real learning needs, and reliable online teaching. Any arrangement will proceed through sufficient discussion, appropriate due diligence, and formal agreement.'] },
-        { id: 'how-we-start', title: '4. How we start', bullets: ['Introduce the context: share your background, available resources, partnership goal, intended audience, and timing;', 'Confirm the fit: assess alignment with Mentory’s user value, quality expectations, and current product stage;', 'Choose a path: business partnerships generally begin with a focused pilot, while core venture and investment conversations move into deeper discussion, appropriate due diligence, and formal agreement;', 'Deliver and review: work against goals agreed in advance, without promising learning or commercial outcomes that cannot be validated.'], note: 'Every partnership should define the relationship, content boundaries, data use, and responsibilities clearly, while following applicable law, privacy requirements, and Mentory platform rules' },
-        { id: 'connect', title: '5. Choose how to connect', paragraphs: ['Choose the route that best fits you. Business, core venture, and investment enquiries are currently received at contact@mentory.cc and routed by email subject.'], actions: [{ type: 'mentor-registration', title: 'Share your expertise', description: 'Register as a mentor and present your professional background, areas of expertise, and teaching approach.', label: 'Become a Mentory mentor', ariaLabel: 'Register as a Mentory mentor' }, { type: 'email', title: 'Build a new learning scenario', description: 'For universities, communities, teams, content brands, business partners, and potential core venture partners.', label: 'Discuss business or long-term partnership', ariaLabel: 'Send a business or long-term partnership email', email: 'contact@mentory.cc', subject: 'Business partnership + organization/name' }, { type: 'email', title: 'Explore long-term strategic value', description: 'For investment firms, strategic investors, and organizations able to contribute long-term complementary resources.', label: 'Discuss investment or strategic partnership', ariaLabel: 'Send an investment or strategic partnership email', email: 'contact@mentory.cc', subject: 'Investment & strategic partnership + organization/name' }] },
+        { id: 'connect', title: '4. Choose how to connect', paragraphs: ['Choose the route that best fits you. Business, core venture, and investment enquiries are currently received at contact@mentory.cc and routed by email subject.'], actions: [{ type: 'mentor-registration', title: 'Share your expertise', description: 'Register as a mentor and present your professional background, areas of expertise, and teaching approach.', label: 'Become a Mentory mentor', ariaLabel: 'Register as a Mentory mentor' }, { type: 'email', title: 'Build a new learning scenario', description: 'For universities, communities, teams, content brands, business partners, and potential core venture partners.', label: 'Discuss business or long-term partnership', ariaLabel: 'Send a business or long-term partnership email', email: 'contact@mentory.cc', subject: 'Business partnership + organization/name' }, { type: 'email', title: 'Explore long-term strategic value', description: 'For investment firms, strategic investors, and organizations able to contribute long-term complementary resources.', label: 'Discuss investment or strategic partnership', ariaLabel: 'Send an investment or strategic partnership email', email: 'contact@mentory.cc', subject: 'Investment & strategic partnership + organization/name' }] },
       ],
     },
   },
@@ -293,7 +281,7 @@ export function AboutSection({ section, onAction, actionLoading = false }) {
                   href={buildPartnershipMailto(action)}
                   aria-label={action.ariaLabel}
                 >
-                  {action.label}<span aria-hidden="true"> →</span>
+                  {action.label}
                 </a>
               ) : (
                 <button
@@ -304,7 +292,7 @@ export function AboutSection({ section, onAction, actionLoading = false }) {
                   aria-label={action.ariaLabel}
                   aria-busy={actionLoading}
                 >
-                  {action.label}<span aria-hidden="true"> →</span>
+                  {action.label}
                 </button>
               )}
             </div>
