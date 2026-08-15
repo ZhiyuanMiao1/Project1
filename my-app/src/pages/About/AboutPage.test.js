@@ -63,6 +63,8 @@ describe('business cooperation content and actions', () => {
     expect(chinesePriorities.at(-1)[1]).toBe('寻找能够在产品、技术、教育运营、增长或国际化方面长期投入的同行者');
     expect(chinese.sections.find(({ id }) => id === 'connect').actions).toHaveLength(3);
     expect(english.sections.find(({ id }) => id === 'connect').actions).toHaveLength(3);
+    expect(chinese.sections.find(({ id }) => id === 'connect').actions.every(({ description }) => !/[。.\s]$/.test(description))).toBe(true);
+    expect(english.sections.find(({ id }) => id === 'connect').actions.every(({ description }) => !/[.\s]$/.test(description))).toBe(true);
   });
 
   test('renders mentor registration as a button and email routes as encoded links', () => {
