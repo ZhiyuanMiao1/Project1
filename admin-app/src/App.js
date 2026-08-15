@@ -557,7 +557,6 @@ function Shell({ onLogout }) {
   const location = useLocation();
   const topbarTitle = getTopbarTitle(location.pathname);
   const isDashboard = location.pathname === '/dashboard';
-  const isCourseDisputes = location.pathname === '/course-disputes';
   const disputeStats = useAsync(() => api('/api/admin/course-disputes/stats'), [location.pathname]);
 
   return (
@@ -586,18 +585,14 @@ function Shell({ onLogout }) {
             {topbarTitle.subtitle ? <span>{topbarTitle.subtitle}</span> : null}
           </div>
           {isDashboard ? <DashboardTopbarDateRangeFilter /> : null}
-          {!isCourseDisputes ? (
-            <>
-              <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
-                <FontAwesomeIcon icon={faRotateRight} />
-                刷新
-              </button>
-              <button className="ghost icon-text" onClick={onLogout}>
-                <FontAwesomeIcon icon={faRightFromBracket} />
-                退出
-              </button>
-            </>
-          ) : null}
+          <button className="ghost icon-text refresh-button" type="button" onClick={() => window.location.reload()}>
+            <FontAwesomeIcon icon={faRotateRight} />
+            刷新
+          </button>
+          <button className="ghost icon-text" type="button" onClick={onLogout}>
+            <FontAwesomeIcon icon={faRightFromBracket} />
+            退出
+          </button>
         </header>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
