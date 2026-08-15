@@ -471,6 +471,14 @@
     padding-right: 104px;
   }
 
+  .course-dispute-modal__course-card {
+    padding-bottom: 8px;
+  }
+
+  .course-dispute-modal__form {
+    margin-top: 10px;
+  }
+
   .course-dispute-modal__mentor-id {
     right: 12px;
   }
