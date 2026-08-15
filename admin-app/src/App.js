@@ -2673,7 +2673,7 @@ function ClassroomDrawer({ courseId, onClose }) {
           </section>
         </div>
         {classroom.course_dispute_id ? (
-          <><h3>课程异议</h3><button type="button" onClick={() => navigate(`/course-disputes?q=${encodeURIComponent(classroom.course_dispute_id)}`)}><Badge value={classroom.course_dispute_status} /> 查看 {classroom.course_dispute_id}</button></>
+          <><h3>课程异议</h3><button type="button" onClick={() => navigate(`/course-disputes?q=${encodeURIComponent(classroom.course_dispute_internal_id || classroom.course_dispute_id)}`)}><Badge value={classroom.course_dispute_status} /> 查看 #{classroom.course_dispute_internal_id || classroom.course_dispute_id}</button></>
         ) : null}
         <h3>最新课时确认</h3>
         <DetailGrid
@@ -2881,6 +2881,7 @@ const disputeResolutionLabels = {
 };
 const disputeStatusLabels = { submitted: '待受理', reviewing: '处理中', action_pending: '执行中', resolved: '已解决', rejected: '不予支持' };
 const DisputeStatusBadge = ({ value }) => <span className={`badge badge-${value || 'none'}`}>{disputeStatusLabels[value] || value || '-'}</span>;
+const formatDisputeNumber = (dispute) => dispute?.internalId ? `#${dispute.internalId}` : String(dispute?.id || '-');
 
 function CourseDisputesPage() {
   const [searchParams] = useSearchParams();
@@ -2896,7 +2897,7 @@ function CourseDisputesPage() {
       </Toolbar>
       <State loading={state.loading} error={state.error}>
         <DataTable columns={['异议编号', '提交时间', '课堂', '学生', '导师', '问题类型', '学生期望', '状态', '操作']} rows={(state.data?.disputes || []).map((item) => [
-          <strong>{item.id}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
+          <strong title={item.id}>{formatDisputeNumber(item)}</strong>, formatDate(item.submittedAt), `#${item.course_session_id}`, item.student_public_id || '-', item.mentor_public_id || '-', disputeReasonLabels[item.reason_code] || item.reason_code, disputeResolutionLabels[item.preferred_resolution] || item.preferred_resolution, <DisputeStatusBadge value={item.status} />, <button className="detail-action" type="button" onClick={() => setSelectedId(item.id)}>处理</button>,
         ])} />
       </State>
       {selectedId ? <CourseDisputeDrawer disputeId={selectedId} onClose={() => setSelectedId('')} onChanged={() => setReload((v) => v + 1)} /> : null}
@@ -2928,7 +2929,7 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
     <aside className="drawer wide-drawer dispute-drawer">
       <button className="drawer-close" type="button" onClick={onClose}>×</button>
       <State loading={state.loading} error={state.error}>
-        <h2>异议 {dispute.id}</h2>
+        <h2>异议 {formatDisputeNumber(dispute)}</h2>
         <DetailGrid items={[[ '状态', <DisputeStatusBadge value={dispute.status} /> ], ['课堂', `#${dispute.course_session_id}`], ['StudentID', dispute.student_public_id], ['MentorID', dispute.mentor_public_id], ['课程', `${formatCourseDirection(dispute.course_direction)} / ${formatCourseType(dispute.course_type)}`], ['上课时间', formatDate(dispute.startsAt)], ['实际扣除', formatHours(dispute.final_hours || dispute.duration_hours)], ['处理人', dispute.assignedAdmin || '-']]} />
         <h3>学生提交</h3><DetailGrid items={[[ '问题类型', disputeReasonLabels[dispute.reason_code] || dispute.reason_code], ['期望方案', disputeResolutionLabels[dispute.preferred_resolution] || dispute.preferred_resolution], ['情况说明', dispute.description_text]]} />
         <h3>原始扣费订单</h3><DataTable compact columns={['订单', '渠道', '扣除课时', '原金额']} rows={(dispute.allocations || []).map((row) => [row.billing_order_id, row.provider, formatHours(row.hours), `${row.amount_cny} CNY`])} />

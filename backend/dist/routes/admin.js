@@ -1665,7 +1665,7 @@ router.get('/classrooms', adminAuth_1.requireAdminAuth, async (req, res) => {
          COALESCE(rec.stopped_recording_count, 0) AS stopped_recording_count,
          rec.latest_recording_status,
          csr.id AS review_id, csr.overall_score AS review_overall_score, csr.created_at AS review_created_at
-         ,csd.public_id AS course_dispute_id, csd.status AS course_dispute_status
+         ,csd.public_id AS course_dispute_id, csd.id AS course_dispute_internal_id, csd.status AS course_dispute_status
        ${joins}
        WHERE ${where.join(' AND ')}
        ORDER BY cs.starts_at DESC, cs.id DESC
@@ -1699,7 +1699,7 @@ router.get('/classrooms/:courseId', adminAuth_1.requireAdminAuth, async (req, re
          csr.id AS review_id, csr.clarity_score, csr.communication_score, csr.preparation_score,
          csr.expertise_score, csr.punctuality_score, csr.comment_text, csr.overall_score,
          csr.created_at AS review_created_at, csr.updated_at AS review_updated_at
-         ,csd.public_id AS course_dispute_id, csd.status AS course_dispute_status
+         ,csd.public_id AS course_dispute_id, csd.id AS course_dispute_internal_id, csd.status AS course_dispute_status
        FROM course_sessions cs
        JOIN users su ON su.id = cs.student_user_id
        JOIN users mu ON mu.id = cs.mentor_user_id
@@ -2038,6 +2038,7 @@ router.get('/course-disputes/stats', adminAuth_1.requireAdminAuth, async (_req, 
 router.get('/course-disputes', adminAuth_1.requireAdminAuth, async (req, res) => {
     const { page, limit, offset } = getPaging(req);
     const q = safeString(req.query.q, 100);
+    const disputeNumber = q.match(/^#?(\d+)$/)?.[1] || q;
     const status = safeString(req.query.status, 32).toLowerCase();
     const reason = safeString(req.query.reason, 40);
     const resolution = safeString(req.query.resolution, 40);
@@ -2047,8 +2048,8 @@ router.get('/course-disputes', adminAuth_1.requireAdminAuth, async (req, res) =>
     const params = [];
     if (q) {
         const like = `%${escapeLike(q)}%`;
-        where.push(`(csd.public_id LIKE ? ESCAPE '\\\\' OR sr.public_id LIKE ? ESCAPE '\\\\' OR mr.public_id LIKE ? ESCAPE '\\\\' OR CAST(csd.course_session_id AS CHAR) = ?)`);
-        params.push(like, like, like, q);
+        where.push(`(csd.public_id LIKE ? ESCAPE '\\\\' OR sr.public_id LIKE ? ESCAPE '\\\\' OR mr.public_id LIKE ? ESCAPE '\\\\' OR CAST(csd.course_session_id AS CHAR) = ? OR CAST(csd.id AS CHAR) = ?)`);
+        params.push(like, like, like, q, disputeNumber);
     }
     if (COURSE_DISPUTE_STATUSES.has(status)) {
         where.push('csd.status = ?');
