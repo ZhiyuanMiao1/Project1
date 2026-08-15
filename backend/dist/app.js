@@ -28,6 +28,7 @@ const refunds_1 = __importDefault(require("./routes/refunds"));
 const alipay_1 = __importDefault(require("./routes/alipay"));
 const wechat_1 = __importDefault(require("./routes/wechat"));
 const lessonHoursAutoConfirmation_1 = require("./services/lessonHoursAutoConfirmation");
+const billingOrderExpiry_1 = require("./services/billingOrderExpiry");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.get('/health', (req, res) => res.status(200).send('ok')); // 健康检查路由，返回200和ok
@@ -87,5 +88,6 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     (0, lessonHoursAutoConfirmation_1.startLessonHoursAutoConfirmationWorker)();
+    (0, billingOrderExpiry_1.startBillingOrderExpiryWorker)();
 });
 exports.default = app;

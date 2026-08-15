@@ -570,7 +570,12 @@ function Shell({ onLogout }) {
   const location = useLocation();
   const topbarTitle = getTopbarTitle(location.pathname);
   const isDashboard = location.pathname === '/dashboard';
-  const disputeStats = useAsync(() => api('/api/admin/course-disputes/stats'), [location.pathname]);
+  const navigationStats = useAsync(() => api('/api/admin/navigation-stats'), [location.pathname]);
+  const navCounts = {
+    '/mentors/reviews': navigationStats.data?.mentors,
+    '/orders': navigationStats.data?.orders,
+    '/course-disputes': navigationStats.data?.disputes,
+  };
 
   return (
     <div className="app-shell">
@@ -586,7 +591,7 @@ function Shell({ onLogout }) {
             <NavLink key={item.to} to={item.to}>
               <FontAwesomeIcon icon={item.icon} />
               <span>{item.label}</span>
-              {item.to === '/course-disputes' && disputeStats.data?.openCount > 0 ? <em className="nav-count">{disputeStats.data.openCount}</em> : null}
+              {navCounts[item.to] > 0 ? <em className="nav-count">{navCounts[item.to]}</em> : null}
             </NavLink>
           ))}
         </nav>

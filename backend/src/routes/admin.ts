@@ -5,6 +5,7 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 import { pool, query } from '../db';
 import { requireAdminAuth, getAdminJwtSecret } from '../middleware/adminAuth';
 import { ensureAdminSchema } from '../services/adminSchema';
+import { expireStaleBillingOrders } from '../services/billingOrderExpiry';
 import { revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
 import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
@@ -1486,6 +1487,7 @@ router.get('/orders', requireAdminAuth, async (req: Request, res: Response) => {
   }
 
   try {
+    await expireStaleBillingOrders();
     const countRows = await query<Array<{ total: number }>>(
       `SELECT COUNT(*) AS total
        FROM billing_orders bo
@@ -1552,6 +1554,7 @@ router.post('/orders/:orderId/confirm-payment', requireAdminAuth, async (req: Re
   let alreadyConfirmed = false;
 
   try {
+    await expireStaleBillingOrders();
     conn = await pool.getConnection();
     await conn.beginTransaction();
     const [orderRows] = await conn.query<any[]>(
@@ -2329,6 +2332,47 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
   } catch (error) {
     console.error('Admin classroom observer auth error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/navigation-stats', requireAdminAuth, async (_req: Request, res: Response) => {
+  try {
+    await expireStaleBillingOrders();
+    const [mentorRows, orderRows, disputeRows] = await Promise.all([
+      query<any[]>(
+        `SELECT COUNT(*) AS count
+         FROM user_roles
+         WHERE role = 'mentor'
+           AND mentor_approved = 0
+           AND mentor_review_status IN ('pending', 'interview_pending')`
+      ),
+      query<any[]>(
+        `SELECT COUNT(DISTINCT bo.id) AS count
+         FROM billing_orders bo
+         WHERE (
+           bo.status IN ('CREATED', 'APPROVED', 'PENDING_RECEIPT')
+         ) OR EXISTS (
+           SELECT 1
+           FROM billing_refunds br
+           WHERE br.billing_order_id = bo.id
+             AND br.provider IN ('alipay', 'wechat')
+             AND br.status IN ('PENDING', 'PROCESSING')
+         )`
+      ),
+      query<any[]>(
+        `SELECT COUNT(*) AS count
+         FROM course_session_disputes
+         WHERE status = 'submitted'`
+      ),
+    ]);
+    return res.json({
+      mentors: Number(mentorRows?.[0]?.count || 0),
+      orders: Number(orderRows?.[0]?.count || 0),
+      disputes: Number(disputeRows?.[0]?.count || 0),
+    });
+  } catch (error) {
+    console.error('Admin navigation stats error:', error);
+    return res.status(500).json({ error: '待处理事项统计加载失败' });
   }
 });
 

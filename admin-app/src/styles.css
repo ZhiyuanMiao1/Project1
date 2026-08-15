@@ -2437,11 +2437,11 @@ tr:last-child td {
 
 .order-confirm-payment:hover .badge,
 .order-confirm-payment:focus-visible .badge {
-  box-shadow: inset 0 0 0 1px #c026d3;
+  box-shadow: inset 0 0 0 1px #b26a00;
 }
 
 .order-confirm-payment:focus-visible {
-  outline: 2px solid rgba(192, 38, 211, 0.3);
+  outline: 2px solid rgba(178, 106, 0, 0.24);
   outline-offset: 2px;
 }
 

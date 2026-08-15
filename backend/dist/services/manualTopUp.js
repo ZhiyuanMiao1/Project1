@@ -7,6 +7,7 @@ exports.manualTopUpErrorStatus = exports.reportManualTopUpPaid = exports.createM
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db");
 const paypal_1 = require("./paypal");
+const billingOrderExpiry_1 = require("./billingOrderExpiry");
 const providerPrefix = (provider) => provider === 'alipay' ? 'ALI' : 'WX';
 const createManualTopUpOrder = async (userId, provider, rawHours) => {
     const hours = (0, paypal_1.parseTopUpHours)(rawHours);
@@ -77,6 +78,7 @@ const createManualTopUpOrder = async (userId, provider, rawHours) => {
 };
 exports.createManualTopUpOrder = createManualTopUpOrder;
 const reportManualTopUpPaid = async (userId, provider, rawOrderId) => {
+    await (0, billingOrderExpiry_1.expireStaleBillingOrders)();
     const orderId = Number(rawOrderId);
     if (!Number.isSafeInteger(orderId) || orderId <= 0) {
         throw Object.assign(new Error('无效的充值订单，请重新打开付款窗口'), { statusCode: 400 });
@@ -99,7 +101,7 @@ const reportManualTopUpPaid = async (userId, provider, rawOrderId) => {
             order.status = 'PENDING_RECEIPT';
         }
         else if (status !== 'PENDING_RECEIPT') {
-            throw Object.assign(new Error('该订单当前无法申报付款'), { statusCode: 409 });
+            throw Object.assign(new Error(status === 'VOIDED' ? `订单已超过${billingOrderExpiry_1.BILLING_ORDER_EXPIRY_DAYS}天付款期限` : '该订单当前无法申报付款'), { statusCode: 409 });
         }
         await conn.commit();
         return order;

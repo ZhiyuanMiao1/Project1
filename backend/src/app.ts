@@ -23,6 +23,7 @@ import refundsRoute from './routes/refunds';
 import alipayRoute from './routes/alipay';
 import wechatRoute from './routes/wechat';
 import { startLessonHoursAutoConfirmationWorker } from './services/lessonHoursAutoConfirmation';
+import { startBillingOrderExpiryWorker } from './services/billingOrderExpiry';
 
 dotenv.config();
 
@@ -90,6 +91,7 @@ const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   startLessonHoursAutoConfirmationWorker();
+  startBillingOrderExpiryWorker();
 });
 
 export default app;

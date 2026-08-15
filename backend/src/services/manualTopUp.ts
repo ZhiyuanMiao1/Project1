@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { ResultSetHeader } from 'mysql2';
 import { pool } from '../db';
 import { computeTopUpPrice, parseTopUpHours } from './paypal';
+import { BILLING_ORDER_EXPIRY_DAYS, expireStaleBillingOrders } from './billingOrderExpiry';
 
 export type ManualTopUpProvider = 'alipay' | 'wechat';
 
@@ -95,6 +96,7 @@ export const reportManualTopUpPaid = async (
   provider: ManualTopUpProvider,
   rawOrderId: unknown
 ) => {
+  await expireStaleBillingOrders();
   const orderId = Number(rawOrderId);
   if (!Number.isSafeInteger(orderId) || orderId <= 0) {
     throw Object.assign(new Error('无效的充值订单，请重新打开付款窗口'), { statusCode: 400 });
@@ -123,7 +125,7 @@ export const reportManualTopUpPaid = async (
       );
       order.status = 'PENDING_RECEIPT';
     } else if (status !== 'PENDING_RECEIPT') {
-      throw Object.assign(new Error('该订单当前无法申报付款'), { statusCode: 409 });
+      throw Object.assign(new Error(status === 'VOIDED' ? `订单已超过${BILLING_ORDER_EXPIRY_DAYS}天付款期限` : '该订单当前无法申报付款'), { statusCode: 409 });
     }
 
     await conn.commit();

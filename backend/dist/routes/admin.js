@@ -10,6 +10,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = require("../db");
 const adminAuth_1 = require("../middleware/adminAuth");
 const adminSchema_1 = require("../services/adminSchema");
+const billingOrderExpiry_1 = require("../services/billingOrderExpiry");
 const refreshTokens_1 = require("../auth/refreshTokens");
 const aliyunRtc_1 = require("../services/aliyunRtc");
 const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
@@ -1271,6 +1272,7 @@ router.get('/orders', adminAuth_1.requireAdminAuth, async (req, res) => {
         params.push(`${endDate} 23:59:59`);
     }
     try {
+        await (0, billingOrderExpiry_1.expireStaleBillingOrders)();
         const countRows = await (0, db_1.query)(`SELECT COUNT(*) AS total
        FROM billing_orders bo
        JOIN users u ON u.id = bo.user_id
@@ -1330,6 +1332,7 @@ router.post('/orders/:orderId/confirm-payment', adminAuth_1.requireAdminAuth, as
     let after = null;
     let alreadyConfirmed = false;
     try {
+        await (0, billingOrderExpiry_1.expireStaleBillingOrders)();
         conn = await db_1.pool.getConnection();
         await conn.beginTransaction();
         const [orderRows] = await conn.query(`SELECT id, user_id, provider, provider_order_id, status, topup_hours,
@@ -2027,6 +2030,41 @@ router.get('/classrooms/:courseId/observer-auth', adminAuth_1.requireAdminAuth, 
     catch (error) {
         console.error('Admin classroom observer auth error:', error);
         return res.status(500).json({ error: '服务器错误，请稍后再试' });
+    }
+});
+router.get('/navigation-stats', adminAuth_1.requireAdminAuth, async (_req, res) => {
+    try {
+        await (0, billingOrderExpiry_1.expireStaleBillingOrders)();
+        const [mentorRows, orderRows, disputeRows] = await Promise.all([
+            (0, db_1.query)(`SELECT COUNT(*) AS count
+         FROM user_roles
+         WHERE role = 'mentor'
+           AND mentor_approved = 0
+           AND mentor_review_status IN ('pending', 'interview_pending')`),
+            (0, db_1.query)(`SELECT COUNT(DISTINCT bo.id) AS count
+         FROM billing_orders bo
+         WHERE (
+           bo.status IN ('CREATED', 'APPROVED', 'PENDING_RECEIPT')
+         ) OR EXISTS (
+           SELECT 1
+           FROM billing_refunds br
+           WHERE br.billing_order_id = bo.id
+             AND br.provider IN ('alipay', 'wechat')
+             AND br.status IN ('PENDING', 'PROCESSING')
+         )`),
+            (0, db_1.query)(`SELECT COUNT(*) AS count
+         FROM course_session_disputes
+         WHERE status = 'submitted'`),
+        ]);
+        return res.json({
+            mentors: Number(mentorRows?.[0]?.count || 0),
+            orders: Number(orderRows?.[0]?.count || 0),
+            disputes: Number(disputeRows?.[0]?.count || 0),
+        });
+    }
+    catch (error) {
+        console.error('Admin navigation stats error:', error);
+        return res.status(500).json({ error: '待处理事项统计加载失败' });
     }
 });
 router.get('/course-disputes/stats', adminAuth_1.requireAdminAuth, async (_req, res) => {
