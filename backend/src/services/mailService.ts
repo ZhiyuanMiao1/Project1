@@ -323,34 +323,136 @@ export const sendAppointmentNotificationMail = async ({
 export const sendCourseDisputeResultMail = async ({
   recipientUserId,
   to,
-  disputeId,
+  recipientRole,
+  recipientPublicId,
+  courseName,
+  startsAt,
   outcome,
+  resolvedHours,
+  refundAmountText,
   resultMessage,
 }: {
   recipientUserId: number;
   to: string;
-  disputeId: string;
+  recipientRole: 'student' | 'mentor';
+  recipientPublicId: string;
+  courseName: string;
+  startsAt: Date | string;
   outcome: string;
+  resolvedHours?: number;
+  refundAmountText?: string;
   resultMessage: string;
 }) => {
+  if (!to.trim() || !recipientPublicId.trim()) return false;
   const preferences = await getEmailNotificationPreferencesForUser(recipientUserId);
   if (!preferences.enabled) return false;
   const isEnglish = preferences.locale === 'en';
-  const outcomeLabels: Record<string, [string, string]> = {
-    feedback_only: ['反馈已记录', 'Feedback recorded'],
-    lesson_credit: ['已补偿课时', 'Lesson credit issued'],
-    refund: ['退款已处理', 'Refund processed'],
-    rejected: ['异议未获支持', 'Request not approved'],
+  const isStudent = recipientRole === 'student';
+  const safeCourseName = courseName.trim() || (isEnglish ? 'the course' : '相关课程');
+  const date = startsAt instanceof Date ? startsAt : new Date(startsAt);
+  const lessonTime = Number.isNaN(date.getTime())
+    ? '-'
+    : new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'zh-CN', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: 'Asia/Shanghai',
+    }).format(date);
+  const hours = Number(resolvedHours || 0);
+  const hoursText = Number.isInteger(hours) ? String(hours) : String(Number(hours.toFixed(2)));
+  const outcomeLabels: Record<string, { zh: string; en: string }> = {
+    feedback_only: { zh: '已记录反馈', en: 'Feedback recorded' },
+    lesson_credit: { zh: '补偿课时', en: 'Lesson credit issued' },
+    refund: { zh: '退款', en: 'Refund completed' },
+    rejected: { zh: '暂不支持所申请的处理方案', en: 'Requested resolution not approved' },
   };
-  const outcomeLabel = outcomeLabels[outcome]?.[isEnglish ? 1 : 0] || outcome;
-  const subject = isEnglish ? `Mentory dispute result · ${disputeId}` : `Mentory 课程异议处理结果 · ${disputeId}`;
-  const text = isEnglish
-    ? `Your course dispute has been resolved.\nResult: ${outcomeLabel}\n${resultMessage}\nSign in to Mentory for details.`
-    : `你的课程异议已处理完成。\n处理结果：${outcomeLabel}\n${resultMessage}\n请登录 Mentory 查看详情。`;
+  const outcomeLabel = outcomeLabels[outcome]?.[isEnglish ? 'en' : 'zh'] || outcome;
+  const subject = isEnglish
+    ? (isStudent ? 'Mentory course dispute result' : 'Mentory course dispute notice')
+    : (isStudent ? 'Mentory 课程异议处理结果' : 'Mentory 课程异议处理通知');
+  const greeting = isEnglish
+    ? `Mentory user ${recipientPublicId}, hello:`
+    : `Mentory用户 ${recipientPublicId}，你好：`;
+  const intro = isEnglish
+    ? (isStudent
+      ? `The course dispute you submitted for “${safeCourseName}” has been resolved.`
+      : `The course dispute related to “${safeCourseName}” has been resolved.`)
+    : (isStudent
+      ? `你针对“${safeCourseName}”提交的课程异议已完成处理。`
+      : `与“${safeCourseName}”相关的课程异议已完成处理。`);
+  const details = [
+    { label: isEnglish ? 'Result' : '处理结果', value: outcomeLabel },
+    ...(outcome === 'lesson_credit' || outcome === 'refund'
+      ? [{ label: isEnglish ? 'Lesson hours' : (outcome === 'lesson_credit' ? '补偿数量' : '处理课时'), value: `${hoursText} ${isEnglish ? (hours === 1 ? 'hour' : 'hours') : '小时'}` }]
+      : []),
+    ...(isStudent && outcome === 'refund' && refundAmountText
+      ? [{ label: isEnglish ? 'Refund amount' : '退款金额', value: refundAmountText }]
+      : []),
+    { label: isEnglish ? 'Lesson time' : '上课时间', value: lessonTime },
+  ];
+  const closingByOutcome: Record<string, { studentZh: string; mentorZh: string; studentEn: string; mentorEn: string }> = {
+    feedback_only: {
+      studentZh: '相关反馈将用于后续服务质量管理。本次处理不涉及课时补偿或退款。',
+      mentorZh: '请结合反馈检查后续授课安排与服务质量。',
+      studentEn: 'The feedback will be used for ongoing service quality management. No lesson credit or refund is involved.',
+      mentorEn: 'Please review the feedback when planning future lessons and maintaining service quality.',
+    },
+    lesson_credit: {
+      studentZh: '补偿课时已加入你的 Mentory 课时余额。',
+      mentorZh: '请根据处理说明做好后续课程与教学安排。',
+      studentEn: 'The lesson credit has been added to your Mentory balance.',
+      mentorEn: 'Please take the resolution into account in future lesson planning and delivery.',
+    },
+    refund: {
+      studentZh: '退款已按原支付渠道处理，实际到账时间以支付机构为准。',
+      mentorZh: '请结合处理结果检查相关授课记录与后续安排。',
+      studentEn: 'The refund has been processed through the original payment method. Arrival time is subject to the payment provider.',
+      mentorEn: 'Please review the relevant lesson records and any follow-up arrangements.',
+    },
+    rejected: {
+      studentZh: '本次处理不涉及课时补偿或退款。',
+      mentorZh: '本次处理不涉及课时补偿或退款。',
+      studentEn: 'No lesson credit or refund is involved in this resolution.',
+      mentorEn: 'No lesson credit or refund is involved in this resolution.',
+    },
+  };
+  const closing = closingByOutcome[outcome];
+  const closingText = closing
+    ? closing[isEnglish ? (isStudent ? 'studentEn' : 'mentorEn') : (isStudent ? 'studentZh' : 'mentorZh')]
+    : '';
+  const thanks = isEnglish
+    ? (isStudent ? 'Thank you for your understanding and support.' : 'Thank you for your understanding and cooperation.')
+    : (isStudent ? '谢谢你的理解与支持。' : '谢谢你的理解与配合。');
+  const text = [
+    greeting,
+    '',
+    intro,
+    '',
+    ...details.map((item) => `${item.label}：${item.value}`),
+    '',
+    isEnglish ? 'Mentory note' : '平台说明',
+    resultMessage,
+    '',
+    closingText,
+    '',
+    thanks,
+    isEnglish ? 'Mentory Team' : 'Mentory 团队',
+  ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n');
+  const detailRowsHtml = details.map((item) => `
+    <tr>
+      <td style="width: 96px; padding: 7px 0; font-size: 13px; color: #64748b; vertical-align: top;">${escapeHtml(item.label)}</td>
+      <td style="padding: 7px 0; font-size: 14px; color: #0f172a; vertical-align: top;">${escapeHtml(item.value)}</td>
+    </tr>
+  `).join('');
+  const safeResultMessage = escapeHtml(resultMessage).replace(/\r?\n/g, '<br />');
   const html = buildMailCardHtml(
     isEnglish ? 'Course dispute result' : '课程异议处理结果',
-    `<div style="font-size:14px;color:#475569;margin-bottom:14px;">${escapeHtml(outcomeLabel)}</div>
-     <div style="padding:14px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;">${escapeHtml(resultMessage)}</div>`
+    `<div style="font-size:14px;color:#0f172a;margin-bottom:12px;">${escapeHtml(greeting)}</div>
+     <div style="font-size:14px;color:#475569;margin-bottom:16px;">${escapeHtml(intro)}</div>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-bottom:16px;">${detailRowsHtml}</table>
+     <div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">${isEnglish ? 'Mentory note' : '平台说明'}</div>
+     <div style="padding:14px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;font-size:14px;">${safeResultMessage}</div>
+     ${closingText ? `<div style="font-size:14px;color:#475569;margin-top:16px;">${escapeHtml(closingText)}</div>` : ''}
+     <div style="font-size:14px;color:#475569;margin-top:16px;">${escapeHtml(thanks)}</div>
+     <div style="font-size:14px;color:#0f172a;margin-top:4px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>`
   );
   await sendMail({ to, subject, text, html });
   return true;

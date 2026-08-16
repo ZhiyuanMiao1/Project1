@@ -391,6 +391,74 @@ const loadDisputeRefundQuote = async (conn, dispute, requestedHours) => {
         throw Object.assign(new Error('未找到足够的原始扣费记录'), { statusCode: 409 });
     return { maxHours, requestedHours, lines };
 };
+const sendCourseDisputeResultMails = async (disputeId) => {
+    const rows = await (0, db_1.query)(`SELECT csd.id, csd.status, csd.outcome_code, csd.result_message, csd.resolved_hours,
+            csd.result_email_sent_at, csd.mentor_result_email_sent_at,
+            cs.course_direction, cs.course_type, cs.starts_at,
+            csd.student_user_id, su.email AS student_email, sr.public_id AS student_public_id,
+            csd.mentor_user_id, mu.email AS mentor_email, mr.public_id AS mentor_public_id
+     FROM course_session_disputes csd
+     JOIN course_sessions cs ON cs.id = csd.course_session_id
+     JOIN users su ON su.id = csd.student_user_id
+     JOIN users mu ON mu.id = csd.mentor_user_id
+     LEFT JOIN user_roles sr ON sr.user_id = csd.student_user_id AND sr.role = 'student'
+     LEFT JOIN user_roles mr ON mr.user_id = csd.mentor_user_id AND mr.role = 'mentor'
+     WHERE csd.id = ? LIMIT 1`, [disputeId]);
+    const dispute = rows?.[0];
+    if (!dispute || !['resolved', 'rejected'].includes(String(dispute.status)))
+        return;
+    const refundRows = String(dispute.outcome_code) === 'refund'
+        ? await (0, db_1.query)(`SELECT br.currency_code, SUM(br.amount_original) AS amount
+       FROM course_dispute_refunds cdr
+       JOIN billing_refunds br ON br.id = cdr.billing_refund_id
+       WHERE cdr.dispute_id = ? AND br.status = 'COMPLETED'
+       GROUP BY br.currency_code
+       ORDER BY br.currency_code`, [disputeId])
+        : [];
+    const refundAmountText = (refundRows || [])
+        .map((row) => `${Number(row.amount || 0).toFixed(2)} ${String(row.currency_code || 'CNY').toUpperCase()}`)
+        .join(' + ');
+    const common = {
+        courseName: [dispute.course_direction, dispute.course_type].filter(Boolean).join(' / '),
+        startsAt: dispute.starts_at,
+        outcome: String(dispute.outcome_code || ''),
+        resolvedHours: Number(dispute.resolved_hours || 0),
+        refundAmountText,
+        resultMessage: String(dispute.result_message || ''),
+    };
+    if (!dispute.result_email_sent_at) {
+        try {
+            const sent = await (0, mailService_1.sendCourseDisputeResultMail)({
+                ...common,
+                recipientRole: 'student',
+                recipientUserId: Number(dispute.student_user_id),
+                recipientPublicId: String(dispute.student_public_id || ''),
+                to: String(dispute.student_email || ''),
+            });
+            if (sent)
+                await (0, db_1.query)('UPDATE course_session_disputes SET result_email_sent_at = COALESCE(result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [disputeId]);
+        }
+        catch (error) {
+            console.error('Course dispute student result mail error:', error);
+        }
+    }
+    if (!dispute.mentor_result_email_sent_at) {
+        try {
+            const sent = await (0, mailService_1.sendCourseDisputeResultMail)({
+                ...common,
+                recipientRole: 'mentor',
+                recipientUserId: Number(dispute.mentor_user_id),
+                recipientPublicId: String(dispute.mentor_public_id || ''),
+                to: String(dispute.mentor_email || ''),
+            });
+            if (sent)
+                await (0, db_1.query)('UPDATE course_session_disputes SET mentor_result_email_sent_at = COALESCE(mentor_result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [disputeId]);
+        }
+        catch (error) {
+            console.error('Course dispute mentor result mail error:', error);
+        }
+    }
+};
 router.use(async (_req, res, next) => {
     try {
         await (0, adminSchema_1.ensureAdminSchema)();
@@ -1502,14 +1570,7 @@ router.post('/orders/:orderId/complete-manual-refund', adminAuth_1.requireAdminA
             console.error('Admin manual refund audit error:', auditError);
         }
         for (const dispute of completedDisputes) {
-            try {
-                const sent = await (0, mailService_1.sendCourseDisputeResultMail)({ recipientUserId: Number(dispute.student_user_id), to: String(dispute.student_email || ''), disputeId: String(dispute.public_id), outcome: String(dispute.outcome_code), resultMessage: String(dispute.result_message || '') });
-                if (sent)
-                    await (0, db_1.query)('UPDATE course_session_disputes SET result_email_sent_at = COALESCE(result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [dispute.id]);
-            }
-            catch (mailError) {
-                console.error('Manual refund dispute result mail error:', mailError);
-            }
+            await sendCourseDisputeResultMails(Number(dispute.id));
         }
         return res.json({
             alreadyCompleted: false,
@@ -2310,14 +2371,7 @@ router.post('/course-disputes/:disputeId/resolve', adminAuth_1.requireAdminAuth,
         }
     }
     if (finalRow && ['resolved', 'rejected'].includes(String(finalRow.status))) {
-        try {
-            const sent = await (0, mailService_1.sendCourseDisputeResultMail)({ recipientUserId: Number(finalRow.student_user_id), to: String(finalRow.student_email || ''), disputeId: publicId, outcome: String(finalRow.outcome_code), resultMessage: String(finalRow.result_message || '') });
-            if (sent)
-                await (0, db_1.query)('UPDATE course_session_disputes SET result_email_sent_at = COALESCE(result_email_sent_at, CURRENT_TIMESTAMP) WHERE id = ?', [finalRow.id]);
-        }
-        catch (error) {
-            console.error('Course dispute result mail error:', error);
-        }
+        await sendCourseDisputeResultMails(Number(finalRow.id));
     }
     return res.json({ dispute: toDisputeStatusPayload(finalRow) });
 });
@@ -2351,16 +2405,8 @@ router.post('/course-disputes/:disputeId/refresh-refunds', adminAuth_1.requireAd
     await (0, db_1.query)(`UPDATE course_session_disputes SET status = ?, refund_status = ?, resolved_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE resolved_at END, version = version + 1 WHERE id = ?`, [allCompleted ? 'resolved' : 'submitted', allCompleted ? 'completed' : anyFailed ? 'failed' : 'processing', allCompleted ? 1 : 0, dispute.id]);
     await (0, db_1.query)(`INSERT INTO course_dispute_events (dispute_id, admin_id, event_type, payload_json) VALUES (?, ?, 'refund_refresh', ?)`, [dispute.id, req.admin?.adminId, JSON.stringify({ allCompleted, anyFailed })]);
     await audit({ req, action: 'course_dispute.refund.refresh', targetType: 'course_dispute', targetId: publicId, after: { allCompleted, anyFailed } });
-    if (allCompleted && !dispute.result_email_sent_at) {
-        try {
-            const sent = await (0, mailService_1.sendCourseDisputeResultMail)({ recipientUserId: Number(dispute.student_user_id), to: String(dispute.student_email || ''), disputeId: publicId, outcome: 'refund', resultMessage: String(dispute.result_message || '') });
-            if (sent)
-                await (0, db_1.query)('UPDATE course_session_disputes SET result_email_sent_at = CURRENT_TIMESTAMP WHERE id = ?', [dispute.id]);
-        }
-        catch (error) {
-            console.error('Refund refresh result mail error:', error);
-        }
-    }
+    if (allCompleted)
+        await sendCourseDisputeResultMails(Number(dispute.id));
     const updated = (await (0, db_1.query)('SELECT * FROM course_session_disputes WHERE id = ? LIMIT 1', [dispute.id]))[0];
     return res.json({ dispute: toDisputeStatusPayload(updated), refunds: processed });
 });

@@ -155,7 +155,8 @@ export const ensureAdminSchema = async () => {
   await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN refund_status VARCHAR(24) NULL AFTER resolved_hours');
   await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN resolved_at TIMESTAMP NULL DEFAULT NULL AFTER refund_status');
   await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN result_email_sent_at TIMESTAMP NULL DEFAULT NULL AFTER resolved_at');
-  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN version INT NOT NULL DEFAULT 1 AFTER result_email_sent_at');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN mentor_result_email_sent_at TIMESTAMP NULL DEFAULT NULL AFTER result_email_sent_at');
+  await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN version INT NOT NULL DEFAULT 1 AFTER mentor_result_email_sent_at');
 
   // The dispute workflow has only one open state. Normalize records created by
   // earlier versions so retired intermediate states cannot reappear in APIs.
