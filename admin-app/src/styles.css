@@ -230,10 +230,13 @@ button.link-button {
   align-items: center;
 }
 
-.dispute-resolution-expectation,
 .dispute-resolution-form textarea,
 .dispute-resolution-form .refund-quote,
 .dispute-resolution-actions {
+  grid-column: 1 / -1;
+}
+
+.dispute-resolution-expectation.full-width {
   grid-column: 1 / -1;
 }
 
@@ -246,6 +249,11 @@ button.link-button {
 
 .dispute-resolution-expectation > span {
   color: #66758d;
+}
+
+.dispute-resolution-hours {
+  width: 180px;
+  justify-self: end;
 }
 
 .dispute-resolution-actions {

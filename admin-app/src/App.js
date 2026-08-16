@@ -2977,8 +2977,8 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
         {hasPendingRefund ? <button type="button" onClick={refreshRefunds} disabled={busy}>刷新 / 重试退款</button> : null}
         {!['resolved', 'rejected'].includes(dispute.status) ? <>
           {!hasPendingRefund ? <><h3>最终裁决</h3><div className="dispute-resolution-form">
-            <div className="dispute-resolution-expectation"><span>学生期望</span><DisputeResolutionTag value={dispute.preferred_resolution} /></div>
-            {['lesson_credit', 'refund'].includes(preferredOutcome) ? <input type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}
+            <div className={`dispute-resolution-expectation ${['lesson_credit', 'refund'].includes(preferredOutcome) ? '' : 'full-width'}`}><span>学生期望</span><DisputeResolutionTag value={dispute.preferred_resolution} /></div>
+            {['lesson_credit', 'refund'].includes(preferredOutcome) ? <input className="dispute-resolution-hours" type="number" min="0.25" step="0.25" value={hours} onChange={(e) => { setHours(e.target.value); setQuote(null); }} placeholder="处理课时" /> : null}
             {preferredOutcome === 'refund' ? <button className="ghost" type="button" onClick={getQuote} disabled={busy || !hours}>计算退款</button> : null}
             <textarea value={resultMessage} onChange={(e) => setResultMessage(e.target.value)} placeholder="学生可见的处理说明" />
             {quote ? <div className="refund-quote">可处理 {quote.maxHours}h；{quote.lines.map((line) => `${line.provider} ${line.amountOriginal} ${line.currencyCode}`).join('；')}</div> : null}
