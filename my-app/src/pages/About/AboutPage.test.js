@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ABOUT_CONTENT, AboutSection, buildPartnershipMailto } from './AboutPage';
+import AboutPage, { ABOUT_CONTENT, AboutSection, buildPartnershipMailto } from './AboutPage';
 
 jest.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => <a href={to} {...props}>{children}</a>,
@@ -23,6 +23,7 @@ jest.mock('../../i18n/language', () => ({ useI18n: () => ({ isEnglish: false, t:
 describe('business cooperation content and actions', () => {
   let container;
   let root;
+  let originalScrollTo;
 
   beforeAll(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -33,6 +34,8 @@ describe('business cooperation content and actions', () => {
   });
 
   beforeEach(() => {
+    originalScrollTo = window.scrollTo;
+    window.scrollTo = jest.fn();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -41,6 +44,19 @@ describe('business cooperation content and actions', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    window.scrollTo = originalScrollTo;
+  });
+
+  test.each([
+    ['introduction', '/about'],
+    ['mentorOpportunities', '/mentor-opportunities'],
+    ['businessCooperation', '/business-cooperation'],
+  ])('opens the %s page at the top', (pageKey) => {
+    act(() => {
+      root.render(<AboutPage pageKey={pageKey} />);
+    });
+
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
   });
 
   test('keeps Chinese and English cooperation sections equivalent', () => {

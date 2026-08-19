@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -306,6 +306,7 @@ export function AboutSection({ section, onAction, actionLoading = false }) {
 
 function AboutPage({ pageKey = 'introduction' }) {
   const { isEnglish, t } = useI18n();
+  const location = useLocation();
   const navigate = useNavigate();
   const content = ABOUT_CONTENT[pageKey][isEnglish ? 'en' : 'zh-CN'];
   const pageTopId = `about-${pageKey}-top`;
@@ -320,6 +321,10 @@ function AboutPage({ pageKey = 'introduction' }) {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [activeSectionId, setActiveSectionId] = useState(content.sections[0].id);
   const { totalBadgeCount } = useMenuBadgeSummary({ enabled: isLoggedIn, courseViews: ['student'] });
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [location.key, pageKey]);
 
   const handleSectionAction = async (action) => {
     if (action?.type !== 'mentor-registration' || mentorActionLoading) return;
