@@ -17,7 +17,7 @@ export const STEPS = [
     id: 'schedule',
     label: '第 3 步',
     title: '告知时区与可授课时间',
-    description: 'Mentory 会根据你的时区和可授课时间，为你匹配最适合的导师',
+    description: '发布课程需求，导师主动邀约，由你自主选择。',
   },
   {
     id: 'upload',

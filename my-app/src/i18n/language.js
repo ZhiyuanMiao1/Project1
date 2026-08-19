@@ -336,7 +336,7 @@ const en = {
   'courseRequest.step.details.description': 'Tell us the course type in detail and the milestone you want to reach.',
   'courseRequest.step.schedule.label': 'Step 3',
   'courseRequest.step.schedule.title': 'Share Your Time Zone and Available Times',
-  'courseRequest.step.schedule.description': 'Mentory will match you with suitable mentors based on your time zone and availability.',
+  'courseRequest.step.schedule.description': 'Post your lesson request, receive mentor invitations, and choose freely.',
   'courseRequest.step.upload.label': 'Step 4',
   'courseRequest.step.upload.title': 'Great. This Is the Final Step',
   'courseRequest.step.upload.description': 'Preview how your student information will appear to mentors, then upload course materials below.',
