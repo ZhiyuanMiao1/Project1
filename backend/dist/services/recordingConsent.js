@@ -8,7 +8,8 @@ const RECORDING_NOTICE_CANONICAL_TEXT = [
     'Cloud recording covers classroom audio, video, screen sharing and classroom comments.',
     'Purposes: lesson replay, learning review, quality assurance and dispute handling.',
     'Access is limited to authorized lesson participants and platform personnel as needed.',
-    'A participant may decline and enter the lesson without cloud recording.',
+    'A participant who does not agree must exit the classroom.',
+    'Acceptance is reused across Mentory classrooms for this notice version.',
 ].join('\n');
 exports.CURRENT_RECORDING_NOTICE_HASH = (0, crypto_1.createHash)('sha256')
     .update(RECORDING_NOTICE_CANONICAL_TEXT, 'utf8')
@@ -52,21 +53,44 @@ const getClassroomRecordingConsentSummary = async (context, currentUserId) => {
     const rows = await (0, db_1.query)(`SELECT user_id, participant_role, decision, notice_version, decided_at
      FROM classroom_recording_consents
      WHERE course_session_id = ? AND user_id IN (?, ?)`, [context.courseId, context.studentUserId, context.mentorUserId]);
+    const acceptedRows = await (0, db_1.query)(`SELECT user_id, participant_role, decision, notice_version, decided_at
+     FROM classroom_recording_consents
+     WHERE user_id IN (?, ?)
+       AND notice_version = ?
+       AND decision = 'accepted'
+     ORDER BY decided_at DESC`, [context.studentUserId, context.mentorUserId, exports.CURRENT_RECORDING_NOTICE_VERSION]);
     const byUserId = new Map(rows.map((row) => [Number(row.user_id), row]));
+    const acceptedByUserId = new Map();
+    acceptedRows.forEach((row) => {
+        const userId = Number(row.user_id);
+        if (!acceptedByUserId.has(userId))
+            acceptedByUserId.set(userId, row);
+    });
     const student = byUserId.get(context.studentUserId) || null;
     const mentor = byUserId.get(context.mentorUserId) || null;
     const current = currentUserId ? byUserId.get(currentUserId) || null : null;
+    const effectiveStudent = acceptedByUserId.get(context.studentUserId) || student;
+    const effectiveMentor = acceptedByUserId.get(context.mentorUserId) || mentor;
+    const effectiveCurrent = currentUserId
+        ? acceptedByUserId.get(currentUserId) || current
+        : null;
     const currentVersionAccepted = (row) => (row?.decision === 'accepted' && row.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION);
     return {
         noticeVersion: exports.CURRENT_RECORDING_NOTICE_VERSION,
-        currentDecision: current?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION ? current.decision : '',
-        currentDecidedAt: current?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION
-            ? toIsoString(current.decided_at)
+        currentDecision: effectiveCurrent?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION
+            ? effectiveCurrent.decision
             : '',
-        studentDecision: student?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION ? student.decision : '',
-        mentorDecision: mentor?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION ? mentor.decision : '',
-        allAccepted: currentVersionAccepted(student) && currentVersionAccepted(mentor),
-        hasDeclined: [student, mentor].some((row) => (row?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION && row.decision === 'declined')),
+        currentDecidedAt: effectiveCurrent?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION
+            ? toIsoString(effectiveCurrent.decided_at)
+            : '',
+        studentDecision: effectiveStudent?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION
+            ? effectiveStudent.decision
+            : '',
+        mentorDecision: effectiveMentor?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION
+            ? effectiveMentor.decision
+            : '',
+        allAccepted: currentVersionAccepted(effectiveStudent) && currentVersionAccepted(effectiveMentor),
+        hasDeclined: [effectiveStudent, effectiveMentor].some((row) => (row?.notice_version === exports.CURRENT_RECORDING_NOTICE_VERSION && row.decision === 'declined')),
     };
 };
 exports.getClassroomRecordingConsentSummary = getClassroomRecordingConsentSummary;

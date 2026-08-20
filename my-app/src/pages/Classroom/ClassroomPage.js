@@ -649,7 +649,7 @@ const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'G
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
 };
 
-function RecordingConsentDialog({ t, open, submitting, error, onDecision }) {
+function RecordingConsentDialog({ t, open, submitting, error, onDecision, onReturn }) {
   if (!open) return null;
 
   return (
@@ -660,41 +660,26 @@ function RecordingConsentDialog({ t, open, submitting, error, onDecision }) {
         aria-modal="true"
         aria-labelledby="classroom-recording-consent-title"
       >
-        <button
-          type="button"
-          className="classroom-recording-consent-close"
-          onClick={() => onDecision('declined')}
-          disabled={submitting}
-          aria-label={t('classroom.recordingConsentClose', '不录制并进入课堂')}
-        >
-          <FiX aria-hidden="true" />
-        </button>
-
-        <div className="classroom-recording-consent-icon" aria-hidden="true"><FiVideo /></div>
         <h2 id="classroom-recording-consent-title">{t('classroom.recordingConsentTitle', '进入课堂前，请确认录制安排')}</h2>
         <p className="classroom-recording-consent-lead">
-          {t('classroom.recordingConsentLead', '本节课可启动云端录制，用于课程回放、学习复盘、质量保障和争议处理。')}
+          {t('classroom.recordingConsentScope', '本课堂将录制音频、视频、屏幕共享及课堂评论')}
         </p>
-        <ul>
-          <li>{t('classroom.recordingConsentScope', '录制内容可能包括课堂音频、视频、屏幕共享和课堂评论。')}</li>
-          <li>{t('classroom.recordingConsentAccess', '录制内容仅向获授权的课程参与者和必要的平台工作人员开放。')}</li>
-          <li>{t('classroom.recordingConsentChoice', '如果任一方选择不录制，仍可正常进入课堂，本节课不会启动云端录制。')}</li>
-        </ul>
         <p className="classroom-recording-consent-policy">
-          {t('classroom.recordingConsentPolicyPrefix', '更多说明请查看')}
-          <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('footer.privacy', '隐私政策')}</a>
-          {t('classroom.recordingConsentPolicyJoin', '和')}
-          <a href="/terms" target="_blank" rel="noopener noreferrer">{t('footer.terms', '服务条款')}</a>
+          {t('classroom.recordingConsentPolicyPrefix', '详细处理规则请查看')}
+          <a href="/privacy#classroom-recording" target="_blank" rel="noopener noreferrer">
+            {t('classroom.recordingConsentPolicyLink', '《隐私政策—课堂录制》')}
+          </a>
+          {t('classroom.recordingConsentPolicySuffix', '')}
         </p>
         {error ? <div className="classroom-recording-consent-error" role="alert">{error}</div> : null}
         <div className="classroom-recording-consent-actions">
-          <button type="button" className="secondary" onClick={() => onDecision('declined')} disabled={submitting}>
-            {t('classroom.enterWithoutRecording', '本节课不录制')}
+          <button type="button" className="secondary" onClick={onReturn} disabled={submitting}>
+            {t('classroom.recordingConsentReturn', '退出')}
           </button>
           <button type="button" className="primary" onClick={() => onDecision('accepted')} disabled={submitting}>
             {submitting
               ? t('classroom.savingRecordingConsent', '正在保存...')
-              : t('classroom.acceptRecording', '同意录制并进入')}
+              : t('classroom.acceptRecording', '同意录制并进入课堂')}
           </button>
         </div>
       </section>
@@ -793,6 +778,7 @@ function ClassroomPage() {
   const [recordingConsentState, setRecordingConsentState] = useState('checking');
   const [recordingConsentSubmitting, setRecordingConsentSubmitting] = useState(false);
   const [recordingConsentError, setRecordingConsentError] = useState('');
+  const [recordingConsentExitHref, setRecordingConsentExitHref] = useState('/student/courses');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
   const [micActionPending, setMicActionPending] = useState(false);
@@ -858,11 +844,15 @@ function ClassroomPage() {
     recordingConsentDecisionRef.current = '';
     setRecordingConsentState('checking');
     setRecordingConsentError('');
+
     api.get(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/recording/consent`)
       .then((response) => {
         if (!active) return;
+        setRecordingConsentExitHref(
+          response?.data?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses'
+        );
         const decision = safeText(response?.data?.consent?.currentDecision);
-        if (decision === 'accepted' || decision === 'declined') {
+        if (decision === 'accepted') {
           recordingConsentDecisionRef.current = decision;
           setRecordingConsentState(decision);
           return;
@@ -898,6 +888,13 @@ function ClassroomPage() {
       setRecordingConsentSubmitting(false);
     }
   }, [courseId, language, recordingConsentSubmitting, t]);
+
+  const handleRecordingConsentExit = useCallback(() => {
+    window.close();
+    if (!window.closed) {
+      navigate(recordingConsentExitHref, { replace: true });
+    }
+  }, [navigate, recordingConsentExitHref]);
 
   const backHref = useMemo(
     () => (isObserverMode ? '/' : (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses')),
@@ -4112,6 +4109,7 @@ function ClassroomPage() {
         submitting={recordingConsentSubmitting}
         error={recordingConsentError}
         onDecision={handleRecordingConsentDecision}
+        onReturn={handleRecordingConsentExit}
       />
       <div className="container">
         <header className="classroom-header">

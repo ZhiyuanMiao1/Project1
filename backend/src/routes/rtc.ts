@@ -432,7 +432,7 @@ router.get('/classrooms/:courseId/recording/consent', requireAuth, async (req: R
   try {
     const context = await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
     const consent = await getClassroomRecordingConsentSummary(context, req.user.id);
-    return res.json({ consent });
+    return res.json({ consent, roleInSession: context.roleInSession });
   } catch (e) {
     if (e instanceof ClassroomHttpError) return res.status(e.statusCode).json({ error: e.message });
     if (isMissingClassroomSchemaError(e)) {

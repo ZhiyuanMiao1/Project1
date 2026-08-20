@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client';
 import ClassroomPage from './ClassroomPage';
 import api from '../../api/client';
 
+const mockNavigate = jest.fn();
+
 jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/classroom/42', search: '' }),
-  useNavigate: () => jest.fn(),
+  useNavigate: () => mockNavigate,
   useParams: () => ({ courseId: '42' }),
 }), { virtual: true });
 
@@ -178,6 +180,7 @@ describe('ClassroomPage remote recovery', () => {
     console.debug = jest.fn();
     originalFetch = global.fetch;
     global.fetch = jest.fn(() => Promise.resolve({ ok: true }));
+    window.close = jest.fn();
     pauseMock = jest.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
     loadMock = jest.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
 
@@ -378,7 +381,12 @@ describe('ClassroomPage remote recovery', () => {
   test('requires an explicit recording choice before entering the classroom', async () => {
     api.get.mockImplementation((url) => {
       if (String(url).includes('/recording/consent')) {
-        return Promise.resolve({ data: { consent: { currentDecision: '', allAccepted: false, hasDeclined: false } } });
+        return Promise.resolve({
+          data: {
+            roleInSession: 'mentor',
+            consent: { currentDecision: '', allAccepted: false, hasDeclined: false },
+          },
+        });
       }
       if (String(url).includes('/api/rtc/classrooms/')) return Promise.resolve(authResponse);
       if (String(url).includes('/api/classrooms/42/chat')) return Promise.resolve(buildChatResponse());
@@ -412,10 +420,15 @@ describe('ClassroomPage remote recovery', () => {
     expect(getPageText()).not.toContain('进入课堂前，请确认录制安排');
   });
 
-  test('allows the lesson without starting cloud recording when consent is declined', async () => {
+  test('returns to the course list without entering when recording is not accepted', async () => {
     api.get.mockImplementation((url) => {
       if (String(url).includes('/recording/consent')) {
-        return Promise.resolve({ data: { consent: { currentDecision: '', allAccepted: false, hasDeclined: false } } });
+        return Promise.resolve({
+          data: {
+            roleInSession: 'mentor',
+            consent: { currentDecision: '', allAccepted: false, hasDeclined: false },
+          },
+        });
       }
       if (String(url).includes('/api/rtc/classrooms/')) return Promise.resolve(authResponse);
       if (String(url).includes('/api/classrooms/42/chat')) return Promise.resolve(buildChatResponse());
@@ -427,16 +440,36 @@ describe('ClassroomPage remote recovery', () => {
     await renderClassroomPage();
     await flushPromises();
 
-    const declineButton = Array.from(container.querySelectorAll('button'))
-      .find((button) => (button.textContent || '').includes('本节课不录制'));
+    const returnButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').trim() === '退出');
     await act(async () => {
-      declineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      returnButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flushPromises();
 
-    expect(startPushMock).toHaveBeenCalledWith('artc://push');
+    expect(window.close).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/mentor/courses', { replace: true });
+    expect(startPushMock).not.toHaveBeenCalled();
+    expect(api.post.mock.calls.some(([url]) => String(url).includes('/recording/consent'))).toBe(false);
     expect(api.post.mock.calls.some(([url]) => String(url).includes('/recording/start'))).toBe(false);
-    expect(getPageText()).toContain('本节课未录制');
+  });
+
+  test('keeps requiring consent when an earlier classroom decision was declined', async () => {
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: 'declined', allAccepted: false, hasDeclined: true } } });
+      }
+      if (String(url).includes('/api/rtc/classrooms/')) return Promise.resolve(authResponse);
+      if (String(url).includes('/api/classrooms/42/chat')) return Promise.resolve(buildChatResponse());
+      if (String(url) === '/api/messages/threads') return Promise.resolve(buildThreadResponse());
+      return Promise.resolve({ data: {} });
+    });
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(getPageText()).toContain('进入课堂前，请确认录制安排');
+    expect(startPushMock).not.toHaveBeenCalled();
   });
 
   test('toggles microphone without reauthorizing, restarting push, or restarting recording', async () => {

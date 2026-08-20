@@ -366,7 +366,7 @@ router.get('/classrooms/:courseId/recording/consent', auth_1.requireAuth, async 
     try {
         const context = await (0, classroomAccess_1.loadAuthorizedClassroomContext)(courseId, req.user.id, { requireScheduled: true });
         const consent = await (0, recordingConsent_1.getClassroomRecordingConsentSummary)(context, req.user.id);
-        return res.json({ consent });
+        return res.json({ consent, roleInSession: context.roleInSession });
     }
     catch (e) {
         if (e instanceof classroomAccess_1.ClassroomHttpError)

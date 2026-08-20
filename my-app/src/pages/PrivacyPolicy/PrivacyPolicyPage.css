@@ -213,6 +213,30 @@
   border-bottom: 1px solid var(--privacy-line);
 }
 
+#classroom-recording .privacy-policy__details {
+  gap: 0;
+}
+
+#classroom-recording .privacy-policy__detail {
+  padding: 24px 28px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+#classroom-recording .privacy-policy__detail:nth-child(odd) {
+  padding-left: 0;
+  border-right: 1px solid var(--privacy-line);
+}
+
+#classroom-recording .privacy-policy__detail:nth-child(even) {
+  padding-right: 0;
+}
+
+#classroom-recording .privacy-policy__detail:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--privacy-line);
+}
+
 .about-page--introduction #how-it-works .privacy-policy__details,
 .about-page--introduction #values .privacy-policy__details,
 .about-page--introduction #community .privacy-policy__details,
@@ -609,6 +633,24 @@
   }
 
   #collection .privacy-policy__detail:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  #classroom-recording .privacy-policy__detail {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--privacy-line);
+  }
+
+  #classroom-recording .privacy-policy__detail:nth-child(odd) {
+    border-right: 0;
+  }
+
+  #classroom-recording .privacy-policy__detail:first-child {
+    padding-top: 0;
+  }
+
+  #classroom-recording .privacy-policy__detail:last-child {
     padding-bottom: 0;
     border-bottom: 0;
   }
