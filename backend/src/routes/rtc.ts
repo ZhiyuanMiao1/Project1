@@ -17,6 +17,11 @@ import {
   safeText,
 } from '../services/classroomAccess';
 import { verifyClassroomObserverToken } from '../services/classroomObserverToken';
+import {
+  CURRENT_RECORDING_NOTICE_VERSION,
+  getClassroomRecordingConsentSummary,
+  saveClassroomRecordingConsent,
+} from '../services/recordingConsent';
 
 const router = Router();
 
@@ -416,6 +421,69 @@ router.delete('/classrooms/:courseId/observer-presence', async (req: Request, re
   return res.status(204).end();
 });
 
+router.get('/classrooms/:courseId/recording/consent', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未登录' });
+
+  const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+  if (!Number.isFinite(courseId) || courseId <= 0) {
+    return res.status(400).json({ error: '无效课程ID' });
+  }
+
+  try {
+    const context = await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
+    const consent = await getClassroomRecordingConsentSummary(context, req.user.id);
+    return res.json({ consent });
+  } catch (e) {
+    if (e instanceof ClassroomHttpError) return res.status(e.statusCode).json({ error: e.message });
+    if (isMissingClassroomSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Load classroom recording consent error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.post('/classrooms/:courseId/recording/consent', requireAuth, async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: '未登录' });
+
+  const courseId = Number.parseInt(String(req.params.courseId || ''), 10);
+  if (!Number.isFinite(courseId) || courseId <= 0) {
+    return res.status(400).json({ error: '无效课程ID' });
+  }
+
+  const decision = String(req.body?.decision || '').trim();
+  if (decision !== 'accepted' && decision !== 'declined') {
+    return res.status(400).json({ error: '请选择是否同意本节课录制' });
+  }
+  if (String(req.body?.noticeVersion || '') !== CURRENT_RECORDING_NOTICE_VERSION) {
+    return res.status(409).json({
+      error: '录制说明已更新，请重新阅读',
+      code: 'RECORDING_NOTICE_UPDATED',
+      noticeVersion: CURRENT_RECORDING_NOTICE_VERSION,
+    });
+  }
+
+  try {
+    const context = await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
+    const consent = await saveClassroomRecordingConsent({
+      context,
+      userId: req.user.id,
+      decision,
+      locale: req.body?.locale === 'en' ? 'en' : 'zh-CN',
+      ip: String(req.ip || '').slice(0, 45),
+      userAgent: String(req.headers['user-agent'] || '').slice(0, 255),
+    });
+    return res.json({ consent });
+  } catch (e) {
+    if (e instanceof ClassroomHttpError) return res.status(e.statusCode).json({ error: e.message });
+    if (isMissingClassroomSchemaError(e)) {
+      return res.status(500).json({ error: '数据库未升级，请先执行 backend/schema.sql' });
+    }
+    console.error('Save classroom recording consent error:', e);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
 router.post('/classrooms/:courseId/recording/start', requireAuth, async (req: Request, res: Response) => {
   if (!req.user) return res.status(401).json({ error: '未登录' });
 
@@ -426,12 +494,20 @@ router.post('/classrooms/:courseId/recording/start', requireAuth, async (req: Re
 
   try {
     const context = await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
+    const consent = await getClassroomRecordingConsentSummary(context, req.user.id);
+    if (!consent.allAccepted) {
+      return res.status(409).json({
+        error: consent.hasDeclined ? '本节课已选择不录制' : '等待双方确认录制',
+        code: consent.hasDeclined ? 'RECORDING_DECLINED' : 'RECORDING_CONSENT_PENDING',
+        consent,
+      });
+    }
     const recording = await startClassroomRecording(
       context,
       req.user.id,
       getClassroomPresenceEntries(context)
     );
-    return res.json({ recording });
+    return res.json({ recording, consent });
   } catch (e) {
     if (e instanceof ClassroomHttpError) {
       return res.status(e.statusCode).json({ error: e.message });
@@ -453,9 +529,10 @@ router.get('/classrooms/:courseId/recording/status', requireAuth, async (req: Re
   }
 
   try {
-    await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
+    const context = await loadAuthorizedClassroomContext(courseId, req.user.id, { requireScheduled: true });
+    const consent = await getClassroomRecordingConsentSummary(context, req.user.id);
     const recording = await getClassroomRecordingStatus(courseId);
-    return res.json({ recording });
+    return res.json({ recording, consent });
   } catch (e) {
     if (e instanceof ClassroomHttpError) {
       return res.status(e.statusCode).json({ error: e.message });

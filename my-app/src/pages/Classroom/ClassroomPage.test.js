@@ -183,6 +183,21 @@ describe('ClassroomPage remote recovery', () => {
 
     authResponse = buildAuthResponse();
     api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({
+          data: {
+            consent: {
+              noticeVersion: '2026-08-20',
+              currentDecision: 'accepted',
+              allAccepted: true,
+              hasDeclined: false,
+            },
+          },
+        });
+      }
+      if (String(url).includes('/recording/status')) {
+        return Promise.resolve(buildRecordingResponse());
+      }
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
       }
@@ -358,6 +373,70 @@ describe('ClassroomPage remote recovery', () => {
       ['/api/rtc/classrooms/42/recording/start'],
     ]));
     expect(getPageText()).toContain('录制中');
+  });
+
+  test('requires an explicit recording choice before entering the classroom', async () => {
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: '', allAccepted: false, hasDeclined: false } } });
+      }
+      if (String(url).includes('/api/rtc/classrooms/')) return Promise.resolve(authResponse);
+      if (String(url).includes('/api/classrooms/42/chat')) return Promise.resolve(buildChatResponse());
+      if (String(url) === '/api/messages/threads') return Promise.resolve(buildThreadResponse());
+      return Promise.resolve({ data: {} });
+    });
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(getPageText()).toContain('进入课堂前，请确认录制安排');
+    expect(startPushMock).not.toHaveBeenCalled();
+
+    const acceptButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('同意录制并进入'));
+    await act(async () => {
+      acceptButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(api.post.mock.calls).toEqual(expect.arrayContaining([[
+      '/api/rtc/classrooms/42/recording/consent',
+      {
+        decision: 'accepted',
+        noticeVersion: '2026-08-20',
+        locale: 'zh-CN',
+      },
+    ]]));
+    expect(startPushMock).toHaveBeenCalledWith('artc://push');
+    expect(getPageText()).not.toContain('进入课堂前，请确认录制安排');
+  });
+
+  test('allows the lesson without starting cloud recording when consent is declined', async () => {
+    api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: '', allAccepted: false, hasDeclined: false } } });
+      }
+      if (String(url).includes('/api/rtc/classrooms/')) return Promise.resolve(authResponse);
+      if (String(url).includes('/api/classrooms/42/chat')) return Promise.resolve(buildChatResponse());
+      if (String(url) === '/api/messages/threads') return Promise.resolve(buildThreadResponse());
+      return Promise.resolve({ data: {} });
+    });
+    startPlayMock.mockRejectedValueOnce(Object.assign(new Error('no remote user founded'), { code: 50026 }));
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    const declineButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => (button.textContent || '').includes('本节课不录制'));
+    await act(async () => {
+      declineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(startPushMock).toHaveBeenCalledWith('artc://push');
+    expect(api.post.mock.calls.some(([url]) => String(url).includes('/recording/start'))).toBe(false);
+    expect(getPageText()).toContain('本节课未录制');
   });
 
   test('toggles microphone without reauthorizing, restarting push, or restarting recording', async () => {
@@ -609,6 +688,9 @@ describe('ClassroomPage remote recovery', () => {
     authResponse.data.session.threadId = '99';
 
     api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: 'accepted', allAccepted: true, hasDeclined: false } } });
+      }
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
       }
@@ -691,6 +773,9 @@ describe('ClassroomPage remote recovery', () => {
     ];
 
     api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: 'accepted', allAccepted: true, hasDeclined: false } } });
+      }
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
       }
@@ -751,6 +836,9 @@ describe('ClassroomPage remote recovery', () => {
 
   test('formats classroom chat time using the signed-in user time zone', async () => {
     api.get.mockImplementation((url) => {
+      if (String(url).includes('/recording/consent')) {
+        return Promise.resolve({ data: { consent: { currentDecision: 'accepted', allAccepted: true, hasDeclined: false } } });
+      }
       if (String(url).includes('/api/rtc/classrooms/')) {
         return Promise.resolve(authResponse);
       }

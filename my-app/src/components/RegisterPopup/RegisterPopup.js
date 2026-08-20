@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { FiX } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './RegisterPopup.css';
 import StudentWelcomePopup from '../StudentWelcomePopup/StudentWelcomePopup';
 import MentorActivationPopup from '../MentorActivationPopup/MentorActivationPopup';
@@ -11,6 +11,9 @@ import { broadcastAuthLogin, setAuthToken, setAuthUser } from '../../utils/authS
 import { consumePostLoginRedirect } from '../../utils/postLoginRedirect';
 import { getEmailCodeErrorMessage, sendRegisterEmailCode } from '../../services/emailCodeService';
 import { useI18n } from '../../i18n/language';
+
+const CURRENT_TERMS_VERSION = '2026-08-20';
+const CURRENT_PRIVACY_VERSION = '2026-08-20';
 
 const translateAuthMessage = (message, t) => {
   const raw = String(message || '').trim();
@@ -28,6 +31,10 @@ const translateAuthMessage = (message, t) => {
     '注册成功，但自动登录失败，请手动登录': t('auth.autoLoginFailed', '注册成功，但自动登录失败，请手动登录'),
     '注册成功，正在关闭...': t('auth.registerClosing', '注册成功，正在关闭...'),
     '验证码发送失败，请稍后再试': t('emailCode.sendFailed', '验证码发送失败，请稍后再试'),
+    '请先阅读并同意服务条款': t('auth.termsRequired', '请先阅读并同意服务条款'),
+    '请先阅读隐私政策': t('auth.privacyRequired', '请先阅读隐私政策'),
+    '服务条款已更新，请重新阅读并同意': t('auth.termsUpdated', '服务条款已更新，请重新阅读并同意'),
+    '隐私政策已更新，请重新阅读': t('auth.privacyUpdated', '隐私政策已更新，请重新阅读'),
   };
   return map[raw] || raw;
 };
@@ -50,6 +57,8 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
   const [emailCodeAvailableAt, setEmailCodeAvailableAt] = useState(0);
   const [emailVerificationToken, setEmailVerificationToken] = useState('');
   const [pendingEmailCodeEmail, setPendingEmailCodeEmail] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [publicId, setPublicId] = useState('');
   const successAnim = !!ok;
   // eye + focus control
@@ -74,6 +83,8 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
     if (!password || password.length < 6) return { message: t('auth.passwordMin', '密码至少6位'), field: 'password' };
     if (password !== confirmPassword) return { message: t('auth.passwordMismatch', '两次输入的密码不一致'), field: 'confirmPassword' };
     if (!['student', 'mentor'].includes(role)) return { message: t('auth.roleRequired', '请选择角色'), field: 'role' };
+    if (!termsAccepted) return { message: t('auth.termsRequired', '请先阅读并同意服务条款'), field: 'legal' };
+    if (!privacyAcknowledged) return { message: t('auth.privacyRequired', '请先阅读隐私政策'), field: 'legal' };
     return null;
   };
 
@@ -85,7 +96,16 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
     setSubmitError('');
     setOk('');
     try {
-      const res = await api.post('/api/register', { email, password, role, ...extraPayload });
+      const res = await api.post('/api/register', {
+        email,
+        password,
+        role,
+        termsAccepted,
+        privacyAcknowledged,
+        termsVersion: CURRENT_TERMS_VERSION,
+        privacyVersion: CURRENT_PRIVACY_VERSION,
+        ...extraPayload,
+      });
 
       // 学生注册成功后，自动登录并跳转学生首页（显示2秒三点动画后再跳转）
       if (role === 'student') {
@@ -289,7 +309,7 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
         style={{ display: (showWelcome || showMentorActivation || showEmailCodePopup) ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="register-modal-close" onClick={onClose} aria-label={t('common.close', '关闭')}>
+        <button type="button" className="register-modal-close" onClick={onClose} disabled={submitting} aria-label={t('common.close', '关闭')}>
           <FiX aria-hidden="true" />
         </button>
         <h2>{t('auth.registerTitle', '注册')}</h2>
@@ -439,6 +459,30 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
           >
             {t('auth.mentorRole', '我是导师（需审核）')}
           </button>
+        </div>
+
+        <div className={`register-legal-consents ${errorField === 'legal' ? 'has-error' : ''}`}>
+          <label className="register-legal-option">
+            <input
+              type="checkbox"
+              checked={termsAccepted && privacyAcknowledged}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setTermsAccepted(checked);
+                setPrivacyAcknowledged(checked);
+                if (errorField === 'legal') {
+                  setErrorField('');
+                  setFieldError('');
+                }
+              }}
+            />
+            <span>
+              {t('auth.termsPrefix', '我已阅读并同意')}
+              <Link to="/terms" target="_blank" rel="noopener noreferrer">{t('footer.terms', '服务条款')}</Link>
+              {t('auth.legalPolicyJoin', '和')}
+              <Link to="/privacy" target="_blank" rel="noopener noreferrer">{t('footer.privacy', '隐私政策')}</Link>
+            </span>
+          </label>
         </div>
 
         <div className="register-continue-area">

@@ -76,7 +76,7 @@
     flex-direction: column; /* 竖直排列 */
     width: 88%; /* 设置宽度 */
     margin: 0 auto; /* 居中 */
-    margin-top: 20px;
+    margin-top: 12px;
     /* 去掉容器自身的黑色边框，避免与错误态边框叠加 */
     border: none;
     border-radius: 10px; /* 仍保留圆角用于投影视觉 */
@@ -595,6 +595,52 @@ input[type="password"]::-ms-clear {
   cursor: not-allowed;                /* 三点动画时显示禁止符号 */
 }
 
+.register-legal-consents {
+    width: 88%;
+    margin: -4px auto 14px;
+    padding: 0 2px;
+    box-sizing: border-box;
+    border: 0;
+    background: transparent;
+}
+
+.register-legal-consents.has-error {
+    background: transparent;
+}
+
+.register-legal-option {
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.45;
+    cursor: pointer;
+}
+
+.register-legal-option input {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 17px;
+    margin: 0;
+    accent-color: #111827;
+}
+
+.register-legal-option a {
+    margin: 0 3px;
+    color: #111827;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.register-legal-option a:focus-visible {
+    outline: 2px solid #111827;
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
 /* 用一个白色小圆 + box-shadow 复制成左右两个点，完全居中且不受字体基线影响 */
 .register-continue-button.success-pending::after{
   content: "";
@@ -723,6 +769,7 @@ input[type="password"]::-ms-clear {
   .register-input-area,
   .register-validation-slot,
   .register-button-group,
+  .register-legal-consents,
   .register-continue-area,
   .register-modal-divider-with-text,
   .register-message,

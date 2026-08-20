@@ -114,6 +114,25 @@ CREATE TABLE IF NOT EXISTS `account_settings` (
   CONSTRAINT `fk_account_settings_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5a) Versioned evidence of Terms acceptance and Privacy Policy acknowledgement.
+CREATE TABLE IF NOT EXISTS `user_legal_acceptances` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `role` ENUM('mentor','student') NOT NULL,
+  `document_type` ENUM('terms','privacy') NOT NULL,
+  `document_version` VARCHAR(40) NOT NULL,
+  `action_type` ENUM('accepted','acknowledged') NOT NULL,
+  `accepted_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `source` VARCHAR(40) NOT NULL DEFAULT 'registration',
+  `request_id` VARCHAR(100) NULL,
+  `ip` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_user_legal_acceptance` (`user_id`, `role`, `document_type`, `document_version`),
+  KEY `idx_user_legal_acceptances_user` (`user_id`, `accepted_at`),
+  CONSTRAINT `fk_user_legal_acceptances_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET @__mx_has_preferred_language := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -845,6 +864,26 @@ CREATE TABLE IF NOT EXISTS `classroom_recordings` (
   KEY `idx_classroom_recordings_task` (`task_id`),
   CONSTRAINT `fk_classroom_recordings_course` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_classroom_recordings_started_by` FOREIGN KEY (`started_by_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `classroom_recording_consents` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `course_session_id` BIGINT NOT NULL,
+  `user_id` INT NOT NULL,
+  `participant_role` ENUM('mentor','student') NOT NULL,
+  `notice_version` VARCHAR(40) NOT NULL,
+  `notice_hash` CHAR(64) NOT NULL,
+  `notice_locale` ENUM('zh-CN','en') NOT NULL DEFAULT 'zh-CN',
+  `decision` ENUM('accepted','declined') NOT NULL,
+  `decided_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `ip` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_classroom_recording_consent` (`course_session_id`, `user_id`),
+  KEY `idx_classroom_recording_consents_course` (`course_session_id`, `decision`),
+  KEY `idx_classroom_recording_consents_user` (`user_id`, `decided_at`),
+  CONSTRAINT `fk_classroom_recording_consents_course` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_classroom_recording_consents_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 15) Post-class lesson hour confirmation cards

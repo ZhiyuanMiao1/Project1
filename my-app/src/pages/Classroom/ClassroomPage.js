@@ -63,6 +63,7 @@ const SCREEN_SHARE_PROFILE = {
 const OBSERVER_PLAY_RETRY_DELAY_MS = 3000;
 const OBSERVER_LIVE_INSTANCE_ID = 'classroom-observer';
 const REMOTE_STOPPLAY_NOOP = async () => undefined;
+const CURRENT_RECORDING_NOTICE_VERSION = '2026-08-20';
 
 let liveSdkPromise = null;
 
@@ -648,6 +649,59 @@ const formatScheduleWindow = (date, startMinutes, endMinutes, timezoneLabel = 'G
   return `${date.getMonth() + 1}月${date.getDate()}日 ${weekdayLabel} ${startLabel}-${endLabel} (${timezoneLabel})`;
 };
 
+function RecordingConsentDialog({ t, open, submitting, error, onDecision }) {
+  if (!open) return null;
+
+  return (
+    <div className="classroom-recording-consent-overlay" role="presentation">
+      <section
+        className="classroom-recording-consent-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="classroom-recording-consent-title"
+      >
+        <button
+          type="button"
+          className="classroom-recording-consent-close"
+          onClick={() => onDecision('declined')}
+          disabled={submitting}
+          aria-label={t('classroom.recordingConsentClose', '不录制并进入课堂')}
+        >
+          <FiX aria-hidden="true" />
+        </button>
+
+        <div className="classroom-recording-consent-icon" aria-hidden="true"><FiVideo /></div>
+        <h2 id="classroom-recording-consent-title">{t('classroom.recordingConsentTitle', '进入课堂前，请确认录制安排')}</h2>
+        <p className="classroom-recording-consent-lead">
+          {t('classroom.recordingConsentLead', '本节课可启动云端录制，用于课程回放、学习复盘、质量保障和争议处理。')}
+        </p>
+        <ul>
+          <li>{t('classroom.recordingConsentScope', '录制内容可能包括课堂音频、视频、屏幕共享和课堂评论。')}</li>
+          <li>{t('classroom.recordingConsentAccess', '录制内容仅向获授权的课程参与者和必要的平台工作人员开放。')}</li>
+          <li>{t('classroom.recordingConsentChoice', '如果任一方选择不录制，仍可正常进入课堂，本节课不会启动云端录制。')}</li>
+        </ul>
+        <p className="classroom-recording-consent-policy">
+          {t('classroom.recordingConsentPolicyPrefix', '更多说明请查看')}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('footer.privacy', '隐私政策')}</a>
+          {t('classroom.recordingConsentPolicyJoin', '和')}
+          <a href="/terms" target="_blank" rel="noopener noreferrer">{t('footer.terms', '服务条款')}</a>
+        </p>
+        {error ? <div className="classroom-recording-consent-error" role="alert">{error}</div> : null}
+        <div className="classroom-recording-consent-actions">
+          <button type="button" className="secondary" onClick={() => onDecision('declined')} disabled={submitting}>
+            {t('classroom.enterWithoutRecording', '本节课不录制')}
+          </button>
+          <button type="button" className="primary" onClick={() => onDecision('accepted')} disabled={submitting}>
+            {submitting
+              ? t('classroom.savingRecordingConsent', '正在保存...')
+              : t('classroom.acceptRecording', '同意录制并进入')}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ClassroomPage() {
   const { language, t } = useI18n();
   const navigate = useNavigate();
@@ -724,6 +778,7 @@ function ClassroomPage() {
   const recordingStartInFlightRef = useRef(false);
   const recordingStartedRef = useRef(false);
   const ensureCloudRecordingStartedRef = useRef(async () => {});
+  const recordingConsentDecisionRef = useRef('');
 
   const [joining, setJoining] = useState(true);
   const [joined, setJoined] = useState(false);
@@ -735,6 +790,9 @@ function ClassroomPage() {
   const [statusText, setStatusText] = useState(() => t('classroom.pendingStatus', '准备进入课堂...'));
   const [recordingStatus, setRecordingStatus] = useState('idle');
   const [recordingError, setRecordingError] = useState('');
+  const [recordingConsentState, setRecordingConsentState] = useState('checking');
+  const [recordingConsentSubmitting, setRecordingConsentSubmitting] = useState(false);
+  const [recordingConsentError, setRecordingConsentError] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [micMuted, setMicMuted] = useState(true);
   const [micActionPending, setMicActionPending] = useState(false);
@@ -782,6 +840,64 @@ function ClassroomPage() {
     }
   }, [location.search]);
   const isObserverMode = Boolean(observerToken);
+
+  useEffect(() => {
+    let active = true;
+    const normalizedCourseId = safeText(courseId);
+
+    if (isObserverMode) {
+      recordingConsentDecisionRef.current = 'not_applicable';
+      setRecordingConsentState('not_applicable');
+      return () => { active = false; };
+    }
+    if (!normalizedCourseId) {
+      setRecordingConsentState('required');
+      return () => { active = false; };
+    }
+
+    recordingConsentDecisionRef.current = '';
+    setRecordingConsentState('checking');
+    setRecordingConsentError('');
+    api.get(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/recording/consent`)
+      .then((response) => {
+        if (!active) return;
+        const decision = safeText(response?.data?.consent?.currentDecision);
+        if (decision === 'accepted' || decision === 'declined') {
+          recordingConsentDecisionRef.current = decision;
+          setRecordingConsentState(decision);
+          return;
+        }
+        setRecordingConsentState('required');
+      })
+      .catch((error) => {
+        if (!active) return;
+        setRecordingConsentError(parseErrorMessage(error, t('classroom.recordingConsentLoadFailed', '录制说明加载失败，请重试')));
+        setRecordingConsentState('required');
+      });
+
+    return () => { active = false; };
+  }, [courseId, isObserverMode, t]);
+
+  const handleRecordingConsentDecision = useCallback(async (decision) => {
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId || recordingConsentSubmitting) return;
+
+    setRecordingConsentSubmitting(true);
+    setRecordingConsentError('');
+    try {
+      await api.post(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/recording/consent`, {
+        decision,
+        noticeVersion: CURRENT_RECORDING_NOTICE_VERSION,
+        locale: language === 'en' ? 'en' : 'zh-CN',
+      });
+      recordingConsentDecisionRef.current = decision;
+      setRecordingConsentState(decision);
+    } catch (error) {
+      setRecordingConsentError(parseErrorMessage(error, t('classroom.recordingConsentSaveFailed', '无法保存录制选择，请重试')));
+    } finally {
+      setRecordingConsentSubmitting(false);
+    }
+  }, [courseId, language, recordingConsentSubmitting, t]);
 
   const backHref = useMemo(
     () => (isObserverMode ? '/' : (session?.roleInSession === 'mentor' ? '/mentor/courses' : '/student/courses')),
@@ -1785,6 +1901,15 @@ function ClassroomPage() {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId || recordingStartedRef.current || recordingStartInFlightRef.current) return;
 
+    if (recordingConsentDecisionRef.current === 'declined') {
+      recordingStartedRef.current = true;
+      if (mountedRef.current) {
+        setRecordingStatus('disabled');
+        setRecordingError('');
+      }
+      return;
+    }
+
     recordingStartInFlightRef.current = true;
     if (mountedRef.current) {
       setRecordingStatus('starting');
@@ -1804,6 +1929,14 @@ function ClassroomPage() {
       }
       throw new Error(t('classroom.recordingStartFailed', '录制启动失败'));
     } catch (error) {
+      const responseCode = safeText(error?.response?.data?.code);
+      if (responseCode === 'RECORDING_CONSENT_PENDING' || responseCode === 'RECORDING_DECLINED') {
+        if (mountedRef.current) {
+          setRecordingStatus(responseCode === 'RECORDING_DECLINED' ? 'disabled' : 'waiting');
+          setRecordingError('');
+        }
+        return;
+      }
       const message = parseErrorMessage(error, t('classroom.recordingStartFailed', '录制启动失败'));
       console.error('ARTC cloud recording start failed:', error);
       if (mountedRef.current) {
@@ -1816,6 +1949,37 @@ function ClassroomPage() {
   }, [courseId, t]);
 
   ensureCloudRecordingStartedRef.current = ensureCloudRecordingStarted;
+
+  useEffect(() => {
+    if (!joined || recordingStatus !== 'waiting' || isObserverMode) return undefined;
+    const normalizedCourseId = safeText(courseId);
+    if (!normalizedCourseId) return undefined;
+
+    let disposed = false;
+    const syncRecordingStatus = async () => {
+      try {
+        const response = await api.get(`/api/rtc/classrooms/${encodeURIComponent(normalizedCourseId)}/recording/status`);
+        if (disposed || !mountedRef.current) return;
+        const status = safeText(response?.data?.recording?.status);
+        if (['running', 'starting', 'stopping'].includes(status)) {
+          recordingStartedRef.current = true;
+          setRecordingStatus('running');
+          setRecordingError('');
+        } else if (response?.data?.consent?.hasDeclined) {
+          recordingStartedRef.current = true;
+          setRecordingStatus('disabled');
+          setRecordingError('');
+        }
+      } catch {}
+    };
+
+    const timer = window.setInterval(syncRecordingStatus, 3000);
+    void syncRecordingStatus();
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [courseId, isObserverMode, joined, recordingStatus]);
 
   const startLocalPush = useCallback(async (options = {}) => {
     const { forceRestart = false } = options;
@@ -3255,6 +3419,9 @@ function ClassroomPage() {
   }, [processRuntimeEvent]);
 
   useEffect(() => {
+    if (!isObserverMode && recordingConsentState !== 'accepted' && recordingConsentState !== 'declined') {
+      return undefined;
+    }
     mountedRef.current = true;
     let cancelled = false;
 
@@ -3504,6 +3671,7 @@ function ClassroomPage() {
     leaveAndDestroy,
     observerToken,
     reportRuntimeIssue,
+    recordingConsentState,
     startLocalPush,
     startObserverPlayback,
     startRemotePlayback,
@@ -3915,6 +4083,10 @@ function ClassroomPage() {
     ? t('classroom.recordingActive', '录制中')
     : recordingStatus === 'starting'
       ? t('classroom.recordingStarting', '录制启动中')
+      : recordingStatus === 'waiting'
+        ? t('classroom.recordingWaiting', '等待对方确认录制')
+        : recordingStatus === 'disabled'
+          ? t('classroom.recordingDisabled', '本节课未录制')
       : recordingStatus === 'failed'
         ? t('classroom.recordingFailed', '录制启动失败')
         : '';
@@ -3934,6 +4106,13 @@ function ClassroomPage() {
 
   return (
     <div className="classroom-page">
+      <RecordingConsentDialog
+        t={t}
+        open={!isObserverMode && recordingConsentState === 'required'}
+        submitting={recordingConsentSubmitting}
+        error={recordingConsentError}
+        onDecision={handleRecordingConsentDecision}
+      />
       <div className="container">
         <header className="classroom-header">
           <BrandMark className="nav-logo-text" to={backHref} />
