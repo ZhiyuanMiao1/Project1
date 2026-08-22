@@ -2,8 +2,19 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import ClassroomPage from './ClassroomPage';
 import api from '../../api/client';
+import { AliyunRtcSdkSession as MockAliyunRtcSdkSession } from './aliyunRtcSdkSession';
 
 const mockNavigate = jest.fn();
+let mockRtcSdkSessionApi;
+
+jest.mock('./aliyunRtcSdkSession', () => ({
+  ALIYUN_RTC_CONNECTED_STATUS: 3,
+  ALIYUN_RTC_RECONNECTING_STATUS: 4,
+  AliyunRtcSdkSession: {
+    checkSupport: jest.fn(async () => ({ support: true })),
+    create: jest.fn(async () => mockRtcSdkSessionApi),
+  },
+}));
 
 jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/classroom/42', search: '' }),
@@ -105,6 +116,25 @@ const buildAuthResponse = () => ({
   },
 });
 
+const buildRtcSdkAuthResponse = () => {
+  const response = buildAuthResponse();
+  response.data.liveAuth = {
+    ...response.data.liveAuth,
+    provider: 'aliyun-rtc-sdk',
+    remoteUserIds: ['student-1'],
+    authInfo: {
+      appId: 'demo-app',
+      channelId: 'course_42',
+      userId: 'mentor-1',
+      nonce: '',
+      timestamp: 2000000000,
+      token: 'rtc-token',
+    },
+  };
+  response.data.userName = '导师A';
+  return response;
+};
+
 const buildThreadResponse = (threads = []) => ({
   data: {
     threads,
@@ -185,6 +215,15 @@ describe('ClassroomPage remote recovery', () => {
     loadMock = jest.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
 
     authResponse = buildAuthResponse();
+    mockRtcSdkSessionApi = {
+      join: jest.fn(async () => undefined),
+      destroy: jest.fn(async () => undefined),
+      setMicrophoneEnabled: jest.fn(async () => undefined),
+      setCameraEnabled: jest.fn(async () => undefined),
+      setScreenShareEnabled: jest.fn(async () => undefined),
+    };
+    MockAliyunRtcSdkSession.checkSupport.mockResolvedValue({ support: true });
+    MockAliyunRtcSdkSession.create.mockImplementation(async () => mockRtcSdkSessionApi);
     api.get.mockImplementation((url) => {
       if (String(url).includes('/recording/consent')) {
         return Promise.resolve({
@@ -376,6 +415,40 @@ describe('ClassroomPage remote recovery', () => {
       ['/api/rtc/classrooms/42/recording/start'],
     ]));
     expect(getPageText()).toContain('录制中');
+  });
+
+  test('uses the official RTC session without changing classroom controls', async () => {
+    authResponse = buildRtcSdkAuthResponse();
+
+    await renderClassroomPage();
+    await flushPromises();
+
+    expect(MockAliyunRtcSdkSession.create).toHaveBeenCalledWith(expect.objectContaining({
+      observer: false,
+      remoteUserIds: ['student-1'],
+    }));
+    expect(mockRtcSdkSessionApi.join).toHaveBeenCalledWith(
+      authResponse.data.liveAuth.authInfo,
+      '导师A'
+    );
+    expect(startPushMock).not.toHaveBeenCalled();
+    expect(api.post.mock.calls).toEqual(expect.arrayContaining([[
+      '/api/rtc/classrooms/42/recording/start',
+    ]]));
+
+    const controls = container.querySelector('.classroom-controls');
+    const [micButton, cameraButton] = Array.from(controls?.querySelectorAll('.classroom-control-btn') || []);
+    await act(async () => {
+      micButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+    await act(async () => {
+      cameraButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(mockRtcSdkSessionApi.setMicrophoneEnabled).toHaveBeenCalledWith(true);
+    expect(mockRtcSdkSessionApi.setCameraEnabled).toHaveBeenCalledWith(true);
   });
 
   test('requires an explicit recording choice before entering the classroom', async () => {

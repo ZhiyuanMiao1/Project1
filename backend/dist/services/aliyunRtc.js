@@ -5,6 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createAliRtcAuthInfo = exports.getAliyunRtcRuntimeConfig = void 0;
 exports.getAliyunLiveRuntimeConfig = getAliyunLiveRuntimeConfig;
+exports.getClassroomRtcProvider = getClassroomRtcProvider;
+exports.toAliRtcSdkAuthInfo = toAliRtcSdkAuthInfo;
 exports.createAliyunLiveStreamAuthInfo = createAliyunLiveStreamAuthInfo;
 const crypto_1 = __importDefault(require("crypto"));
 const MAX_IDENTIFIER_LENGTH = 64;
@@ -22,6 +24,11 @@ const APP_KEY_ENV_NAMES = [
     'ALIYUN_LIVE_APP_KEY',
     'ALIYUN_RTC_APP_KEY',
 ];
+const LEGACY_PROVIDER_ALIASES = new Set([
+    'legacy',
+    'legacy-live-push',
+    'aliyun-live-artc',
+]);
 const safeTrim = (value) => (typeof value === 'string' ? value.trim() : String(value ?? '').trim());
 const readFirstEnv = (names) => {
     for (const name of names) {
@@ -56,6 +63,27 @@ function getAliyunLiveRuntimeConfig() {
     if (!appId || !appKey)
         return null;
     return { appId, appKey };
+}
+/**
+ * Classroom RTC rollback switch.
+ *
+ * The new Web RTC SDK is the default. Set CLASSROOM_RTC_PROVIDER=legacy-live-push
+ * and restart the backend to make existing frontend bundles use the previous
+ * AlivcLivePusher/AlivcLivePlayer path without changing credentials or room IDs.
+ */
+function getClassroomRtcProvider() {
+    const configured = safeTrim(process.env.CLASSROOM_RTC_PROVIDER).toLowerCase();
+    return LEGACY_PROVIDER_ALIASES.has(configured) ? 'legacy-live-push' : 'aliyun-rtc-sdk';
+}
+function toAliRtcSdkAuthInfo(auth) {
+    return {
+        appId: auth.appId,
+        channelId: auth.roomId,
+        userId: auth.userId,
+        nonce: auth.nonce,
+        timestamp: auth.timestamp,
+        token: auth.token,
+    };
 }
 function createAliyunLiveStreamAuthInfo(params) {
     const appId = safeTrim(params.appId);

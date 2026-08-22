@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadClassroomObserverContext = exports.loadAuthorizedClassroomContext = exports.isClassroomClosed = exports.isMissingClassroomSchemaError = exports.getEffectiveCourseStatus = exports.toIsoString = exports.parseStoredUtcDate = exports.toNumber = exports.safeText = exports.ClassroomHttpError = void 0;
+exports.loadClassroomObserverContext = exports.loadAuthorizedClassroomContext = exports.isClassroomClosed = exports.isMissingClassroomSchemaError = exports.getEffectiveCourseStatus = exports.toIsoString = exports.parseStoredUtcDate = exports.CLASSROOM_ENTRY_BUFFER_MS = exports.toNumber = exports.safeText = exports.ClassroomHttpError = void 0;
 const db_1 = require("../db");
 class ClassroomHttpError extends Error {
     constructor(statusCode, message) {
@@ -16,6 +16,9 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(n) ? n : fallback;
 };
 exports.toNumber = toNumber;
+// Keep the classroom available for late finishes, reconnects, and brief
+// device/network interruptions after the scheduled lesson end time.
+exports.CLASSROOM_ENTRY_BUFFER_MS = 60 * 60 * 1000;
 const parseStoredUtcDate = (raw) => {
     if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
         return new Date(Date.UTC(raw.getFullYear(), raw.getMonth(), raw.getDate(), raw.getHours(), raw.getMinutes(), raw.getSeconds(), raw.getMilliseconds()));
@@ -60,8 +63,10 @@ const getEffectiveCourseStatus = (row) => {
     if (!startsAt || Number.isNaN(startsAt.getTime()))
         return status;
     const durationHours = Math.max((0, exports.toNumber)(row?.duration_hours, 0), 0);
-    const endTimestamp = startsAt.getTime() + durationHours * 60 * 60 * 1000;
-    if (endTimestamp <= Date.now())
+    const entryDeadline = startsAt.getTime()
+        + durationHours * 60 * 60 * 1000
+        + exports.CLASSROOM_ENTRY_BUFFER_MS;
+    if (entryDeadline <= Date.now())
         return 'completed';
     return status;
 };

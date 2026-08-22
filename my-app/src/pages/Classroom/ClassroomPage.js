@@ -50,6 +50,11 @@ import {
   isRetryableRemotePlayError,
   REMOTE_RECONNECTING_TEXT,
 } from './classroomRecovery';
+import {
+  ALIYUN_RTC_CONNECTED_STATUS,
+  ALIYUN_RTC_RECONNECTING_STATUS,
+  AliyunRtcSdkSession,
+} from './aliyunRtcSdkSession';
 import '../Messages/MessagesPage.css';
 import './ClassroomPage.css';
 
@@ -415,6 +420,35 @@ const clearVideoElement = (element, options = {}) => {
   } catch {}
 };
 
+const getLocalDeviceExceptionMessage = (deviceType, exceptionType, t) => {
+  switch (Number(exceptionType)) {
+    case 3:
+      return t('classroom.micPermissionError', '无法使用麦克风，请检查浏览器权限');
+    case 1:
+    case 2:
+    case 4:
+      return t('classroom.micDeviceError', '麦克风不可用，请检查设备连接或是否被其他应用占用');
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+      return t('classroom.audioDeviceError', '音频设备不可用，请检查系统声音设备');
+    case 11:
+      return t('classroom.cameraPermissionError', '无法使用摄像头，请检查浏览器权限');
+    case 9:
+    case 10:
+      return t('classroom.cameraDeviceError', '摄像头不可用，请检查设备连接或是否被其他应用占用');
+    case 12:
+      return t('classroom.screenDeviceError', '屏幕共享设备异常，请重新发起共享');
+    case 13:
+      return Number(deviceType) === 5
+        ? t('classroom.screenDeviceError', '屏幕共享设备异常，请重新发起共享')
+        : t('classroom.cameraDeviceError', '摄像头不可用，请检查设备连接或是否被其他应用占用');
+    default:
+      return t('classroom.localDeviceError', '本地媒体设备异常，请检查设备后重试');
+  }
+};
+
 const createObserverKeepaliveStream = () => {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
@@ -441,16 +475,47 @@ const toLiveAuthInfo = (rawAuthInfo) => {
   const expiresAt = safeText(rawAuthInfo?.expiresAt);
   const sdkAppId = safeText(rawAuthInfo?.sdkAppId);
   const mode = safeText(rawAuthInfo?.mode) || 'aliyun-live-artc';
+  const provider = safeText(rawAuthInfo?.provider) || 'legacy-live-push';
+  const remoteUserIds = Array.from(new Set(
+    (Array.isArray(rawAuthInfo?.remoteUserIds) ? rawAuthInfo.remoteUserIds : [remoteUserId])
+      .map(safeText)
+      .filter(Boolean)
+  ));
+  const rawSdkAuthInfo = rawAuthInfo?.authInfo;
+  const authInfo = rawSdkAuthInfo && typeof rawSdkAuthInfo === 'object'
+    ? {
+      appId: safeText(rawSdkAuthInfo.appId),
+      channelId: safeText(rawSdkAuthInfo.channelId),
+      userId: safeText(rawSdkAuthInfo.userId),
+      nonce: safeText(rawSdkAuthInfo.nonce),
+      timestamp: Number(rawSdkAuthInfo.timestamp),
+      token: safeText(rawSdkAuthInfo.token),
+    }
+    : null;
 
-  if (!roomId || !selfUserId || !remoteUserId || !remotePlayUrl) return null;
-  if (mode !== 'readonly-observer' && !pushUrl) return null;
+  if (!roomId || !selfUserId || !remoteUserId) return null;
+  if (provider === 'aliyun-rtc-sdk') {
+    if (
+      !authInfo?.appId
+      || !authInfo.channelId
+      || !authInfo.userId
+      || !authInfo.token
+      || !Number.isFinite(authInfo.timestamp)
+    ) return null;
+  } else {
+    if (!remotePlayUrl) return null;
+    if (mode !== 'readonly-observer' && !pushUrl) return null;
+  }
 
   return {
+    provider,
     mode,
     roomId,
     sdkAppId,
     selfUserId,
     remoteUserId,
+    remoteUserIds,
+    authInfo,
     pushUrl,
     observerJoinUrl,
     remotePlayUrl,
@@ -698,6 +763,7 @@ function ClassroomPage() {
   const remoteVideoRef = useRef(null);
   const remoteScreenVideoRef = useRef(null);
   const pusherRef = useRef(null);
+  const rtcSdkSessionRef = useRef(null);
   const playerRef = useRef(null);
   const observerKeepaliveStreamRef = useRef(null);
   const observerPlayerRefs = useRef([]);
@@ -2504,6 +2570,9 @@ function ClassroomPage() {
     const forcePlaybackAttempt = options.force === true;
     const sdk = resolveAliyunLiveSdk();
     const liveAuth = liveAuthRef.current;
+    // New SDK subscribes and binds remote tracks inside AliyunRtcSdkSession.
+    // This legacy player path remains intact for CLASSROOM_RTC_PROVIDER rollback.
+    if (liveAuth?.provider === 'aliyun-rtc-sdk') return;
     const remotePlayUrl = safeText(liveAuth?.remotePlayUrl);
     const remoteUserId = safeText(liveAuth?.remoteUserId);
     const displayName = safeText(remoteLabelRef.current) || t('classroom.remoteFallback', '对方');
@@ -2893,18 +2962,36 @@ function ClassroomPage() {
       const prevRemotePresent = remotePresentRef.current;
       const nextRemotePresent = Boolean(response?.data?.remotePresent);
       const nextRemoteScreenSharing = Boolean(response?.data?.remoteScreenSharing);
+      const usesRtcSdk = liveAuthRef.current?.provider === 'aliyun-rtc-sdk';
       setObserverCount(Number(response?.data?.observerCount) || 0);
       const hadRemoteStream = hasEstablishedRemotePlayback();
       const presenceAlreadyInitialized = presenceInitializedRef.current;
 
       presenceInitializedRef.current = true;
 
-      remotePresentRef.current = nextRemotePresent;
-      setRemotePresent(nextRemotePresent);
-      setRemoteScreenSharing(nextRemoteScreenSharing);
+      const resolvedRemotePresent = usesRtcSdk
+        ? (nextRemotePresent || remotePresentRef.current)
+        : nextRemotePresent;
+      remotePresentRef.current = resolvedRemotePresent;
+      setRemotePresent(resolvedRemotePresent);
+      if (!usesRtcSdk) setRemoteScreenSharing(nextRemoteScreenSharing);
 
-      if (remoteScreenSharingRef.current && !nextRemoteScreenSharing) {
+      if (!usesRtcSdk && remoteScreenSharingRef.current && !nextRemoteScreenSharing) {
         markRemoteScreenIdle();
+      }
+
+      // Presence remains useful for labels and observer count, while the new
+      // SDK owns media availability and reconnection. Do not tear down SDK
+      // views based on a delayed HTTP heartbeat.
+      if (usesRtcSdk) {
+        if (!remoteReadyRef.current) {
+          setErrorMessage('');
+          setStatusText(buildJoinedStatusText({
+            remotePresent: resolvedRemotePresent,
+            remoteReady: false,
+          }));
+        }
+        return;
       }
 
       if (!nextRemotePresent) {
@@ -2962,12 +3049,17 @@ function ClassroomPage() {
 
   const stopScreenShare = useCallback(async (options = {}) => {
     const { silent = false } = options;
+    const rtcSdkSession = rtcSdkSessionRef.current;
     const pusher = pusherRef.current;
 
     clearScreenTrackListener();
     clearVideoElement(localScreenVideoRef.current);
 
-    if (pusher && joinedRef.current) {
+    if (rtcSdkSession && joinedRef.current) {
+      try {
+        await rtcSdkSession.setScreenShareEnabled(false);
+      } catch {}
+    } else if (pusher && joinedRef.current) {
       try {
         if (typeof pusher.stopScreenShare === 'function') {
           await pusher.stopScreenShare();
@@ -3017,6 +3109,11 @@ function ClassroomPage() {
 
     try {
       const normalizedCourseId = safeText(courseId);
+      const rtcSdkSession = rtcSdkSessionRef.current;
+      rtcSdkSessionRef.current = null;
+      if (rtcSdkSession) {
+        try { await rtcSdkSession.destroy(); } catch {}
+      }
       if (isObserverMode) {
         if (normalizedCourseId && observerToken) {
           void api.delete(
@@ -3482,6 +3579,143 @@ function ClassroomPage() {
         setSession(sessionInfo);
         setStatusText(t('classroom.loadingSdk', '正在加载实时音视频 SDK...'));
 
+        if (liveAuth.provider === 'aliyun-rtc-sdk') {
+          const supportResult = normalizeSupportResult(await AliyunRtcSdkSession.checkSupport(
+            isObserverMode ? 'recvonly' : 'sendrecv'
+          ));
+          if (!supportResult.supported) {
+            const reason = supportResult.reason ? `：${supportResult.reason}` : '';
+            throw new Error(t('classroom.browserUnsupported', `当前浏览器不支持阿里云实时音视频${reason}`, { reason }));
+          }
+
+          if (!isObserverMode) {
+            setStatusText(t('classroom.initializingDevices', '正在初始化本地设备...'));
+            setScreenShareSupported(typeof navigator?.mediaDevices?.getDisplayMedia === 'function');
+          }
+
+          const rtcSdkSession = await AliyunRtcSdkSession.create({
+            observer: isObserverMode,
+            remoteUserIds: liveAuth.remoteUserIds,
+            getLocalCameraElement: () => localVideoRef.current,
+            getLocalScreenElement: () => localScreenVideoRef.current,
+            getRemoteCameraElement: (userId) => {
+              if (!isObserverMode) return remoteVideoRef.current;
+              return userId === liveAuth.remoteUserIds[0]
+                ? localVideoRef.current
+                : remoteVideoRef.current;
+            },
+            getRemoteScreenElement: () => remoteScreenVideoRef.current,
+            onConnectionStatusChange: (status) => {
+              if (!mountedRef.current || !joinedRef.current) return;
+              if (status === ALIYUN_RTC_RECONNECTING_STATUS) {
+                setStatusText(t('classroom.networkReconnecting', '网络波动，正在重连课堂...'));
+              } else if (status === ALIYUN_RTC_CONNECTED_STATUS) {
+                setErrorMessage('');
+                setStatusText(isObserverMode
+                  ? t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...')
+                  : buildJoinedStatusText());
+              }
+            },
+            onRemoteUserOnline: (userId) => {
+              if (!mountedRef.current) return;
+              if (!isObserverMode && userId === liveAuth.remoteUserId) {
+                remotePresentRef.current = true;
+                setRemotePresent(true);
+                setStatusText(buildJoinedStatusText({ remotePresent: true, remoteReady: remoteReadyRef.current }));
+              }
+            },
+            onRemoteUserOffline: (userId) => {
+              if (!mountedRef.current || !joinedRef.current) return;
+              if (!isObserverMode && userId === liveAuth.remoteUserId) {
+                remotePresentRef.current = false;
+                remoteReadyRef.current = false;
+                setRemotePresent(false);
+                setRemoteReady(false);
+                setStatusText(buildJoinedStatusText({ remotePresent: false, remoteReady: false }));
+              } else if (isObserverMode) {
+                setStatusText(t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...'));
+              }
+            },
+            onRemoteTrackChange: (userId, tracks) => {
+              if (!mountedRef.current) return;
+              if (!isObserverMode && userId === liveAuth.remoteUserId) {
+                remotePresentRef.current = true;
+                remoteReadyRef.current = tracks.cameraAvailable;
+                setRemotePresent(true);
+                setRemoteReady(tracks.cameraAvailable);
+                setErrorMessage('');
+                setStatusText(buildJoinedStatusText({
+                  remotePresent: true,
+                  remoteReady: tracks.cameraAvailable,
+                }));
+              } else if (isObserverMode && tracks.cameraAvailable) {
+                setStatusText(t('classroom.observerWatching', '旁听中'));
+              }
+            },
+            onRemoteCameraMuted: (userId, muted) => {
+              if (!mountedRef.current || isObserverMode || userId !== liveAuth.remoteUserId || !muted) return;
+              remoteReadyRef.current = false;
+              setRemoteReady(false);
+              setStatusText(buildJoinedStatusText({ remotePresent: true, remoteReady: false }));
+            },
+            onRemoteScreenChange: (available) => {
+              if (!mountedRef.current) return;
+              remoteScreenSharingRef.current = available;
+              setRemoteScreenSharing(available);
+              if (!available) markRemoteScreenIdle();
+            },
+            onRemoteScreenMuted: (_userId, muted) => {
+              if (muted && mountedRef.current) markRemoteScreenIdle();
+            },
+            onLocalScreenEnded: () => {
+              if (!mountedRef.current || !joinedRef.current) return;
+              screenSharingRef.current = false;
+              setScreenSharing(false);
+              setLocalScreenReady(false);
+              clearVideoElement(localScreenVideoRef.current);
+              setStatusText(buildJoinedStatusText());
+              void syncClassroomPresence({ screenSharing: false });
+            },
+            onLocalDeviceException: ({ deviceType, exceptionType }) => {
+              if (!mountedRef.current || !joinedRef.current) return;
+              if (Number(deviceType) === 1) {
+                micMutedRef.current = true;
+                setMicMuted(true);
+              } else if (Number(deviceType) === 4 || Number(deviceType) === 6) {
+                cameraMutedRef.current = true;
+                setCameraMuted(true);
+                clearVideoElement(localVideoRef.current);
+              }
+              setErrorMessage(getLocalDeviceExceptionMessage(deviceType, exceptionType, t));
+            },
+            onError: (error) => {
+              reportRuntimeIssue(error, t('classroom.runtimeError', '课堂连接发生错误，请稍后重试'));
+            },
+          });
+          rtcSdkSessionRef.current = rtcSdkSession;
+          setStatusText(isObserverMode
+            ? t('classroom.observerJoiningRoom', '旁听中，正在进入课堂房间...')
+            : t('classroom.entering', '正在进入课堂...'));
+          await rtcSdkSession.join(liveAuth.authInfo, safeText(response?.data?.userName));
+          if (cancelled || !mountedRef.current) return;
+
+          joinedRef.current = true;
+          setJoined(true);
+          setJoining(false);
+          setStatusText(isObserverMode
+            ? t('classroom.observerWaitingStreams', '旁听中，等待课堂画面...')
+            : buildJoinedStatusText({
+              remotePresent: remotePresentRef.current,
+              remoteReady: remoteReadyRef.current,
+            }));
+          if (!isObserverMode) {
+            await ensureCloudRecordingStartedRef.current();
+          }
+          void syncClassroomPresence();
+          return;
+        }
+
+        // Rollback branch: kept unchanged for CLASSROOM_RTC_PROVIDER=legacy-live-push.
         const sdk = await loadAliyunLiveSdk();
         if (cancelled || !mountedRef.current) return;
 
@@ -3666,6 +3900,7 @@ function ClassroomPage() {
     detachVisibleCameraPreview,
     isObserverMode,
     leaveAndDestroy,
+    markRemoteScreenIdle,
     observerToken,
     reportRuntimeIssue,
     recordingConsentState,
@@ -3690,8 +3925,9 @@ function ClassroomPage() {
   }, [processRuntimeEvent]);
 
   const handleToggleMic = useCallback(async () => {
+    const rtcSdkSession = rtcSdkSessionRef.current;
     const pusher = pusherRef.current;
-    if (!pusher || !joinedRef.current || micActionPendingRef.current) return;
+    if ((!rtcSdkSession && !pusher) || !joinedRef.current || micActionPendingRef.current) return;
 
     const nextMuted = !micMuted;
     let microphoneStarted = false;
@@ -3699,13 +3935,17 @@ function ClassroomPage() {
     if (mountedRef.current) setMicActionPending(true);
 
     try {
-      const microphoneChanged = await setLocalMicrophoneActive(!nextMuted);
-      if (!microphoneChanged) {
-        throw new Error(t('classroom.micControlUnavailable', '当前实时音视频 SDK 不支持麦克风开关'));
+      if (rtcSdkSession) {
+        await rtcSdkSession.setMicrophoneEnabled(!nextMuted);
+      } else {
+        const microphoneChanged = await setLocalMicrophoneActive(!nextMuted);
+        if (!microphoneChanged) {
+          throw new Error(t('classroom.micControlUnavailable', '当前实时音视频 SDK 不支持麦克风开关'));
+        }
       }
       microphoneStarted = !nextMuted;
 
-      if (!nextMuted && !localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
+      if (!rtcSdkSession && !nextMuted && !localPushActiveRef.current && !hasActiveLocalPushSession(pusher)) {
         await startLocalPush();
       }
 
@@ -3717,7 +3957,8 @@ function ClassroomPage() {
     } catch (error) {
       if (microphoneStarted) {
         try {
-          await setLocalMicrophoneActive(false);
+          if (rtcSdkSession) await rtcSdkSession.setMicrophoneEnabled(false);
+          else await setLocalMicrophoneActive(false);
         } catch {}
       }
       if (!mountedRef.current) return;
@@ -3729,15 +3970,18 @@ function ClassroomPage() {
   }, [micMuted, setLocalMicrophoneActive, startLocalPush, t]);
 
   const handleToggleCamera = useCallback(async () => {
+    const rtcSdkSession = rtcSdkSessionRef.current;
     const pusher = pusherRef.current;
-    if (!pusher || !joinedRef.current || cameraActionPendingRef.current) return;
+    if ((!rtcSdkSession && !pusher) || !joinedRef.current || cameraActionPendingRef.current) return;
 
     const nextMuted = !cameraMuted;
     cameraActionPendingRef.current = true;
     if (mountedRef.current) setCameraActionPending(true);
 
     try {
-      if (nextMuted) {
+      if (rtcSdkSession) {
+        await rtcSdkSession.setCameraEnabled(!nextMuted);
+      } else if (nextMuted) {
         await pusher.stopCamera();
         detachVisibleCameraPreview();
       } else {
@@ -3754,7 +3998,8 @@ function ClassroomPage() {
     } catch (error) {
       if (!nextMuted) {
         try {
-          await pusher.stopCamera();
+          if (rtcSdkSession) await rtcSdkSession.setCameraEnabled(false);
+          else await pusher.stopCamera();
         } catch {}
         detachVisibleCameraPreview();
       }
@@ -3767,8 +4012,9 @@ function ClassroomPage() {
   }, [cameraMuted, detachVisibleCameraPreview, startLocalPush, startVisibleCameraPreview, t]);
 
   const handleToggleScreenShare = useCallback(async () => {
+    const rtcSdkSession = rtcSdkSessionRef.current;
     const pusher = pusherRef.current;
-    if (!pusher || !joinedRef.current || screenActionPendingRef.current) return;
+    if ((!rtcSdkSession && !pusher) || !joinedRef.current || screenActionPendingRef.current) return;
 
     if (!screenShareSupported) {
       if (mountedRef.current) {
@@ -3783,6 +4029,20 @@ function ClassroomPage() {
     try {
       if (screenSharing) {
         await stopScreenShare();
+        return;
+      }
+
+      if (rtcSdkSession) {
+        screenShareCancelSilenceUntilRef.current = Date.now() + 3000;
+        await rtcSdkSession.setScreenShareEnabled(true, SCREEN_SHARE_PROFILE);
+        screenShareCancelSilenceUntilRef.current = 0;
+        if (mountedRef.current) {
+          screenSharingRef.current = true;
+          setScreenSharing(true);
+          setErrorMessage('');
+          setStatusText(t('classroom.sharingScreen', '正在共享屏幕'));
+        }
+        void syncClassroomPresence({ screenSharing: true });
         return;
       }
 

@@ -7,7 +7,12 @@ import { requireAdminAuth, getAdminJwtSecret } from '../middleware/adminAuth';
 import { ensureAdminSchema } from '../services/adminSchema';
 import { expireStaleBillingOrders } from '../services/billingOrderExpiry';
 import { revokeAllRefreshTokensForUser } from '../auth/refreshTokens';
-import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
+import {
+  createAliyunLiveStreamAuthInfo,
+  getAliyunLiveRuntimeConfig,
+  getClassroomRtcProvider,
+  toAliRtcSdkAuthInfo,
+} from '../services/aliyunRtc';
 import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
 import { createClassroomObserverToken } from '../services/classroomObserverToken';
 import { buildContentDisposition, getOssClient, getRecordingOssClient } from '../services/ossClient';
@@ -2398,6 +2403,7 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
 
     return res.json({
       courseId: String(courseId),
+      provider: getClassroomRtcProvider(),
       mode: 'readonly-observer',
       observerToken: createClassroomObserverToken(courseId, Number(req.admin?.adminId || 0)),
       roomId,
@@ -2411,12 +2417,14 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
           role: 'student',
           userId: studentPublicId,
           label: safeString(classroom.student_username, 100) || studentPublicId,
+          authInfo: toAliRtcSdkAuthInfo(studentAuth),
           playUrl: studentAuth.playUrl,
         },
         {
           role: 'mentor',
           userId: mentorPublicId,
           label: safeString(classroom.mentor_display_name, 100) || safeString(classroom.mentor_username, 100) || mentorPublicId,
+          authInfo: toAliRtcSdkAuthInfo(mentorAuth),
           playUrl: mentorAuth.playUrl,
         },
       ],

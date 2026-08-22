@@ -314,6 +314,8 @@ const toDateTimestamp = (course) => {
 
 const isScheduledCourse = (course) => safeText(course?.status).toLowerCase() === 'scheduled';
 
+const CLASSROOM_ENTRY_BUFFER_MS = 60 * 60 * 1000;
+
 const hasEnoughLessonHours = (course, remainingHours) => {
   const requiredHours = toDurationHours(course?.durationHours);
   if (requiredHours == null) return true;
@@ -330,7 +332,7 @@ const getCourseEndTimestamp = (course) => {
   if (!Number.isNaN(startsAtTimestamp)) {
     const durationHours = toDurationHours(course?.durationHours);
     const durationMs = (durationHours ?? 0) * 60 * 60 * 1000;
-    return startsAtTimestamp + durationMs;
+    return startsAtTimestamp + durationMs + CLASSROOM_ENTRY_BUFFER_MS;
   }
 
   const date = safeText(course?.date);

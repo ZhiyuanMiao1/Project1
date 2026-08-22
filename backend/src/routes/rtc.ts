@@ -1,6 +1,11 @@
 import { Request, Response, Router } from 'express';
 import { requireAuth } from '../middleware/auth';
-import { createAliyunLiveStreamAuthInfo, getAliyunLiveRuntimeConfig } from '../services/aliyunRtc';
+import {
+  createAliyunLiveStreamAuthInfo,
+  getAliyunLiveRuntimeConfig,
+  getClassroomRtcProvider,
+  toAliRtcSdkAuthInfo,
+} from '../services/aliyunRtc';
 import {
   ClassroomRecordingPresenceEntry,
   getClassroomRecordingStatus,
@@ -202,11 +207,15 @@ router.get('/classrooms/:courseId/auth', requireAuth, async (req: Request, res: 
 
     return res.json({
       liveAuth: {
+        provider: getClassroomRtcProvider(),
         mode: 'aliyun-live-artc',
         sdkAppId: runtime.appId,
         roomId: selfStreamAuth.roomId,
         selfUserId: selfStreamAuth.userId,
         remoteUserId: remoteStreamAuth.userId,
+        remoteUserIds: [remoteStreamAuth.userId],
+        authInfo: toAliRtcSdkAuthInfo(selfStreamAuth),
+        // Rollback fields used by the previous AlivcLivePusher/Player implementation.
         pushUrl: selfStreamAuth.pushUrl,
         selfPlayUrl: selfStreamAuth.playUrl,
         remotePlayUrl: remoteStreamAuth.playUrl,
@@ -278,11 +287,15 @@ router.get('/classrooms/:courseId/observer-auth', async (req: Request, res: Resp
 
     return res.json({
       liveAuth: {
+        provider: getClassroomRtcProvider(),
         mode: 'readonly-observer',
         sdkAppId: runtime.appId,
         roomId: context.roomId,
         selfUserId: observerStreamAuth.userId,
         remoteUserId: context.mentorPublicId,
+        remoteUserIds: [context.studentPublicId, context.mentorPublicId],
+        authInfo: toAliRtcSdkAuthInfo(observerStreamAuth),
+        // Rollback fields used by the previous observer keepalive/player path.
         observerJoinUrl: observerStreamAuth.pushUrl,
         selfPlayUrl: studentStreamAuth.playUrl,
         remotePlayUrl: mentorStreamAuth.playUrl,

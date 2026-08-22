@@ -69,6 +69,10 @@ export const toNumber = (value: unknown, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+// Keep the classroom available for late finishes, reconnects, and brief
+// device/network interruptions after the scheduled lesson end time.
+export const CLASSROOM_ENTRY_BUFFER_MS = 60 * 60 * 1000;
+
 export const parseStoredUtcDate = (raw: unknown) => {
   if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
     return new Date(Date.UTC(
@@ -122,8 +126,10 @@ export const getEffectiveCourseStatus = (row: CourseSessionRow) => {
   if (!startsAt || Number.isNaN(startsAt.getTime())) return status;
 
   const durationHours = Math.max(toNumber(row?.duration_hours, 0), 0);
-  const endTimestamp = startsAt.getTime() + durationHours * 60 * 60 * 1000;
-  if (endTimestamp <= Date.now()) return 'completed';
+  const entryDeadline = startsAt.getTime()
+    + durationHours * 60 * 60 * 1000
+    + CLASSROOM_ENTRY_BUFFER_MS;
+  if (entryDeadline <= Date.now()) return 'completed';
   return status;
 };
 
