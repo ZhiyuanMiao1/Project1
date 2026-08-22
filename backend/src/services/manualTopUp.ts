@@ -22,19 +22,6 @@ export const createManualTopUpOrder = async (
 
   try {
     await conn.beginTransaction();
-    const [roleRows] = await conn.query<any[]>(
-      `SELECT public_id FROM user_roles
-       WHERE user_id = ? AND role = 'student'
-       LIMIT 1`,
-      [userId]
-    );
-    const studentId = typeof roleRows?.[0]?.public_id === 'string'
-      ? roleRows[0].public_id.trim()
-      : '';
-    if (!studentId) {
-      throw Object.assign(new Error('未找到 StudentID，请刷新页面后重试'), { statusCode: 409 });
-    }
-
     const [insertResult] = await conn.query<ResultSetHeader>(
       `INSERT INTO billing_orders (
          user_id, provider, provider_order_id, status,
@@ -56,7 +43,7 @@ export const createManualTopUpOrder = async (
     );
 
     const orderId = Number(insertResult.insertId);
-    const paymentReference = `${orderId}${studentId}`;
+    const paymentReference = String(orderId);
     await conn.query(
       `UPDATE billing_orders
        SET provider_order_id = ?, provider_create_json = ?
@@ -66,7 +53,6 @@ export const createManualTopUpOrder = async (
         JSON.stringify({
           source: 'wallet_payment_create',
           paymentReference,
-          studentId,
           createdAt: new Date().toISOString(),
         }),
         orderId,

@@ -16,7 +16,7 @@ function WeChatTransferModal({
 }) {
   const { t } = useI18n();
   const closeButtonRef = useRef(null);
-  const [studentIdCopied, setStudentIdCopied] = useState(false);
+  const [paymentReferenceCopied, setPaymentReferenceCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -40,7 +40,7 @@ function WeChatTransferModal({
   }, [onClose, open, submitting]);
 
   useEffect(() => {
-    if (open) setStudentIdCopied(false);
+    if (open) setPaymentReferenceCopied(false);
   }, [open]);
 
   if (!open) return null;
@@ -56,14 +56,14 @@ function WeChatTransferModal({
     onPaid?.();
   };
 
-  const copyStudentId = async () => {
+  const copyPaymentReference = async () => {
     if (!normalizedPaymentReference) return;
     try {
       await navigator.clipboard.writeText(normalizedPaymentReference);
-      setStudentIdCopied(true);
-      window.setTimeout(() => setStudentIdCopied(false), 1800);
+      setPaymentReferenceCopied(true);
+      window.setTimeout(() => setPaymentReferenceCopied(false), 1800);
     } catch {
-      setStudentIdCopied(false);
+      setPaymentReferenceCopied(false);
     }
   };
 
@@ -135,13 +135,13 @@ function WeChatTransferModal({
                     <button
                       type="button"
                       className="wechat-transfer-copy"
-                      onClick={copyStudentId}
+                      onClick={copyPaymentReference}
                       disabled={!normalizedPaymentReference}
                       aria-label={t('wallet.copyPaymentReference', '复制订单备注')}
                     >
-                      {studentIdCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
+                      {paymentReferenceCopied ? <FiCheck aria-hidden="true" /> : <FiCopy aria-hidden="true" />}
                       <span>
-                        {studentIdCopied
+                        {paymentReferenceCopied
                           ? t('wallet.wechatCopied', '已复制')
                           : t('wallet.wechatCopy', '复制')}
                       </span>
