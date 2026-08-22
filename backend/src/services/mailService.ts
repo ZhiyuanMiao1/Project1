@@ -457,3 +457,80 @@ export const sendCourseDisputeResultMail = async ({
   await sendMail({ to, subject, text, html });
   return true;
 };
+
+export const sendLessonHoursFinalDecisionMail = async ({
+  recipientUserId,
+  recipientRole,
+  finalHours,
+  decision,
+  reason,
+}: {
+  recipientUserId: number;
+  recipientRole: 'student' | 'mentor';
+  finalHours: number;
+  decision: 'mentor_proposed' | 'student_disputed';
+  reason: string;
+}) => {
+  if (!Number.isFinite(recipientUserId) || recipientUserId <= 0) return false;
+  const preferences = await getEmailNotificationPreferencesForUser(recipientUserId);
+  if (!preferences.enabled) return false;
+
+  const rows = await query<Array<{ email: string | null }>>(
+    'SELECT email FROM users WHERE id = ? LIMIT 1',
+    [recipientUserId]
+  );
+  const to = String(rows?.[0]?.email || '').trim();
+  if (!to) return false;
+
+  const isEnglish = preferences.locale === 'en';
+  const hours = Number(finalHours.toFixed(2));
+  const hoursText = Number.isInteger(hours) ? String(hours) : String(hours);
+  const decisionText = decision === 'mentor_proposed'
+    ? (isEnglish ? "The mentor's submitted hours were accepted" : '采信导师提交课时')
+    : (isEnglish ? "The student's disputed hours were accepted" : '采信学生争议课时');
+  const subject = isEnglish ? 'Mentory: Lesson-hours review result' : 'Mentory 课时审核结果';
+  const title = isEnglish ? 'Lesson-hours review completed' : '课时审核已完成';
+  const greeting = isEnglish
+    ? (recipientRole === 'student' ? 'Hello,' : 'Hello,')
+    : '你好：';
+  const intro = isEnglish
+    ? 'Mentory has completed its review of the disputed lesson hours.'
+    : 'Mentory 平台已完成本次课时异议审核。';
+  const details = [
+    { label: isEnglish ? 'Decision' : '裁决结果', value: decisionText },
+    { label: isEnglish ? 'Final hours' : '最终课时', value: `${hoursText} ${isEnglish ? (hours === 1 ? 'hour' : 'hours') : '小时'}` },
+  ];
+  const text = [
+    greeting,
+    '',
+    intro,
+    ...details.map((item) => `${item.label}: ${item.value}`),
+    `${isEnglish ? 'Reason' : '裁决依据'}: ${reason}`,
+    '',
+    isEnglish
+      ? 'The final lesson hours have been applied to the course and deducted from the student lesson balance.'
+      : '最终课时已计入课程，并从学生课时余额中扣除。',
+    isEnglish ? 'Mentory Team' : 'Mentory 团队',
+  ].join('\n');
+  const detailRowsHtml = details.map((item) => `
+    <tr>
+      <td style="width: 96px; padding: 7px 0; font-size: 13px; color: #64748b; vertical-align: top;">${escapeHtml(item.label)}</td>
+      <td style="padding: 7px 0; font-size: 14px; color: #0f172a; vertical-align: top;">${escapeHtml(item.value)}</td>
+    </tr>
+  `).join('');
+  const html = buildMailCardHtml(
+    title,
+    `<div style="font-size:14px;color:#0f172a;margin-bottom:12px;">${escapeHtml(greeting)}</div>
+     <div style="font-size:14px;color:#475569;margin-bottom:16px;">${escapeHtml(intro)}</div>
+     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-bottom:16px;">${detailRowsHtml}</table>
+     <div style="font-size:13px;font-weight:700;color:#334155;margin-bottom:8px;">${isEnglish ? 'Reason' : '裁决依据'}</div>
+     <div style="padding:14px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;font-size:14px;">${escapeHtml(reason).replace(/\r?\n/g, '<br />')}</div>
+     <div style="font-size:14px;color:#475569;margin-top:16px;">${isEnglish
+       ? 'The final lesson hours have been applied to the course and deducted from the student lesson balance.'
+       : '最终课时已计入课程，并从学生课时余额中扣除。'}</div>
+     <div style="font-size:14px;color:#0f172a;margin-top:16px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>`
+  );
+
+  await sendMail({ to, subject, text, html });
+  return true;
+};

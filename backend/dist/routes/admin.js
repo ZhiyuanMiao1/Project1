@@ -1940,6 +1940,27 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', adminAuth_1.re
     catch (error) {
         console.error('Admin classroom lesson hours audit error:', error);
     }
+    const notificationResults = await Promise.allSettled([
+        (0, mailService_1.sendLessonHoursFinalDecisionMail)({
+            recipientUserId: Number(before.student_user_id),
+            recipientRole: 'student',
+            finalHours: Number(after.final_hours),
+            decision,
+            reason,
+        }),
+        (0, mailService_1.sendLessonHoursFinalDecisionMail)({
+            recipientUserId: Number(before.mentor_user_id),
+            recipientRole: 'mentor',
+            finalHours: Number(after.final_hours),
+            decision,
+            reason,
+        }),
+    ]);
+    notificationResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.error(`Lesson hours final decision ${index === 0 ? 'student' : 'mentor'} mail error:`, result.reason);
+        }
+    });
     return res.json({ ok: true, classroomId: String(courseId), decision, lessonHours: after });
 });
 router.get('/classrooms/:courseId/chat', adminAuth_1.requireAdminAuth, async (req, res) => {
