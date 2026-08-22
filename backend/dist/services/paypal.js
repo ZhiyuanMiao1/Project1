@@ -113,7 +113,7 @@ const parseUsdAmount = (value) => {
 };
 exports.parseUsdAmount = parseUsdAmount;
 const computeTopUpPrice = (hours) => {
-    const unitPriceCny = hours >= 10 ? 500 : 600;
+    const unitPriceCny = hours >= 10 ? 699 : 799;
     const amountCny = Number((hours * unitPriceCny).toFixed(2));
     return { unitPriceCny, amountCny };
 };

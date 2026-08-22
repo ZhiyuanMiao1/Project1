@@ -34,7 +34,7 @@ const createManualTopUpOrder = async (userId, provider, rawHours) => {
          discount_threshold_hours, discount_unit_price_cny,
          currency_code, amount_usd, provider_create_json
        ) VALUES (?, ?, ?, 'CREATED', ?, ?, ?,
-         'tier-v1', 600.00, 10.00, 500.00, 'CNY', 0.00, ?)`, [
+         'tier-v2', 799.00, 10.00, 699.00, 'CNY', 0.00, ?)`, [
             userId,
             provider,
             temporaryProviderOrderId,

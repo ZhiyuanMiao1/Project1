@@ -186,7 +186,7 @@ function WalletPage() {
 
   const hoursNumber = Number(topUpHours);
   const isHoursValid = Number.isFinite(hoursNumber) && hoursNumber > 0;
-  const unitPriceCny = hoursNumber >= 10 ? 500 : 600;
+  const unitPriceCny = hoursNumber >= 10 ? 699 : 799;
   const amountCnyNumber = Number.isFinite(hoursNumber) ? Number((hoursNumber * unitPriceCny).toFixed(2)) : 0;
   const amountUsdNumber = Number.parseFloat(String(fxQuote?.usd_amount ?? ''));
   const fxExpiresAtMs = fxQuote?.expires_at ? Date.parse(fxQuote.expires_at) : NaN;
@@ -773,11 +773,11 @@ function WalletPage() {
                       <div className="wallet-derived-rule">
                         <div className="wallet-derived-row">
                           <span className="wallet-derived-left">{t('wallet.lessThan10', '充值时长 < 10小时')}</span>
-                          <span className="wallet-derived-right">{t('wallet.price600', '600元/小时')}</span>
+                          <span className="wallet-derived-right">{t('wallet.price799', '799元/小时')}</span>
                         </div>
                         <div className="wallet-derived-row">
                           <span className="wallet-derived-left">{t('wallet.atLeast10', '充值时长 ≥ 10小时')}</span>
-                          <span className="wallet-derived-right">{t('wallet.price500', '500元/小时')}</span>
+                          <span className="wallet-derived-right">{t('wallet.price699', '699元/小时')}</span>
                         </div>
                       </div>
                       <div className="wallet-derived-total wallet-derived-row">

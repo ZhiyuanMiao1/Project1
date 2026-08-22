@@ -247,7 +247,7 @@ router.post('/checkout/orders/create', auth_1.requireAuth, async (req, res) => {
              currency_code, amount_usd,
              paypal_fx_quote_id, paypal_fx_rate, paypal_fx_expires_at,
              provider_create_json
-           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'tier-v1', 600.00, 10.00, 500.00, 'USD', ?, ?, ?, ?, ?)
+           ) VALUES (?, 'paypal', ?, ?, ?, ?, ?, 'tier-v2', 799.00, 10.00, 699.00, 'USD', ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
              status = VALUES(status),
              topup_hours = VALUES(topup_hours),

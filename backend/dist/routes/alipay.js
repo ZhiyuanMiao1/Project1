@@ -56,7 +56,7 @@ router.post('/transfers/report', auth_1.requireAuth, async (req, res) => {
          discount_threshold_hours, discount_unit_price_cny,
          currency_code, amount_usd, provider_create_json
        ) VALUES (?, 'alipay', ?, 'PENDING_RECEIPT', ?, ?, ?,
-         'tier-v1', 600.00, 10.00, 500.00, 'CNY', 0.00, ?)
+         'tier-v2', 799.00, 10.00, 699.00, 'CNY', 0.00, ?)
        ON DUPLICATE KEY UPDATE provider_order_id = provider_order_id`, [
             req.user.id,
             providerOrderId,
