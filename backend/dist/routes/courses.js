@@ -344,25 +344,8 @@ const normalizeReviewComment = (raw) => {
         return null;
     return text;
 };
-const getCourseEndTimestamp = (row) => {
-    const startsAt = parseStoredUtcDate(row?.starts_at);
-    if (!startsAt || Number.isNaN(startsAt.getTime()))
-        return NaN;
-    const durationHours = Math.max(toNumber(row?.duration_hours) ?? 0, 0);
-    return startsAt.getTime() + durationHours * 60 * 60 * 1000;
-};
-const getEffectiveCourseStatus = (row) => {
-    const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
-    if (status !== 'scheduled')
-        return status;
-    const endTimestamp = getCourseEndTimestamp(row);
-    if (Number.isFinite(endTimestamp) && endTimestamp <= Date.now()) {
-        return 'completed';
-    }
-    return status;
-};
 const isCourseEligibleForReview = (row) => {
-    return getEffectiveCourseStatus(row) === 'completed';
+    return (0, classroomAccess_1.getEffectiveCourseStatus)(row) === 'completed';
 };
 const buildReviewPayload = (row) => {
     const reviewSubmittedAt = toIsoString(row?.review_submitted_at);
@@ -575,7 +558,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 date: toDateKey(row?.starts_at),
                 startsAt: toIsoString(row?.starts_at),
                 durationHours,
-                status: getEffectiveCourseStatus(row),
+                status: (0, classroomAccess_1.getEffectiveCourseStatus)(row),
                 counterpartName: typeof row?.counterpart_name === 'string' ? row.counterpart_name.trim() : '',
                 counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',
                 counterpartAvatarUrl: typeof row?.counterpart_avatar_url === 'string' ? row.counterpart_avatar_url.trim() : '',

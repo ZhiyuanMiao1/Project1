@@ -7,6 +7,7 @@ import { ensureClassroomRecordingsTable } from '../services/aliyunRtcRecording';
 import { resolveReplayMp4ObjectPrefix, toRecordingDisplayFileName } from '../services/recordingStorage';
 import {
   ClassroomHttpError,
+  getEffectiveCourseStatus,
   isMissingClassroomSchemaError,
   loadAuthorizedClassroomContext,
 } from '../services/classroomAccess';
@@ -398,26 +399,6 @@ const normalizeReviewComment = (raw: unknown) => {
   if (!text) return '';
   if (text.length > REVIEW_COMMENT_MAX_LENGTH) return null;
   return text;
-};
-
-const getCourseEndTimestamp = (row: any) => {
-  const startsAt = parseStoredUtcDate(row?.starts_at);
-  if (!startsAt || Number.isNaN(startsAt.getTime())) return NaN;
-
-  const durationHours = Math.max(toNumber(row?.duration_hours) ?? 0, 0);
-  return startsAt.getTime() + durationHours * 60 * 60 * 1000;
-};
-
-const getEffectiveCourseStatus = (row: any) => {
-  const status = typeof row?.status === 'string' ? row.status.trim().toLowerCase() : '';
-  if (status !== 'scheduled') return status;
-
-  const endTimestamp = getCourseEndTimestamp(row);
-  if (Number.isFinite(endTimestamp) && endTimestamp <= Date.now()) {
-    return 'completed';
-  }
-
-  return status;
 };
 
 const isCourseEligibleForReview = (row: any) => {
