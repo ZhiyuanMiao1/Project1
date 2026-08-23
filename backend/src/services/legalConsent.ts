@@ -2,7 +2,7 @@ import type { PoolConnection } from 'mysql2/promise';
 import { query as dbQuery } from '../db';
 
 export const CURRENT_TERMS_VERSION = '2026-08-20';
-export const CURRENT_PRIVACY_VERSION = '2026-08-20';
+export const CURRENT_PRIVACY_VERSION = '2026-08-23';
 
 let legalAcceptancesTableReady = false;
 

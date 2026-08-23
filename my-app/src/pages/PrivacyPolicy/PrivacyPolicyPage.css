@@ -233,7 +233,7 @@
   padding-right: 0;
 }
 
-#classroom-recording .privacy-policy__detail:nth-child(-n + 2) {
+#classroom-recording .privacy-policy__detail:nth-child(-n + 4) {
   border-bottom: 1px solid var(--privacy-line);
 }
 

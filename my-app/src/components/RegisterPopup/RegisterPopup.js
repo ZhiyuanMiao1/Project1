@@ -13,7 +13,7 @@ import { getEmailCodeErrorMessage, sendRegisterEmailCode } from '../../services/
 import { useI18n } from '../../i18n/language';
 
 const CURRENT_TERMS_VERSION = '2026-08-20';
-const CURRENT_PRIVACY_VERSION = '2026-08-20';
+const CURRENT_PRIVACY_VERSION = '2026-08-23';
 
 const translateAuthMessage = (message, t) => {
   const raw = String(message || '').trim();
