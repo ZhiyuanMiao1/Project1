@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
 import UnreadBadge from '../../components/common/UnreadBadge/UnreadBadge';
@@ -178,6 +179,7 @@ function PolicySection({ section }) {
 }
 
 function PrivacyPolicyPage() {
+  const location = useLocation();
   const { isEnglish, t } = useI18n();
   const content = POLICY_CONTENT[isEnglish ? 'en' : 'zh-CN'];
   const menuAnchorRef = useRef(null);
@@ -251,9 +253,17 @@ function PrivacyPolicyPage() {
 
     const scrollToCurrentHash = () => {
       const sectionId = decodeURIComponent(window.location.hash.replace(/^#/, ''));
-      if (!sectionId) return;
+      if (!sectionId) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        setActiveSectionId(content.sections[0]?.id || 'scope');
+        return;
+      }
       const target = document.getElementById(sectionId);
-      if (!target) return;
+      if (!target) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        setActiveSectionId(content.sections[0]?.id || 'scope');
+        return;
+      }
 
       const alignTarget = () => {
         target.scrollIntoView({ block: 'start' });
@@ -273,7 +283,7 @@ function PrivacyPolicyPage() {
       window.cancelAnimationFrame(animationFrame);
       window.clearTimeout(settleTimer);
     };
-  }, [content.sections]);
+  }, [content.sections, location.hash]);
 
   useEffect(() => {
     const nav = tocNavRef.current;

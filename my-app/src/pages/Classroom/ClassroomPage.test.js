@@ -472,6 +472,8 @@ describe('ClassroomPage remote recovery', () => {
     await flushPromises();
 
     expect(getPageText()).toContain('进入课堂前，请确认录制安排');
+    expect(container.querySelector('.classroom-recording-consent-policy a')?.getAttribute('href'))
+      .toBe('/privacy#classroom-recording');
     expect(startPushMock).not.toHaveBeenCalled();
 
     const acceptButton = Array.from(container.querySelectorAll('button'))
