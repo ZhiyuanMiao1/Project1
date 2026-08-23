@@ -6,8 +6,8 @@ import './CourseDisputeModal.css';
 
 const REASON_OPTIONS = [
   ['lesson_not_delivered', '未按约定授课', 'Lesson was not delivered as agreed'],
-  ['content_mismatch', '课程内容与描述不符', 'Lesson content did not match the description'],
-  ['mentor_conduct', '导师行为问题', 'Mentor conduct issue'],
+  ['content_mismatch', '课程内容不佳', 'Poor course content'],
+  ['mentor_conduct', '导师行为', 'Mentor conduct'],
   ['other', '其他问题', 'Other issue'],
 ];
 

@@ -2892,7 +2892,7 @@ function ClassroomWatchPage() {
 }
 
 const disputeReasonLabels = {
-  lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容与描述不符', mentor_conduct: '导师行为问题', other: '其他问题',
+  lesson_not_delivered: '未按约定授课', content_mismatch: '课程内容不佳', mentor_conduct: '导师行为', other: '其他问题',
 };
 const disputeResolutionLabels = {
   feedback_only: '仅反馈问题', lesson_credit: '补偿课时', refund_review: '评估退款',
