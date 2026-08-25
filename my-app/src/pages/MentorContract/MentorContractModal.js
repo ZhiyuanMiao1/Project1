@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FiCheckCircle, FiDownload, FiExternalLink, FiFileText, FiMail, FiRefreshCw, FiX } from 'react-icons/fi';
+import { FiCheckCircle, FiDownload, FiExternalLink, FiMail, FiRefreshCw, FiX } from 'react-icons/fi';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import api from '../../api/client';
 import { useI18n } from '../../i18n/language';
@@ -226,11 +226,8 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
       <section className="mentor-contract-modal" role="dialog" aria-modal="true" aria-labelledby="mentor-contract-modal-title" onMouseDown={(event) => event.stopPropagation()}>
         <header className="mentor-contract-modal-header">
           <div>
-            <div className="mentor-contract-kicker"><FiFileText /> {t('mentorContract.kicker', '导师合作协议')}</div>
             <h1 id="mentor-contract-modal-title">{status?.signed ? t('mentorContract.signedTitle', '我的导师合作协议') : t('mentorContract.modalTitle', '阅读并签署导师合作协议')}</h1>
-            <p>{status?.signed
-              ? t('mentorContract.signedSubtitle', '你可以随时查看或下载已冻结归档的最终合同 PDF。')
-              : t('mentorContract.modalSubtitle', '填写合同真实姓名，完整预览协议后，通过注册邮箱验证码完成签署。')}</p>
+            {status?.signed ? <p>{t('mentorContract.signedSubtitle', '你可以随时查看或下载已冻结归档的最终合同 PDF。')}</p> : null}
           </div>
           <button className="mentor-contract-modal-close" type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} disabled={signing}>
             <FiX aria-hidden="true" />
@@ -247,13 +244,6 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
             </div>
           ) : (
             <>
-              <section className="mentor-contract-summary" aria-label={t('mentorContract.contractInfo', '合同信息')}>
-                {status?.signed ? <div><span>{t('mentorContract.legalName', '合同真实姓名')}</span><strong>{status?.mentorName || '-'}</strong></div> : null}
-                <div><span>{t('mentorContract.registeredEmail', '注册邮箱')}</span><strong>{status?.mentorEmail || '-'}</strong></div>
-                <div><span>{t('mentorContract.number', '合同编号')}</span><strong>{status?.contractNumber || t('mentorContract.generatedOnSign', '签署时生成')}</strong></div>
-                <div><span>{t('mentorContract.version', '协议版本')}</span><strong>{status?.contractVersion || 'v1.1'}</strong></div>
-              </section>
-
               {status?.signed ? (
                 <section className="mentor-contract-success" role="status">
                   <FiCheckCircle aria-hidden="true" />
