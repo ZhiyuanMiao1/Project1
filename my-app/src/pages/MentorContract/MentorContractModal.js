@@ -325,15 +325,17 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
 
               {!status?.signed ? (
                 <section className="mentor-contract-signing" aria-label={t('mentorContract.signingArea', '签署确认')}>
-                  {!previewMatchesName ? <p className="mentor-contract-step-hint">{t('mentorContract.previewNameFirst', '请先填写真实姓名并更新合同预览。')}</p> : null}
-                  <label className="mentor-contract-checkbox">
-                    <input type="checkbox" checked={agreementAccepted} onChange={(event) => setAgreementAccepted(event.target.checked)} disabled={signing || !previewMatchesName} />
-                    <span>{t('mentorContract.agreeCheckbox', '我已阅读并同意《Mentory 导师合作协议》')}</span>
-                  </label>
-                  <label className="mentor-contract-checkbox">
-                    <input type="checkbox" checked={informationConfirmed} onChange={(event) => setInformationConfirmed(event.target.checked)} disabled={signing || !previewMatchesName} />
-                    <span>{t('mentorContract.infoCheckboxWithName', '我确认合同乙方姓名“{name}”及相关信息真实准确', { name: normalizedName || '-' })}</span>
-                  </label>
+                  <div className="mentor-contract-confirmations">
+                    {!previewMatchesName ? <p className="mentor-contract-step-hint">{t('mentorContract.previewNameFirst', '请先填写真实姓名并更新合同预览')}</p> : null}
+                    <label className="mentor-contract-checkbox">
+                      <input type="checkbox" checked={agreementAccepted} onChange={(event) => setAgreementAccepted(event.target.checked)} disabled={signing || !previewMatchesName} />
+                      <span>{t('mentorContract.agreeCheckbox', '我已阅读并同意《Mentory 导师合作协议》')}</span>
+                    </label>
+                    <label className="mentor-contract-checkbox">
+                      <input type="checkbox" checked={informationConfirmed} onChange={(event) => setInformationConfirmed(event.target.checked)} disabled={signing || !previewMatchesName} />
+                      <span>{t('mentorContract.infoCheckboxWithName', '我确认合同乙方姓名“{name}”及相关信息真实准确', { name: normalizedName || '-' })}</span>
+                    </label>
+                  </div>
 
                   {!codeSent ? (
                     <button className="mentor-contract-primary" type="button" onClick={handleSendCode} disabled={!canSendCode}>

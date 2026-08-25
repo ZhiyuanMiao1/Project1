@@ -187,7 +187,7 @@ const en = {
   'mentorContract.refreshPreview': 'Update preview with this name',
   'mentorContract.refreshingPreview': 'Updating preview...',
   'mentorContract.retryPreview': 'Reload preview',
-  'mentorContract.previewNameFirst': 'Enter your legal name and update the agreement preview first.',
+  'mentorContract.previewNameFirst': 'Enter your legal name and update the agreement preview first',
   'mentorContract.registeredEmail': 'Registered email',
   'mentorContract.number': 'Agreement number',
   'mentorContract.generatedOnSign': 'Generated when signing',

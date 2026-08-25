@@ -103,12 +103,14 @@
 .mentor-contract-pdf { display: block; width: 100%; height: min(58dvh, 690px); min-height: 500px; border: 0; background: #e2e8f0; }
 .mentor-contract-pdf-state { min-height: 300px; display: grid; place-items: center; gap: 12px; padding: 24px; color: #64748b; text-align: center; }
 
-.mentor-contract-signing { margin-top: 16px; padding: 20px; }
+.mentor-contract-signing { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px 24px; margin-top: 16px; padding: 20px; border: 0; }
+.mentor-contract-confirmations { min-width: 0; }
 .mentor-contract-step-hint { margin: 0 0 8px; color: #9a3412; font-size: 13px; }
-.mentor-contract-checkbox { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 9px 0; line-height: 1.55; cursor: pointer; }
+.mentor-contract-checkbox { display: flex; align-items: flex-start; gap: 12px; min-height: 36px; padding: 2px 0; line-height: 1.4; cursor: pointer; }
 .mentor-contract-checkbox input { width: 20px; height: 20px; flex: 0 0 auto; margin: 2px 0 0; accent-color: #2877b9; }
-.mentor-contract-primary { margin-top: 14px; min-width: 180px; }
-.mentor-contract-code-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.mentor-contract-primary { min-width: 180px; }
+.mentor-contract-signing > .mentor-contract-primary { justify-self: end; margin-top: 0; }
+.mentor-contract-code-panel { grid-column: 1 / -1; margin-top: 0; padding-top: 16px; border-top: 1px solid #e2e8f0; }
 .mentor-contract-code-panel > label { display: block; margin-bottom: 9px; font-size: 14px; font-weight: 700; }
 .mentor-contract-code-row { display: flex; align-items: stretch; gap: 12px; }
 .mentor-contract-code-row input { width: 220px; min-height: 48px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0 16px; color: #0f172a; -webkit-text-fill-color: #0f172a; font-size: 22px; font-weight: 700; letter-spacing: 0.22em; }
@@ -126,6 +128,9 @@
   .mentor-contract-identity label { white-space: normal; }
   .mentor-contract-identity button { width: 100%; }
   .mentor-contract-identity p { grid-column: auto; grid-row: auto; }
+  .mentor-contract-signing { grid-template-columns: 1fr; }
+  .mentor-contract-checkbox { min-height: 44px; padding: 4px 0; }
+  .mentor-contract-signing > .mentor-contract-primary { justify-self: stretch; width: 100%; }
   .mentor-contract-pdf { min-height: 470px; height: 56dvh; }
   .mentor-contract-success { grid-template-columns: auto 1fr; }
   .mentor-contract-success button { grid-column: 1 / -1; width: 100%; }
