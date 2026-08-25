@@ -7,8 +7,16 @@ import './MentorContractModal.css';
 
 const normalizeLegalName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
 
-const getErrorMessage = (error, t) => {
-  const code = String(error?.response?.data?.code || '');
+const getErrorMessage = async (error, t) => {
+  let responseData = error?.response?.data;
+  if (typeof Blob !== 'undefined' && responseData instanceof Blob) {
+    try {
+      responseData = JSON.parse(await responseData.text());
+    } catch (_) {
+      responseData = null;
+    }
+  }
+  const code = String(responseData?.code || error?.code || '');
   const byCode = {
     MENTOR_CONTRACT_LEGAL_NAME_INVALID: t('mentorContract.legalNameInvalid', '请输入 2 至 120 个字符的真实姓名'),
     MENTOR_CONTRACT_CODE_INVALID: t('mentorContract.codeInvalid', '验证码错误，请重新输入'),
@@ -21,6 +29,7 @@ const getErrorMessage = (error, t) => {
     MENTOR_CONTRACT_CONFIRMATIONS_REQUIRED: t('mentorContract.confirmationsRequired', '请勾选两项确认后再签署'),
     MENTOR_CONTRACT_PROCESSING: t('mentorContract.processing', '合同正在生成，请勿重复提交'),
     MENTOR_CONTRACT_GENERATION_FAILED: t('mentorContract.generationFailed', '合同生成或归档失败，请稍后重试'),
+    MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED: t('mentorContract.previewGenerationFailed', '合同个性化预览生成失败，请稍后重试'),
     MENTOR_CONTRACT_NOT_SIGNED: t('mentorContract.notSigned', '尚未找到已签署合同'),
     MENTOR_CONTRACT_OSS_NOT_CONFIGURED: t('mentorContract.storageUnavailable', '合同存储暂不可用，请稍后再试'),
     MENTOR_REQUIRED: t('mentorContract.mentorRequired', '仅导师可访问此功能'),
@@ -63,20 +72,28 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
   const loadPdf = useCallback(async ({ signed, name = '' }) => {
     setPdfLoading(true);
     setPreviewError('');
+    if (!signed && normalizeLegalName(name)) setPreviewPersonalised(false);
     try {
       const response = signed
         ? await api.get('/api/mentor-contracts/mine.pdf', { responseType: 'blob' })
         : await api.post('/api/mentor-contracts/preview.pdf', { legalName: normalizeLegalName(name) }, { responseType: 'blob' });
       const nextUrl = URL.createObjectURL(response.data);
+      const normalizedName = normalizeLegalName(name);
+      const personalised = signed || String(response?.headers?.['x-mentory-contract-preview-personalised'] || '') === '1';
+      if (!signed && normalizedName && !personalised) {
+        URL.revokeObjectURL(nextUrl);
+        const previewError = new Error('MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED');
+        previewError.code = 'MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED';
+        throw previewError;
+      }
       setPdfUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
         return nextUrl;
       });
-      const personalised = signed || String(response?.headers?.['x-mentory-contract-preview-personalised'] || '') === '1';
       setPreviewPersonalised(personalised);
-      if (!signed && normalizeLegalName(name)) setPreviewedName(normalizeLegalName(name));
+      if (!signed && normalizedName) setPreviewedName(normalizedName);
     } catch (nextError) {
-      setPreviewError(getErrorMessage(nextError, t));
+      setPreviewError(await getErrorMessage(nextError, t));
     } finally {
       setPdfLoading(false);
     }
@@ -107,7 +124,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
         if (savedName) setLegalName(savedName);
         if (next?.approved) await loadPdf({ signed: Boolean(next.signed), name: savedName });
       } catch (nextError) {
-        if (active) setError(getErrorMessage(nextError, t));
+        if (active) setError(await getErrorMessage(nextError, t));
       } finally {
         if (active) setLoading(false);
       }
@@ -121,7 +138,10 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
 
   const normalizedName = normalizeLegalName(legalName);
   const legalNameValid = normalizedName.length >= 2 && normalizedName.length <= 120;
-  const previewMatchesName = legalNameValid && previewedName === normalizedName;
+  const previewMatchesName = legalNameValid
+    && previewPersonalised
+    && !previewError
+    && previewedName === normalizedName;
   const canSendCode = legalNameValid && previewMatchesName && agreementAccepted && informationConfirmed && !sendingCode && !signing;
   const canSign = canSendCode && codeSent && /^\d{6}$/.test(code);
   const signedAt = useMemo(() => {
@@ -176,7 +196,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
       }));
       setNotice(t('mentorContract.codeSent', '6 位验证码已发送至你的 Mentory 注册邮箱'));
     } catch (nextError) {
-      setError(getErrorMessage(nextError, t));
+      setError(await getErrorMessage(nextError, t));
     } finally {
       setSendingCode(false);
     }
@@ -195,7 +215,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
       try { window.dispatchEvent(new CustomEvent('mentor-contract:signed')); } catch {}
       updateStatus(next);
     } catch (nextError) {
-      setError(getErrorMessage(nextError, t));
+      setError(await getErrorMessage(nextError, t));
       setNotice('');
     } finally {
       setSigning(false);
@@ -215,7 +235,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (nextError) {
-      setError(getErrorMessage(nextError, t));
+      setError(await getErrorMessage(nextError, t));
     }
   };
 
@@ -278,15 +298,15 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                 <div className="mentor-contract-document-header">
                   <div>
                     <h2>{t('mentorContract.fullAgreement', '完整正式协议')}</h2>
-                    <p>{t('mentorContract.officialChineseNote', '正式协议以此处展示的中文版本为准。')}</p>
                   </div>
                   {pdfUrl ? <a href={pdfUrl} target="_blank" rel="noreferrer"><FiExternalLink /> {t('mentorContract.openSeparate', '单独打开')}</a> : null}
                 </div>
-                {!status?.signed && previewedName ? (
-                  <div className={`mentor-contract-preview-note ${previewPersonalised ? 'is-personalised' : ''}`}>
-                    {previewPersonalised
-                      ? t('mentorContract.personalisedPreview', '预览已写入真实姓名“{name}”。', { name: previewedName })
-                      : t('mentorContract.templatePreviewFallback', '当前显示正式模板预览；最终合同会写入真实姓名“{name}”。', { name: previewedName })}
+                {previewError ? (
+                  <div className="mentor-contract-preview-error" role="alert">
+                    <span>{previewError}</span>
+                    <button type="button" onClick={() => loadPdf({ signed: Boolean(status?.signed), name: normalizedName })} disabled={pdfLoading}>
+                      {t('mentorContract.retryPreview', '重新加载预览')}
+                    </button>
                   </div>
                 ) : null}
                 {pdfLoading ? (
@@ -297,7 +317,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                   </object>
                 ) : (
                   <div className="mentor-contract-pdf-state">
-                    <span>{previewError || t('mentorContract.previewUnavailable', '合同预览暂不可用，请稍后重试')}</span>
+                    <span>{t('mentorContract.previewUnavailable', '合同预览暂不可用，请稍后重试')}</span>
                     <button type="button" onClick={() => loadPdf({ signed: Boolean(status?.signed), name: normalizedName })}>{t('mentorContract.retryPreview', '重新加载预览')}</button>
                   </div>
                 )}

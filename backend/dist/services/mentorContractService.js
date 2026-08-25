@@ -492,8 +492,8 @@ const generateMentorContractPreview = async (mentorUserId, legalName) => {
         return { pdfBuffer: artifacts.pdfBuffer, personalised: true };
     }
     catch (error) {
-        console.warn('Mentor contract personalised preview unavailable; using template PDF:', error);
-        return { pdfBuffer: await (0, mentorContractDocuments_1.getMentorContractPreviewPdf)(), personalised: false };
+        console.error('Mentor contract personalised preview generation failed:', error);
+        throw new MentorContractError('MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED', '合同个性化预览生成失败，请稍后重试', 503);
     }
 };
 exports.generateMentorContractPreview = generateMentorContractPreview;

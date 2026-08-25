@@ -97,6 +97,73 @@ const toLibreOfficeFileUrl = (filePath: string) => {
   return `file://${normalized.startsWith('/') ? '' : '/'}${encodeURI(normalized)}`;
 };
 
+const assertValidPdf = (pdfBuffer: Buffer) => {
+  if (pdfBuffer.length < 1024 || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    throw new Error('MENTOR_CONTRACT_PDF_INVALID');
+  }
+  return pdfBuffer;
+};
+
+const convertWithLibreOffice = async (docxPath: string, outputDir: string, profileDir: string) => {
+  const binary = findLibreOfficeBinary();
+  await execFileAsync(
+    binary,
+    [
+      '--headless',
+      '--nologo',
+      '--nodefault',
+      '--nolockcheck',
+      `-env:UserInstallation=${toLibreOfficeFileUrl(profileDir)}`,
+      '--convert-to',
+      'pdf:writer_pdf_Export',
+      '--outdir',
+      outputDir,
+      docxPath,
+    ],
+    { timeout: 120_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }
+  );
+};
+
+const convertWithMicrosoftWord = async (docxPath: string, pdfPath: string) => {
+  if (process.platform !== 'win32') throw new Error('MENTOR_CONTRACT_MICROSOFT_WORD_UNAVAILABLE');
+  const powershell = path.join(
+    String(process.env.SystemRoot || 'C:\\Windows'),
+    'System32',
+    'WindowsPowerShell',
+    'v1.0',
+    'powershell.exe'
+  );
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    '$word = $null',
+    '$document = $null',
+    'try {',
+    '  $word = New-Object -ComObject Word.Application',
+    '  $word.Visible = $false',
+    '  $word.DisplayAlerts = 0',
+    '  $document = $word.Documents.Open($env:MENTORY_WORD_DOCX_PATH, $false, $true)',
+    '  $document.ExportAsFixedFormat($env:MENTORY_WORD_PDF_PATH, 17)',
+    '} finally {',
+    '  if ($null -ne $document) { $document.Close(0) }',
+    '  if ($null -ne $word) { $word.Quit() }',
+    '}',
+  ].join('; ');
+  await execFileAsync(
+    powershell,
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    {
+      timeout: 120_000,
+      windowsHide: true,
+      maxBuffer: 2 * 1024 * 1024,
+      env: {
+        ...process.env,
+        MENTORY_WORD_DOCX_PATH: docxPath,
+        MENTORY_WORD_PDF_PATH: pdfPath,
+      },
+    }
+  );
+};
+
 export const convertDocxBufferToPdf = async (docxBuffer: Buffer, fileStem: string) => {
   const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'mentory-contract-'));
   const profileDir = path.join(tempRoot, 'lo-profile');
@@ -109,29 +176,24 @@ export const convertDocxBufferToPdf = async (docxBuffer: Buffer, fileStem: strin
     await fs.promises.mkdir(outputDir, { recursive: true });
     await fs.promises.writeFile(docxPath, docxBuffer, { flag: 'wx' });
 
-    const binary = findLibreOfficeBinary();
-    await execFileAsync(
-      binary,
-      [
-        '--headless',
-        '--nologo',
-        '--nodefault',
-        '--nolockcheck',
-        `-env:UserInstallation=${toLibreOfficeFileUrl(profileDir)}`,
-        '--convert-to',
-        'pdf:writer_pdf_Export',
-        '--outdir',
-        outputDir,
-        docxPath,
-      ],
-      { timeout: 120_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }
-    );
-
-    const pdfBuffer = await fs.promises.readFile(pdfPath);
-    if (pdfBuffer.length < 1024 || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
-      throw new Error('MENTOR_CONTRACT_PDF_INVALID');
+    const conversionErrors: string[] = [];
+    try {
+      await convertWithLibreOffice(docxPath, outputDir, profileDir);
+    } catch (error: any) {
+      conversionErrors.push(`LibreOffice: ${String(error?.message || error)}`);
+      try {
+        await convertWithMicrosoftWord(docxPath, pdfPath);
+      } catch (wordError: any) {
+        conversionErrors.push(`Microsoft Word: ${String(wordError?.message || wordError)}`);
+      }
     }
-    return pdfBuffer;
+
+    try {
+      return assertValidPdf(await fs.promises.readFile(pdfPath));
+    } catch (error: any) {
+      conversionErrors.push(`PDF output: ${String(error?.message || error)}`);
+      throw new Error(`MENTOR_CONTRACT_PDF_CONVERSION_FAILED (${conversionErrors.join(' | ')})`);
+    }
   } finally {
     await fs.promises.rm(tempRoot, { recursive: true, force: true }).catch(() => {});
   }

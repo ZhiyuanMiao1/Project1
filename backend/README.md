@@ -48,6 +48,7 @@ OSS_ACCESS_KEY_SECRET=your_access_key_secret
 MENTOR_CONTRACT_VERSION=v1.1
 MENTOR_CONTRACT_OSS_PREFIX=private/contracts/mentors
 MENTOR_CONTRACT_CODE_SECRET=replace_with_a_long_random_secret
+# Windows 本地开发未安装 LibreOffice 时会自动尝试已安装的 Microsoft Word
 LIBREOFFICE_BIN=/usr/bin/libreoffice
 
 # 阿里云视频直播实时音视频（课堂）
@@ -64,6 +65,8 @@ ALIYUN_ARTC_RECORD_OSS_ENDPOINT=oss-ap-southeast-1.aliyuncs.com
 ALIYUN_ARTC_RECORD_OSS_BUCKET=mentory-live-recordings-sg
 ALIYUN_ARTC_RECORD_MAX_IDLE_SECONDS=300
 ```
+
+Windows 本地开发优先使用 `LIBREOFFICE_BIN` 指定的 LibreOffice；未安装 LibreOffice 时，后端会自动尝试已安装的 Microsoft Word 进行无界面 PDF 导出。若所有转换器均不可用，个性化预览接口会明确返回错误，不会用未替换姓名的静态模板伪装更新成功。
 
 注意：请在阿里云 RDS 控制台配置「白名单/安全组」，放行你的后端服务器出口 IP（或本机 IP）访问 `DB_PORT`。
 

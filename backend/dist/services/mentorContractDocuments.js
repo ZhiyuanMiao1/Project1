@@ -80,6 +80,57 @@ const toLibreOfficeFileUrl = (filePath) => {
     const normalized = path_1.default.resolve(filePath).replace(/\\/g, '/');
     return `file://${normalized.startsWith('/') ? '' : '/'}${encodeURI(normalized)}`;
 };
+const assertValidPdf = (pdfBuffer) => {
+    if (pdfBuffer.length < 1024 || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+        throw new Error('MENTOR_CONTRACT_PDF_INVALID');
+    }
+    return pdfBuffer;
+};
+const convertWithLibreOffice = async (docxPath, outputDir, profileDir) => {
+    const binary = findLibreOfficeBinary();
+    await execFileAsync(binary, [
+        '--headless',
+        '--nologo',
+        '--nodefault',
+        '--nolockcheck',
+        `-env:UserInstallation=${toLibreOfficeFileUrl(profileDir)}`,
+        '--convert-to',
+        'pdf:writer_pdf_Export',
+        '--outdir',
+        outputDir,
+        docxPath,
+    ], { timeout: 120000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
+};
+const convertWithMicrosoftWord = async (docxPath, pdfPath) => {
+    if (process.platform !== 'win32')
+        throw new Error('MENTOR_CONTRACT_MICROSOFT_WORD_UNAVAILABLE');
+    const powershell = path_1.default.join(String(process.env.SystemRoot || 'C:\\Windows'), 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const script = [
+        "$ErrorActionPreference = 'Stop'",
+        '$word = $null',
+        '$document = $null',
+        'try {',
+        '  $word = New-Object -ComObject Word.Application',
+        '  $word.Visible = $false',
+        '  $word.DisplayAlerts = 0',
+        '  $document = $word.Documents.Open($env:MENTORY_WORD_DOCX_PATH, $false, $true)',
+        '  $document.ExportAsFixedFormat($env:MENTORY_WORD_PDF_PATH, 17)',
+        '} finally {',
+        '  if ($null -ne $document) { $document.Close(0) }',
+        '  if ($null -ne $word) { $word.Quit() }',
+        '}',
+    ].join('; ');
+    await execFileAsync(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+        timeout: 120000,
+        windowsHide: true,
+        maxBuffer: 2 * 1024 * 1024,
+        env: {
+            ...process.env,
+            MENTORY_WORD_DOCX_PATH: docxPath,
+            MENTORY_WORD_PDF_PATH: pdfPath,
+        },
+    });
+};
 const convertDocxBufferToPdf = async (docxBuffer, fileStem) => {
     const tempRoot = await fs_1.default.promises.mkdtemp(path_1.default.join(os_1.default.tmpdir(), 'mentory-contract-'));
     const profileDir = path_1.default.join(tempRoot, 'lo-profile');
@@ -90,24 +141,26 @@ const convertDocxBufferToPdf = async (docxBuffer, fileStem) => {
         await fs_1.default.promises.mkdir(profileDir, { recursive: true });
         await fs_1.default.promises.mkdir(outputDir, { recursive: true });
         await fs_1.default.promises.writeFile(docxPath, docxBuffer, { flag: 'wx' });
-        const binary = findLibreOfficeBinary();
-        await execFileAsync(binary, [
-            '--headless',
-            '--nologo',
-            '--nodefault',
-            '--nolockcheck',
-            `-env:UserInstallation=${toLibreOfficeFileUrl(profileDir)}`,
-            '--convert-to',
-            'pdf:writer_pdf_Export',
-            '--outdir',
-            outputDir,
-            docxPath,
-        ], { timeout: 120000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
-        const pdfBuffer = await fs_1.default.promises.readFile(pdfPath);
-        if (pdfBuffer.length < 1024 || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
-            throw new Error('MENTOR_CONTRACT_PDF_INVALID');
+        const conversionErrors = [];
+        try {
+            await convertWithLibreOffice(docxPath, outputDir, profileDir);
         }
-        return pdfBuffer;
+        catch (error) {
+            conversionErrors.push(`LibreOffice: ${String(error?.message || error)}`);
+            try {
+                await convertWithMicrosoftWord(docxPath, pdfPath);
+            }
+            catch (wordError) {
+                conversionErrors.push(`Microsoft Word: ${String(wordError?.message || wordError)}`);
+            }
+        }
+        try {
+            return assertValidPdf(await fs_1.default.promises.readFile(pdfPath));
+        }
+        catch (error) {
+            conversionErrors.push(`PDF output: ${String(error?.message || error)}`);
+            throw new Error(`MENTOR_CONTRACT_PDF_CONVERSION_FAILED (${conversionErrors.join(' | ')})`);
+        }
     }
     finally {
         await fs_1.default.promises.rm(tempRoot, { recursive: true, force: true }).catch(() => { });

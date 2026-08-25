@@ -671,8 +671,12 @@ export const generateMentorContractPreview = async (mentorUserId: number, legalN
     while (previewCache.size > 30) previewCache.delete(previewCache.keys().next().value as string);
     return { pdfBuffer: artifacts.pdfBuffer, personalised: true };
   } catch (error) {
-    console.warn('Mentor contract personalised preview unavailable; using template PDF:', error);
-    return { pdfBuffer: await getMentorContractPreviewPdf(), personalised: false };
+    console.error('Mentor contract personalised preview generation failed:', error);
+    throw new MentorContractError(
+      'MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED',
+      '合同个性化预览生成失败，请稍后重试',
+      503
+    );
   }
 };
 
