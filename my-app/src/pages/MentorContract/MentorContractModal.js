@@ -265,9 +265,9 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                     autoComplete="name"
                     maxLength={120}
                     disabled={codeSent || sendingCode || signing}
-                    placeholder={t('mentorContract.legalNamePlaceholder', '请输入证件或法定姓名')}
+                    placeholder={t('mentorContract.legalNamePlaceholder', '请输入法定姓名')}
                   />
-                  <p>{t('mentorContract.legalNameHelp', '此姓名将写入最终合同。Mentory 昵称或个人名片名称不会自动作为合同姓名。')}</p>
+                  <p>{t('mentorContract.legalNameHelp', '此姓名将写入最终合同。Mentory 昵称或个人名片名称不会自动作为合同姓名')}</p>
                   <button type="button" onClick={handleRefreshPreview} disabled={!legalNameValid || pdfLoading || codeSent}>
                     <FiRefreshCw /> {pdfLoading ? t('mentorContract.refreshingPreview', '正在更新预览...') : t('mentorContract.refreshPreview', '用此姓名更新合同预览')}
                   </button>
