@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendLessonHoursFinalDecisionMail = exports.sendCourseDisputeResultMail = exports.sendAppointmentNotificationMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendNotificationMail = exports.getEmailNotificationPreferencesForUser = exports.areEmailNotificationsEnabledForUser = exports.sendMail = exports.getPublicAppUrl = void 0;
+exports.sendLessonHoursFinalDecisionMail = exports.sendCourseDisputeResultMail = exports.sendAppointmentNotificationMail = exports.sendMentorContractEmailCodeMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendNotificationMail = exports.getEmailNotificationPreferencesForUser = exports.areEmailNotificationsEnabledForUser = exports.sendMail = exports.getPublicAppUrl = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const db_1 = require("../db");
@@ -186,6 +186,27 @@ const sendPasswordResetEmailCodeMail = async ({ to, code, expiresMinutes, }) => 
     await (0, exports.sendMail)({ to, subject, text, html });
 };
 exports.sendPasswordResetEmailCodeMail = sendPasswordResetEmailCodeMail;
+const sendMentorContractEmailCodeMail = async ({ to, code, contractNumber, expiresMinutes, locale = 'zh-CN', }) => {
+    const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
+    const isEnglish = locale === 'en';
+    const subject = isEnglish ? 'Mentory mentor agreement verification code' : 'Mentory 导师协议签署验证码';
+    const title = isEnglish ? 'Confirm mentor agreement signing' : '确认签署导师合作协议';
+    const text = isEnglish
+        ? `Your verification code for Mentory agreement ${contractNumber} is ${code}. It expires in ${safeMinutes} minutes and can only be used for this agreement.`
+        : `您正在签署 Mentory 导师合作协议（合同编号：${contractNumber}）。验证码为 ${code}，${safeMinutes} 分钟内有效，仅可用于本合同。`;
+    const html = buildMailCardHtml(title, `
+      <div style="font-size:14px;color:#475569;margin-bottom:8px;">${isEnglish ? 'Agreement number' : '合同编号'}：${escapeHtml(contractNumber)}</div>
+      <div style="font-size:14px;color:#475569;margin-bottom:18px;">${isEnglish ? 'Enter this code on Mentory to confirm your signing intent.' : '请在 Mentory 签署页面输入以下验证码，以确认本人签署意愿。'}</div>
+      <div style="padding:18px 20px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;text-align:center;">
+        <div style="font-size:30px;font-weight:700;letter-spacing:8px;color:#111827;">${escapeHtml(code)}</div>
+      </div>
+      <div style="margin-top:18px;font-size:14px;color:#475569;">${isEnglish
+        ? `The code expires in ${safeMinutes} minutes, can be used once, and is bound to this agreement. Do not share it with anyone.`
+        : `验证码 ${safeMinutes} 分钟内有效、仅可使用一次，并与本合同绑定。请勿向任何人泄露验证码。`}</div>
+    `);
+    await (0, exports.sendMail)({ to, subject, text, html });
+};
+exports.sendMentorContractEmailCodeMail = sendMentorContractEmailCodeMail;
 const sendAppointmentNotificationMail = async ({ recipientUserId, to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, locale = 'zh-CN', }) => {
     const isEnglish = locale === 'en';
     const safeActor = actorDisplayName.trim() || (isEnglish ? 'The other participant' : '对方');

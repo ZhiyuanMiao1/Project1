@@ -5,6 +5,7 @@ import StudentPage from './components/StudentPage/StudentPage';
 import LessonHoursDialog from './components/LessonHoursDialog/LessonHoursDialog';
 import PendingLessonHoursPrompt from './components/PendingLessonHoursPrompt/PendingLessonHoursPrompt';
 import CourseStartReminderGate from './components/CourseStartReminder/CourseStartReminder';
+import MentorContractGate from './components/MentorContractGate/MentorContractGate';
 import api from './api/client';
 import { emitMessageUnreadChanged } from './hooks/useMessageUnreadSummary';
 import usePendingLessonHours, { emitPendingLessonHoursChanged } from './hooks/usePendingLessonHours';
@@ -32,6 +33,7 @@ import {
   loadRecentVisitsPage,
   loadStudentCourseRequestPage,
   loadWalletPage,
+  loadMentorContractPage,
 } from './routePreloaders';
 
 const BRAND_NAME = 'Mentory';
@@ -54,6 +56,7 @@ const LazyPrivacyPolicyPage = lazy(loadPrivacyPolicyPage);
 const LazyTermsOfServicePage = lazy(loadTermsOfServicePage);
 const LazyRefundCancellationPolicyPage = lazy(loadRefundCancellationPolicyPage);
 const LazyAboutPage = lazy(loadAboutPage);
+const LazyMentorContractPage = lazy(loadMentorContractPage);
 
 const ROUTE_TITLE_MAP = [
   { path: '/student', title: 'Mentory' },
@@ -74,6 +77,7 @@ const ROUTE_TITLE_MAP = [
   { path: '/mentor/messages', title: '消息', titleKey: 'app.route.messages' },
   { path: '/mentor/settings', title: '设置', titleKey: 'app.route.settings' },
   { path: '/mentor/help', title: '帮助中心', titleKey: 'app.route.help' },
+  { path: '/mentor/contract', title: '导师合作协议', titleKey: 'app.route.mentorContract' },
   { path: '/privacy', title: '隐私政策', titleKey: 'footer.privacy' },
   { path: '/privacy-policy', title: '隐私政策', titleKey: 'footer.privacy' },
   { path: '/terms', title: '服务条款', titleKey: 'footer.terms' },
@@ -271,6 +275,8 @@ function PendingLessonHoursGate() {
     await handleRespond(activeConfirmation, 'disputed', { disputedHours });
   };
 
+  if (location.pathname === '/mentor/contract') return null;
+
   return (
     <>
       <PendingLessonHoursPrompt
@@ -320,6 +326,7 @@ function App() {
       <Router>
         <RouteTitleManager />
         <AuthSessionManager />
+        <MentorContractGate />
         <PendingLessonHoursGate />
         <CourseStartReminderGate />
         <Routes>
@@ -357,6 +364,7 @@ function App() {
           <Route path="/mentor/messages" element={withRouteSuspense(<LazyMessagesPage />)} />
           <Route path="/mentor/settings" element={withRouteSuspense(<LazyAccountSettingsPage mode="mentor" />)} />
           <Route path="/mentor/help" element={withRouteSuspense(<LazyHelpCenterPage mode="mentor" />)} />
+          <Route path="/mentor/contract" element={withRouteSuspense(<LazyMentorContractPage />)} />
 
           {/* 公共规则页面 */}
           <Route path="/privacy" element={withRouteSuspense(<LazyPrivacyPolicyPage />)} />

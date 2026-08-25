@@ -22,12 +22,14 @@ import adminRoute from './routes/admin';
 import refundsRoute from './routes/refunds';
 import alipayRoute from './routes/alipay';
 import wechatRoute from './routes/wechat';
+import mentorContractsRoute from './routes/mentorContracts';
 import { startLessonHoursAutoConfirmationWorker } from './services/lessonHoursAutoConfirmation';
 import { startBillingOrderExpiryWorker } from './services/billingOrderExpiry';
 
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 app.get('/health', (req, res) => res.status(200).send('ok')); // 健康检查路由，返回200和ok
 
 app.use(express.json());
@@ -86,6 +88,7 @@ app.use('/api/admin', adminRoute);
 app.use('/api/refunds', refundsRoute);
 app.use('/api/alipay', alipayRoute);
 app.use('/api/wechat', wechatRoute);
+app.use('/api/mentor-contracts', mentorContractsRoute);
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 app.listen(PORT, () => {

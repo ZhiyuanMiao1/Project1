@@ -11,6 +11,7 @@
     "test:refunds": "node -r ts-node/register src/services/refundPricing.test.ts",
     "test:fx": "node -r ts-node/register src/services/fx.test.ts",
     "test:embeddings": "node -r ts-node/register src/services/embeddingConfig.test.ts",
+    "test:mentor-contract-render": "npm run build && node dist/scripts/test-mentor-contract-render.js",
     "db:migrate:vector": "npm run build && node dist/scripts/migrate-vector-index.js",
     "db:migrate:embedding-model": "npm run build && node dist/scripts/migrate-embedding-model.js",
     "cleanup:classroom-temp-files": "npm run build && node dist/scripts/cleanup-classroom-temp-files.js",
@@ -40,6 +41,7 @@
     "express": "^4.21.2",
     "express-validator": "^7.2.1",
     "jsonwebtoken": "^9.0.2",
+    "jszip": "^3.10.1",
     "mysql2": "^3.11.5",
     "nodemailer": "^6.10.1"
   },

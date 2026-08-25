@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.recordRegistrationLegalAcceptances = exports.ensureUserLegalAcceptancesTable = exports.CURRENT_PRIVACY_VERSION = exports.CURRENT_TERMS_VERSION = void 0;
 const db_1 = require("../db");
 exports.CURRENT_TERMS_VERSION = '2026-08-20';
-exports.CURRENT_PRIVACY_VERSION = '2026-08-20';
+exports.CURRENT_PRIVACY_VERSION = '2026-08-23';
 let legalAcceptancesTableReady = false;
 const ensureUserLegalAcceptancesTable = async () => {
     if (legalAcceptancesTableReady)

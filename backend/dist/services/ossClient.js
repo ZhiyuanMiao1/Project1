@@ -66,7 +66,12 @@ const buildContentDisposition = (fileName, mode = 'attachment') => {
         .replace(/[\r\n]+/g, ' ')
         .replace(/[\\"]/g, '_')
         .slice(0, 180) || 'download';
+    const asciiFallback = safe
+        .replace(/[^\x20-\x7E]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    const fallback = asciiFallback && !asciiFallback.startsWith('.') ? asciiFallback : 'download';
     const encoded = encodeURIComponent(raw || safe).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
-    return `${mode}; filename="${safe}"; filename*=UTF-8''${encoded}`;
+    return `${mode}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 };
 exports.buildContentDisposition = buildContentDisposition;

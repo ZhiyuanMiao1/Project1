@@ -16,6 +16,7 @@ export const loadPrivacyPolicyPage = () => import('./pages/PrivacyPolicy/Privacy
 export const loadTermsOfServicePage = () => import('./pages/TermsOfService/TermsOfServicePage');
 export const loadRefundCancellationPolicyPage = () => import('./pages/RefundCancellationPolicy/RefundCancellationPolicyPage');
 export const loadAboutPage = () => import('./pages/About/AboutPage');
+export const loadMentorContractPage = () => import('./pages/MentorContract/MentorContractPage');
 
 const ROUTE_LOADERS = {
   mentorHome: loadMentorPage,
@@ -37,6 +38,7 @@ const ROUTE_LOADERS = {
   termsOfService: loadTermsOfServicePage,
   refundCancellationPolicy: loadRefundCancellationPolicyPage,
   about: loadAboutPage,
+  mentorContract: loadMentorContractPage,
 };
 
 const preloadCache = new Map();

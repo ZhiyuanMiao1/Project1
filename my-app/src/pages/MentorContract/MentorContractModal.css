@@ -1,0 +1,166 @@
+.mentor-contract-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(6px);
+}
+
+.mentor-contract-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  max-height: calc(100dvh - 32px);
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: 0 28px 90px rgba(15, 23, 42, 0.26);
+}
+
+.mentor-contract-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex: 0 0 auto;
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.mentor-contract-kicker { display: inline-flex; align-items: center; gap: 8px; color: #2877b9; font-size: 13px; font-weight: 700; }
+.mentor-contract-modal-header h1 { margin: 8px 0 7px; font-size: 26px; line-height: 1.2; letter-spacing: -0.02em; }
+.mentor-contract-modal-header p { margin: 0; color: #64748b; line-height: 1.6; }
+
+.mentor-contract-modal-close {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+}
+.mentor-contract-modal-close svg { width: 18px; height: 18px; }
+.mentor-contract-modal-close:hover { background: rgba(15, 23, 42, 0.04); }
+.mentor-contract-modal-close:disabled { cursor: not-allowed; opacity: 0.45; }
+.mentor-contract-modal-close:focus-visible { outline: 2px solid #2877b9; outline-offset: 2px; }
+
+.mentor-contract-modal-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 24px calc(24px + env(safe-area-inset-bottom)); }
+.mentor-contract-state,
+.mentor-contract-summary,
+.mentor-contract-success,
+.mentor-contract-identity,
+.mentor-contract-document,
+.mentor-contract-signing { border: 1px solid #e2e8f0; border-radius: 18px; background: #ffffff; }
+
+.mentor-contract-state { min-height: 240px; display: grid; place-content: center; padding: 32px; text-align: center; }
+.mentor-contract-state h2 { margin: 0 0 10px; }
+.mentor-contract-state p { margin: 0; color: #64748b; line-height: 1.7; }
+
+.mentor-contract-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; margin-bottom: 16px; background: #e2e8f0; }
+.mentor-contract-summary > div { min-width: 0; padding: 14px 16px; background: #ffffff; }
+.mentor-contract-summary span,
+.mentor-contract-summary strong { display: block; }
+.mentor-contract-summary span { margin-bottom: 5px; color: #64748b; font-size: 12px; }
+.mentor-contract-summary strong { overflow-wrap: anywhere; font-size: 14px; }
+
+.mentor-contract-identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px 14px; margin-bottom: 16px; padding: 18px; }
+.mentor-contract-identity label { grid-column: 1 / -1; font-size: 14px; font-weight: 700; }
+.mentor-contract-identity input { min-width: 0; min-height: 48px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0 14px; color: #0f172a; -webkit-text-fill-color: #0f172a; font: inherit; }
+.mentor-contract-identity input:focus { border-color: #2877b9; outline: 3px solid rgba(40, 119, 185, 0.13); }
+.mentor-contract-identity p { grid-column: 1 / -1; grid-row: 3; margin: 0; color: #64748b; font-size: 13px; line-height: 1.55; }
+.mentor-contract-identity button,
+.mentor-contract-pdf-state button { min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0 16px; background: #ffffff; color: #0f172a; font: inherit; font-weight: 700; cursor: pointer; }
+.mentor-contract-identity button:disabled { cursor: not-allowed; opacity: 0.48; }
+
+.mentor-contract-success { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-bottom: 16px; padding: 18px; border-color: #bbf7d0; background: #f0fdf4; }
+.mentor-contract-success > svg { width: 26px; height: 26px; color: #16a34a; }
+.mentor-contract-success h2 { margin: 0 0 4px; font-size: 17px; }
+.mentor-contract-success p { margin: 2px 0; color: #475569; font-size: 13px; }
+.mentor-contract-hash { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.mentor-contract-success button,
+.mentor-contract-primary,
+.mentor-contract-resend,
+.mentor-contract-document-header a { min-height: 44px; border: 0; border-radius: 12px; font: inherit; cursor: pointer; appearance: none; -webkit-appearance: none; }
+.mentor-contract-success button,
+.mentor-contract-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; background: #0f172a; color: #ffffff; -webkit-text-fill-color: #ffffff; font-weight: 700; }
+.mentor-contract-success button:disabled,
+.mentor-contract-primary:disabled,
+.mentor-contract-resend:disabled { cursor: not-allowed; opacity: 0.48; }
+
+.mentor-contract-document { overflow: hidden; }
+.mentor-contract-document-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; border-bottom: 1px solid #e2e8f0; }
+.mentor-contract-document-header h2 { margin: 0 0 3px; font-size: 17px; }
+.mentor-contract-document-header p { margin: 0; color: #64748b; font-size: 12px; }
+.mentor-contract-document-header a { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; color: #2877b9; -webkit-text-fill-color: #2877b9; text-decoration: none; font-weight: 700; }
+.mentor-contract-preview-note { padding: 10px 18px; border-bottom: 1px solid #e2e8f0; background: #fff7ed; color: #9a3412; font-size: 13px; }
+.mentor-contract-preview-note.is-personalised { background: #eff6ff; color: #1d4ed8; }
+.mentor-contract-pdf { display: block; width: 100%; height: min(58dvh, 690px); min-height: 500px; border: 0; background: #e2e8f0; }
+.mentor-contract-pdf-state { min-height: 300px; display: grid; place-items: center; gap: 12px; padding: 24px; color: #64748b; text-align: center; }
+
+.mentor-contract-signing { margin-top: 16px; padding: 20px; }
+.mentor-contract-step-hint { margin: 0 0 8px; color: #9a3412; font-size: 13px; }
+.mentor-contract-checkbox { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 9px 0; line-height: 1.55; cursor: pointer; }
+.mentor-contract-checkbox input { width: 20px; height: 20px; flex: 0 0 auto; margin: 2px 0 0; accent-color: #2877b9; }
+.mentor-contract-primary { margin-top: 14px; min-width: 180px; }
+.mentor-contract-code-panel { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.mentor-contract-code-panel > label { display: block; margin-bottom: 9px; font-size: 14px; font-weight: 700; }
+.mentor-contract-code-row { display: flex; align-items: stretch; gap: 12px; }
+.mentor-contract-code-row input { width: 220px; min-height: 48px; border: 1px solid #cbd5e1; border-radius: 12px; padding: 0 16px; color: #0f172a; -webkit-text-fill-color: #0f172a; font-size: 22px; font-weight: 700; letter-spacing: 0.22em; }
+.mentor-contract-code-row .mentor-contract-primary { margin-top: 0; }
+.mentor-contract-resend { margin-top: 8px; padding: 0; background: transparent; color: #2877b9; -webkit-text-fill-color: #2877b9; font-size: 14px; }
+.mentor-contract-notice,
+.mentor-contract-error { margin-top: 12px; border-radius: 12px; padding: 11px 13px; font-size: 14px; line-height: 1.5; }
+.mentor-contract-notice { background: #eff6ff; color: #1d4ed8; }
+.mentor-contract-error { background: #fef2f2; color: #b91c1c; }
+
+@media (max-width: 899px) {
+  .mentor-contract-modal { max-height: calc(100dvh - 16px); }
+  .mentor-contract-modal-overlay { padding: 8px; }
+  .mentor-contract-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mentor-contract-pdf { min-height: 470px; height: 56dvh; }
+  .mentor-contract-success { grid-template-columns: auto 1fr; }
+  .mentor-contract-success button { grid-column: 1 / -1; width: 100%; }
+}
+
+@media (max-width: 599px) {
+  .mentor-contract-modal-overlay { align-items: flex-end; padding: 0; }
+  .mentor-contract-modal { width: 100%; max-height: 100dvh; border-radius: 20px 20px 0 0; }
+  .mentor-contract-modal-header { padding: 18px 16px 14px; gap: 12px; }
+  .mentor-contract-modal-header h1 { font-size: 22px; }
+  .mentor-contract-modal-header p { font-size: 13px; }
+  .mentor-contract-modal-scroll { padding: 14px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .mentor-contract-summary { grid-template-columns: 1fr; border-radius: 14px; }
+  .mentor-contract-identity { grid-template-columns: 1fr; border-radius: 14px; padding: 16px; }
+  .mentor-contract-identity button { width: 100%; }
+  .mentor-contract-identity p { grid-row: auto; }
+  .mentor-contract-success,
+  .mentor-contract-document,
+  .mentor-contract-signing { border-radius: 14px; }
+  .mentor-contract-document-header { align-items: flex-start; padding: 14px; }
+  .mentor-contract-document-header a { min-width: 44px; justify-content: center; }
+  .mentor-contract-pdf { min-height: 420px; height: 54dvh; }
+  .mentor-contract-signing { padding: 16px; }
+  .mentor-contract-code-row { flex-direction: column; }
+  .mentor-contract-code-row input,
+  .mentor-contract-code-row .mentor-contract-primary,
+  .mentor-contract-primary { width: 100%; }
+}
+
+@media (max-width: 359px) {
+  .mentor-contract-modal-header h1 { font-size: 20px; }
+  .mentor-contract-pdf { min-height: 380px; }
+}

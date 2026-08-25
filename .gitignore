@@ -31,5 +31,6 @@ backend/.env.example
 
 # 忽略项目文档 Word 文件
 *.docx
+!docs/contracts/templates/Mentory导师合作协议-v1.1.docx
 
 .DS_Store

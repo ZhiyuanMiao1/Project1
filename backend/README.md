@@ -12,6 +12,10 @@
 - `GET /api/mentor/cards`：导师卡片；仅 `role=mentor` 且 `mentor_approved=1` 可访问，否则返回 403 `{ error: '导师审核中' }`。
 - `POST /api/oss/policy`：浏览器直传 OSS 的短时 policy（用于头像/附件上传）。
 - `GET /api/attachments/course-requests/:requestId/attachments/:fileId/signed-url`：后端鉴权后返回短时签名下载链接（用于私有 OSS 附件下载）。
+- `GET /api/mentor-contracts/status`：返回当前导师本人审核/签署状态；审核通过且未签署时前端会强制引导。
+- `POST /api/mentor-contracts/send-code`：为当前导师唯一合同发送与合同记录绑定的 6 位注册邮箱验证码。
+- `POST /api/mentor-contracts/sign`：验证合同绑定验证码，自动生成最终 DOCX、转换 PDF、计算 SHA-256 并上传私有 OSS。
+- `GET /api/mentor-contracts/mine.pdf`：仅鉴权后的导师本人可查看或下载已冻结的最终 PDF。
 
 ## 环境变量（已迁移到阿里云 RDS）
 
@@ -39,6 +43,12 @@ OSS_REGION=cn-hongkong
 OSS_BUCKET=your_bucket
 OSS_ACCESS_KEY_ID=your_access_key_id
 OSS_ACCESS_KEY_SECRET=your_access_key_secret
+
+# 导师合同（DOCX -> LibreOffice PDF -> 私有 OSS）
+MENTOR_CONTRACT_VERSION=v1.1
+MENTOR_CONTRACT_OSS_PREFIX=private/contracts/mentors
+MENTOR_CONTRACT_CODE_SECRET=replace_with_a_long_random_secret
+LIBREOFFICE_BIN=/usr/bin/libreoffice
 
 # 阿里云视频直播实时音视频（课堂）
 # 优先读取新的直播实时音视频变量名，也兼容旧的 ALIYUN_RTC_APP_ID / ALIYUN_RTC_APP_KEY
@@ -79,6 +89,16 @@ npm install
 npm run build
 npm start
 ```
+
+生产 Linux 需安装 LibreOffice Writer 与中英文字体。Ubuntu 24.04 推荐：
+
+```
+sudo apt-get update
+sudo apt-get install -y libreoffice-writer fonts-noto-cjk fonts-crosextra-carlito fonts-crosextra-caladea poppler-utils
+sudo fc-cache -f -v
+```
+
+部署后先用真实模板执行一次签署预览接口，确认 LibreOffice 输出页数、中文字体、表格和分页；服务进程用户必须能读取 `docs/contracts/templates`，并能写系统临时目录。最终 DOCX/PDF 只写入临时目录，上传 OSS 后自动清理。
 
 开发模式（热启动）：
 
