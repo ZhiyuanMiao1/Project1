@@ -50,6 +50,9 @@ const getErrorMessage = async (error, t) => {
 function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) {
   const { t, isEnglish } = useI18n();
   const codeInputRef = useRef(null);
+  const codeGridRef = useRef(null);
+  const modalScrollRef = useRef(null);
+  const mobileViewportBaselineRef = useRef(0);
   const [status, setStatus] = useState(initialStatus);
   const [loading, setLoading] = useState(!initialStatus);
   const [legalName, setLegalName] = useState(initialStatus?.mentorName || '');
@@ -63,6 +66,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
   const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState('');
   const [activeCodeIndex, setActiveCodeIndex] = useState(0);
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -147,11 +151,58 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
   }, [pdfUrl]);
 
+  const keepCodeVisible = useCallback(() => {
+    if (typeof window === 'undefined' || window.innerWidth >= 600) return;
+    const scroller = modalScrollRef.current;
+    const grid = codeGridRef.current;
+    if (!scroller || !grid) return;
+    window.requestAnimationFrame(() => {
+      const viewport = window.visualViewport;
+      const visibleTop = viewport?.offsetTop || 0;
+      const visibleBottom = visibleTop + (viewport?.height || window.innerHeight);
+      const gridRect = grid.getBoundingClientRect();
+      const bottomGap = 24;
+      const topGap = 16;
+      if (gridRect.bottom > visibleBottom - bottomGap) {
+        scroller.scrollTop += gridRect.bottom - (visibleBottom - bottomGap);
+      } else if (gridRect.top < visibleTop + topGap) {
+        scroller.scrollTop -= (visibleTop + topGap) - gridRect.top;
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (!codeSent) return undefined;
-    requestAnimationFrame(() => codeInputRef.current?.focus());
+    requestAnimationFrame(() => {
+      codeInputRef.current?.focus();
+      window.setTimeout(keepCodeVisible, 280);
+    });
     return undefined;
-  }, [codeSent]);
+  }, [codeSent, keepCodeVisible]);
+
+  useEffect(() => {
+    if (!codeSent || typeof window === 'undefined' || !window.visualViewport) return undefined;
+    const viewport = window.visualViewport;
+    mobileViewportBaselineRef.current = Math.max(window.innerHeight, viewport.height);
+    const updateForKeyboard = () => {
+      const inputFocused = document.activeElement === codeInputRef.current;
+      if (!inputFocused || window.innerWidth >= 600) {
+        setMobileKeyboardInset(0);
+        mobileViewportBaselineRef.current = Math.max(window.innerHeight, viewport.height);
+        return;
+      }
+      const baseline = Math.max(mobileViewportBaselineRef.current, window.innerHeight);
+      const nextInset = Math.max(0, Math.round(baseline - viewport.height - viewport.offsetTop));
+      setMobileKeyboardInset(nextInset > 80 ? nextInset : 0);
+      window.setTimeout(keepCodeVisible, 0);
+    };
+    viewport.addEventListener('resize', updateForKeyboard);
+    viewport.addEventListener('scroll', updateForKeyboard);
+    return () => {
+      viewport.removeEventListener('resize', updateForKeyboard);
+      viewport.removeEventListener('scroll', updateForKeyboard);
+    };
+  }, [codeSent, keepCodeVisible]);
 
   useEffect(() => {
     if (resendCountdown <= 0) return undefined;
@@ -296,7 +347,11 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
           </button>
         </header>
 
-        <div className="mentor-contract-modal-scroll">
+        <div
+          ref={modalScrollRef}
+          className={`mentor-contract-modal-scroll${mobileKeyboardInset > 0 ? ' mentor-contract-modal-scroll--keyboard' : ''}`}
+          style={{ '--mentor-contract-keyboard-inset': `${mobileKeyboardInset}px` }}
+        >
           {loading ? (
             <div className="mentor-contract-state"><LoadingText text={t('common.loading', '加载中...')} /></div>
           ) : !status?.approved ? (
@@ -402,7 +457,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                         </button>
                       </div>
                       <div className="mentor-contract-code-entry">
-                        <div className="mentor-contract-code-input-grid">
+                        <div ref={codeGridRef} className="mentor-contract-code-input-grid">
                           <input
                             ref={codeInputRef}
                             id="mentor-contract-code"
@@ -421,6 +476,19 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                             onSelect={(event) => {
                               const nextIndex = event.currentTarget.selectionStart ?? code.length;
                               setActiveCodeIndex(nextIndex < 6 ? nextIndex : -1);
+                            }}
+                            onFocus={() => {
+                              mobileViewportBaselineRef.current = Math.max(
+                                mobileViewportBaselineRef.current,
+                                window.innerHeight,
+                                window.visualViewport?.height || 0
+                              );
+                              window.setTimeout(keepCodeVisible, 280);
+                            }}
+                            onBlur={() => {
+                              window.setTimeout(() => {
+                                if (document.activeElement !== codeInputRef.current) setMobileKeyboardInset(0);
+                              }, 0);
                             }}
                             disabled={signing}
                             aria-label={t('mentorContract.enterCode', '输入注册邮箱收到的 6 位验证码')}
