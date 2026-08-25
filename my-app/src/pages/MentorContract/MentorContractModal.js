@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCheckCircle, FiDownload, FiExternalLink, FiMail, FiRefreshCw, FiX } from 'react-icons/fi';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import api from '../../api/client';
@@ -6,6 +6,14 @@ import { useI18n } from '../../i18n/language';
 import './MentorContractModal.css';
 
 const normalizeLegalName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+
+const maskEmail = (value) => {
+  const raw = String(value || '').trim();
+  const [local, domain] = raw.split('@');
+  if (!local || !domain) return raw;
+  if (local.length <= 2) return `${local[0] || ''}*@${domain}`;
+  return `${local.slice(0, 2)}***${local.slice(-1)}@${domain}`;
+};
 
 const getErrorMessage = async (error, t) => {
   let responseData = error?.response?.data;
@@ -41,6 +49,7 @@ const getErrorMessage = async (error, t) => {
 
 function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) {
   const { t, isEnglish } = useI18n();
+  const codeInputRef = useRef(null);
   const [status, setStatus] = useState(initialStatus);
   const [loading, setLoading] = useState(!initialStatus);
   const [legalName, setLegalName] = useState(initialStatus?.mentorName || '');
@@ -53,6 +62,8 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
   const [informationConfirmed, setInformationConfirmed] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState('');
+  const [activeCodeIndex, setActiveCodeIndex] = useState(0);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const [sendingCode, setSendingCode] = useState(false);
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState('');
@@ -136,6 +147,20 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
   }, [pdfUrl]);
 
+  useEffect(() => {
+    if (!codeSent) return undefined;
+    requestAnimationFrame(() => codeInputRef.current?.focus());
+    return undefined;
+  }, [codeSent]);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return undefined;
+    const timer = window.setInterval(() => {
+      setResendCountdown((current) => (current > 1 ? current - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCountdown]);
+
   const normalizedName = normalizeLegalName(legalName);
   const legalNameValid = normalizedName.length >= 2 && normalizedName.length <= 120;
   const previewMatchesName = legalNameValid
@@ -157,6 +182,16 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     }
   }, [isEnglish, status?.signedAt]);
 
+  const selectCodeCell = (index) => {
+    const input = codeInputRef.current;
+    if (!input || signing) return;
+    const selectionStart = Math.min(index, code.length);
+    const selectionEnd = index < code.length ? selectionStart + 1 : selectionStart;
+    input.focus();
+    input.setSelectionRange(selectionStart, selectionEnd);
+    setActiveCodeIndex(selectionStart < 6 ? selectionStart : -1);
+  };
+
   const handleLegalNameChange = (event) => {
     setLegalName(event.target.value.slice(0, 120));
     setAgreementAccepted(false);
@@ -174,8 +209,9 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     await loadPdf({ signed: false, name: normalizedName });
   };
 
-  const handleSendCode = async () => {
+  const handleSendCode = async ({ resend = false } = {}) => {
     if (!canSendCode) return;
+    if (resend && resendCountdown > 0) return;
     setSendingCode(true);
     setError('');
     setNotice('');
@@ -187,14 +223,20 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
         setNotice(t('mentorContract.alreadySigned', '协议已签署，无需重复提交'));
         return updateStatus(next);
       }
+      const nextCountdown = Math.max(0, Number(response?.data?.resendAfterSeconds) || 60);
       setCodeSent(true);
+      setResendCountdown(nextCountdown);
+      if (resend) {
+        setCode('');
+        setActiveCodeIndex(0);
+      }
       setStatus((current) => ({
         ...(current || {}),
         mentorName: normalizedName,
         contractNumber: response?.data?.contractNumber || current?.contractNumber,
         contractVersion: response?.data?.contractVersion || current?.contractVersion,
       }));
-      setNotice(t('mentorContract.codeSent', '6 位验证码已发送至你的 Mentory 注册邮箱'));
+      setNotice('');
     } catch (nextError) {
       setError(await getErrorMessage(nextError, t));
     } finally {
@@ -338,21 +380,80 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                   </div>
 
                   {!codeSent ? (
-                    <button className="mentor-contract-primary" type="button" onClick={handleSendCode} disabled={!canSendCode}>
-                      <FiMail /> {sendingCode ? <LoadingText text={t('mentorContract.sendingCode', '正在发送验证码...')} /> : t('mentorContract.confirmAndSign', '确认并签署')}
+                    <button className="mentor-contract-primary" type="button" onClick={() => handleSendCode()} disabled={!canSendCode}>
+                      <FiMail /> {sendingCode ? <LoadingText text={t('mentorContract.sendingCode', '正在发送验证码...')} /> : t('mentorContract.nextStep', '下一步')}
                     </button>
                   ) : (
                     <div className="mentor-contract-code-panel">
-                      <label htmlFor="mentor-contract-code">{t('mentorContract.enterCode', '输入注册邮箱收到的 6 位验证码')}</label>
-                      <div className="mentor-contract-code-row">
-                        <input id="mentor-contract-code" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={signing} placeholder="000000" />
+                      <div className="mentor-contract-code-meta">
+                        <p>
+                          {t('emailCode.sentToPrefix', '验证码已发送至')}{' '}
+                          <strong>{maskEmail(status?.mentorEmail) || status?.mentorEmail || '-'}</strong>
+                        </p>
+                        <button
+                          className="mentor-contract-code-resend"
+                          type="button"
+                          onClick={() => handleSendCode({ resend: true })}
+                          disabled={resendCountdown > 0 || sendingCode || signing}
+                        >
+                          {sendingCode
+                            ? <LoadingText text={t('emailCode.resending', '发送中...')} />
+                            : t('emailCode.resend', '重新发送')}
+                        </button>
+                      </div>
+                      <div className="mentor-contract-code-entry">
+                        <div className="mentor-contract-code-input-grid">
+                          <input
+                            ref={codeInputRef}
+                            id="mentor-contract-code"
+                            className="mentor-contract-code-hidden-input"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            value={code}
+                            onChange={(event) => {
+                              const nextCode = event.target.value.replace(/\D/g, '').slice(0, 6);
+                              const nextIndex = Math.min(event.target.selectionStart ?? nextCode.length, nextCode.length);
+                              setCode(nextCode);
+                              setActiveCodeIndex(nextIndex < 6 ? nextIndex : -1);
+                            }}
+                            onSelect={(event) => {
+                              const nextIndex = event.currentTarget.selectionStart ?? code.length;
+                              setActiveCodeIndex(nextIndex < 6 ? nextIndex : -1);
+                            }}
+                            disabled={signing}
+                            aria-label={t('mentorContract.enterCode', '输入注册邮箱收到的 6 位验证码')}
+                          />
+                          {Array.from({ length: 6 }).map((_, index) => {
+                            const value = code[index] || '';
+                            const active = !signing && activeCodeIndex === index;
+                            return (
+                              <button
+                                key={index}
+                                type="button"
+                                className={`mentor-contract-code-cell${value ? ' filled' : ''}${active ? ' active' : ''}`}
+                                onClick={() => selectCodeCell(index)}
+                                disabled={signing}
+                                tabIndex={-1}
+                                aria-label={t('mentorContract.codeDigit', '验证码第 {position} 位', { position: index + 1 })}
+                              >
+                                <span>{value}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                         <button className="mentor-contract-primary" type="button" onClick={handleSign} disabled={!canSign}>
                           {signing ? <LoadingText text={t('mentorContract.generating', '正在生成并归档合同...')} /> : t('mentorContract.completeSigning', '完成签署')}
                         </button>
                       </div>
-                      <button className="mentor-contract-resend" type="button" onClick={handleSendCode} disabled={sendingCode || signing}>
-                        {sendingCode ? t('mentorContract.sendingCodeShort', '发送中...') : t('mentorContract.resendCode', '重新发送验证码')}
-                      </button>
+                      <div className="mentor-contract-code-footer" aria-live="polite">
+                        <span>
+                          {resendCountdown > 0
+                            ? t('emailCode.resendAfter', '{seconds}s 后可重发', { seconds: resendCountdown })
+                            : '\u00A0'}
+                        </span>
+                      </div>
                     </div>
                   )}
                   {notice ? <div className="mentor-contract-notice" role="status">{notice}</div> : null}
