@@ -1148,6 +1148,8 @@ const en = {
   'settings.section.notifications': 'Notifications',
   'settings.section.payments': 'Payments & Billing',
   'settings.section.language': 'Language & Preferences',
+  'settings.viewMentorAgreement': 'View agreement',
+  'settings.viewMentorAgreementAria': 'View signed mentor agreement',
   'settings.toast.mentorSubmitted': 'Mentor application submitted. We will review it soon.',
   'settings.resubmitMentorApplication': 'Resubmit',
   'settings.mentorStatus.resumePending': 'Resume under review',

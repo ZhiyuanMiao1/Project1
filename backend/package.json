@@ -12,6 +12,7 @@
     "test:fx": "node -r ts-node/register src/services/fx.test.ts",
     "test:embeddings": "node -r ts-node/register src/services/embeddingConfig.test.ts",
     "test:mentor-contract-render": "npm run build && node dist/scripts/test-mentor-contract-render.js",
+    "test:mentor-payroll": "node -r ts-node/register src/services/mentorPayroll.test.ts",
     "db:migrate:vector": "npm run build && node dist/scripts/migrate-vector-index.js",
     "db:migrate:embedding-model": "npm run build && node dist/scripts/migrate-embedding-model.js",
     "cleanup:classroom-temp-files": "npm run build && node dist/scripts/cleanup-classroom-temp-files.js",

@@ -217,6 +217,7 @@ function ProfileSection({
   studentIdValue,
   mentorIdValue,
   mentorReviewStatus,
+  mentorContractSigned,
   canActivateMentor,
   mentorActivationLabel,
   emailValue,
@@ -235,6 +236,7 @@ function ProfileSection({
   onAvailabilityChange,
   onPersistAvailability,
   onActivateMentor,
+  onOpenMentorContract,
 }) {
   const { t } = useI18n();
   const [editingDegree, setEditingDegree] = useState(false);
@@ -308,6 +310,16 @@ function ProfileSection({
             ) : null}
           </div>
         </div>
+        {mentorContractSigned ? (
+          <button
+            type="button"
+            className="settings-action settings-mentor-contract-action"
+            onClick={onOpenMentorContract}
+            aria-label={t('settings.viewMentorAgreementAria', '查看已签署的导师合作协议')}
+          >
+            {t('settings.viewMentorAgreement', '查看协议')}
+          </button>
+        ) : null}
       </div>
       <div className="settings-row">
         <div className="settings-row-main">

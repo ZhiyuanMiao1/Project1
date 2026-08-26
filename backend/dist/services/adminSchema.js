@@ -138,6 +138,42 @@ const ensureAdminSchema = async () => {
       CONSTRAINT fk_platform_grants_dispute FOREIGN KEY (dispute_id) REFERENCES course_session_disputes(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+    await (0, db_1.query)(`
+    CREATE TABLE IF NOT EXISTS mentor_payroll_profiles (
+      mentor_user_id INT NOT NULL,
+      hourly_rate_cny DECIMAL(10,2) NOT NULL DEFAULT 400.00,
+      china_tax_resident TINYINT(1) NOT NULL DEFAULT 1,
+      updated_by_admin_id BIGINT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (mentor_user_id),
+      CONSTRAINT fk_mentor_payroll_profiles_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+    await (0, db_1.query)(`
+    CREATE TABLE IF NOT EXISTS mentor_payroll_payments (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      mentor_user_id INT NOT NULL,
+      payroll_month CHAR(7) NOT NULL,
+      settled_hours DECIMAL(10,2) NOT NULL,
+      hourly_rate_cny DECIMAL(10,2) NOT NULL,
+      gross_income_cny DECIMAL(12,2) NOT NULL,
+      china_tax_resident TINYINT(1) NOT NULL,
+      taxable_income_cny DECIMAL(12,2) NOT NULL DEFAULT 0,
+      withheld_tax_cny DECIMAL(12,2) NOT NULL DEFAULT 0,
+      net_income_cny DECIMAL(12,2) NOT NULL,
+      status ENUM('paid') NOT NULL DEFAULT 'paid',
+      payment_reference VARCHAR(120) NULL,
+      note_text TEXT NULL,
+      paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      paid_by_admin_id BIGINT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_mentor_payroll_payment_month (mentor_user_id, payroll_month),
+      KEY idx_mentor_payroll_payment_month (payroll_month, status),
+      CONSTRAINT fk_mentor_payroll_payments_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE RESTRICT
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
     await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN assigned_admin_id BIGINT NULL AFTER status');
     await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN accepted_at TIMESTAMP NULL DEFAULT NULL AFTER assigned_admin_id');
     await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN outcome_code VARCHAR(32) NULL AFTER accepted_at');

@@ -25,6 +25,7 @@ import { consumeLessonHours, isWalletHoursError } from '../services/walletHours'
 import { computeRefundPricing, parseRefundHours } from '../services/refundPricing';
 import { processRefundById } from './refunds';
 import { sendCourseDisputeResultMail, sendLessonHoursFinalDecisionMail } from '../services/mailService';
+import { calculateMentorPayroll } from '../services/mentorPayroll';
 
 const router = Router();
 
@@ -199,6 +200,27 @@ const toIsoString = (raw: unknown) => {
 const toNumber = (value: unknown, fallback = 0) => {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : fallback;
+};
+
+const parsePayrollMonth = (value: unknown) => {
+  const month = safeString(value, 7);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;
+  return month;
+};
+
+const getPayrollMonthRange = (month: string) => {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const nextYear = monthNumber === 12 ? year + 1 : year;
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
+  return {
+    start: `${month}-01 00:00:00`,
+    end: `${nextYear}-${String(nextMonth).padStart(2, '0')}-01 00:00:00`,
+  };
+};
+
+const getDefaultMentorHourlyRate = () => {
+  const configured = Number(process.env.MENTOR_HOURLY_RATE_CNY || 400);
+  return Number.isFinite(configured) && configured > 0 ? Number(configured.toFixed(2)) : 400;
 };
 
 const getEffectiveClassroomStatus = (row: any) => {
@@ -2432,6 +2454,195 @@ router.get('/classrooms/:courseId/observer-auth', requireAdminAuth, async (req: 
   } catch (error) {
     console.error('Admin classroom observer auth error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/mentor-payroll', requireAdminAuth, async (req: Request, res: Response) => {
+  const month = parsePayrollMonth(req.query.month);
+  if (!month) return res.status(400).json({ error: '月份格式应为 YYYY-MM' });
+  const { start, end } = getPayrollMonthRange(month);
+  const defaultHourlyRate = getDefaultMentorHourlyRate();
+  try {
+    const rows = await query<any[]>(
+      `SELECT u.id AS mentor_user_id, u.email, ur.public_id AS mentor_public_id,
+              COALESCE(NULLIF(mp.display_name, ''), NULLIF(u.username, ''), u.email) AS mentor_name,
+              COALESCE(mpp.hourly_rate_cny, ?) AS configured_hourly_rate_cny,
+              COALESCE(mpp.china_tax_resident, 1) AS configured_china_tax_resident,
+              COALESCE(earned.settled_hours, 0) AS current_settled_hours,
+              pay.id AS payment_id, pay.settled_hours AS paid_settled_hours,
+              pay.hourly_rate_cny AS paid_hourly_rate_cny, pay.gross_income_cny AS paid_gross_income_cny,
+              pay.china_tax_resident AS paid_china_tax_resident, pay.taxable_income_cny AS paid_taxable_income_cny,
+              pay.withheld_tax_cny AS paid_withheld_tax_cny, pay.net_income_cny AS paid_net_income_cny,
+              pay.payment_reference, pay.note_text, pay.paid_at
+       FROM user_roles ur
+       JOIN users u ON u.id = ur.user_id
+       LEFT JOIN mentor_profiles mp ON mp.user_id = u.id
+       LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = u.id
+       LEFT JOIN (
+         SELECT lhc.mentor_user_id, SUM(lhc.final_hours) AS settled_hours
+         FROM lesson_hour_confirmations lhc
+         WHERE lhc.final_hours IS NOT NULL
+           AND lhc.status IN ('confirmed', 'dispute_confirmed')
+           AND COALESCE(lhc.settled_at, lhc.updated_at) >= ?
+           AND COALESCE(lhc.settled_at, lhc.updated_at) < ?
+           AND lhc.id = (
+             SELECT MAX(latest.id) FROM lesson_hour_confirmations latest
+             WHERE latest.course_session_id = lhc.course_session_id
+           )
+         GROUP BY lhc.mentor_user_id
+       ) earned ON earned.mentor_user_id = u.id
+       LEFT JOIN mentor_payroll_payments pay
+         ON pay.mentor_user_id = u.id AND pay.payroll_month = ?
+       WHERE ur.role = 'mentor' AND ur.mentor_approved = 1
+       ORDER BY COALESCE(pay.gross_income_cny, earned.settled_hours * COALESCE(mpp.hourly_rate_cny, ?)) DESC,
+                ur.public_id ASC`,
+      [defaultHourlyRate, start, end, month, defaultHourlyRate]
+    );
+
+    const payroll = (rows || []).map((row) => {
+      const paid = Boolean(row.payment_id);
+      const settledHours = toNumber(paid ? row.paid_settled_hours : row.current_settled_hours);
+      const hourlyRateCny = toNumber(paid ? row.paid_hourly_rate_cny : row.configured_hourly_rate_cny, defaultHourlyRate);
+      const grossIncomeCny = Number((paid ? toNumber(row.paid_gross_income_cny) : settledHours * hourlyRateCny).toFixed(2));
+      const chinaTaxResident = Boolean(Number(paid ? row.paid_china_tax_resident : row.configured_china_tax_resident));
+      const calculated = calculateMentorPayroll(grossIncomeCny, chinaTaxResident);
+      return {
+        mentorUserId: Number(row.mentor_user_id),
+        mentorId: safeString(row.mentor_public_id, 64),
+        mentorName: safeString(row.mentor_name, 120),
+        email: safeString(row.email, 255),
+        month,
+        settledHours,
+        hourlyRateCny,
+        grossIncomeCny,
+        chinaTaxResident,
+        taxableIncomeCny: paid ? toNumber(row.paid_taxable_income_cny) : calculated.taxableIncomeCny,
+        withheldTaxCny: paid ? toNumber(row.paid_withheld_tax_cny) : calculated.withheldTaxCny,
+        netIncomeCny: paid ? toNumber(row.paid_net_income_cny) : calculated.netIncomeCny,
+        status: paid ? 'paid' : 'pending',
+        paymentReference: safeString(row.payment_reference, 120),
+        note: safeString(row.note_text, 1000),
+        paidAt: toIsoString(row.paid_at),
+      };
+    });
+    const summary = payroll.reduce((acc, item) => {
+      acc.grossIncomeCny += item.grossIncomeCny;
+      acc.withheldTaxCny += item.withheldTaxCny;
+      acc.netIncomeCny += item.netIncomeCny;
+      if (item.status === 'paid') acc.paidCount += 1;
+      else if (item.grossIncomeCny > 0) acc.pendingCount += 1;
+      return acc;
+    }, { grossIncomeCny: 0, withheldTaxCny: 0, netIncomeCny: 0, paidCount: 0, pendingCount: 0 });
+    summary.grossIncomeCny = Number(summary.grossIncomeCny.toFixed(2));
+    summary.withheldTaxCny = Number(summary.withheldTaxCny.toFixed(2));
+    summary.netIncomeCny = Number(summary.netIncomeCny.toFixed(2));
+    return res.json({ month, defaultHourlyRate, payroll, summary });
+  } catch (error) {
+    console.error('Admin mentor payroll list error:', error);
+    return res.status(500).json({ error: '导师薪资加载失败' });
+  }
+});
+
+router.put('/mentor-payroll/:mentorUserId/profile', requireAdminAuth, async (req: Request, res: Response) => {
+  const mentorUserId = toPositiveInt(req.params.mentorUserId, 0);
+  const hourlyRateCny = Number((req.body as any)?.hourlyRateCny);
+  const chinaTaxResident = (req.body as any)?.chinaTaxResident;
+  if (!mentorUserId) return res.status(400).json({ error: '导师 ID 无效' });
+  if (!Number.isFinite(hourlyRateCny) || hourlyRateCny <= 0 || hourlyRateCny > 100000) {
+    return res.status(400).json({ error: '时薪必须在 0 至 100000 元之间' });
+  }
+  if (typeof chinaTaxResident !== 'boolean') return res.status(400).json({ error: '请选择是否在中国纳税' });
+  try {
+    const mentors = await query<any[]>(
+      "SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'mentor' AND mentor_approved = 1 LIMIT 1",
+      [mentorUserId]
+    );
+    if (!mentors?.length) return res.status(404).json({ error: '未找到已通过审核的导师' });
+    const beforeRows = await query<any[]>('SELECT * FROM mentor_payroll_profiles WHERE mentor_user_id = ? LIMIT 1', [mentorUserId]);
+    await query(
+      `INSERT INTO mentor_payroll_profiles (mentor_user_id, hourly_rate_cny, china_tax_resident, updated_by_admin_id)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE hourly_rate_cny = VALUES(hourly_rate_cny),
+         china_tax_resident = VALUES(china_tax_resident), updated_by_admin_id = VALUES(updated_by_admin_id)`,
+      [mentorUserId, Number(hourlyRateCny.toFixed(2)), chinaTaxResident ? 1 : 0, req.admin?.adminId || null]
+    );
+    const after = { mentorUserId, hourlyRateCny: Number(hourlyRateCny.toFixed(2)), chinaTaxResident };
+    await audit({ req, action: 'mentor_payroll.profile.update', targetType: 'mentor', targetId: mentorUserId, before: beforeRows?.[0], after });
+    return res.json({ profile: after });
+  } catch (error) {
+    console.error('Admin mentor payroll profile update error:', error);
+    return res.status(500).json({ error: '薪资配置保存失败' });
+  }
+});
+
+router.post('/mentor-payroll/:mentorUserId/pay', requireAdminAuth, async (req: Request, res: Response) => {
+  const mentorUserId = toPositiveInt(req.params.mentorUserId, 0);
+  const month = parsePayrollMonth((req.body as any)?.month);
+  const paymentReference = safeString((req.body as any)?.paymentReference, 120);
+  const note = safeString((req.body as any)?.note, 1000);
+  if (!mentorUserId || !month) return res.status(400).json({ error: '导师或月份无效' });
+  const { start, end } = getPayrollMonthRange(month);
+  const defaultHourlyRate = getDefaultMentorHourlyRate();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [existingRows] = await conn.query<any[]>(
+      'SELECT id FROM mentor_payroll_payments WHERE mentor_user_id = ? AND payroll_month = ? FOR UPDATE',
+      [mentorUserId, month]
+    );
+    if (existingRows?.length) throw Object.assign(new Error('该导师本月薪资已发放，请勿重复操作'), { statusCode: 409 });
+    const [profileRows] = await conn.query<any[]>(
+      `SELECT ur.public_id, COALESCE(mpp.hourly_rate_cny, ?) AS hourly_rate_cny,
+              COALESCE(mpp.china_tax_resident, 1) AS china_tax_resident
+       FROM user_roles ur
+       LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = ur.user_id
+       WHERE ur.user_id = ? AND ur.role = 'mentor' AND ur.mentor_approved = 1 LIMIT 1 FOR UPDATE`,
+      [defaultHourlyRate, mentorUserId]
+    );
+    const profile = profileRows?.[0];
+    if (!profile) throw Object.assign(new Error('未找到已通过审核的导师'), { statusCode: 404 });
+    const [hourRows] = await conn.query<any[]>(
+      `SELECT COALESCE(SUM(lhc.final_hours), 0) AS settled_hours
+       FROM lesson_hour_confirmations lhc
+       WHERE lhc.mentor_user_id = ? AND lhc.final_hours IS NOT NULL
+         AND lhc.status IN ('confirmed', 'dispute_confirmed')
+         AND COALESCE(lhc.settled_at, lhc.updated_at) >= ?
+         AND COALESCE(lhc.settled_at, lhc.updated_at) < ?
+         AND lhc.id = (SELECT MAX(latest.id) FROM lesson_hour_confirmations latest WHERE latest.course_session_id = lhc.course_session_id)`,
+      [mentorUserId, start, end]
+    );
+    const settledHours = Number(toNumber(hourRows?.[0]?.settled_hours).toFixed(2));
+    const hourlyRateCny = Number(toNumber(profile.hourly_rate_cny, defaultHourlyRate).toFixed(2));
+    const grossIncomeCny = Number((settledHours * hourlyRateCny).toFixed(2));
+    if (grossIncomeCny <= 0) throw Object.assign(new Error('该导师本月暂无可发放收入'), { statusCode: 422 });
+    const chinaTaxResident = Boolean(Number(profile.china_tax_resident));
+    const tax = calculateMentorPayroll(grossIncomeCny, chinaTaxResident);
+    const [insertResult] = await conn.query<any>(
+      `INSERT INTO mentor_payroll_payments
+        (mentor_user_id, payroll_month, settled_hours, hourly_rate_cny, gross_income_cny,
+         china_tax_resident, taxable_income_cny, withheld_tax_cny, net_income_cny,
+         payment_reference, note_text, paid_by_admin_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [mentorUserId, month, settledHours, hourlyRateCny, grossIncomeCny, chinaTaxResident ? 1 : 0,
+        tax.taxableIncomeCny, tax.withheldTaxCny, tax.netIncomeCny,
+        paymentReference || null, note || null, req.admin?.adminId || null]
+    );
+    const after = { id: Number(insertResult.insertId), mentorUserId, month, settledHours, hourlyRateCny, grossIncomeCny, chinaTaxResident, ...tax, paymentReference, note };
+    await conn.query(
+      `INSERT INTO admin_audit_logs
+        (admin_id, action, target_type, target_id, reason, before_json, after_json, ip, user_agent)
+       VALUES (?, 'mentor_payroll.payment.mark_paid', 'mentor_payroll', ?, ?, NULL, ?, ?, ?)`,
+      [req.admin?.adminId || null, `${mentorUserId}:${month}`, note || null, jsonOrNull(after),
+        safeString(req.ip || '', 45) || null, safeString(req.get('user-agent') || '', 255) || null]
+    );
+    await conn.commit();
+    return res.status(201).json({ payment: after });
+  } catch (error: any) {
+    await conn.rollback();
+    console.error('Admin mentor payroll payment error:', error);
+    return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || '薪资发放记录保存失败' });
+  } finally {
+    conn.release();
   }
 });
 

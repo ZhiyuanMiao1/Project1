@@ -494,6 +494,103 @@ button.link-button {
   font-size: 30px;
 }
 
+.payroll-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 8px 0 18px;
+}
+
+.payroll-summary article {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid #e4e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.payroll-summary span,
+.payroll-mentor span,
+.payroll-status small {
+  color: #66758d;
+  font-size: 12px;
+}
+
+.payroll-summary strong {
+  font-size: 24px;
+}
+
+.payroll-month {
+  min-height: 38px;
+}
+
+.payroll-table table {
+  min-width: 1240px;
+}
+
+.payroll-mentor,
+.payroll-status {
+  display: grid;
+  gap: 4px;
+}
+
+.payroll-mentor span {
+  white-space: nowrap;
+}
+
+.payroll-net {
+  color: #087a55;
+}
+
+.tax-resident {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tax-resident.yes {
+  background: #e8f7f0;
+  color: #087a55;
+}
+
+.tax-resident.no {
+  background: #eef2f7;
+  color: #64748b;
+}
+
+.payroll-actions {
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.payroll-actions > span {
+  color: #66758d;
+  font-size: 12px;
+}
+
+.payroll-tax-note {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px 15px;
+  border-radius: 8px;
+  background: #eef6f8;
+  color: #51627d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.payroll-tax-note strong {
+  flex: 0 0 auto;
+  color: #11566d;
+}
+
 .dashboard-page {
   background: #fff;
   padding-bottom: 0;
@@ -2399,6 +2496,7 @@ tr:last-child td {
 .badge-resolved,
 .badge-completed,
 .badge-captured,
+.badge-paid,
 .badge-order-paid {
   background: #e7f6ee;
   color: #0f6b3d;
@@ -3141,6 +3239,48 @@ tr:last-child td {
   gap: 10px;
 }
 
+.payroll-dialog > label {
+  display: grid;
+  gap: 7px;
+  color: #56647a;
+  font-size: 13px;
+}
+
+.payroll-dialog > label input,
+.payroll-dialog > label select {
+  width: 100%;
+  min-height: 42px;
+}
+
+.payroll-confirmation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.payroll-confirmation-grid span {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #66758d;
+  font-size: 12px;
+}
+
+.payroll-confirmation-grid strong {
+  color: #172033;
+  font-size: 17px;
+}
+
+.payroll-lock-note {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff4df;
+  color: #8a5305;
+  font-size: 13px;
+}
+
 .lesson-review-content {
   display: grid;
   gap: 16px;
@@ -3492,6 +3632,10 @@ tr:last-child td {
   .metric-grid,
   .inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .payroll-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-date-filter {

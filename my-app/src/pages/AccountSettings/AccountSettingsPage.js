@@ -189,6 +189,7 @@ function AccountSettingsPage({ mode = 'student' }) {
   const [savingHomeCourseOrder, setSavingHomeCourseOrder] = useState(false);
   const [idsStatus, setIdsStatus] = useState('idle'); // idle | loading | loaded | error
   const [savingAccountProfile, setSavingAccountProfile] = useState(false);
+  const [mentorContractSigned, setMentorContractSigned] = useState(false);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(false);
   const [savingEmailNotifications, setSavingEmailNotifications] = useState(false);
   const [toast, setToast] = useState(null); // { id: number, kind: 'success' | 'error', message: string }
@@ -325,6 +326,30 @@ function AccountSettingsPage({ mode = 'student' }) {
       });
 
     return () => { alive = false; };
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadMentorContractStatus = async () => {
+      if (!isLoggedIn) {
+        if (alive) setMentorContractSigned(false);
+        return;
+      }
+      try {
+        const response = await api.get('/api/mentor-contracts/status');
+        if (alive) setMentorContractSigned(response?.data?.signed === true);
+      } catch {
+        if (alive) setMentorContractSigned(false);
+      }
+    };
+
+    void loadMentorContractStatus();
+    window.addEventListener('mentor-contract:signed', loadMentorContractStatus);
+    return () => {
+      alive = false;
+      window.removeEventListener('mentor-contract:signed', loadMentorContractStatus);
+    };
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -967,6 +992,7 @@ function AccountSettingsPage({ mode = 'student' }) {
                   studentIdValue={studentIdValue}
                   mentorIdValue={mentorIdValue}
                   mentorReviewStatus={accountProfile.mentorReviewStatus}
+                  mentorContractSigned={mentorContractSigned}
                   canActivateMentor={canActivateMentor}
                   mentorActivationLabel={mentorActivationLabel}
                   emailValue={emailValue}
@@ -985,6 +1011,9 @@ function AccountSettingsPage({ mode = 'student' }) {
                   onAvailabilityChange={setAvailability}
                   onPersistAvailability={persistAvailability}
                   onActivateMentor={() => setShowMentorActivationPopup(true)}
+                  onOpenMentorContract={() => {
+                    try { window.dispatchEvent(new CustomEvent('mentor-contract:open')); } catch {}
+                  }}
                 />
               )}
 

@@ -7,7 +7,7 @@ import RegisterPopup from '../RegisterPopup/RegisterPopup'; // 引入注册弹�
 import LoginPopup from '../LoginPopup/LoginPopup'; // 引入登录弹窗组件
 import './AuthModal.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import { FiBookOpen, FiFileText, FiSettings } from 'react-icons/fi';
+import { FiBookOpen, FiSettings } from 'react-icons/fi';
 import { HiOutlineIdentification } from 'react-icons/hi2';
 import { consumePostLoginRedirect, setPostLoginRedirect } from '../../utils/postLoginRedirect';
 import UnreadBadge from '../common/UnreadBadge/UnreadBadge';
@@ -23,7 +23,6 @@ const MENTOR_ACTION_ROUTE_KEYS = {
   settings: 'accountSettings',
   help: 'helpCenter',
   editProfile: 'mentorProfileEditor',
-  contract: 'mentorContract',
 };
 
 const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false, align = 'left', alignOffset = 0, unreadCount = null, courseCount = null }) => {
@@ -182,11 +181,6 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
         onClose && onClose();
         navigate('/mentor/help', { state: { from: 'mentor' } });
         return;
-      case 'contract':
-        preloadRoute('mentorContract')?.catch(() => {});
-        onClose && onClose();
-        try { window.dispatchEvent(new CustomEvent('mentor-contract:open')); } catch {}
-        return;
       case 'editProfile':
         // 检查权限后再跳转（若禁用则不处理）
         if (canEditProfile === false) return;
@@ -290,14 +284,6 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
               >
                 <i className="far fa-circle-question auth-icon" aria-hidden="true"></i>
                 {t('app.route.help', '帮助中心')}
-              </button>
-              <button
-                className="auth-modal-option-button"
-                {...getIntentProps('contract')}
-                onClick={() => handleAuthAction('contract')}
-              >
-                <FiFileText className="auth-icon" />
-                {t('app.route.mentorContract', '导师合作协议')}
               </button>
               <button
                 className="auth-modal-option-button auth-divider"

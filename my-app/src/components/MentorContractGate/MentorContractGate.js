@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../../api/client';
 import { getAuthToken } from '../../utils/authStorage';
 import MentorContractModal from '../../pages/MentorContract/MentorContractModal';
 
 function MentorContractGate() {
+  const location = useLocation();
+  const isMentorWorkspace = location.pathname === '/mentor' || location.pathname.startsWith('/mentor/');
   const [authVersion, setAuthVersion] = useState(0);
   const [status, setStatus] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -14,9 +17,9 @@ function MentorContractGate() {
     const response = await api.get('/api/mentor-contracts/status');
     const next = response?.data || {};
     setStatus(next);
-    if (openRequested || (next.approved && next.requiresSignature && !dismissed)) setModalOpen(true);
+    if (openRequested || (isMentorWorkspace && next.approved && next.requiresSignature && !dismissed)) setModalOpen(true);
     return next;
-  }, [dismissed]);
+  }, [dismissed, isMentorWorkspace]);
 
   useEffect(() => {
     const refresh = () => {

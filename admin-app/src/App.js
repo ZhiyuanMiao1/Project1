@@ -41,6 +41,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: faGaugeHigh },
   { to: '/users', label: '学生管理', icon: faUsers },
   { to: '/mentors/reviews', label: '导师管理', icon: faClipboardCheck },
+  { to: '/mentor-payroll', label: '导师薪资', icon: faWallet },
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
   { to: '/classrooms', label: '课堂管理', icon: faChalkboardUser },
   { to: '/course-disputes', label: '异议管理', icon: faTriangleExclamation },
@@ -217,6 +218,11 @@ const PLATFORM_COMMISSION_RATE = 0.2;
 
 const formatCurrencyCny = (value) => asNumber(value).toLocaleString('zh-CN', {
   maximumFractionDigits: 0,
+});
+
+const formatPayrollCurrency = (value) => asNumber(value).toLocaleString('zh-CN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
 const formatReviewScore = (value) => {
@@ -557,6 +563,7 @@ const getTopbarTitle = (pathname) => {
   if (pathname === '/dashboard') return { title: 'Dashboard' };
   if (pathname === '/users') return { title: '学生管理' };
   if (pathname === '/mentors/reviews') return { title: '导师管理' };
+  if (pathname === '/mentor-payroll') return { title: '导师薪资' };
   if (pathname === '/orders') return { title: '订单管理' };
   if (pathname === '/classrooms') return { title: '课堂管理' };
   if (pathname === '/course-disputes') return { title: '异议管理' };
@@ -616,6 +623,7 @@ function Shell({ onLogout }) {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/mentors/reviews" element={<MentorReviewsPage />} />
+          <Route path="/mentor-payroll" element={<MentorPayrollPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/course-disputes" element={<CourseDisputesPage />} />
@@ -2097,6 +2105,112 @@ function MentorDrawer({ userId, onClose }) {
         />
       </State>
     </aside>
+  );
+}
+
+function PayrollProfileDialog({ item, onClose, onSaved }) {
+  const [hourlyRateCny, setHourlyRateCny] = useState(String(item?.hourlyRateCny || 400));
+  const [chinaTaxResident, setChinaTaxResident] = useState(Boolean(item?.chinaTaxResident));
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  if (!item) return null;
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await api(`/api/admin/mentor-payroll/${item.mentorUserId}/profile`, {
+        method: 'PUT', body: { hourlyRateCny: Number(hourlyRateCny), chinaTaxResident },
+      });
+      onSaved();
+      onClose();
+    } catch (requestError) {
+      setError(requestError.message || '保存失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="modal payroll-dialog" role="dialog" aria-modal="true" aria-labelledby="payroll-profile-title" onSubmit={submit}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="关闭">×</button>
+        <h2 id="payroll-profile-title">薪资设置 · {item.mentorId}</h2>
+        <p>{item.mentorName} · {item.email}</p>
+        <label><span>固定时薪（人民币）</span><input type="number" min="0.01" max="100000" step="0.01" value={hourlyRateCny} onChange={(event) => setHourlyRateCny(event.target.value)} required /></label>
+        <label><span>中国个税处理</span><select value={chinaTaxResident ? 'china' : 'overseas'} onChange={(event) => setChinaTaxResident(event.target.value === 'china')}><option value="china">在中国纳税（预扣劳务报酬个税）</option><option value="overseas">不在中国纳税（本页不代扣）</option></select></label>
+        {error ? <div className="error" role="alert">{error}</div> : null}
+        <div className="modal-actions"><button className="ghost" type="button" onClick={onClose}>取消</button><button type="submit" disabled={submitting}>{submitting ? '保存中...' : '保存设置'}</button></div>
+      </form>
+    </div>
+  );
+}
+
+function PayrollPaymentDialog({ item, month, onClose, onPaid }) {
+  const [paymentReference, setPaymentReference] = useState('');
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  if (!item) return null;
+  const submit = async (event) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await api(`/api/admin/mentor-payroll/${item.mentorUserId}/pay`, { method: 'POST', body: { month, paymentReference, note } });
+      onPaid();
+      onClose();
+    } catch (requestError) {
+      setError(requestError.message || '发放记录保存失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="modal payroll-dialog" role="dialog" aria-modal="true" aria-labelledby="payroll-payment-title" onSubmit={submit}>
+        <button className="modal-close" type="button" onClick={onClose} aria-label="关闭" disabled={submitting}>×</button>
+        <h2 id="payroll-payment-title">确认薪资已发放</h2><p>{month} · {item.mentorId} · {item.mentorName}</p>
+        <div className="payroll-confirmation-grid"><span>结算课时<strong>{item.settledHours} 小时</strong></span><span>税前收入<strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong></span><span>预扣个税<strong>¥{formatPayrollCurrency(item.withheldTaxCny)}</strong></span><span>实际发放<strong>¥{formatPayrollCurrency(item.netIncomeCny)}</strong></span></div>
+        <label><span>交易流水号（选填）</span><input value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} maxLength={120} placeholder="银行或支付渠道流水号" /></label>
+        <label><span>备注（选填）</span><textarea value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} placeholder="记录补充说明" /></label>
+        <div className="payroll-lock-note">确认后将固化本月金额与税额，不能重复发放。</div>
+        {error ? <div className="error" role="alert">{error}</div> : null}
+        <div className="modal-actions"><button className="ghost" type="button" onClick={onClose} disabled={submitting}>取消</button><button type="submit" disabled={submitting}>{submitting ? '确认中...' : `确认发放 ¥${formatPayrollCurrency(item.netIncomeCny)}`}</button></div>
+      </form>
+    </div>
+  );
+}
+
+function MentorPayrollPage() {
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [month, setMonth] = useState(defaultMonth);
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState('');
+  const [reload, setReload] = useState(0);
+  const [profileItem, setProfileItem] = useState(null);
+  const [paymentItem, setPaymentItem] = useState(null);
+  const { loading, error, data } = useAsync(() => api('/api/admin/mentor-payroll', { params: { month } }), [month, reload]);
+  const payroll = useMemo(() => (data?.payroll || []).filter((item) => {
+    const keyword = q.trim().toLowerCase();
+    return (!keyword || [item.mentorId, item.mentorName, item.email].some((value) => String(value || '').toLowerCase().includes(keyword))) && (!status || item.status === status);
+  }), [data?.payroll, q, status]);
+  const summary = data?.summary || {};
+  return (
+    <section className="payroll-page">
+      <PageTitle title="导师薪资" />
+      <div className="payroll-summary" aria-label="当月薪资汇总"><article><span>税前收入</span><strong>¥{formatPayrollCurrency(summary.grossIncomeCny)}</strong></article><article><span>预计预扣个税</span><strong>¥{formatPayrollCurrency(summary.withheldTaxCny)}</strong></article><article><span>实际应发</span><strong>¥{formatPayrollCurrency(summary.netIncomeCny)}</strong></article><article><span>发放进度</span><strong>{summary.paidCount || 0} / {(summary.paidCount || 0) + (summary.pendingCount || 0)}</strong></article></div>
+      <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="发放状态"><option value="">全部状态</option><option value="pending">待发放</option><option value="paid">已发放</option></select></Toolbar>
+      <State loading={loading} error={error}>
+        <DataTable className="payroll-table" columns={['导师', '结算课时', '时薪', '税前收入', '中国纳税', '预扣个税', '实际到手', '发放状态', '操作']} rows={payroll.map((item) => [
+          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, `¥${formatPayrollCurrency(item.hourlyRateCny)}`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, item.status === 'paid' ? <div className="payroll-status"><span className="badge badge-paid">已发放</span><small>{formatDate(item.paidAt)}</small></div> : <span className="badge badge-pending">待发放</span>,
+          <div className="row-actions payroll-actions"><button className="link-button" type="button" onClick={() => setProfileItem(item)} disabled={item.status === 'paid'}>设置</button>{item.status === 'pending' ? <button type="button" onClick={() => setPaymentItem(item)} disabled={item.grossIncomeCny <= 0}>发放</button> : item.paymentReference ? <span title={item.paymentReference}>流水已记录</span> : '-'}</div>,
+        ])} />
+      </State>
+      <div className="payroll-tax-note"><strong>税额口径</strong>中国纳税导师按居民个人劳务报酬预扣预缴估算：单月收入不超过 4,000 元减除 800 元，超过 4,000 元减除 20%；预扣率 20% / 30% / 40%，速算扣除数 0 / 2,000 / 7,000 元。年度汇算结果可能不同。</div>
+      <PayrollProfileDialog item={profileItem} onClose={() => setProfileItem(null)} onSaved={() => setReload((value) => value + 1)} />
+      <PayrollPaymentDialog item={paymentItem} month={month} onClose={() => setPaymentItem(null)} onPaid={() => setReload((value) => value + 1)} />
+    </section>
   );
 }
 

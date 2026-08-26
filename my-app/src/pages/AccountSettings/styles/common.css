@@ -476,6 +476,13 @@
   border-radius: 6px;
 }
 
+.settings-mentor-contract-action {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding-inline: 4px;
+  white-space: nowrap;
+}
+
 .settings-switch {
   position: relative;
   width: 44px;
