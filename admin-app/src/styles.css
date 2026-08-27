@@ -505,9 +505,9 @@ button.link-button {
   display: grid;
   gap: 8px;
   padding: 16px 18px;
-  border: 1px solid #e4e8f0;
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: #fff;
+  background: transparent;
 }
 
 .payroll-summary span,
@@ -558,7 +558,7 @@ button.link-button {
 
 .tax-resident.no {
   background: transparent;
-  color: #64748b;
+  color: #b42318;
 }
 
 .payroll-tax-note {
@@ -1928,6 +1928,18 @@ th {
   color: #0f6b3d;
 }
 
+.status-filter-header-yes .status-filter-trigger,
+.status-filter-header.status-filter-header-yes.active .status-filter-trigger {
+  background: #e7f6ee;
+  color: #0f6b3d;
+}
+
+.status-filter-header-no .status-filter-trigger,
+.status-filter-header.status-filter-header-no.active .status-filter-trigger {
+  background: #fde8e6;
+  color: #b42318;
+}
+
 .status-filter-header-failed .status-filter-trigger,
 .status-filter-header.status-filter-header-failed.active .status-filter-trigger {
   background: #fde8e6;
@@ -2182,6 +2194,12 @@ th {
 
 .status-filter-menu .status-filter-option-paid {
   color: #0f6b3d;
+}
+
+.status-filter-menu .status-filter-option-no {
+  --status-tag-bg: #fde8e6;
+  --status-tag-color: #b42318;
+  color: #b42318;
 }
 
 .status-filter-menu .status-filter-option-failed {

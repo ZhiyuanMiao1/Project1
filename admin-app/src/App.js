@@ -2114,16 +2114,23 @@ function MentorPayrollPage() {
   const [month, setMonth] = useState(defaultMonth);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [taxStatus, setTaxStatus] = useState('');
   const { loading, error, data } = useAsync(() => api('/api/admin/mentor-payroll', { params: { month } }), [month]);
   const payroll = useMemo(() => (data?.payroll || []).filter((item) => {
     const keyword = q.trim().toLowerCase();
-    return (!keyword || [item.mentorId, item.mentorName, item.email].some((value) => String(value || '').toLowerCase().includes(keyword))) && (!status || item.status === status);
-  }), [data?.payroll, q, status]);
+    const matchesTaxStatus = !taxStatus || (taxStatus === 'yes' ? item.chinaTaxResident : !item.chinaTaxResident);
+    return (!keyword || [item.mentorId, item.mentorName, item.email].some((value) => String(value || '').toLowerCase().includes(keyword))) && (!status || item.status === status) && matchesTaxStatus;
+  }), [data?.payroll, q, status, taxStatus]);
   const summary = data?.summary || {};
   const statusOptions = [
     { value: '', label: '全部' },
     { value: 'pending', label: '待发放' },
     { value: 'paid', label: '已发放' },
+  ];
+  const taxStatusOptions = [
+    { value: '', label: '全部' },
+    { value: 'yes', label: '是' },
+    { value: 'no', label: '否' },
   ];
   return (
     <section className="payroll-page">
@@ -2131,7 +2138,7 @@ function MentorPayrollPage() {
       <div className="payroll-summary" aria-label="当月薪资汇总"><article><span>税前收入</span><strong>¥{formatPayrollCurrency(summary.grossIncomeCny)}</strong></article><article><span>预计预扣个税</span><strong>¥{formatPayrollCurrency(summary.withheldTaxCny)}</strong></article><article><span>实际应发</span><strong>¥{formatPayrollCurrency(summary.netIncomeCny)}</strong></article><article><span>发放进度</span><strong>{summary.paidCount || 0} / {(summary.paidCount || 0) + (summary.pendingCount || 0)}</strong></article></div>
       <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
       <State loading={loading} error={error}>
-        <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', '中国纳税', '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
+        <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', <StatusFilterHeader value={taxStatus} options={taxStatusOptions} onChange={setTaxStatus} defaultLabel="中国纳税" ariaLabel="中国纳税状态筛选" />, '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
           <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, item.status === 'paid' ? <div className="payroll-status"><span className="badge badge-paid">已发放</span><small>{formatDate(item.paidAt)}</small></div> : <span className="badge badge-pending">待发放</span>,
         ])} />
       </State>
