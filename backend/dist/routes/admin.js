@@ -2153,7 +2153,7 @@ router.get('/mentor-payroll', adminAuth_1.requireAdminAuth, async (req, res) => 
               pay.hourly_rate_cny AS paid_hourly_rate_cny, pay.gross_income_cny AS paid_gross_income_cny,
               pay.china_tax_resident AS paid_china_tax_resident, pay.taxable_income_cny AS paid_taxable_income_cny,
               pay.withheld_tax_cny AS paid_withheld_tax_cny, pay.net_income_cny AS paid_net_income_cny,
-              pay.payment_reference, pay.note_text, pay.paid_at
+              pay.status AS payment_status, pay.payment_reference, pay.note_text, pay.paid_at
        FROM user_roles ur
        JOIN users u ON u.id = ur.user_id
        LEFT JOIN mentor_profiles mp ON mp.user_id = u.id
@@ -2177,7 +2177,7 @@ router.get('/mentor-payroll', adminAuth_1.requireAdminAuth, async (req, res) => 
        ORDER BY COALESCE(pay.gross_income_cny, earned.settled_hours * COALESCE(mpp.hourly_rate_cny, ?)) DESC,
                 ur.public_id ASC`, [defaultHourlyRate, start, end, month, defaultHourlyRate]);
         const payroll = (rows || []).map((row) => {
-            const paid = Boolean(row.payment_id);
+            const paid = Boolean(row.payment_id) && String(row.payment_status || '').toLowerCase() === 'paid';
             const settledHours = toNumber(paid ? row.paid_settled_hours : row.current_settled_hours);
             const hourlyRateCny = toNumber(paid ? row.paid_hourly_rate_cny : row.configured_hourly_rate_cny, defaultHourlyRate);
             const grossIncomeCny = Number((paid ? toNumber(row.paid_gross_income_cny) : settledHours * hourlyRateCny).toFixed(2));
@@ -2199,7 +2199,7 @@ router.get('/mentor-payroll', adminAuth_1.requireAdminAuth, async (req, res) => 
                 status: paid ? 'paid' : 'pending',
                 paymentReference: safeString(row.payment_reference, 120),
                 note: safeString(row.note_text, 1000),
-                paidAt: toIsoString(row.paid_at),
+                paidAt: paid ? toIsoString(row.paid_at) : '',
             };
         });
         const summary = payroll.reduce((acc, item) => {
@@ -2249,6 +2249,79 @@ router.put('/mentor-payroll/:mentorUserId/profile', adminAuth_1.requireAdminAuth
     catch (error) {
         console.error('Admin mentor payroll profile update error:', error);
         return res.status(500).json({ error: '薪资配置保存失败' });
+    }
+});
+router.patch('/mentor-payroll/:mentorUserId/status', adminAuth_1.requireAdminAuth, async (req, res) => {
+    const mentorUserId = toPositiveInt(req.params.mentorUserId, 0);
+    const month = parsePayrollMonth(req.body?.month);
+    const nextStatus = safeString(req.body?.status, 20).toLowerCase();
+    if (!mentorUserId || !month || !['pending', 'paid'].includes(nextStatus)) {
+        return res.status(400).json({ error: '导师、月份或发放状态无效' });
+    }
+    const { start, end } = getPayrollMonthRange(month);
+    const defaultHourlyRate = getDefaultMentorHourlyRate();
+    const conn = await db_1.pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [profileRows] = await conn.query(`SELECT ur.public_id, COALESCE(mpp.hourly_rate_cny, ?) AS hourly_rate_cny,
+              COALESCE(mpp.china_tax_resident, 1) AS china_tax_resident
+       FROM user_roles ur
+       LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = ur.user_id
+       WHERE ur.user_id = ? AND ur.role = 'mentor' AND ur.mentor_approved = 1 LIMIT 1 FOR UPDATE`, [defaultHourlyRate, mentorUserId]);
+        const profile = profileRows?.[0];
+        if (!profile)
+            throw Object.assign(new Error('未找到已通过审核的导师'), { statusCode: 404 });
+        const [existingRows] = await conn.query('SELECT * FROM mentor_payroll_payments WHERE mentor_user_id = ? AND payroll_month = ? FOR UPDATE', [mentorUserId, month]);
+        const before = existingRows?.[0] || { mentorUserId, month, status: 'pending' };
+        let after;
+        if (nextStatus === 'pending') {
+            if (existingRows?.length) {
+                await conn.query(`UPDATE mentor_payroll_payments
+           SET status = 'pending', paid_by_admin_id = ?
+           WHERE mentor_user_id = ? AND payroll_month = ?`, [req.admin?.adminId || null, mentorUserId, month]);
+            }
+            after = { mentorUserId, month, status: 'pending' };
+        }
+        else {
+            const [hourRows] = await conn.query(`SELECT COALESCE(SUM(lhc.final_hours), 0) AS settled_hours
+         FROM lesson_hour_confirmations lhc
+         WHERE lhc.mentor_user_id = ? AND lhc.final_hours IS NOT NULL
+           AND lhc.status IN ('confirmed', 'dispute_confirmed')
+           AND COALESCE(lhc.settled_at, lhc.updated_at) >= ?
+           AND COALESCE(lhc.settled_at, lhc.updated_at) < ?
+           AND lhc.id = (SELECT MAX(latest.id) FROM lesson_hour_confirmations latest WHERE latest.course_session_id = lhc.course_session_id)`, [mentorUserId, start, end]);
+            const settledHours = Number(toNumber(hourRows?.[0]?.settled_hours).toFixed(2));
+            const hourlyRateCny = Number(toNumber(profile.hourly_rate_cny, defaultHourlyRate).toFixed(2));
+            const grossIncomeCny = Number((settledHours * hourlyRateCny).toFixed(2));
+            const chinaTaxResident = Boolean(Number(profile.china_tax_resident));
+            const tax = (0, mentorPayroll_1.calculateMentorPayroll)(grossIncomeCny, chinaTaxResident);
+            await conn.query(`INSERT INTO mentor_payroll_payments
+          (mentor_user_id, payroll_month, settled_hours, hourly_rate_cny, gross_income_cny,
+           china_tax_resident, taxable_income_cny, withheld_tax_cny, net_income_cny,
+           status, paid_at, paid_by_admin_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', CURRENT_TIMESTAMP, ?)
+         ON DUPLICATE KEY UPDATE settled_hours = VALUES(settled_hours),
+           hourly_rate_cny = VALUES(hourly_rate_cny), gross_income_cny = VALUES(gross_income_cny),
+           china_tax_resident = VALUES(china_tax_resident), taxable_income_cny = VALUES(taxable_income_cny),
+           withheld_tax_cny = VALUES(withheld_tax_cny), net_income_cny = VALUES(net_income_cny),
+           status = 'paid', paid_at = CURRENT_TIMESTAMP, paid_by_admin_id = VALUES(paid_by_admin_id)`, [mentorUserId, month, settledHours, hourlyRateCny, grossIncomeCny, chinaTaxResident ? 1 : 0,
+                tax.taxableIncomeCny, tax.withheldTaxCny, tax.netIncomeCny, req.admin?.adminId || null]);
+            after = { mentorUserId, month, status: 'paid', settledHours, hourlyRateCny, grossIncomeCny, chinaTaxResident, ...tax };
+        }
+        await conn.query(`INSERT INTO admin_audit_logs
+        (admin_id, action, target_type, target_id, before_json, after_json, ip, user_agent)
+       VALUES (?, 'mentor_payroll.status.update', 'mentor_payroll', ?, ?, ?, ?, ?)`, [req.admin?.adminId || null, `${mentorUserId}:${month}`, jsonOrNull(before), jsonOrNull(after),
+            safeString(req.ip || '', 45) || null, safeString(req.get('user-agent') || '', 255) || null]);
+        await conn.commit();
+        return res.json({ payroll: after });
+    }
+    catch (error) {
+        await conn.rollback();
+        console.error('Admin mentor payroll status update error:', error);
+        return res.status(Number(error?.statusCode || 500)).json({ error: error?.message || '发放状态更新失败' });
+    }
+    finally {
+        conn.release();
     }
 });
 router.post('/mentor-payroll/:mentorUserId/pay', adminAuth_1.requireAdminAuth, async (req, res) => {

@@ -1113,7 +1113,7 @@ CREATE TABLE IF NOT EXISTS `mentor_payroll_payments` (
   `taxable_income_cny` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `withheld_tax_cny` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `net_income_cny` DECIMAL(12,2) NOT NULL,
-  `status` ENUM('paid') NOT NULL DEFAULT 'paid',
+  `status` ENUM('pending','paid') NOT NULL DEFAULT 'paid',
   `payment_reference` VARCHAR(120) NULL,
   `note_text` TEXT NULL,
   `paid_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1124,6 +1124,9 @@ CREATE TABLE IF NOT EXISTS `mentor_payroll_payments` (
   KEY `idx_mentor_payroll_payment_month` (`payroll_month`, `status`),
   CONSTRAINT `fk_mentor_payroll_payments_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `mentor_payroll_payments`
+  MODIFY COLUMN `status` ENUM('pending','paid') NOT NULL DEFAULT 'paid';
 
 SET @__mx_has_users_account_status := (
   SELECT COUNT(*) FROM information_schema.COLUMNS

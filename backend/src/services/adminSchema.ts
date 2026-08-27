@@ -41,6 +41,17 @@ const ensureMentorReviewStatusEnum = async () => {
   );
 };
 
+const ensureMentorPayrollStatusEnum = async () => {
+  const rows = await query<Array<{ Type?: string; type?: string }>>(
+    "SHOW COLUMNS FROM mentor_payroll_payments LIKE 'status'"
+  );
+  const type = String(rows?.[0]?.Type || rows?.[0]?.type || '').toLowerCase();
+  if (type.includes("'pending'") && type.includes("'paid'")) return;
+  await query(
+    "ALTER TABLE mentor_payroll_payments MODIFY COLUMN status ENUM('pending','paid') NOT NULL DEFAULT 'paid'"
+  );
+};
+
 export const ensureAdminSchema = async () => {
   if (adminSchemaEnsured) return true;
 
@@ -172,7 +183,7 @@ export const ensureAdminSchema = async () => {
       taxable_income_cny DECIMAL(12,2) NOT NULL DEFAULT 0,
       withheld_tax_cny DECIMAL(12,2) NOT NULL DEFAULT 0,
       net_income_cny DECIMAL(12,2) NOT NULL,
-      status ENUM('paid') NOT NULL DEFAULT 'paid',
+      status ENUM('pending','paid') NOT NULL DEFAULT 'paid',
       payment_reference VARCHAR(120) NULL,
       note_text TEXT NULL,
       paid_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -184,6 +195,7 @@ export const ensureAdminSchema = async () => {
       CONSTRAINT fk_mentor_payroll_payments_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+  await ensureMentorPayrollStatusEnum();
 
   await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN assigned_admin_id BIGINT NULL AFTER status');
   await addColumnIfMissing('ALTER TABLE course_session_disputes ADD COLUMN accepted_at TIMESTAMP NULL DEFAULT NULL AFTER assigned_admin_id');

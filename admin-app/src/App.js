@@ -2115,7 +2115,10 @@ function MentorPayrollPage() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [taxStatus, setTaxStatus] = useState('');
-  const { loading, error, data } = useAsync(() => api('/api/admin/mentor-payroll', { params: { month } }), [month]);
+  const [reload, setReload] = useState(0);
+  const [updatingMentorId, setUpdatingMentorId] = useState(null);
+  const [actionError, setActionError] = useState('');
+  const { loading, error, data } = useAsync(() => api('/api/admin/mentor-payroll', { params: { month } }), [month, reload]);
   const payroll = useMemo(() => (data?.payroll || []).filter((item) => {
     const keyword = q.trim().toLowerCase();
     const matchesTaxStatus = !taxStatus || (taxStatus === 'yes' ? item.chinaTaxResident : !item.chinaTaxResident);
@@ -2132,14 +2135,31 @@ function MentorPayrollPage() {
     { value: 'yes', label: '是' },
     { value: 'no', label: '否' },
   ];
+  const togglePaymentStatus = async (item) => {
+    if (!item?.mentorUserId || updatingMentorId) return;
+    setUpdatingMentorId(item.mentorUserId);
+    setActionError('');
+    try {
+      await api(`/api/admin/mentor-payroll/${item.mentorUserId}/status`, {
+        method: 'PATCH',
+        body: { month, status: item.status === 'paid' ? 'pending' : 'paid' },
+      });
+      setReload((value) => value + 1);
+    } catch (requestError) {
+      setActionError(requestError.message || '发放状态更新失败');
+    } finally {
+      setUpdatingMentorId(null);
+    }
+  };
   return (
     <section className="payroll-page">
       <PageTitle title="导师薪资" />
       <div className="payroll-summary" aria-label="当月薪资汇总"><article><span>税前收入</span><strong>¥{formatPayrollCurrency(summary.grossIncomeCny)}</strong></article><article><span>预计预扣个税</span><strong>¥{formatPayrollCurrency(summary.withheldTaxCny)}</strong></article><article><span>实际应发</span><strong>¥{formatPayrollCurrency(summary.netIncomeCny)}</strong></article><article><span>发放进度</span><strong>{summary.paidCount || 0} / {(summary.paidCount || 0) + (summary.pendingCount || 0)}</strong></article></div>
       <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
+      {actionError ? <div className="page-action-error" role="alert">{actionError}</div> : null}
       <State loading={loading} error={error}>
         <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', <StatusFilterHeader value={taxStatus} options={taxStatusOptions} onChange={setTaxStatus} defaultLabel="中国纳税" ariaLabel="中国纳税状态筛选" />, '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
-          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, item.status === 'paid' ? <div className="payroll-status"><span className="badge badge-paid">已发放</span><small>{formatDate(item.paidAt)}</small></div> : <span className="badge badge-pending">待发放</span>,
+          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, <button className="payroll-status-toggle" type="button" onClick={() => togglePaymentStatus(item)} disabled={updatingMentorId === item.mentorUserId} title={item.status === 'paid' ? '点击改为待发放' : '点击改为已发放'}><span className={`badge badge-${item.status === 'paid' ? 'paid' : 'pending'}`}>{updatingMentorId === item.mentorUserId ? '更新中…' : item.status === 'paid' ? '已发放' : '待发放'}</span></button>,
         ])} />
       </State>
       <div className="payroll-tax-note"><strong>税额口径</strong>中国纳税导师按居民个人劳务报酬预扣预缴估算：单月收入不超过 4,000 元减除 800 元，超过 4,000 元减除 20%；预扣率 20% / 30% / 40%，速算扣除数 0 / 2,000 / 7,000 元。年度汇算结果可能不同。</div>
