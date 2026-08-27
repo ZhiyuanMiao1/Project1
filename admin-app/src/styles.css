@@ -564,16 +564,6 @@ button.link-button {
   color: #64748b;
 }
 
-.payroll-actions {
-  gap: 12px;
-  white-space: nowrap;
-}
-
-.payroll-actions > span {
-  color: #66758d;
-  font-size: 12px;
-}
-
 .payroll-tax-note {
   display: flex;
   gap: 10px;
@@ -3237,48 +3227,6 @@ tr:last-child td {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.payroll-dialog > label {
-  display: grid;
-  gap: 7px;
-  color: #56647a;
-  font-size: 13px;
-}
-
-.payroll-dialog > label input,
-.payroll-dialog > label select {
-  width: 100%;
-  min-height: 42px;
-}
-
-.payroll-confirmation-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.payroll-confirmation-grid span {
-  display: grid;
-  gap: 5px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #f7f9fc;
-  color: #66758d;
-  font-size: 12px;
-}
-
-.payroll-confirmation-grid strong {
-  color: #172033;
-  font-size: 17px;
-}
-
-.payroll-lock-note {
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #fff4df;
-  color: #8a5305;
-  font-size: 13px;
 }
 
 .lesson-review-content {
