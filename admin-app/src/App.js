@@ -2120,14 +2120,19 @@ function MentorPayrollPage() {
     return (!keyword || [item.mentorId, item.mentorName, item.email].some((value) => String(value || '').toLowerCase().includes(keyword))) && (!status || item.status === status);
   }), [data?.payroll, q, status]);
   const summary = data?.summary || {};
+  const statusOptions = [
+    { value: '', label: '全部' },
+    { value: 'pending', label: '待发放' },
+    { value: 'paid', label: '已发放' },
+  ];
   return (
     <section className="payroll-page">
       <PageTitle title="导师薪资" />
       <div className="payroll-summary" aria-label="当月薪资汇总"><article><span>税前收入</span><strong>¥{formatPayrollCurrency(summary.grossIncomeCny)}</strong></article><article><span>预计预扣个税</span><strong>¥{formatPayrollCurrency(summary.withheldTaxCny)}</strong></article><article><span>实际应发</span><strong>¥{formatPayrollCurrency(summary.netIncomeCny)}</strong></article><article><span>发放进度</span><strong>{summary.paidCount || 0} / {(summary.paidCount || 0) + (summary.pendingCount || 0)}</strong></article></div>
-      <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /><select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="发放状态"><option value="">全部状态</option><option value="pending">待发放</option><option value="paid">已发放</option></select></Toolbar>
+      <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
       <State loading={loading} error={error}>
-        <DataTable className="payroll-table" columns={['导师', '结算课时', '时薪', '税前收入', '中国纳税', '预扣个税', '实际到手', '发放状态']} rows={payroll.map((item) => [
-          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, `¥${formatPayrollCurrency(item.hourlyRateCny)}`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, item.status === 'paid' ? <div className="payroll-status"><span className="badge badge-paid">已发放</span><small>{formatDate(item.paidAt)}</small></div> : <span className="badge badge-pending">待发放</span>,
+        <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', '中国纳税', '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
+          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, item.status === 'paid' ? <div className="payroll-status"><span className="badge badge-paid">已发放</span><small>{formatDate(item.paidAt)}</small></div> : <span className="badge badge-pending">待发放</span>,
         ])} />
       </State>
       <div className="payroll-tax-note"><strong>税额口径</strong>中国纳税导师按居民个人劳务报酬预扣预缴估算：单月收入不超过 4,000 元减除 800 元，超过 4,000 元减除 20%；预扣率 20% / 30% / 40%，速算扣除数 0 / 2,000 / 7,000 元。年度汇算结果可能不同。</div>

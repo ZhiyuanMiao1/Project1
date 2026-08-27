@@ -545,22 +545,19 @@ button.link-button {
 
 .tax-resident {
   display: inline-flex;
-  width: 28px;
-  height: 28px;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
 }
 
 .tax-resident.yes {
-  background: #e8f7f0;
+  background: transparent;
   color: #087a55;
 }
 
 .tax-resident.no {
-  background: #eef2f7;
+  background: transparent;
   color: #64748b;
 }
 
@@ -570,7 +567,7 @@ button.link-button {
   margin-top: 14px;
   padding: 13px 15px;
   border-radius: 8px;
-  background: #eef6f8;
+  background: transparent;
   color: #51627d;
   font-size: 13px;
   line-height: 1.6;
