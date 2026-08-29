@@ -15,6 +15,13 @@ type SendNotificationMailInput = SendMailInput & {
   recipientUserId: number;
 };
 
+type AdminBroadcastMailInput = {
+  to: string;
+  subject: string;
+  body: string;
+  locale?: 'zh-CN' | 'en';
+};
+
 type AppointmentNotificationMailInput = {
   recipientUserId: number;
   to: string;
@@ -145,6 +152,44 @@ export const sendMail = async ({ to, subject, text, html }: SendMailInput) => {
     text,
     html,
   });
+};
+
+export const buildAdminBroadcastMail = ({
+  subject,
+  body,
+  locale = 'zh-CN',
+}: Omit<AdminBroadcastMailInput, 'to'>) => {
+  const isEnglish = locale === 'en';
+  const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
+  const publicAppUrl = getPublicAppUrl();
+  const templateLabel = isEnglish ? 'Mentory update' : 'Mentory 通知';
+  const footerText = isEnglish
+    ? 'This message was sent by the Mentory team. You can manage email notifications in Settings.'
+    : '此邮件由 Mentory 团队发送。您可以前往设置管理邮件通知。';
+  const appLinkLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
+  const html = buildMailCardHtml(
+    subject,
+    `
+      <div style="display: inline-block; margin-bottom: 18px; padding: 5px 10px; border-radius: 999px; background: #e8f5f7; color: #11566d; font-size: 12px; font-weight: 700;">${templateLabel}</div>
+      <div style="font-size: 15px; color: #334155; line-height: 1.8; overflow-wrap: anywhere;">${safeBody}</div>
+      <div style="height: 1px; margin: 24px 0 16px; background: #e2e8f0;"></div>
+      <div style="font-size: 12px; color: #64748b; line-height: 1.6;">
+        ${footerText}
+        <a href="${publicAppUrl}" style="color: #176b87; text-decoration: none;">${appLinkLabel}</a>
+      </div>
+    `
+  );
+  const text = `${body}\n\n— Mentory\n${footerText} ${publicAppUrl}`;
+  return { subject, text, html };
+};
+
+export const sendAdminBroadcastMail = async ({
+  to,
+  subject,
+  body,
+  locale = 'zh-CN',
+}: AdminBroadcastMailInput) => {
+  await sendMail({ to, ...buildAdminBroadcastMail({ subject, body, locale }) });
 };
 
 export const areEmailNotificationsEnabledForUser = async (userId: number) => {

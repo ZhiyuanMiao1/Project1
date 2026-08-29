@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendLessonHoursFinalDecisionMail = exports.sendCourseDisputeResultMail = exports.sendAppointmentNotificationMail = exports.sendMentorContractEmailCodeMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendNotificationMail = exports.getEmailNotificationPreferencesForUser = exports.areEmailNotificationsEnabledForUser = exports.sendMail = exports.getPublicAppUrl = void 0;
+exports.sendLessonHoursFinalDecisionMail = exports.sendCourseDisputeResultMail = exports.sendAppointmentNotificationMail = exports.sendMentorContractEmailCodeMail = exports.sendPasswordResetEmailCodeMail = exports.sendRegisterEmailCodeMail = exports.sendNotificationMail = exports.getEmailNotificationPreferencesForUser = exports.areEmailNotificationsEnabledForUser = exports.sendAdminBroadcastMail = exports.buildAdminBroadcastMail = exports.sendMail = exports.getPublicAppUrl = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const db_1 = require("../db");
@@ -109,6 +109,32 @@ const sendMail = async ({ to, subject, text, html }) => {
     });
 };
 exports.sendMail = sendMail;
+const buildAdminBroadcastMail = ({ subject, body, locale = 'zh-CN', }) => {
+    const isEnglish = locale === 'en';
+    const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
+    const publicAppUrl = (0, exports.getPublicAppUrl)();
+    const templateLabel = isEnglish ? 'Mentory update' : 'Mentory 通知';
+    const footerText = isEnglish
+        ? 'This message was sent by the Mentory team. You can manage email notifications in Settings.'
+        : '此邮件由 Mentory 团队发送。您可以前往设置管理邮件通知。';
+    const appLinkLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
+    const html = buildMailCardHtml(subject, `
+      <div style="display: inline-block; margin-bottom: 18px; padding: 5px 10px; border-radius: 999px; background: #e8f5f7; color: #11566d; font-size: 12px; font-weight: 700;">${templateLabel}</div>
+      <div style="font-size: 15px; color: #334155; line-height: 1.8; overflow-wrap: anywhere;">${safeBody}</div>
+      <div style="height: 1px; margin: 24px 0 16px; background: #e2e8f0;"></div>
+      <div style="font-size: 12px; color: #64748b; line-height: 1.6;">
+        ${footerText}
+        <a href="${publicAppUrl}" style="color: #176b87; text-decoration: none;">${appLinkLabel}</a>
+      </div>
+    `);
+    const text = `${body}\n\n— Mentory\n${footerText} ${publicAppUrl}`;
+    return { subject, text, html };
+};
+exports.buildAdminBroadcastMail = buildAdminBroadcastMail;
+const sendAdminBroadcastMail = async ({ to, subject, body, locale = 'zh-CN', }) => {
+    await (0, exports.sendMail)({ to, ...(0, exports.buildAdminBroadcastMail)({ subject, body, locale }) });
+};
+exports.sendAdminBroadcastMail = sendAdminBroadcastMail;
 const areEmailNotificationsEnabledForUser = async (userId) => {
     if (!Number.isFinite(userId) || userId <= 0)
         return false;

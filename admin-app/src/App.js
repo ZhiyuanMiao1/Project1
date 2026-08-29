@@ -14,6 +14,7 @@ import {
   faClipboardCheck,
   faCoins,
   faCreditCard,
+  faEnvelope,
   faEye,
   faFileInvoiceDollar,
   faGaugeHigh,
@@ -45,6 +46,7 @@ const navItems = [
   { to: '/orders', label: '订单管理', icon: faFileInvoiceDollar },
   { to: '/classrooms', label: '课堂管理', icon: faChalkboardUser },
   { to: '/course-disputes', label: '异议管理', icon: faTriangleExclamation },
+  { to: '/email-broadcasts', label: '统一邮件', icon: faEnvelope },
   { to: '/audit-logs', label: '审计日志', icon: faChartLine },
 ];
 
@@ -567,6 +569,7 @@ const getTopbarTitle = (pathname) => {
   if (pathname === '/orders') return { title: '订单管理' };
   if (pathname === '/classrooms') return { title: '课堂管理' };
   if (pathname === '/course-disputes') return { title: '异议管理' };
+  if (pathname === '/email-broadcasts') return { title: '统一邮件' };
   if (pathname === '/audit-logs') return { title: '审计日志', subtitle: '后台写操作记录' };
   const watchMatch = pathname.match(/^\/classrooms\/(\d+)\/watch$/);
   if (watchMatch) return { title: `课堂旁观 #${watchMatch[1]}`, subtitle: '只读模式，不会触发学生或导师操作' };
@@ -627,6 +630,7 @@ function Shell({ onLogout }) {
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/classrooms" element={<ClassroomsPage />} />
           <Route path="/course-disputes" element={<CourseDisputesPage />} />
+          <Route path="/email-broadcasts" element={<EmailBroadcastsPage />} />
           <Route path="/classrooms/:courseId/watch" element={<ClassroomWatchPage />} />
           <Route path="/audit-logs" element={<AuditLogsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -3058,6 +3062,201 @@ function CourseDisputeDrawer({ disputeId, onClose, onChanged }) {
         {actionError ? <div className="error">{actionError}</div> : null}
       </State>
     </aside>
+  );
+}
+
+const emailAudienceOptions = [
+  {
+    value: 'students',
+    label: '学生',
+    description: '状态正常且已开启邮件通知的学生账号',
+  },
+  {
+    value: 'mentors',
+    label: '导师',
+    description: '状态正常、审核已通过且已开启邮件通知的导师账号',
+  },
+  {
+    value: 'all',
+    label: '全站',
+    description: '全部状态正常且已开启邮件通知的账号，按账号去重',
+  },
+];
+
+function EmailBroadcastPreview({ subject, body }) {
+  return (
+    <div className="email-preview-shell">
+      <div className="email-preview-toolbar">
+        <span />
+        <span />
+        <span />
+        <strong>邮件预览</strong>
+      </div>
+      <div className="email-preview-canvas">
+        <article className="email-preview-card">
+          <div className="email-preview-brand">
+            <strong>Mentory</strong>
+            <span>{subject.trim() || '邮件主题会显示在这里'}</span>
+          </div>
+          <em>Mentory 通知</em>
+          <div className={`email-preview-body ${body.trim() ? '' : 'is-placeholder'}`}>
+            {body.trim() || '在左侧填写正文后，这里会实时显示邮件效果。换行和段落会被完整保留。'}
+          </div>
+          <footer>
+            此邮件由 Mentory 团队发送。您可以前往设置管理邮件通知。
+            <span> 打开 Mentory</span>
+          </footer>
+        </article>
+      </div>
+    </div>
+  );
+}
+
+function EmailBroadcastsPage() {
+  const [audience, setAudience] = useState('students');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [result, setResult] = useState(null);
+  const countsState = useAsync(() => api('/api/admin/email-broadcasts/audiences'), []);
+  const counts = countsState.data?.audiences || {};
+  const selectedOption = emailAudienceOptions.find((option) => option.value === audience);
+  const selectedCount = Number(counts[audience] || 0);
+  const canSubmit = subject.trim().length >= 2 && body.trim().length >= 2 && !sending;
+
+  const requestConfirmation = (event) => {
+    event.preventDefault();
+    setSendError('');
+    setResult(null);
+    if (!canSubmit) return;
+    setConfirming(true);
+  };
+
+  const sendBroadcast = async () => {
+    setSending(true);
+    setSendError('');
+    try {
+      const data = await api('/api/admin/email-broadcasts', {
+        method: 'POST',
+        body: { audience, subject: subject.trim(), body: body.trim() },
+      });
+      setResult(data);
+      setConfirming(false);
+    } catch (error) {
+      setSendError(error.message || '邮件发送失败，请稍后再试');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="email-broadcast-page">
+      <PageTitle title="统一邮件" />
+
+      <div className="email-broadcast-layout">
+        <form className="email-broadcast-form" onSubmit={requestConfirmation}>
+          <fieldset disabled={sending}>
+            <legend>1. 选择收件人</legend>
+            <div className="email-audience-grid" role="radiogroup" aria-label="收件人范围">
+              {emailAudienceOptions.map((option) => (
+                <label className={`email-audience-option ${audience === option.value ? 'active' : ''}`} key={option.value}>
+                  <input
+                    type="radio"
+                    name="email-audience"
+                    value={option.value}
+                    checked={audience === option.value}
+                    onChange={() => setAudience(option.value)}
+                  />
+                  <span>
+                    <strong>{option.label}</strong>
+                    <em>{countsState.loading ? '统计中…' : countsState.error ? '人数暂不可用' : `${Number(counts[option.value] || 0).toLocaleString('zh-CN')} 人`}</em>
+                  </span>
+                  <small>{option.description}</small>
+                </label>
+              ))}
+            </div>
+            {countsState.error ? <div className="email-inline-warning">{countsState.error}</div> : null}
+          </fieldset>
+
+          <fieldset disabled={sending}>
+            <legend>2. 填写邮件内容</legend>
+            <label className="email-compose-field">
+              <span>邮件主题</span>
+              <input
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                maxLength={120}
+                placeholder="例如：Mentory 课程服务更新通知"
+              />
+              <small>{subject.length} / 120</small>
+            </label>
+            <label className="email-compose-field">
+              <span>邮件正文</span>
+              <textarea
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                maxLength={10000}
+                placeholder={'直接填写要发送的内容。\n\n可以使用换行分段，邮件模板会自动保持排版。'}
+              />
+              <small>{body.length.toLocaleString('zh-CN')} / 10,000</small>
+            </label>
+          </fieldset>
+
+          {result ? (
+            <div className={`email-send-result ${result.failed ? 'partial' : 'success'}`} role="status">
+              <strong>{result.failed ? '发送已完成，部分邮件未送达' : '邮件发送完成'}</strong>
+              <span>共 {result.recipients} 位收件人，成功 {result.sent} 封，失败 {result.failed} 封。</span>
+            </div>
+          ) : null}
+          {sendError ? <div className="error" role="alert">{sendError}</div> : null}
+
+          <div className="email-form-actions">
+            <span>发送后无法撤回，请在右侧确认最终效果。</span>
+            <button type="submit" disabled={!canSubmit || countsState.loading}>
+              <FontAwesomeIcon icon={faEnvelope} />
+              检查并发送
+            </button>
+          </div>
+        </form>
+
+        <aside className="email-broadcast-preview">
+          <div className="email-preview-heading">
+            <div>
+              <strong>实时预览</strong>
+              <span>实际邮件会根据用户语言显示对应的模板说明</span>
+            </div>
+            <em>{selectedOption?.label || '-'}</em>
+          </div>
+          <EmailBroadcastPreview subject={subject} body={body} />
+        </aside>
+      </div>
+
+      {confirming ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal email-broadcast-confirm" role="dialog" aria-modal="true" aria-labelledby="email-confirm-title">
+            <h2 id="email-confirm-title">确认发送统一邮件</h2>
+            <p>
+              即将向 <strong>{selectedOption?.label}</strong> 范围内约 <strong>{selectedCount.toLocaleString('zh-CN')}</strong> 位收件人发送邮件。
+              收件人数会在发送时再次按账号状态和邮件偏好校验。
+            </p>
+            <div className="email-confirm-subject">
+              <span>邮件主题</span>
+              <strong>{subject.trim()}</strong>
+            </div>
+            <div className="email-confirm-warning">此操作无法撤回。发送过程中请保持当前页面开启。</div>
+            {sendError ? <div className="error" role="alert">{sendError}</div> : null}
+            <div className="modal-actions">
+              <button className="ghost" type="button" onClick={() => setConfirming(false)} disabled={sending}>返回修改</button>
+              <button type="button" onClick={sendBroadcast} disabled={sending}>
+                {sending ? '正在发送…' : `确认发送给 ${selectedOption?.label}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

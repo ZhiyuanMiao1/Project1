@@ -24,7 +24,11 @@ import {
 import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
 import { computeRefundPricing, parseRefundHours } from '../services/refundPricing';
 import { processRefundById } from './refunds';
-import { sendCourseDisputeResultMail, sendLessonHoursFinalDecisionMail } from '../services/mailService';
+import {
+  sendAdminBroadcastMail,
+  sendCourseDisputeResultMail,
+  sendLessonHoursFinalDecisionMail,
+} from '../services/mailService';
 import { calculateMentorPayroll } from '../services/mentorPayroll';
 
 const router = Router();
@@ -43,6 +47,8 @@ const COURSE_DISPUTE_PREFERRED_OUTCOMES: Record<string, string> = {
   lesson_credit: 'lesson_credit',
   refund_review: 'refund',
 };
+const EMAIL_BROADCAST_AUDIENCES = new Set(['students', 'mentors', 'all']);
+const EMAIL_BROADCAST_CONCURRENCY = 5;
 
 type AuditPayload = {
   req: Request;
@@ -393,6 +399,65 @@ const audit = async ({ req, action, targetType, targetId, reason = null, before,
       safeString(req.get('user-agent') || '', 255) || null,
     ]
   );
+};
+
+type BroadcastRecipient = {
+  id: number;
+  email: string;
+  preferred_language?: string | null;
+};
+
+const broadcastAudienceCondition = (audience: string) => {
+  if (audience === 'students') {
+    return "EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'student')";
+  }
+  if (audience === 'mentors') {
+    return "EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'mentor' AND ur.mentor_approved = 1)";
+  }
+  return '1=1';
+};
+
+const broadcastRecipientBaseSql = (audience: string) => `
+  FROM users u
+  LEFT JOIN account_settings settings ON settings.user_id = u.id
+  WHERE u.account_status = 'active'
+    AND TRIM(COALESCE(u.email, '')) <> ''
+    AND COALESCE(settings.email_notifications, 1) = 1
+    AND ${broadcastAudienceCondition(audience)}
+`;
+
+const loadBroadcastRecipients = async (audience: string): Promise<BroadcastRecipient[]> => {
+  const baseSql = broadcastRecipientBaseSql(audience);
+  try {
+    return await query<BroadcastRecipient[]>(
+      `SELECT u.id, u.email, settings.preferred_language ${baseSql} ORDER BY u.id ASC`
+    );
+  } catch (error: any) {
+    if (String(error?.code || '') !== 'ER_BAD_FIELD_ERROR') throw error;
+    return await query<BroadcastRecipient[]>(
+      `SELECT u.id, u.email ${baseSql} ORDER BY u.id ASC`
+    );
+  }
+};
+
+const runWithConcurrency = async <T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+) => {
+  let cursor = 0;
+  const runner = async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      await worker(items[index]);
+    }
+  };
+  const runners = Array.from(
+    { length: Math.min(Math.max(1, concurrency), items.length) },
+    () => runner()
+  );
+  await Promise.all(runners);
 };
 
 const toDisputeStatusPayload = (row: any) => ({
@@ -3021,6 +3086,95 @@ router.post('/course-disputes/:disputeId/refresh-refunds', requireAdminAuth, asy
   if (allCompleted) await sendCourseDisputeResultMails(Number(dispute.id));
   const updated = (await query<any[]>('SELECT * FROM course_session_disputes WHERE id = ? LIMIT 1', [dispute.id]))[0];
   return res.json({ dispute: toDisputeStatusPayload(updated), refunds: processed });
+});
+
+router.get('/email-broadcasts/audiences', requireAdminAuth, async (_req: Request, res: Response) => {
+  try {
+    const countAudience = async (audience: string) => {
+      const rows = await query<Array<{ total: number | string }>>(
+        `SELECT COUNT(*) AS total ${broadcastRecipientBaseSql(audience)}`
+      );
+      return Number(rows?.[0]?.total || 0);
+    };
+    const [students, mentors, all] = await Promise.all([
+      countAudience('students'),
+      countAudience('mentors'),
+      countAudience('all'),
+    ]);
+    return res.json({ audiences: { students, mentors, all } });
+  } catch (error) {
+    console.error('Admin email broadcast audience count error:', error);
+    return res.status(500).json({ error: '收件人数加载失败，请稍后再试' });
+  }
+});
+
+router.post('/email-broadcasts', requireAdminAuth, async (req: Request, res: Response) => {
+  const audience = safeString((req.body as any)?.audience, 20).toLowerCase();
+  const subject = safeString((req.body as any)?.subject, 120);
+  const messageBody = safeString((req.body as any)?.body, 10000);
+  if (!EMAIL_BROADCAST_AUDIENCES.has(audience)) {
+    return res.status(400).json({ error: '请选择有效的收件人范围' });
+  }
+  if (subject.length < 2) return res.status(400).json({ error: '邮件主题至少需要 2 个字符' });
+  if (messageBody.length < 2) return res.status(400).json({ error: '邮件正文至少需要 2 个字符' });
+
+  const broadcastId = crypto.randomUUID();
+  try {
+    const recipients = await loadBroadcastRecipients(audience);
+    if (!recipients.length) return res.status(409).json({ error: '当前范围内没有可接收邮件的账号' });
+
+    let sent = 0;
+    let failed = 0;
+    await runWithConcurrency(recipients, EMAIL_BROADCAST_CONCURRENCY, async (recipient) => {
+      try {
+        await sendAdminBroadcastMail({
+          to: String(recipient.email || '').trim(),
+          subject,
+          body: messageBody,
+          locale: String(recipient.preferred_language || '').toLowerCase() === 'en' ? 'en' : 'zh-CN',
+        });
+        sent += 1;
+      } catch (error) {
+        failed += 1;
+        console.error('Admin email broadcast delivery error:', {
+          broadcastId,
+          userId: recipient.id,
+          code: String((error as any)?.code || (error as any)?.message || 'MAIL_SEND_FAILED'),
+        });
+      }
+    });
+
+    try {
+      await audit({
+        req,
+        action: 'email_broadcast.send',
+        targetType: 'email_broadcast',
+        targetId: broadcastId,
+        reason: `统一邮件：${subject}`,
+        after: {
+          audience,
+          subject,
+          body: messageBody,
+          recipients: recipients.length,
+          sent,
+          failed,
+        },
+      });
+    } catch (auditError) {
+      console.error('Admin email broadcast audit error:', auditError);
+    }
+
+    return res.json({
+      broadcastId,
+      audience,
+      recipients: recipients.length,
+      sent,
+      failed,
+    });
+  } catch (error) {
+    console.error('Admin email broadcast error:', error);
+    return res.status(500).json({ error: '统一邮件发送失败，请稍后再试' });
+  }
 });
 
 router.get('/audit-logs', requireAdminAuth, async (req: Request, res: Response) => {
