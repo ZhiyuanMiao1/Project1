@@ -520,12 +520,149 @@ button.link-button {
   font-size: 24px;
 }
 
-.payroll-month {
+.month-picker { position: relative; z-index: 20; }
+
+.month-picker-trigger {
+  min-width: 184px;
   min-height: 38px;
+  height: 38px;
+  padding: 0 16px 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid #d5dbe7;
+  border-radius: 12px;
+  background: #fff;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.month-picker-trigger:hover,
+.month-picker-trigger:focus-visible,
+.month-picker.open .month-picker-trigger { border-color: #9aa7ba; background: #fff; }
+
+.month-picker-trigger svg { width: 17px; height: 17px; color: #172033; }
+
+.month-picker-trigger .month-picker-calendar-icon {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.month-picker-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 420px;
+  padding: 24px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 22px 54px rgba(23, 32, 51, 0.18);
+}
+
+.month-picker-heading {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.month-picker-heading strong { color: #172033; font-size: 20px; font-weight: 500; text-align: center; }
+
+.month-picker-arrow {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: transparent;
+  color: #222;
+  box-shadow: none;
+}
+
+.month-picker-arrow:hover,
+.month-picker-arrow:focus-visible { background: #f3f3f3; }
+
+.month-picker-arrow svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.month-picker-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+.month-picker-grid button {
+  width: 64px;
+  min-width: 64px;
+  min-height: 44px;
+  justify-self: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none;
+}
+
+.month-picker-grid button:hover,
+.month-picker-grid button:focus-visible { border-color: #172033; background: #fff; }
+.month-picker-grid button.current:not(.selected) { border-color: #cfd5de; }
+.month-picker-grid button.selected { border-color: #222; background: #222; color: #fff; }
+
+.month-picker-footer { display: flex; margin-top: 20px; padding-top: 18px; border-top: 1px solid #edf0f4; }
+
+.month-picker-footer button {
+  min-height: 40px;
+  padding: 0 20px;
+  border: 1px solid #dfe3ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #222;
+  font-size: 15px;
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.month-picker-footer button:hover,
+.month-picker-footer button:focus-visible { background: #f7f7f7; }
+
+@media (max-width: 640px) {
+  .month-picker, .month-picker-trigger { width: 100%; }
+  .month-picker-popover { width: min(420px, calc(100vw - 32px)); }
+}
+
+.payroll-table {
+  overflow: clip;
 }
 
 .payroll-table table {
-  min-width: 1240px;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.payroll-table th:first-child,
+.payroll-table td:first-child {
+  width: 25%;
+}
+
+.payroll-table th:not(:first-child),
+.payroll-table td:not(:first-child) {
+  width: 12.5%;
 }
 
 .payroll-mentor {
@@ -1868,6 +2005,7 @@ th {
 
 .status-filter-trigger {
   min-height: 28px;
+  margin-left: -8px;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
@@ -3784,11 +3922,6 @@ tr:last-child td {
 .email-preview-heading > div {
   display: grid;
   gap: 3px;
-}
-
-.email-preview-heading span {
-  color: #66758d;
-  font-size: 12px;
 }
 
 .email-preview-heading > em {

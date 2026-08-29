@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -424,6 +424,88 @@ function SearchBox({ value, onChange, placeholder = '搜索邮箱、ID、关键�
       <FontAwesomeIcon icon={faMagnifyingGlass} />
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </label>
+  );
+}
+
+function MonthPicker({ value, onChange, ariaLabel = '选择月份' }) {
+  const now = new Date();
+  const parsedYear = Number(String(value || '').slice(0, 4));
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(Number.isInteger(parsedYear) ? parsedYear : now.getFullYear());
+  const pickerRef = useRef(null);
+  const monthLabels = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const closeOnOutsideInteraction = (event) => {
+      if (!pickerRef.current?.contains(event.target)) setIsOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideInteraction);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isOpen]);
+
+  const selectMonth = (monthIndex) => {
+    onChange(`${viewYear}-${String(monthIndex + 1).padStart(2, '0')}`);
+    setIsOpen(false);
+  };
+  const selectCurrentMonth = () => {
+    setViewYear(now.getFullYear());
+    onChange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    setIsOpen(false);
+  };
+  const displayValue = /^\d{4}-\d{2}$/.test(value || '')
+    ? `${value.slice(0, 4)}年${value.slice(5, 7)}月`
+    : '选择月份';
+
+  return (
+    <div className={`month-picker${isOpen ? ' open' : ''}`} ref={pickerRef}>
+      <button
+        type="button"
+        className="month-picker-trigger"
+        onClick={() => {
+          setViewYear(Number.isInteger(parsedYear) ? parsedYear : now.getFullYear());
+          setIsOpen((open) => !open);
+        }}
+        aria-label={ariaLabel}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+      >
+        <span>{displayValue}</span>
+        <svg className="month-picker-calendar-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M7 3v3M17 3v3M4 9h16M5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5Z" />
+          <path d="M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" />
+        </svg>
+      </button>
+      {isOpen ? (
+        <div className="month-picker-popover" role="dialog" aria-modal="false" aria-label={ariaLabel}>
+          <div className="month-picker-heading">
+            <button type="button" className="month-picker-arrow" onClick={() => setViewYear((year) => year - 1)} aria-label="上一年">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+            </button>
+            <strong>{viewYear} 年</strong>
+            <button type="button" className="month-picker-arrow" onClick={() => setViewYear((year) => year + 1)} aria-label="下一年">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+          <div className="month-picker-grid">
+            {monthLabels.map((label, monthIndex) => {
+              const monthValue = `${viewYear}-${String(monthIndex + 1).padStart(2, '0')}`;
+              const isSelected = monthValue === value;
+              const isCurrent = viewYear === now.getFullYear() && monthIndex === now.getMonth();
+              return <button key={monthValue} type="button" className={[isSelected ? 'selected' : '', isCurrent ? 'current' : ''].filter(Boolean).join(' ')} onClick={() => selectMonth(monthIndex)} aria-pressed={isSelected}>{label}</button>;
+            })}
+          </div>
+          <div className="month-picker-footer"><button type="button" onClick={selectCurrentMonth}>本月</button></div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -2159,7 +2241,7 @@ function MentorPayrollPage() {
     <section className="payroll-page">
       <PageTitle title="导师薪资" />
       <div className="payroll-summary" aria-label="当月薪资汇总"><article><span>税前收入</span><strong>¥{formatPayrollCurrency(summary.grossIncomeCny)}</strong></article><article><span>预计预扣个税</span><strong>¥{formatPayrollCurrency(summary.withheldTaxCny)}</strong></article><article><span>实际应发</span><strong>¥{formatPayrollCurrency(summary.netIncomeCny)}</strong></article><article><span>发放进度</span><strong>{summary.paidCount || 0} / {(summary.paidCount || 0) + (summary.pendingCount || 0)}</strong></article></div>
-      <Toolbar><input className="payroll-month" type="month" value={month} onChange={(event) => setMonth(event.target.value)} aria-label="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
+      <Toolbar><MonthPicker value={month} onChange={setMonth} ariaLabel="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
       {actionError ? <div className="page-action-error" role="alert">{actionError}</div> : null}
       <State loading={loading} error={error}>
         <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', <StatusFilterHeader value={taxStatus} options={taxStatusOptions} onChange={setTaxStatus} defaultLabel="中国纳税" ariaLabel="中国纳税状态筛选" />, '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
@@ -3225,7 +3307,6 @@ function EmailBroadcastsPage() {
           <div className="email-preview-heading">
             <div>
               <strong>实时预览</strong>
-              <span>实际邮件会根据用户语言显示对应的模板说明</span>
             </div>
             <em>{selectedOption?.label || '-'}</em>
           </div>
