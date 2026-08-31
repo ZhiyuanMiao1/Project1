@@ -159,12 +159,12 @@
 }
 
 .lesson-hours-dialog-btn--ghost {
-  background: #e2e8f0;
+  background: transparent;
   color: #0f172a;
 }
 
 .lesson-hours-dialog-btn--ghost:hover {
-  background: #cbd5e1;
+  background: transparent;
 }
 
 .lesson-hours-dialog-btn--submit {

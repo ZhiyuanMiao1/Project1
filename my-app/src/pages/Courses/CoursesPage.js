@@ -215,6 +215,7 @@ const normalizeStudentCourse = (row) => {
     startsAt,
     duration: toDurationText(durationHours, row?.duration),
     durationHours,
+    reservedLessonHours: toDurationHours(row?.reservedLessonHours ?? row?.reserved_lesson_hours) ?? 0,
     mentorName: safeText(row?.counterpartName || row?.mentorName || row?.counterpartPublicId) || '导师',
     mentorAvatar: safeText(row?.counterpartAvatarUrl || row?.mentorAvatar),
     mentorPublicId: safeText(row?.counterpartPublicId || row?.mentorPublicId),
@@ -319,6 +320,9 @@ const CLASSROOM_ENTRY_BUFFER_MS = 60 * 60 * 1000;
 const hasEnoughLessonHours = (course, remainingHours) => {
   const requiredHours = toDurationHours(course?.durationHours);
   if (requiredHours == null) return true;
+
+  const reservedHours = toDurationHours(course?.reservedLessonHours);
+  if (reservedHours != null && reservedHours + 1e-6 >= requiredHours) return true;
 
   const normalizedRemainingHours = typeof remainingHours === 'number' ? remainingHours : Number(remainingHours);
   if (!Number.isFinite(normalizedRemainingHours)) return false;

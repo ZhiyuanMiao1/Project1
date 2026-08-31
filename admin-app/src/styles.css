@@ -3727,9 +3727,9 @@ tr:last-child td {
 
 .email-broadcast-form {
   overflow: hidden;
-  border: 1px solid #e1e6ee;
-  border-radius: 8px;
-  background: #fff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .email-broadcast-form fieldset {
@@ -3905,9 +3905,9 @@ tr:last-child td {
   position: sticky;
   top: 16px;
   overflow: hidden;
-  border: 1px solid #e1e6ee;
-  border-radius: 8px;
-  background: #fff;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .email-preview-heading {

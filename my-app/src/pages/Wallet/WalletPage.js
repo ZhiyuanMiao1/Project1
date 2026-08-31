@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BrandMark from '../../components/common/BrandMark/BrandMark';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import StudentAuthModal from '../../components/AuthModal/StudentAuthModal';
@@ -21,6 +22,8 @@ const FX_INVALID_CODE = 'FX_QUOTE_INVALID';
 const FX_REFRESHED_CODE = 'FX_QUOTE_REFRESHED';
 
 function WalletPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useI18n();
   const [showStudentAuth, setShowStudentAuth] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
@@ -59,18 +62,33 @@ function WalletPage() {
   const fxLastAutoRefreshMsRef = useRef(0);
 
   const menuAnchorRef = useRef(null);
+  const topUpPanelRef = useRef(null);
   const paypalSdkInstanceRef = useRef(null);
 
   const [isPayPalInitializing, setIsPayPalInitializing] = useState(false);
   const [isPayPalEligible, setIsPayPalEligible] = useState(false);
   const [payPalInitError, setPayPalInitError] = useState('');
 
-  const handleClosePaySuccess = useCallback(() => setIsPaySuccessOpen(false), []);
+  const handleClosePaySuccess = useCallback(() => {
+    setIsPaySuccessOpen(false);
+    if (location.state?.returnToLessonHours) {
+      const returnPath = String(location.state?.lessonHoursReturnPath || '').trim();
+      navigate(returnPath.startsWith('/student') ? returnPath : '/student', { replace: true });
+    }
+  }, [location.state, navigate]);
   const handleCloseRefund = useCallback(() => setIsRefundOpen(false), []);
   const handleRefundWalletUpdated = useCallback((wallet) => {
     setWalletSummary((previous) => ({ ...(previous || {}), ...(wallet || {}) }));
   }, []);
   const handleRefundCompleted = useCallback(() => setIsRefundSuccessOpen(true), []);
+
+  useEffect(() => {
+    if (!location.state?.returnToLessonHours) return undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      topUpPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [location.state]);
 
   const normalizeFxQuote = useCallback((payload) => {
     const quoteId = String(payload?.quote_id || '').trim();
@@ -669,7 +687,7 @@ function WalletPage() {
             </div>
 
             <div className="wallet-right">
-              <div className="wallet-panel wallet-topup-card" aria-label={t('wallet.topUp', '充值')}>
+              <div ref={topUpPanelRef} className="wallet-panel wallet-topup-card" aria-label={t('wallet.topUp', '充值')}>
                 <div className="wallet-panel-title">{t('wallet.topUp', '充值')}</div>
 
                 <div className="wallet-method-grid" role="group" aria-label={t('wallet.topUpMethod', '充值方式')}>

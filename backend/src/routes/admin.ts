@@ -21,7 +21,8 @@ import {
   ensureMentorRecommendationColumns,
   recomputeMentorCompletedSessionCount,
 } from '../services/mentorRecommendation';
-import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
+import { isWalletHoursError } from '../services/walletHours';
+import { ensureLessonHourReservationSchema, settleLessonHours } from '../services/lessonHourReservations';
 import { computeRefundPricing, parseRefundHours } from '../services/refundPricing';
 import { processRefundById } from './refunds';
 import {
@@ -2230,6 +2231,7 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', requireAdminAu
   let after: any = null;
   try {
     await ensureMentorRecommendationColumns();
+    await ensureLessonHourReservationSchema();
     conn = await pool.getConnection();
     await conn.beginTransaction();
 
@@ -2282,7 +2284,7 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', requireAdminAu
       [finalHours, courseId]
     );
     await recomputeMentorCompletedSessionCount(conn, Number(before.mentor_user_id));
-    await consumeLessonHours(
+    await settleLessonHours(
       conn,
       Number(before.student_user_id),
       courseId,

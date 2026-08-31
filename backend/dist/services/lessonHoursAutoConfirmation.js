@@ -4,6 +4,7 @@ exports.startLessonHoursAutoConfirmationWorker = exports.runLessonHoursAutoConfi
 const db_1 = require("../db");
 const mentorRecommendation_1 = require("./mentorRecommendation");
 const walletHours_1 = require("./walletHours");
+const lessonHourReservations_1 = require("./lessonHourReservations");
 exports.LESSON_HOURS_AUTO_CONFIRM_DAYS = 7;
 exports.LESSON_HOURS_AUTO_CONFIRM_MS = exports.LESSON_HOURS_AUTO_CONFIRM_DAYS * 24 * 60 * 60 * 1000;
 const AUTO_CONFIRM_SCAN_INTERVAL_MS = 5 * 60 * 1000;
@@ -55,7 +56,7 @@ const autoConfirmOne = async (confirmationId) => {
             await conn.rollback();
             return 'skipped';
         }
-        await (0, walletHours_1.consumeLessonHours)(conn, Number(row.student_user_id), Number(row.course_session_id), proposedHours);
+        await (0, lessonHourReservations_1.settleLessonHours)(conn, Number(row.student_user_id), Number(row.course_session_id), proposedHours);
         await conn.execute(`
       UPDATE lesson_hour_confirmations
       SET status = 'confirmed',
@@ -89,6 +90,7 @@ const autoConfirmOne = async (confirmationId) => {
     }
 };
 const runLessonHoursAutoConfirmation = async () => {
+    await (0, lessonHourReservations_1.ensureLessonHourReservationSchema)();
     const [candidateRows] = await db_1.pool.execute(`
     SELECT lhc.id
     FROM lesson_hour_confirmations lhc

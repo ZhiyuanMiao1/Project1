@@ -19,8 +19,14 @@ import {
   touchMentorLastReplied,
   touchMentorLastRepliedWithConnection,
 } from '../services/mentorRecommendation';
-import { consumeLessonHours, isWalletHoursError } from '../services/walletHours';
+import { isWalletHoursError } from '../services/walletHours';
 import { getLessonHoursAutoConfirmAt } from '../services/lessonHoursAutoConfirmation';
+import {
+  ensureLessonHourReservationSchema,
+  releaseLessonHoursReservation,
+  reserveLessonHours,
+  settleLessonHours,
+} from '../services/lessonHourReservations';
 
 const router = express.Router();
 
@@ -1160,6 +1166,7 @@ const cancelAppointmentCourseSession = async (conn: PoolConnection, row: any) =>
     `UPDATE course_sessions SET status = 'cancelled' WHERE id = ?`,
     [sessionId]
   );
+  await releaseLessonHoursReservation(conn, sessionId);
   await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
 };
 
@@ -1198,7 +1205,7 @@ const syncCourseSessionForAppointmentDecision = async (
 
   if (status === 'accepted') {
     if (!existingRow) {
-      await conn.execute(
+      const [sessionInsert] = await conn.execute<InsertResult>(
         `
         INSERT INTO course_sessions
           (student_user_id, mentor_user_id, course_direction, course_type, starts_at, duration_hours, status)
@@ -1219,6 +1226,8 @@ const syncCourseSessionForAppointmentDecision = async (
           sessionStatus,
         ]
       );
+      const sessionId = Number(sessionInsert.insertId);
+      await reserveLessonHours(conn, studentUserId, sessionId, parsed.durationHours);
       if (sessionStatus === 'completed') {
         await recomputeMentorCompletedSessionCount(conn, mentorUserId);
       }
@@ -1250,6 +1259,7 @@ const syncCourseSessionForAppointmentDecision = async (
         existingId,
       ]
     );
+    await reserveLessonHours(conn, studentUserId, existingId, parsed.durationHours);
     if (sessionStatus === 'completed') {
       await recomputeMentorCompletedSessionCount(conn, mentorUserId);
     }
@@ -1275,6 +1285,7 @@ const syncCourseSessionForAppointmentDecision = async (
     `,
     [existingId]
   );
+  await releaseLessonHoursReservation(conn, existingId);
 };
 
 type AppointmentNotificationKind =
@@ -1982,6 +1993,7 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
   await ensureMentorRecommendationColumns();
   try {
     await ensureAppointmentLifecycleStatuses();
+    await ensureLessonHourReservationSchema();
   } catch (e) {
     console.error('Ensure appointment lifecycle statuses error:', e);
     return res.status(500).json({ error: '数据库升级失败，请检查 appointment_statuses 表权限' });
@@ -2071,6 +2083,24 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
 
     await refreshMentorResponseTimeMetricIfNeeded(conn, row, req.user.id);
 
+    // Release the original reservation before reserving a replacement time.
+    // This lets a same-duration reschedule reuse the student's frozen hours.
+    if (status === 'accepted') {
+      const acceptedPayload = parseAppointmentPayload(row.payload_json);
+      const sourceAppointmentId = toPositiveIntOrNull(acceptedPayload?.sourceAppointmentId);
+      if (safeText(acceptedPayload?.intent).toLowerCase() === 'reschedule' && sourceAppointmentId != null) {
+        const [sourceRows] = await conn.execute<any[]>(
+          `SELECT mi.id, mi.payload_json, mi.created_at, t.student_user_id, t.mentor_user_id
+           FROM message_items mi
+           INNER JOIN message_threads t ON t.id = mi.thread_id
+           WHERE mi.id = ? AND mi.thread_id = ? AND mi.message_type = 'appointment_card'
+           LIMIT 1`,
+          [sourceAppointmentId, Number(row.thread_id)]
+        );
+        if (sourceRows?.[0]) await cancelAppointmentCourseSession(conn, sourceRows[0]);
+      }
+    }
+
     try {
       await syncCourseSessionForAppointmentDecision(conn, row, status);
     } catch (e: any) {
@@ -2119,7 +2149,6 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
             `,
             [sourceAppointmentId, req.user.id]
           );
-          await cancelAppointmentCourseSession(conn, sourceRow);
         }
       }
     }
@@ -2174,6 +2203,9 @@ router.post('/appointments/:appointmentId/decision', requireAuth, async (req: Re
     return res.json({ ok: true, appointmentId: String(appointmentId), status });
   } catch (e) {
     try { await conn.rollback(); } catch {}
+    if (isWalletHoursError(e)) {
+      return res.status(409).json({ code: e.code, error: e.message });
+    }
     if (isMissingMessagesSchemaError(e)) {
       return res.status(500).json({ error: '数据库未升级，请先执行backend/schema.sql' });
     }
@@ -2200,6 +2232,7 @@ router.post('/appointments/:appointmentId/lifecycle', requireAuth, async (req: R
   await ensureMentorRecommendationColumns();
   try {
     await ensureAppointmentLifecycleStatuses();
+    await ensureLessonHourReservationSchema();
   } catch (e) {
     console.error('Ensure appointment lifecycle statuses error:', e);
     return res.status(500).json({ error: '数据库升级失败，请检查 appointment_statuses 表权限' });
@@ -2436,6 +2469,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async 
   }
 
   await ensureMentorRecommendationColumns();
+  await ensureLessonHourReservationSchema();
 
   const conn = await pool.getConnection();
   try {
@@ -2530,7 +2564,7 @@ router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async 
       );
       await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
 
-      await consumeLessonHours(conn, req.user.id, Number(row.course_session_id), proposedHours);
+      await settleLessonHours(conn, req.user.id, Number(row.course_session_id), proposedHours);
     } else {
       await conn.execute(
         `
@@ -2737,6 +2771,7 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', requireAuth,
   }
 
   await ensureMentorRecommendationColumns();
+  await ensureLessonHourReservationSchema();
 
   const conn = await pool.getConnection();
   try {
@@ -2830,7 +2865,7 @@ router.post('/lesson-hour-confirmations/:messageId/mentor-respond', requireAuth,
       );
       await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
 
-      await consumeLessonHours(
+      await settleLessonHours(
         conn,
         Number(row.student_user_id),
         Number(row.course_session_id),

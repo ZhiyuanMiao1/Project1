@@ -1,6 +1,7 @@
 import { pool } from '../db';
 import { recomputeMentorCompletedSessionCount } from './mentorRecommendation';
-import { consumeLessonHours, isWalletHoursError } from './walletHours';
+import { isWalletHoursError } from './walletHours';
+import { ensureLessonHourReservationSchema, settleLessonHours } from './lessonHourReservations';
 
 export const LESSON_HOURS_AUTO_CONFIRM_DAYS = 7;
 export const LESSON_HOURS_AUTO_CONFIRM_MS = LESSON_HOURS_AUTO_CONFIRM_DAYS * 24 * 60 * 60 * 1000;
@@ -70,7 +71,7 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
       return 'skipped';
     }
 
-    await consumeLessonHours(
+    await settleLessonHours(
       conn,
       Number(row.student_user_id),
       Number(row.course_session_id),
@@ -109,6 +110,7 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
 };
 
 export const runLessonHoursAutoConfirmation = async (): Promise<AutoConfirmationResult> => {
+  await ensureLessonHourReservationSchema();
   const [candidateRows] = await pool.execute<any[]>(
     `
     SELECT lhc.id

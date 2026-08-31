@@ -1132,6 +1132,7 @@ const en = {
   'lessonHours.dispute': 'Dispute',
   'lessonHours.confirmStudentDispute': 'Confirm Student Dispute',
   'lessonHours.confirmHours': 'Confirm Hours',
+  'lessonHours.goTopUp': 'Top Up',
   'lessonHours.pendingAria': 'Pending lesson-hour confirmation',
   'lessonHours.queue': '{count} lesson-hour confirmations remain and will be handled one by one',
   'lessonHours.processing': 'Processing...',

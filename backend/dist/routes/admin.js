@@ -19,6 +19,7 @@ const ossClient_1 = require("../services/ossClient");
 const recordingStorage_1 = require("../services/recordingStorage");
 const mentorRecommendation_1 = require("../services/mentorRecommendation");
 const walletHours_1 = require("../services/walletHours");
+const lessonHourReservations_1 = require("../services/lessonHourReservations");
 const refundPricing_1 = require("../services/refundPricing");
 const refunds_1 = require("./refunds");
 const mailService_1 = require("../services/mailService");
@@ -1919,6 +1920,7 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', adminAuth_1.re
     let after = null;
     try {
         await (0, mentorRecommendation_1.ensureMentorRecommendationColumns)();
+        await (0, lessonHourReservations_1.ensureLessonHourReservationSchema)();
         conn = await db_1.pool.getConnection();
         await conn.beginTransaction();
         const [rows] = await conn.execute(`SELECT
@@ -1959,7 +1961,7 @@ router.patch('/classrooms/:courseId/lesson-hours/final-decision', adminAuth_1.re
        SET duration_hours = ?, status = 'completed'
        WHERE id = ?`, [finalHours, courseId]);
         await (0, mentorRecommendation_1.recomputeMentorCompletedSessionCount)(conn, Number(before.mentor_user_id));
-        await (0, walletHours_1.consumeLessonHours)(conn, Number(before.student_user_id), courseId, finalHours);
+        await (0, lessonHourReservations_1.settleLessonHours)(conn, Number(before.student_user_id), courseId, finalHours);
         await conn.execute(`UPDATE message_threads
        SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`, [Number(before.message_item_id), Number(before.thread_id)]);

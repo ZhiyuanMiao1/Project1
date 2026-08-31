@@ -184,10 +184,13 @@ function AuthSessionManager() {
 
 function PendingLessonHoursGate() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { t } = useI18n();
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getAuthToken());
   const [busyId, setBusyId] = useState('');
+  const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
+  const [rechargeRequiredId, setRechargeRequiredId] = useState('');
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
   const [disputeValue, setDisputeValue] = useState('1');
   const { items, refresh } = usePendingLessonHours(isLoggedIn);
@@ -208,6 +211,7 @@ function PendingLessonHoursGate() {
   useEffect(() => {
     if (!isLoggedIn) {
       setBusyId('');
+      setBusyAction('');
       setError('');
       return;
     }
@@ -217,10 +221,19 @@ function PendingLessonHoursGate() {
   useEffect(() => {
     if (!items.length) {
       setBusyId('');
+      setBusyAction('');
       setError('');
       setDisputeDialogOpen(false);
+      setRechargeRequiredId('');
     }
   }, [items.length]);
+
+  useEffect(() => {
+    if (location.pathname !== '/student/wallet') {
+      setRechargeRequiredId('');
+      setError('');
+    }
+  }, [location.pathname]);
 
   const activeConfirmation = items[0] || null;
 
@@ -230,7 +243,9 @@ function PendingLessonHoursGate() {
     const actionRole = safeText(confirmation?.actionRole) === 'mentor' ? 'mentor' : 'student';
 
     setBusyId(messageId);
+    setBusyAction(status === 'platform_review' ? 'secondary' : 'primary');
     setError('');
+    setRechargeRequiredId('');
 
     try {
       if (actionRole === 'mentor') {
@@ -247,11 +262,16 @@ function PendingLessonHoursGate() {
       emitPendingLessonHoursChanged();
       emitMessageUnreadChanged();
       setDisputeDialogOpen(false);
+      setRechargeRequiredId('');
     } catch (err) {
       const message = err?.response?.data?.error || err?.message || t('lessonHours.respondFailed', '处理课时确认失败，请稍后再试');
       setError(String(message));
+      if (actionRole === 'student' && safeText(err?.response?.data?.code) === 'INSUFFICIENT_HOURS') {
+        setRechargeRequiredId(messageId);
+      }
     } finally {
       setBusyId('');
+      setBusyAction('');
     }
   };
 
@@ -275,7 +295,7 @@ function PendingLessonHoursGate() {
     await handleRespond(activeConfirmation, 'disputed', { disputedHours });
   };
 
-  if (location.pathname === '/mentor/contract') return null;
+  if (location.pathname === '/mentor/contract' || location.pathname === '/student/wallet') return null;
 
   return (
     <>
@@ -284,7 +304,9 @@ function PendingLessonHoursGate() {
         confirmation={activeConfirmation}
         totalCount={items.length}
         busy={Boolean(activeConfirmation && busyId === activeConfirmation.id)}
+        busyAction={busyAction}
         error={error}
+        requiresRecharge={Boolean(activeConfirmation && rechargeRequiredId === activeConfirmation.id)}
         onConfirm={(confirmation) => handleRespond(
           confirmation,
           safeText(confirmation?.actionRole) === 'mentor' ? 'dispute_confirmed' : 'confirmed'
@@ -294,6 +316,15 @@ function PendingLessonHoursGate() {
             ? handleRespond(confirmation, 'platform_review')
             : handleStudentDisputeStart(confirmation)
         )}
+        onRecharge={(confirmation) => {
+          navigate('/student/wallet', {
+            state: {
+              returnToLessonHours: true,
+              lessonHoursConfirmationId: safeText(confirmation?.id),
+              lessonHoursReturnPath: location.pathname,
+            },
+          });
+        }}
       />
 
       <LessonHoursDialog

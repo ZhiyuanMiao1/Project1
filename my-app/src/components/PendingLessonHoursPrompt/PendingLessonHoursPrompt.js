@@ -53,9 +53,12 @@ function PendingLessonHoursPrompt({
   confirmation,
   totalCount = 0,
   busy = false,
+  busyAction = '',
   error = '',
+  requiresRecharge = false,
   onConfirm,
   onDispute,
+  onRecharge,
 }) {
   const { language, t, getCourseDirectionDisplayLabel, getCourseTypeLabel } = useI18n();
   const actionRole = safeText(confirmation?.actionRole) === 'mentor' ? 'mentor' : 'student';
@@ -118,7 +121,13 @@ function PendingLessonHoursPrompt({
     ? t('lessonHours.tipMentor', '确认后将按学生异议结案；提交平台处理后，将进入平台介入状态')
     : t('lessonHours.tipStudent', '若课时不一致，请直接提出异议，导师需要重新处理');
   const secondaryLabel = isMentorAction ? t('lessonHours.submitPlatformReview', '提交平台处理') : t('lessonHours.dispute', '提出异议');
-  const primaryLabel = isMentorAction ? t('lessonHours.confirmStudentDispute', '确认学生异议') : t('lessonHours.confirmHours', '确认课时');
+  const primaryLabel = isMentorAction
+    ? t('lessonHours.confirmStudentDispute', '确认学生异议')
+    : requiresRecharge
+      ? t('lessonHours.goTopUp', '去充值')
+      : t('lessonHours.confirmHours', '确认课时');
+  const secondaryBusy = busy && busyAction === 'secondary';
+  const primaryBusy = busy && !secondaryBusy;
 
   return (
     <div className="pending-lesson-hours-overlay" role="presentation">
@@ -201,14 +210,18 @@ function PendingLessonHoursPrompt({
             onClick={() => onDispute?.(confirmation)}
             disabled={busy}
           >
-            {busy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : secondaryLabel}
+            {secondaryBusy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : secondaryLabel}
           </Button>
           <Button
             className="pending-lesson-hours-btn pending-lesson-hours-btn--primary"
-            onClick={() => onConfirm?.(confirmation)}
+            onClick={() => (
+              requiresRecharge && !isMentorAction
+                ? onRecharge?.(confirmation)
+                : onConfirm?.(confirmation)
+            )}
             disabled={busy}
           >
-            {busy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : primaryLabel}
+            {primaryBusy ? <LoadingText text={t('lessonHours.processing', '处理中...')} /> : primaryLabel}
           </Button>
         </div>
       </div>

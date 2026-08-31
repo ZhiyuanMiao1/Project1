@@ -11,6 +11,7 @@ const ossClient_1 = require("../services/ossClient");
 const aliyunRtcRecording_1 = require("../services/aliyunRtcRecording");
 const recordingStorage_1 = require("../services/recordingStorage");
 const classroomAccess_1 = require("../services/classroomAccess");
+const lessonHourReservations_1 = require("../services/lessonHourReservations");
 const router = (0, express_1.Router)();
 const REVIEW_SCORE_KEYS = [
     'clarity',
@@ -417,6 +418,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'invalid_view' });
     }
     try {
+        await (0, lessonHourReservations_1.ensureLessonHourReservationSchema)();
         if (view === 'student') {
             const ratingReady = await ensureMentorRatingColumns();
             if (!ratingReady) {
@@ -434,6 +436,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
           cs.starts_at,
           cs.duration_hours,
           cs.status,
+          COALESCE(cshr.reserved_hours, 0) AS reserved_lesson_hours,
           COALESCE(NULLIF(TRIM(mp.display_name), ''), NULLIF(TRIM(mu.username), ''), NULLIF(TRIM(mr.public_id), ''), 'mentor') AS counterpart_name,
           COALESCE(NULLIF(TRIM(mr.public_id), ''), '') AS counterpart_public_id,
           COALESCE(NULLIF(TRIM(mp.avatar_url), ''), '') AS counterpart_avatar_url,
@@ -465,6 +468,8 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
         FROM course_sessions cs
         LEFT JOIN users mu
           ON mu.id = cs.mentor_user_id
+        LEFT JOIN course_session_hour_reservations cshr
+          ON cshr.course_session_id = cs.id AND cshr.status = 'active'
         LEFT JOIN user_roles mr
           ON mr.user_id = cs.mentor_user_id AND mr.role = 'mentor'
         LEFT JOIN mentor_profiles mp
@@ -558,6 +563,7 @@ router.get('/', auth_1.requireAuth, async (req, res) => {
                 date: toDateKey(row?.starts_at),
                 startsAt: toIsoString(row?.starts_at),
                 durationHours,
+                reservedLessonHours: toNumber(row?.reserved_lesson_hours) ?? 0,
                 status: (0, classroomAccess_1.getEffectiveCourseStatus)(row),
                 counterpartName: typeof row?.counterpart_name === 'string' ? row.counterpart_name.trim() : '',
                 counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',

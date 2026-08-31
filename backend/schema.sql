@@ -803,6 +803,39 @@ CREATE TABLE IF NOT EXISTS `course_sessions` (
   CONSTRAINT `fk_course_sessions_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Freeze prepaid lesson hours when an appointment is accepted. Source rows
+-- preserve the original grant/order inventory so cancellation can restore it.
+CREATE TABLE IF NOT EXISTS `course_session_hour_reservations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `course_session_id` BIGINT NOT NULL,
+  `student_user_id` INT NOT NULL,
+  `reserved_hours` DECIMAL(10,2) NOT NULL,
+  `settled_hours` DECIMAL(10,2) NULL,
+  `status` ENUM('active','settled','released') NOT NULL DEFAULT 'active',
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `settled_at` TIMESTAMP NULL DEFAULT NULL,
+  `released_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_session_hour_reservation` (`course_session_id`),
+  KEY `idx_course_session_hour_reservations_student` (`student_user_id`, `status`),
+  CONSTRAINT `fk_course_session_hour_reservations_session` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_course_session_hour_reservations_student` FOREIGN KEY (`student_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `course_session_hour_reservation_sources` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `reservation_id` BIGINT NOT NULL,
+  `source_type` ENUM('grant','order') NOT NULL,
+  `source_id` BIGINT NOT NULL,
+  `hours` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_course_reservation_source` (`reservation_id`, `source_type`, `source_id`),
+  KEY `idx_course_reservation_sources_reservation` (`reservation_id`),
+  CONSTRAINT `fk_course_reservation_sources_reservation` FOREIGN KEY (`reservation_id`) REFERENCES `course_session_hour_reservations`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 14) Classroom chat / temporary classroom files
 CREATE TABLE IF NOT EXISTS `classroom_temp_files` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
