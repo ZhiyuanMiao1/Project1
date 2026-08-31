@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ensureAdminSchema = void 0;
 const db_1 = require("../db");
+const mentorContractSchema_1 = require("./mentorContractSchema");
 let adminSchemaEnsured = false;
 const isDuplicateColumnError = (error) => {
     const code = String(error?.code || '');
@@ -48,6 +49,7 @@ const ensureMentorPayrollStatusEnum = async () => {
 const ensureAdminSchema = async () => {
     if (adminSchemaEnsured)
         return true;
+    await (0, mentorContractSchema_1.ensureMentorContractSchema)();
     await (0, db_1.query)(`
     CREATE TABLE IF NOT EXISTS admin_users (
       id BIGINT NOT NULL AUTO_INCREMENT,

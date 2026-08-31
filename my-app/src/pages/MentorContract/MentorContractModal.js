@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCheckCircle, FiDownload, FiExternalLink, FiMail, FiRefreshCw, FiX } from 'react-icons/fi';
+import { FiCheckCircle, FiDownload, FiExternalLink, FiHelpCircle, FiMail, FiRefreshCw, FiX } from 'react-icons/fi';
 import LoadingText from '../../components/common/LoadingText/LoadingText';
 import api from '../../api/client';
 import { useI18n } from '../../i18n/language';
@@ -35,6 +35,8 @@ const getErrorMessage = async (error, t) => {
     MENTOR_CONTRACT_CODE_NOT_FOUND: t('mentorContract.codeNotFound', '验证码不存在或已失效，请重新发送'),
     MENTOR_CONTRACT_CODE_INVALID_FORMAT: t('mentorContract.codeFormat', '请输入 6 位验证码'),
     MENTOR_CONTRACT_CONFIRMATIONS_REQUIRED: t('mentorContract.confirmationsRequired', '请勾选两项确认后再签署'),
+    MENTOR_CONTRACT_TAX_RESIDENCY_REQUIRED: t('mentorContract.taxResidencyRequired', '请选择是否为中国税收居民'),
+    MENTOR_CONTRACT_TAX_RESIDENCY_CHANGED: t('mentorContract.taxResidencyChanged', '税务居民选择已变化，请重新发送验证码'),
     MENTOR_CONTRACT_PROCESSING: t('mentorContract.processing', '合同正在生成，请勿重复提交'),
     MENTOR_CONTRACT_GENERATION_FAILED: t('mentorContract.generationFailed', '合同生成或归档失败，请稍后重试'),
     MENTOR_CONTRACT_PREVIEW_GENERATION_FAILED: t('mentorContract.previewGenerationFailed', '合同个性化预览生成失败，请稍后重试'),
@@ -63,6 +65,9 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
   const [previewError, setPreviewError] = useState('');
   const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [informationConfirmed, setInformationConfirmed] = useState(false);
+  const [chinaTaxResident, setChinaTaxResident] = useState(
+    typeof initialStatus?.chinaTaxResident === 'boolean' ? initialStatus.chinaTaxResident : null
+  );
   const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState('');
   const [activeCodeIndex, setActiveCodeIndex] = useState(0);
@@ -137,6 +142,7 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
         if (!active) return;
         const savedName = next?.mentorName || '';
         if (savedName) setLegalName(savedName);
+        if (typeof next?.chinaTaxResident === 'boolean') setChinaTaxResident(next.chinaTaxResident);
         if (next?.approved) await loadPdf({ signed: Boolean(next.signed), name: savedName });
       } catch (nextError) {
         if (active) setError(await getErrorMessage(nextError, t));
@@ -218,7 +224,9 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     && previewPersonalised
     && !previewError
     && previewedName === normalizedName;
-  const canSendCode = legalNameValid && previewMatchesName && agreementAccepted && informationConfirmed && !sendingCode && !signing;
+  const taxResidencySelected = typeof chinaTaxResident === 'boolean';
+  const canSendCode = legalNameValid && previewMatchesName && taxResidencySelected
+    && agreementAccepted && informationConfirmed && !sendingCode && !signing;
   const canSign = canSendCode && codeSent && /^\d{6}$/.test(code);
   const signedAt = useMemo(() => {
     if (!status?.signedAt) return '';
@@ -267,7 +275,10 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     setError('');
     setNotice('');
     try {
-      const response = await api.post('/api/mentor-contracts/send-code', { legalName: normalizedName });
+      const response = await api.post('/api/mentor-contracts/send-code', {
+        legalName: normalizedName,
+        chinaTaxResident,
+      });
       if (response?.data?.alreadySigned) {
         const next = await loadStatus();
         await loadPdf({ signed: true });
@@ -301,7 +312,12 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
     setError('');
     setNotice(t('mentorContract.generatingNotice', '正在生成 DOCX、转换 PDF 并安全归档，请勿重复提交…'));
     try {
-      await api.post('/api/mentor-contracts/sign', { code, agreementAccepted, informationConfirmed });
+      await api.post('/api/mentor-contracts/sign', {
+        code,
+        agreementAccepted,
+        informationConfirmed,
+        chinaTaxResident,
+      });
       const next = await loadStatus();
       setNotice(t('mentorContract.signedSuccess', '协议签署成功，最终合同已冻结归档'));
       await loadPdf({ signed: true });
@@ -424,6 +440,41 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                 <section className="mentor-contract-signing" aria-label={t('mentorContract.signingArea', '签署确认')}>
                   <div className="mentor-contract-confirmations">
                     {!previewMatchesName ? <p className="mentor-contract-step-hint">{t('mentorContract.previewNameFirst', '请先填写真实姓名并更新合同预览')}</p> : null}
+                    <div className="mentor-contract-tax-residency" role="group" aria-labelledby="mentor-contract-tax-residency-label">
+                      <div className="mentor-contract-tax-residency-heading">
+                        <span id="mentor-contract-tax-residency-label">{t('mentorContract.taxResidencyQuestion', '您是否为中国税收居民？')}</span>
+                        <details className="mentor-contract-tax-help">
+                          <summary aria-label={t('mentorContract.taxResidencyHelpLabel', '查看中国税收居民说明')}>
+                            <FiHelpCircle aria-hidden="true" />
+                          </summary>
+                          <div className="mentor-contract-tax-help-content" role="tooltip">
+                            {t('mentorContract.taxResidencyHelp', '通常指在中国境内有住所，或无住所但一个纳税年度内在中国境内累计居住满 183 天的个人。此选择将用于平台预扣预缴税款；如不确定，请先咨询专业税务人员。')}
+                          </div>
+                        </details>
+                      </div>
+                      <div className="mentor-contract-tax-options">
+                        <label>
+                          <input
+                            type="radio"
+                            name="mentor-contract-china-tax-resident"
+                            checked={chinaTaxResident === true}
+                            onChange={() => setChinaTaxResident(true)}
+                            disabled={codeSent || signing || !previewMatchesName}
+                          />
+                          <span>{t('mentorContract.taxResidencyYes', '是')}</span>
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name="mentor-contract-china-tax-resident"
+                            checked={chinaTaxResident === false}
+                            onChange={() => setChinaTaxResident(false)}
+                            disabled={codeSent || signing || !previewMatchesName}
+                          />
+                          <span>{t('mentorContract.taxResidencyNo', '否')}</span>
+                        </label>
+                      </div>
+                    </div>
                     <label className="mentor-contract-checkbox">
                       <input type="checkbox" checked={agreementAccepted} onChange={(event) => setAgreementAccepted(event.target.checked)} disabled={signing || !previewMatchesName} />
                       <span>{t('mentorContract.agreeCheckbox', '我已阅读并同意《Mentory 导师合作协议》')}</span>

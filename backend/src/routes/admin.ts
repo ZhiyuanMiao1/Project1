@@ -2534,7 +2534,7 @@ router.get('/mentor-payroll', requireAdminAuth, async (req: Request, res: Respon
       `SELECT u.id AS mentor_user_id, u.email, ur.public_id AS mentor_public_id,
               COALESCE(NULLIF(mp.display_name, ''), NULLIF(u.username, ''), u.email) AS mentor_name,
               COALESCE(mpp.hourly_rate_cny, ?) AS configured_hourly_rate_cny,
-              COALESCE(mpp.china_tax_resident, 1) AS configured_china_tax_resident,
+              COALESCE(mcs.china_tax_resident, mpp.china_tax_resident, 1) AS configured_china_tax_resident,
               COALESCE(earned.settled_hours, 0) AS current_settled_hours,
               pay.id AS payment_id, pay.settled_hours AS paid_settled_hours,
               pay.hourly_rate_cny AS paid_hourly_rate_cny, pay.gross_income_cny AS paid_gross_income_cny,
@@ -2545,6 +2545,10 @@ router.get('/mentor-payroll', requireAdminAuth, async (req: Request, res: Respon
        JOIN users u ON u.id = ur.user_id
        LEFT JOIN mentor_profiles mp ON mp.user_id = u.id
        LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = u.id
+       LEFT JOIN mentor_contract_signatures mcs
+         ON mcs.mentor_user_id = u.id
+        AND mcs.contract_type = 'mentor_cooperation'
+        AND mcs.status = 'signed'
        LEFT JOIN (
          SELECT lhc.mentor_user_id, SUM(lhc.final_hours) AS settled_hours
          FROM lesson_hour_confirmations lhc
@@ -2591,7 +2595,7 @@ router.get('/mentor-payroll', requireAdminAuth, async (req: Request, res: Respon
         note: safeString(row.note_text, 1000),
         paidAt: paid ? toIsoString(row.paid_at) : '',
       };
-    });
+    }).filter((item) => item.grossIncomeCny > 0);
     const summary = payroll.reduce((acc, item) => {
       acc.grossIncomeCny += item.grossIncomeCny;
       acc.withheldTaxCny += item.withheldTaxCny;
@@ -2656,9 +2660,13 @@ router.patch('/mentor-payroll/:mentorUserId/status', requireAdminAuth, async (re
     await conn.beginTransaction();
     const [profileRows] = await conn.query<any[]>(
       `SELECT ur.public_id, COALESCE(mpp.hourly_rate_cny, ?) AS hourly_rate_cny,
-              COALESCE(mpp.china_tax_resident, 1) AS china_tax_resident
+              COALESCE(mcs.china_tax_resident, mpp.china_tax_resident, 1) AS china_tax_resident
        FROM user_roles ur
        LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = ur.user_id
+       LEFT JOIN mentor_contract_signatures mcs
+         ON mcs.mentor_user_id = ur.user_id
+        AND mcs.contract_type = 'mentor_cooperation'
+        AND mcs.status = 'signed'
        WHERE ur.user_id = ? AND ur.role = 'mentor' AND ur.mentor_approved = 1 LIMIT 1 FOR UPDATE`,
       [defaultHourlyRate, mentorUserId]
     );
@@ -2750,9 +2758,13 @@ router.post('/mentor-payroll/:mentorUserId/pay', requireAdminAuth, async (req: R
     if (existingRows?.length) throw Object.assign(new Error('该导师本月薪资已发放，请勿重复操作'), { statusCode: 409 });
     const [profileRows] = await conn.query<any[]>(
       `SELECT ur.public_id, COALESCE(mpp.hourly_rate_cny, ?) AS hourly_rate_cny,
-              COALESCE(mpp.china_tax_resident, 1) AS china_tax_resident
+              COALESCE(mcs.china_tax_resident, mpp.china_tax_resident, 1) AS china_tax_resident
        FROM user_roles ur
        LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = ur.user_id
+       LEFT JOIN mentor_contract_signatures mcs
+         ON mcs.mentor_user_id = ur.user_id
+        AND mcs.contract_type = 'mentor_cooperation'
+        AND mcs.status = 'signed'
        WHERE ur.user_id = ? AND ur.role = 'mentor' AND ur.mentor_approved = 1 LIMIT 1 FOR UPDATE`,
       [defaultHourlyRate, mentorUserId]
     );

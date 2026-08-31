@@ -99,6 +99,19 @@ const MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL = `
   )
 `;
 
+const MESSAGE_COUNTS_AS_UNREAD_SQL = `
+  (
+    mi.message_type <> 'lesson_hours_confirmation'
+    OR (
+      unread_lhc.message_item_id IS NOT NULL
+      AND (
+        (unread_lhc.student_user_id = ? AND unread_lhc.status = 'pending')
+        OR (unread_lhc.mentor_user_id = ? AND unread_lhc.status = 'disputed')
+      )
+    )
+  )
+`;
+
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 const formatUtcDatetime = (date: Date) => {
@@ -2588,6 +2601,14 @@ router.post('/lesson-hour-confirmations/:messageId/respond', requireAuth, async 
       [messageId, Number(row.thread_id)]
     );
 
+    await conn.execute(
+      `
+      INSERT IGNORE INTO message_item_reads (message_item_id, user_id)
+      VALUES (?, ?)
+      `,
+      [messageId, req.user.id]
+    );
+
     await conn.commit();
     void sendAppointmentNotificationSafely({
       kind: status === 'confirmed' ? 'hours_confirmed' : 'hours_disputed',
@@ -3289,13 +3310,25 @@ router.get('/unread-summary', requireAuth, async (req: Request, res: Response) =
       LEFT JOIN message_item_reads mir
         ON mir.message_item_id = mi.id
        AND mir.user_id = ?
+      LEFT JOIN lesson_hour_confirmations unread_lhc
+        ON unread_lhc.message_item_id = mi.id
       WHERE (t.student_user_id = ? OR t.mentor_user_id = ?)
         AND mi.sender_user_id <> ?
         AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
+        AND ${MESSAGE_COUNTS_AS_UNREAD_SQL}
         AND mihfu.message_item_id IS NULL
         AND mir.message_item_id IS NULL
       `,
-      [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]
+      [
+        req.user.id,
+        req.user.id,
+        req.user.id,
+        req.user.id,
+        req.user.id,
+        req.user.id,
+        req.user.id,
+        req.user.id,
+      ]
     );
 
     return res.json({
@@ -3626,14 +3659,25 @@ router.get('/threads', requireAuth, async (req: Request, res: Response) => {
         LEFT JOIN message_item_reads mir
           ON mir.message_item_id = mi.id
          AND mir.user_id = ?
+        LEFT JOIN lesson_hour_confirmations unread_lhc
+          ON unread_lhc.message_item_id = mi.id
         WHERE mi.thread_id IN (${placeholders})
           AND mi.sender_user_id <> ?
           AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
+          AND ${MESSAGE_COUNTS_AS_UNREAD_SQL}
           AND mihfu.message_item_id IS NULL
           AND mir.message_item_id IS NULL
         GROUP BY mi.thread_id
         `,
-        [req.user.id, req.user.id, req.user.id, ...threadIds, req.user.id]
+        [
+          req.user.id,
+          req.user.id,
+          req.user.id,
+          ...threadIds,
+          req.user.id,
+          req.user.id,
+          req.user.id,
+        ]
       );
 
       const unreadCountByThread = new Map<string, number>(

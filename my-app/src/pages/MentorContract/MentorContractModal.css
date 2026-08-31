@@ -106,6 +106,25 @@
 .mentor-contract-signing { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px 24px; margin-top: 16px; padding: 20px; border: 0; }
 .mentor-contract-confirmations { min-width: 0; }
 .mentor-contract-step-hint { margin: 0 0 8px; color: #9a3412; font-size: 13px; }
+.mentor-contract-tax-residency { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; min-height: 36px; margin-bottom: 4px; }
+.mentor-contract-tax-residency-heading { display: inline-flex; align-items: center; min-width: 0; gap: 4px; color: #0f172a; font-weight: 600; line-height: 1.4; }
+.mentor-contract-tax-help { position: relative; flex: 0 0 auto; }
+.mentor-contract-tax-help summary { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: #64748b; cursor: help; list-style: none; }
+.mentor-contract-tax-help summary::-webkit-details-marker { display: none; }
+.mentor-contract-tax-help summary:hover { background: rgba(15, 23, 42, 0.04); color: #0f172a; }
+.mentor-contract-tax-help summary:focus-visible { outline: 2px solid #2877b9; outline-offset: 2px; }
+.mentor-contract-tax-help summary svg { width: 17px; height: 17px; }
+.mentor-contract-tax-help-content { position: absolute; z-index: 20; bottom: calc(100% + 7px); left: -8px; display: none; width: min(360px, calc(100vw - 72px)); border: 1px solid #dbe4ee; border-radius: 12px; padding: 11px 13px; background: #0f172a; color: #ffffff; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18); font-size: 13px; font-weight: 400; line-height: 1.55; }
+.mentor-contract-tax-help[open] .mentor-contract-tax-help-content,
+.mentor-contract-tax-help:hover .mentor-contract-tax-help-content,
+.mentor-contract-tax-help:focus-within .mentor-contract-tax-help-content { display: block; }
+.mentor-contract-tax-options { display: inline-flex; align-items: center; gap: 6px; }
+.mentor-contract-tax-options label { position: relative; min-width: 54px; cursor: pointer; }
+.mentor-contract-tax-options input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.mentor-contract-tax-options span { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 0 14px; background: #ffffff; color: #334155; -webkit-text-fill-color: #334155; font-size: 14px; font-weight: 600; transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease; }
+.mentor-contract-tax-options input:checked + span { border-color: #2877b9; background: #eff6ff; color: #1d4ed8; -webkit-text-fill-color: #1d4ed8; }
+.mentor-contract-tax-options input:focus-visible + span { box-shadow: 0 0 0 2px rgba(40, 119, 185, 0.24); }
+.mentor-contract-tax-options input:disabled + span { cursor: not-allowed; opacity: 0.48; }
 .mentor-contract-checkbox { display: flex; align-items: flex-start; gap: 12px; min-height: 36px; padding: 2px 0; line-height: 1.4; cursor: pointer; }
 .mentor-contract-checkbox input { width: 20px; height: 20px; flex: 0 0 auto; margin: 2px 0 0; accent-color: #2877b9; }
 .mentor-contract-primary { min-width: 180px; }
@@ -139,6 +158,10 @@
   .mentor-contract-identity button { width: 100%; }
   .mentor-contract-identity p { grid-column: auto; grid-row: auto; }
   .mentor-contract-signing { grid-template-columns: 1fr; }
+  .mentor-contract-tax-residency { min-height: 44px; }
+  .mentor-contract-tax-help summary { width: 44px; height: 44px; }
+  .mentor-contract-tax-options label { min-width: 60px; }
+  .mentor-contract-tax-options span { min-height: 44px; }
   .mentor-contract-checkbox { min-height: 44px; padding: 4px 0; }
   .mentor-contract-signing > .mentor-contract-primary { justify-self: stretch; width: 100%; }
   .mentor-contract-code-entry { flex-direction: column; align-items: stretch; }
@@ -167,6 +190,10 @@
   .mentor-contract-document-header a { min-width: 44px; justify-content: center; }
   .mentor-contract-pdf { min-height: 420px; height: 54dvh; }
   .mentor-contract-signing { padding: 16px; }
+  .mentor-contract-tax-residency { position: relative; justify-content: space-between; gap: 6px 10px; margin-bottom: 6px; }
+  .mentor-contract-tax-residency-heading { flex: 1 1 190px; }
+  .mentor-contract-tax-help { position: static; }
+  .mentor-contract-tax-help-content { bottom: calc(100% + 6px); left: 0; right: 0; width: auto; }
   .mentor-contract-code-panel { display: flex; flex-direction: column; }
   .mentor-contract-code-meta,
   .mentor-contract-code-entry { display: contents; }

@@ -2,6 +2,16 @@ import { query } from '../db';
 
 let schemaReady = false;
 
+const addColumnIfMissing = async (sql: string) => {
+  try {
+    await query(sql);
+  } catch (error: any) {
+    const code = String(error?.code || '');
+    const message = String(error?.message || '');
+    if (code !== 'ER_DUP_FIELDNAME' && !message.includes('Duplicate column name')) throw error;
+  }
+};
+
 export const ensureMentorContractSchema = async () => {
   if (schemaReady) return;
 
@@ -21,6 +31,9 @@ export const ensureMentorContractSchema = async () => {
       signed_at DATETIME(3) NULL,
       signed_ip VARCHAR(45) NULL,
       signed_user_agent VARCHAR(512) NULL,
+      china_tax_resident TINYINT(1) NULL,
+      tax_residency_declaration_version VARCHAR(20) NULL,
+      tax_residency_declared_at DATETIME(3) NULL,
       email_verification_code_id BIGINT NULL,
       email_verified_at DATETIME(3) NULL,
       final_docx_oss_key VARCHAR(1024) NULL,
@@ -38,6 +51,16 @@ export const ensureMentorContractSchema = async () => {
       CONSTRAINT fk_mentor_contract_signature_user FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+
+  await addColumnIfMissing(
+    'ALTER TABLE mentor_contract_signatures ADD COLUMN china_tax_resident TINYINT(1) NULL AFTER signed_user_agent'
+  );
+  await addColumnIfMissing(
+    'ALTER TABLE mentor_contract_signatures ADD COLUMN tax_residency_declaration_version VARCHAR(20) NULL AFTER china_tax_resident'
+  );
+  await addColumnIfMissing(
+    'ALTER TABLE mentor_contract_signatures ADD COLUMN tax_residency_declared_at DATETIME(3) NULL AFTER tax_residency_declaration_version'
+  );
 
   await query(`
     CREATE TABLE IF NOT EXISTS mentor_contract_email_codes (
@@ -82,4 +105,3 @@ export const ensureMentorContractSchema = async () => {
 
   schemaReady = true;
 };
-

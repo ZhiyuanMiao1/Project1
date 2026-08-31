@@ -34,12 +34,19 @@ const addMinutes = (date, minutes) => new Date(date.getTime() + minutes * 60000)
 const addSeconds = (date, seconds) => new Date(date.getTime() + seconds * 1000);
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const normalizeLegalName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+const TAX_RESIDENCY_DECLARATION_VERSION = 'v1';
 const requireLegalName = (value) => {
     const legalName = normalizeLegalName(value);
     if (legalName.length < 2 || legalName.length > 120 || /[\u0000-\u001f\u007f]/.test(legalName)) {
         throw new MentorContractError('MENTOR_CONTRACT_LEGAL_NAME_INVALID', '请输入 2 至 120 个字符的真实姓名', 400);
     }
     return legalName;
+};
+const requireChinaTaxResident = (value) => {
+    if (typeof value !== 'boolean') {
+        throw new MentorContractError('MENTOR_CONTRACT_TAX_RESIDENCY_REQUIRED', '请选择是否为中国税收居民', 400);
+    }
+    return value;
 };
 const hashContractCode = ({ signatureId, email, code, salt }) => crypto_1.default.createHmac('sha256', CONTRACT_CODE_SECRET)
     .update(`${salt}:${signatureId}:${normalizeEmail(email)}:${code}`)
@@ -112,6 +119,7 @@ const getOwnContractSignature = async (mentorUserId) => {
     await (0, mentorContractSchema_1.ensureMentorContractSchema)();
     const rows = await (0, db_1.query)(`SELECT id, mentor_user_id, mentor_name, mentor_email, contract_number, contract_version,
             template_file_name, template_sha256, status, signing_started_at, signed_at,
+            china_tax_resident, tax_residency_declaration_version, tax_residency_declared_at,
             final_docx_oss_key, final_docx_sha256, final_pdf_oss_key, final_pdf_sha256
        FROM mentor_contract_signatures
       WHERE mentor_user_id = ? AND contract_type = ?
@@ -135,6 +143,9 @@ const toContractStatusResponse = async (mentorUserId) => {
         contractNumber: signature?.contract_number || null,
         contractVersion: signature?.contract_version || mentorContractConfig_1.MENTOR_CONTRACT_VERSION,
         signedAt: signature?.signed_at || null,
+        chinaTaxResident: signature?.china_tax_resident == null
+            ? null
+            : Boolean(Number(signature.china_tax_resident)),
         pdfSha256: signature?.final_pdf_sha256 || null,
         hasPdf: Boolean(signed && signature?.final_pdf_oss_key),
     };
@@ -153,11 +164,12 @@ const auditContractEvent = async ({ mentorUserId, signatureId, eventType, ip, us
         metadata ? JSON.stringify(metadata) : null,
     ]);
 };
-const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, }) => {
+const sendMentorContractCode = async ({ mentorUserId, legalName, chinaTaxResident, ip, userAgent, }) => {
     await (0, mentorContractSchema_1.ensureMentorContractSchema)();
     const context = await (0, exports.getMentorContractContext)(mentorUserId);
     assertCanSign(context);
     const verifiedLegalName = requireLegalName(legalName);
+    const verifiedChinaTaxResident = requireChinaTaxResident(chinaTaxResident);
     const template = await (0, mentorContractDocuments_1.getMentorContractTemplate)();
     const now = new Date();
     const code = generateCode();
@@ -183,8 +195,9 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
             contractNumber = buildContractNumber();
             const [insert] = await conn.execute(`INSERT INTO mentor_contract_signatures
           (mentor_user_id, contract_type, mentor_name, mentor_email, contract_number, contract_version,
-           template_file_name, template_sha256, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
+           template_file_name, template_sha256, china_tax_resident,
+           tax_residency_declaration_version, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
                 mentorUserId,
                 mentorContractConfig_1.MENTOR_CONTRACT_TYPE,
                 verifiedLegalName,
@@ -193,6 +206,8 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
                 mentorContractConfig_1.MENTOR_CONTRACT_VERSION,
                 template.templateFileName,
                 template.templateSha256,
+                verifiedChinaTaxResident ? 1 : 0,
+                TAX_RESIDENCY_DECLARATION_VERSION,
             ]);
             signatureId = Number(insert.insertId);
         }
@@ -201,7 +216,8 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
             contractNumber = signature.contract_number;
             await conn.execute(`UPDATE mentor_contract_signatures
             SET mentor_name = ?, mentor_email = ?, contract_version = ?, template_file_name = ?,
-                template_sha256 = ?, status = 'pending', signing_started_at = NULL,
+                template_sha256 = ?, china_tax_resident = ?, tax_residency_declaration_version = ?,
+                tax_residency_declared_at = NULL, status = 'pending', signing_started_at = NULL,
                 signed_at = NULL, signed_ip = NULL, signed_user_agent = NULL,
                 email_verification_code_id = NULL, email_verified_at = NULL,
                 failure_code = NULL, failure_detail = NULL
@@ -211,6 +227,8 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
                 mentorContractConfig_1.MENTOR_CONTRACT_VERSION,
                 template.templateFileName,
                 template.templateSha256,
+                verifiedChinaTaxResident ? 1 : 0,
+                TAX_RESIDENCY_DECLARATION_VERSION,
                 signatureId,
             ]);
         }
@@ -269,7 +287,13 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
             eventType: 'email_code_sent',
             ip,
             userAgent,
-            metadata: { codeId, contractNumber, email: context.email },
+            metadata: {
+                codeId,
+                contractNumber,
+                email: context.email,
+                chinaTaxResident: verifiedChinaTaxResident,
+                taxResidencyDeclarationVersion: TAX_RESIDENCY_DECLARATION_VERSION,
+            },
         });
     }
     catch (error) {
@@ -294,10 +318,11 @@ const sendMentorContractCode = async ({ mentorUserId, legalName, ip, userAgent, 
     };
 };
 exports.sendMentorContractCode = sendMentorContractCode;
-const signMentorContract = async ({ mentorUserId, code, agreementAccepted, informationConfirmed, ip, userAgent, }) => {
+const signMentorContract = async ({ mentorUserId, code, agreementAccepted, informationConfirmed, chinaTaxResident, ip, userAgent, }) => {
     if (!agreementAccepted || !informationConfirmed) {
         throw new MentorContractError('MENTOR_CONTRACT_CONFIRMATIONS_REQUIRED', '请勾选两项确认后再签署', 400);
     }
+    const verifiedChinaTaxResident = requireChinaTaxResident(chinaTaxResident);
     const normalizedCode = String(code || '').trim();
     if (!/^\d{6}$/.test(normalizedCode)) {
         throw new MentorContractError('MENTOR_CONTRACT_CODE_INVALID_FORMAT', '请输入 6 位验证码', 400);
@@ -339,6 +364,10 @@ const signMentorContract = async ({ mentorUserId, code, agreementAccepted, infor
           WHERE id = ? AND status = 'generating'`, [signature.id]);
             signature.status = 'failed';
         }
+        if (signature.china_tax_resident == null
+            || Boolean(Number(signature.china_tax_resident)) !== verifiedChinaTaxResident) {
+            throw new MentorContractError('MENTOR_CONTRACT_TAX_RESIDENCY_CHANGED', '税务居民选择已变化，请重新发送验证码', 409);
+        }
         const [codeRows] = await conn.execute(`SELECT * FROM mentor_contract_email_codes
         WHERE contract_signature_id = ?
         ORDER BY id DESC LIMIT 1 FOR UPDATE`, [signature.id]);
@@ -377,8 +406,9 @@ const signMentorContract = async ({ mentorUserId, code, agreementAccepted, infor
         await conn.execute(`UPDATE mentor_contract_signatures
           SET status = 'generating', signing_started_at = ?, signed_at = ?, signed_ip = ?,
               signed_user_agent = ?, email_verification_code_id = ?, email_verified_at = ?,
+              tax_residency_declared_at = ?,
               failure_code = NULL, failure_detail = NULL
-        WHERE id = ? AND status <> 'signed'`, [now, signedAt, ip || null, userAgent || null, codeRow.id, now, signature.id]);
+        WHERE id = ? AND status <> 'signed'`, [now, signedAt, ip || null, userAgent || null, codeRow.id, now, now, signature.id]);
         signature.status = 'generating';
         signature.signing_started_at = now;
         signature.signed_at = signedAt;
@@ -434,6 +464,8 @@ const signMentorContract = async ({ mentorUserId, code, agreementAccepted, infor
                 docxSha256: artifacts.docxSha256,
                 pdfSha256: artifacts.pdfSha256,
                 emailVerificationCodeId: codeRow.id,
+                chinaTaxResident: verifiedChinaTaxResident,
+                taxResidencyDeclarationVersion: TAX_RESIDENCY_DECLARATION_VERSION,
             },
         });
         return {

@@ -1,4 +1,5 @@
 import { query } from '../db';
+import { ensureMentorContractSchema } from './mentorContractSchema';
 
 let adminSchemaEnsured = false;
 
@@ -54,6 +55,8 @@ const ensureMentorPayrollStatusEnum = async () => {
 
 export const ensureAdminSchema = async () => {
   if (adminSchemaEnsured) return true;
+
+  await ensureMentorContractSchema();
 
   await query(`
     CREATE TABLE IF NOT EXISTS admin_users (

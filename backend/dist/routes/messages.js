@@ -75,6 +75,18 @@ const MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL = `
     OR mi.id > mta.archived_after_message_id
   )
 `;
+const MESSAGE_COUNTS_AS_UNREAD_SQL = `
+  (
+    mi.message_type <> 'lesson_hours_confirmation'
+    OR (
+      unread_lhc.message_item_id IS NOT NULL
+      AND (
+        (unread_lhc.student_user_id = ? AND unread_lhc.status = 'pending')
+        OR (unread_lhc.mentor_user_id = ? AND unread_lhc.status = 'disputed')
+      )
+    )
+  )
+`;
 const pad2 = (n) => String(n).padStart(2, '0');
 const formatUtcDatetime = (date) => {
     const y = date.getUTCFullYear();
@@ -2103,6 +2115,10 @@ router.post('/lesson-hour-confirmations/:messageId/respond', auth_1.requireAuth,
       SET last_message_id = ?, last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
       `, [messageId, Number(row.thread_id)]);
+        await conn.execute(`
+      INSERT IGNORE INTO message_item_reads (message_item_id, user_id)
+      VALUES (?, ?)
+      `, [messageId, req.user.id]);
         await conn.commit();
         void sendAppointmentNotificationSafely({
             kind: status === 'confirmed' ? 'hours_confirmed' : 'hours_disputed',
@@ -2701,12 +2717,24 @@ router.get('/unread-summary', auth_1.requireAuth, async (req, res) => {
       LEFT JOIN message_item_reads mir
         ON mir.message_item_id = mi.id
        AND mir.user_id = ?
+      LEFT JOIN lesson_hour_confirmations unread_lhc
+        ON unread_lhc.message_item_id = mi.id
       WHERE (t.student_user_id = ? OR t.mentor_user_id = ?)
         AND mi.sender_user_id <> ?
         AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
+        AND ${MESSAGE_COUNTS_AS_UNREAD_SQL}
         AND mihfu.message_item_id IS NULL
         AND mir.message_item_id IS NULL
-      `, [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, req.user.id]);
+      `, [
+            req.user.id,
+            req.user.id,
+            req.user.id,
+            req.user.id,
+            req.user.id,
+            req.user.id,
+            req.user.id,
+            req.user.id,
+        ]);
         return res.json({
             totalUnreadCount: Math.max(0, Number(rows?.[0]?.unread_count || 0)),
         });
@@ -2991,13 +3019,24 @@ router.get('/threads', auth_1.requireAuth, async (req, res) => {
         LEFT JOIN message_item_reads mir
           ON mir.message_item_id = mi.id
          AND mir.user_id = ?
+        LEFT JOIN lesson_hour_confirmations unread_lhc
+          ON unread_lhc.message_item_id = mi.id
         WHERE mi.thread_id IN (${placeholders})
           AND mi.sender_user_id <> ?
           AND ${MESSAGE_VISIBLE_AFTER_ARCHIVE_SQL}
+          AND ${MESSAGE_COUNTS_AS_UNREAD_SQL}
           AND mihfu.message_item_id IS NULL
           AND mir.message_item_id IS NULL
         GROUP BY mi.thread_id
-        `, [req.user.id, req.user.id, req.user.id, ...threadIds, req.user.id]);
+        `, [
+                req.user.id,
+                req.user.id,
+                req.user.id,
+                ...threadIds,
+                req.user.id,
+                req.user.id,
+                req.user.id,
+            ]);
             const unreadCountByThread = new Map((unreadCountRows || []).map((row) => [
                 String(row?.thread_id || ''),
                 Math.max(0, Number(row?.unread_count || 0)),

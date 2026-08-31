@@ -70,6 +70,7 @@ router.post('/send-code', requireAuth, async (req: Request, res: Response) => {
     return res.json(await sendMentorContractCode({
       mentorUserId: req.user!.id,
       legalName: req.body?.legalName,
+      chinaTaxResident: req.body?.chinaTaxResident,
       ip: requestIp(req),
       userAgent: requestUserAgent(req),
     }));
@@ -85,6 +86,7 @@ router.post(
     body('code').isString().trim().matches(/^\d{6}$/).withMessage('请输入 6 位验证码'),
     body('agreementAccepted').custom((value) => value === true).withMessage('请确认已阅读并同意导师合作协议'),
     body('informationConfirmed').custom((value) => value === true).withMessage('请确认合同中的姓名及相关信息真实准确'),
+    body('chinaTaxResident').custom((value) => typeof value === 'boolean').withMessage('请选择是否为中国税收居民'),
   ],
   async (req: Request, res: Response) => {
     if (!requireMentor(req, res)) return;
@@ -98,6 +100,7 @@ router.post(
         code: req.body.code,
         agreementAccepted: req.body.agreementAccepted === true,
         informationConfirmed: req.body.informationConfirmed === true,
+        chinaTaxResident: req.body.chinaTaxResident,
         ip: requestIp(req),
         userAgent: requestUserAgent(req),
       }));

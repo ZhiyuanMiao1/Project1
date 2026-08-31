@@ -360,11 +360,9 @@ function RefundModal({ open, onClose, onWalletUpdated, onCompleted }) {
                         </strong>
                       </div>
                       <div>
-                        <span>{t('wallet.refundRetained', '退款后本单保留')}</span>
+                        <span>{t('wallet.refundUsedHours', '已使用课时')}</span>
                         <strong>
-                          {quote
-                            ? `${formatNumber(quote.retainedHoursAfter)} ${t('wallet.hours', '小时')}`
-                            : <i className="wallet-refund-quote-placeholder" aria-hidden="true" />}
+                          {`${formatNumber(selectedOrder.consumedHours)} ${t('wallet.hours', '小时')}`}
                         </strong>
                       </div>
                       <div>
