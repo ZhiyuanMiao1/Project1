@@ -205,7 +205,7 @@ const en = {
   'mentorContract.signingArea': 'Signing confirmations',
   'mentorContract.taxResidencyQuestion': 'Are you a Chinese tax resident?',
   'mentorContract.taxResidencyHelpLabel': 'View the Chinese tax resident explanation',
-  'mentorContract.taxResidencyHelp': 'This generally means an individual who is domiciled in China, or who is not domiciled in China but stays in China for 183 days or more in a tax year. Mentory uses this selection to determine tax withholding. If you are unsure, consult a qualified tax professional first.',
+  'mentorContract.taxResidencyHelp': 'This generally means an individual who is domiciled in China, or who is not domiciled in China but stays in China for 183 days or more in a tax year. Mentory uses this selection to determine tax withholding. If you select Yes, Mentory will pay the applicable taxes for you in mainland China; if you select No, the tax-paying entity will be overseas. If you are unsure, consult a qualified tax professional first.',
   'mentorContract.taxResidencyYes': 'Yes',
   'mentorContract.taxResidencyNo': 'No',
   'mentorContract.taxResidencyRequired': 'Select whether you are a Chinese tax resident.',

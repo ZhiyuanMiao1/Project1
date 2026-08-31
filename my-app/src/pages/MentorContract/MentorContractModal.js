@@ -443,14 +443,19 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                     <div className="mentor-contract-tax-residency" role="group" aria-labelledby="mentor-contract-tax-residency-label">
                       <div className="mentor-contract-tax-residency-heading">
                         <span id="mentor-contract-tax-residency-label">{t('mentorContract.taxResidencyQuestion', '您是否为中国税收居民？')}</span>
-                        <details className="mentor-contract-tax-help">
-                          <summary aria-label={t('mentorContract.taxResidencyHelpLabel', '查看中国税收居民说明')}>
+                        <span className="mentor-contract-tax-help">
+                          <button
+                            type="button"
+                            className="mentor-contract-tax-help-trigger"
+                            aria-label={t('mentorContract.taxResidencyHelpLabel', '查看中国税收居民说明')}
+                            aria-describedby="mentor-contract-tax-help-content"
+                          >
                             <FiHelpCircle aria-hidden="true" />
-                          </summary>
-                          <div className="mentor-contract-tax-help-content" role="tooltip">
-                            {t('mentorContract.taxResidencyHelp', '通常指在中国境内有住所，或无住所但一个纳税年度内在中国境内累计居住满 183 天的个人。此选择将用于平台预扣预缴税款；如不确定，请先咨询专业税务人员。')}
-                          </div>
-                        </details>
+                          </button>
+                          <span id="mentor-contract-tax-help-content" className="mentor-contract-tax-help-content" role="tooltip">
+                            {t('mentorContract.taxResidencyHelp', '通常指在中国境内有住所，或无住所但一个纳税年度内在中国境内累计居住满 183 天的个人。此选择将用于平台预扣预缴税款；若选是，则 Mentory 将为你在中国大陆缴纳税费；若选否，则交税主体为海外。如不确定，请先咨询专业税务人员。')}
+                          </span>
+                        </span>
                       </div>
                       <div className="mentor-contract-tax-options">
                         <label>
