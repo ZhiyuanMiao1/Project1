@@ -47,10 +47,9 @@ const sendLessonHoursSubmittedMailSafely = async ({
     const preferences = await getEmailNotificationPreferencesForUser(studentUserId);
     if (!preferences.enabled) return;
     const rows = await query<any[]>(
-      `SELECT su.email, COALESCE(mp.display_name, mu.username, mr.public_id, '') AS actor_name
+      `SELECT su.email, mr.public_id AS mentor_public_id
        FROM users su
        INNER JOIN users mu ON mu.id = ?
-       LEFT JOIN mentor_profiles mp ON mp.user_id = mu.id
        LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
        WHERE su.id = ?
        LIMIT 1`,
@@ -58,7 +57,7 @@ const sendLessonHoursSubmittedMailSafely = async ({
     );
     const to = safeText(rows?.[0]?.email);
     if (!to) return;
-    const actorDisplayName = safeText(rows?.[0]?.actor_name) || (preferences.locale === 'en' ? 'Your mentor' : '导师');
+    const mentorId = safeText(rows?.[0]?.mentor_public_id) || 'Mentor';
     const isEnglish = preferences.locale === 'en';
     const singular = proposedHours === 1;
     await sendAppointmentNotificationMail({
@@ -66,12 +65,13 @@ const sendLessonHoursSubmittedMailSafely = async ({
       to,
       subject: isEnglish ? 'Mentory: Lesson hours to confirm' : 'Mentory 待确认课时',
       eventTitle: isEnglish ? 'Lesson hours submitted' : '课时待确认',
-      actorDisplayName,
+      actorDisplayName: mentorId,
       messageUrl: `${getPublicAppUrl()}/student/messages`,
       description: isEnglish
-        ? `${actorDisplayName} submitted ${proposedHours} lesson hour${singular ? '' : 's'}. Please confirm or dispute within 7 days. If no action is taken, the submitted hours will be confirmed and deducted automatically.`
-        : `${actorDisplayName} 提交了 ${proposedHours} 小时课时。请在 7 天内确认或提出异议；逾期未处理，系统将按导师提交的课时自动确认并扣除。`,
+        ? `${mentorId} submitted ${proposedHours} lesson hour${singular ? '' : 's'}. Please confirm or dispute within 7 days. If no action is taken, the submitted hours will be confirmed and deducted automatically.`
+        : `${mentorId} 提交了 ${proposedHours} 小时课时。请在 7 天内确认或提出异议；逾期未处理，系统将按导师提交的课时自动确认并扣除。`,
       locale: preferences.locale,
+      showActorDetails: false,
     });
   } catch (error) {
     console.error('Lesson hours notification mail error:', error);

@@ -229,6 +229,8 @@ const normalizeStudentCourse = (row) => {
     reviewScores: normalizeReviewScores(row?.reviewScores || row?.review_scores),
     reviewOverallScore: toRating(row?.reviewOverallScore ?? row?.review_overall_score),
     reviewComment: normalizeReviewComment(row?.reviewComment ?? row?.review_comment),
+    reviewRewardEligible: row?.reviewRewardEligible === true || Number(row?.review_reward_eligible) === 1,
+    reviewRewardHours: toDurationHours(row?.reviewRewardHours ?? row?.review_reward_hours) ?? 0.25,
     courseDispute: normalizeCourseDispute(row?.courseDispute || row?.course_dispute),
     latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
     latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
@@ -282,6 +284,8 @@ const normalizeMentorCourse = (row) => {
     reviewScores: null,
     reviewOverallScore: null,
     reviewComment: '',
+    reviewRewardEligible: false,
+    reviewRewardHours: 0.25,
     latestLessonHoursMessageId: safeText(row?.latestLessonHoursMessageId || row?.latest_lesson_hours_message_id),
     latestLessonHoursStatus: safeText(row?.latestLessonHoursStatus || row?.latest_lesson_hours_status).toLowerCase(),
     latestLessonHoursProposedHours: toDurationHours(
@@ -356,7 +360,15 @@ const isCompletedCourse = (course) => {
   return Number.isFinite(endTimestamp) && endTimestamp <= Date.now();
 };
 
-const getReviewSuccessCopy = (message, t = (_key, fallback) => fallback) => {
+const getReviewSuccessCopy = (payload, t = (_key, fallback) => fallback) => {
+  const message = typeof payload === 'string' ? payload : safeText(payload?.message);
+  if (payload?.reviewRewardGranted) {
+    return {
+      title: t('courses.reviewRewardGrantedTitle', '评价已提交'),
+      description: t('courses.reviewRewardGrantedDesc', '0.25 课时已到账'),
+    };
+  }
+
   if (message === 'review_updated') {
     return {
       title: t('courses.reviewUpdatedTitle', '评价已更新'),
@@ -634,6 +646,7 @@ function CoursesPage({ entryRole = 'student' }) {
       reviewScores: nextScores,
       reviewOverallScore: nextOverallScore,
       reviewComment: nextComment,
+      reviewRewardEligible: false,
       rating: nextRating ?? course?.rating ?? null,
       counterpartRating: nextRating ?? course?.counterpartRating ?? null,
     };
@@ -659,13 +672,18 @@ function CoursesPage({ entryRole = 'student' }) {
     return nextDispute ? { ...course, courseDispute: nextDispute } : course;
   };
 
-  const syncReviewedCourseState = (courseId, payload = {}) => {
+  const syncReviewedCourseState = (courseId, payload = {}, mentorPublicId = '') => {
     const normalizedCourseId = safeText(courseId);
     if (!normalizedCourseId) return;
+    const normalizedMentorPublicId = safeText(mentorPublicId);
 
-    setCourses((prev) => prev.map((course) => (
-      safeText(course?.id) === normalizedCourseId ? applyReviewResultToCourse(course, payload) : course
-    )));
+    setCourses((prev) => prev.map((course) => {
+      if (safeText(course?.id) === normalizedCourseId) return applyReviewResultToCourse(course, payload);
+      if (normalizedMentorPublicId && safeText(course?.mentorPublicId) === normalizedMentorPublicId) {
+        return { ...course, reviewRewardEligible: false };
+      }
+      return course;
+    }));
     setActiveCourse((prev) => (
       safeText(prev?.id) === normalizedCourseId ? applyReviewResultToCourse(prev, payload) : prev
     ));
@@ -874,6 +892,7 @@ function CoursesPage({ entryRole = 'student' }) {
 
   const handleReviewSubmit = async (reviewForm) => {
     const courseId = safeText(reviewCourse?.id);
+    const mentorPublicId = safeText(reviewCourse?.mentorPublicId);
     if (!courseId || reviewSubmitting || reviewCourse?.roleInCourse === 'mentor') return;
 
     setReviewSubmitting(true);
@@ -882,8 +901,14 @@ function CoursesPage({ entryRole = 'student' }) {
     try {
       const response = await api.post(`/api/courses/${encodeURIComponent(courseId)}/review`, reviewForm);
       const payload = response?.data || {};
-      syncReviewedCourseState(courseId, payload);
-      setReviewSuccessCopy(getReviewSuccessCopy(payload?.message, t));
+      syncReviewedCourseState(courseId, payload, mentorPublicId);
+      if (payload?.reviewRewardGranted && Number.isFinite(Number(payload?.lessonBalanceHours))) {
+        setWalletSummary((prev) => ({
+          ...prev,
+          remainingHours: Number(payload.lessonBalanceHours),
+        }));
+      }
+      setReviewSuccessCopy(getReviewSuccessCopy(payload, t));
       setReviewCourse(null);
       setShowReviewThanks(true);
     } catch (err) {
@@ -1146,13 +1171,20 @@ function CoursesPage({ entryRole = 'student' }) {
                     >
                       {t('courses.viewReplay', '查看回放')}
                     </Button>
-                    <Button
-                      className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
-                      onClick={() => handleOpenReview(activeCourse)}
-                      disabled={reviewSubmitting}
-                    >
-                      {isReviewed ? t('courses.myReview', '我的评价') : t('courses.reviewMentor', '评价导师')}
-                    </Button>
+                    <div className="course-detail-review-action">
+                      {!isReviewed && activeCourse.reviewRewardEligible ? (
+                        <span className="course-detail-review-corner-tag">
+                          {t('courses.reviewRewardBadge', '评价送课时')}
+                        </span>
+                      ) : null}
+                      <Button
+                        className="course-detail-classroom-btn course-detail-classroom-btn--ghost"
+                        onClick={() => handleOpenReview(activeCourse)}
+                        disabled={reviewSubmitting}
+                      >
+                        {isReviewed ? t('courses.myReview', '我的评价') : t('courses.reviewMentor', '评价导师')}
+                      </Button>
+                    </div>
                   </div>
                   <button
                     type="button"

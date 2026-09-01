@@ -233,13 +233,13 @@ const sendMentorContractEmailCodeMail = async ({ to, code, contractNumber, expir
     await (0, exports.sendMail)({ to, subject, text, html });
 };
 exports.sendMentorContractEmailCodeMail = sendMentorContractEmailCodeMail;
-const sendAppointmentNotificationMail = async ({ recipientUserId, to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, locale = 'zh-CN', }) => {
+const sendAppointmentNotificationMail = async ({ recipientUserId, to, subject, eventTitle, actorDisplayName, windowText = '', messageUrl = '', description, locale = 'zh-CN', showActorDetails = true, }) => {
     const isEnglish = locale === 'en';
     const safeActor = actorDisplayName.trim() || (isEnglish ? 'The other participant' : '对方');
     const safeWindowText = windowText.trim();
     const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
     const details = [
-        { label: isEnglish ? 'From' : '操作人', value: safeActor },
+        ...(showActorDetails ? [{ label: isEnglish ? 'From' : '操作人', value: safeActor }] : []),
         ...(safeWindowText ? [{ label: isEnglish ? 'Time' : '预约时间', value: safeWindowText }] : []),
     ];
     const text = [

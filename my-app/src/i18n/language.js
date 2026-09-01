@@ -377,6 +377,9 @@ const en = {
   'courses.reviewUpdatedDesc': 'Your review has been updated and the new scores replaced the previous record.',
   'courses.reviewSubmittedTitle': 'Thanks for your feedback',
   'courses.reviewSubmittedDesc': 'Your review has been submitted. We will use your feedback to improve mentor service.',
+  'courses.reviewRewardBadge': 'Review & earn hours',
+  'courses.reviewRewardGrantedTitle': 'Review Submitted',
+  'courses.reviewRewardGrantedDesc': '0.25 lesson hours have been added to your balance.',
   'courses.mentorLoginRequired': 'Please log in with a mentor account',
   'courses.accessDenied': 'This account does not have access',
   'courses.studentCoursesLoadFailed': 'Failed to load student courses',
@@ -411,6 +414,7 @@ const en = {
   'courseReview.update': 'Update Review',
   'courseReview.submit': 'Submit Review',
   'courseReview.submitting': 'Submitting...',
+  'courseReview.rewardDescription': 'Review this mentor for the first time and receive 0.25 lesson hours after submitting.',
 
   'courseRequest.step.direction.label': 'Step 1',
   'courseRequest.step.direction.title': 'Define Your Learning Direction',

@@ -222,6 +222,46 @@
   align-self: center;
 }
 
+.course-detail-review-action {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.course-detail-review-action .course-detail-classroom-btn {
+  width: 100%;
+}
+
+.course-detail-review-corner-tag {
+  position: absolute;
+  z-index: 1;
+  top: -9px;
+  right: -4px;
+  padding: 3px 7px 4px 9px;
+  border-radius: 2px 2px 0 2px;
+  background: #f59e0b;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 10px rgba(180, 83, 9, 0.2);
+}
+
+.course-detail-review-corner-tag::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -5px;
+  width: 0;
+  height: 0;
+  border-top: 5px solid #b45309;
+  border-right: 5px solid transparent;
+}
+
 .course-detail-dispute-link {
   position: absolute;
   right: 28px;
@@ -412,5 +452,10 @@
 
   .course-detail-classroom-btn {
     height: 44px;
+  }
+
+  .course-detail-review-corner-tag {
+    top: -7px;
+    right: -2px;
   }
 }

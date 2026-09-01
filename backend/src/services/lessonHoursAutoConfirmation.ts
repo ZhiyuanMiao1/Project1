@@ -71,11 +71,9 @@ const sendAutoConfirmationResultMailSafely = async ({
     const preferences = await getEmailNotificationPreferencesForUser(studentUserId);
     if (!preferences.enabled) return;
     const [rows] = await pool.execute<any[]>(
-      `SELECT su.email,
-              COALESCE(NULLIF(mp.display_name, ''), NULLIF(mu.username, ''), mr.public_id, '') AS mentor_name
+      `SELECT su.email, mr.public_id AS mentor_public_id
        FROM users su
        INNER JOIN users mu ON mu.id = ?
-       LEFT JOIN mentor_profiles mp ON mp.user_id = mu.id
        LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
        WHERE su.id = ?
        LIMIT 1`,
@@ -84,8 +82,7 @@ const sendAutoConfirmationResultMailSafely = async ({
     const to = String(rows?.[0]?.email || '').trim();
     if (!to) return;
     const isEnglish = preferences.locale === 'en';
-    const mentorName = String(rows?.[0]?.mentor_name || '').trim()
-      || (isEnglish ? 'Your mentor' : '您的导师');
+    const mentorId = String(rows?.[0]?.mentor_public_id || '').trim() || 'Mentor';
     const hourText = Number(proposedHours.toFixed(2));
     const confirmed = outcome === 'confirmed';
     await sendAppointmentNotificationMail({
@@ -97,16 +94,17 @@ const sendAutoConfirmationResultMailSafely = async ({
       eventTitle: isEnglish
         ? (confirmed ? 'Lesson hours automatically confirmed' : 'Automatic confirmation not completed')
         : (confirmed ? '课时已自动确认' : '课时自动确认未完成'),
-      actorDisplayName: mentorName,
+      actorDisplayName: mentorId,
       messageUrl: `${getPublicAppUrl()}/student/messages`,
       description: isEnglish
         ? (confirmed
-          ? `You did not respond within the 7-day confirmation period. Mentory automatically confirmed ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorName} and deducted the hours from your balance.`
-          : `You did not respond within the 7-day confirmation period. Mentory could not automatically confirm the ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorName} because your lesson-hour balance is insufficient. No hours were deducted, and this item is still awaiting your response. Mentory will not retry the automatic deduction. Please top up and confirm it manually, or respond in Messages promptly if you disagree with the submitted hours.`)
+          ? `You did not respond within the 7-day confirmation period. Mentory automatically confirmed ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorId} and deducted the hours from your balance.`
+          : `You did not respond within the 7-day confirmation period. Mentory could not automatically confirm the ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorId} because your lesson-hour balance is insufficient. No hours were deducted, and this item is still awaiting your response. Mentory will not retry the automatic deduction. After topping up, open Messages and confirm these ${hourText} lesson hour${hourText === 1 ? '' : 's'} to complete the deduction and settlement. If you disagree with the submitted hours, respond in Messages promptly.`)
         : (confirmed
-          ? `您在 7 天确认期内未处理。Mentory 已自动确认 ${mentorName} 提交的 ${hourText} 小时课时，并从您的课时余额中扣除。`
-          : `您在 7 天确认期内未处理。由于课时余额不足，Mentory 未能自动确认 ${mentorName} 提交的 ${hourText} 小时课时；本次未扣除，当前仍待您处理，系统不会重复自动扣除。请充值后手动确认；如对课时有异议，请尽快前往消息页面处理。`),
+          ? `您在 7 天确认期内未处理。Mentory 已自动确认 ${mentorId} 提交的 ${hourText} 小时课时，并从您的课时余额中扣除。`
+          : `您在 7 天确认期内未处理。由于课时余额不足，Mentory 未能自动确认 ${mentorId} 提交的 ${hourText} 小时课时；本次未扣除，当前仍待您处理，系统不会重复自动扣除。充值后，请前往消息页面确认这笔 ${hourText} 小时课时，以完成扣除和结算；如对课时有异议，请尽快在消息页面处理。`),
       locale: preferences.locale,
+      showActorDetails: false,
     });
   } catch (error) {
     console.error('Lesson hours auto-confirmation result mail error:', error);

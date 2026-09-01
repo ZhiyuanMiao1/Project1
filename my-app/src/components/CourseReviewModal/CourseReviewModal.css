@@ -61,6 +61,16 @@
   color: #0f172a;
 }
 
+.course-review-modal__reward-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .course-review-modal__list {
   display: flex;
   flex-direction: column;
@@ -255,6 +265,12 @@
 
   .course-review-modal__title {
     font-size: 24px;
+  }
+
+  .course-review-modal__reward-note {
+    margin-bottom: 8px;
+    padding: 9px 10px;
+    font-size: 13px;
   }
 
   .course-review-modal__close {

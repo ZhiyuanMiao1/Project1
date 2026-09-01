@@ -32,6 +32,7 @@ type AppointmentNotificationMailInput = {
   messageUrl?: string;
   description: string;
   locale?: 'zh-CN' | 'en';
+  showActorDetails?: boolean;
 };
 
 export type EmailNotificationPreferences = {
@@ -354,6 +355,7 @@ export const sendAppointmentNotificationMail = async ({
   messageUrl = '',
   description,
   locale = 'zh-CN',
+  showActorDetails = true,
 }: AppointmentNotificationMailInput) => {
   const isEnglish = locale === 'en';
   const safeActor = actorDisplayName.trim() || (isEnglish ? 'The other participant' : '对方');
@@ -361,7 +363,7 @@ export const sendAppointmentNotificationMail = async ({
   const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
 
   const details = [
-    { label: isEnglish ? 'From' : '操作人', value: safeActor },
+    ...(showActorDetails ? [{ label: isEnglish ? 'From' : '操作人', value: safeActor }] : []),
     ...(safeWindowText ? [{ label: isEnglish ? 'Time' : '预约时间', value: safeWindowText }] : []),
   ];
 

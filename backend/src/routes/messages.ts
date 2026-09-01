@@ -1497,7 +1497,8 @@ const buildMessagesPageUrl = (role: 'student' | 'mentor' | '') => {
 const getAppointmentActorDisplayName = async (
   actorUserId: number,
   studentUserId: number,
-  mentorUserId: number
+  mentorUserId: number,
+  idOnly = false
 ) => {
   const role = getUserRoleInThread(actorUserId, studentUserId, mentorUserId);
   const rows = role === 'mentor'
@@ -1532,6 +1533,7 @@ const getAppointmentActorDisplayName = async (
   const username = typeof row?.username === 'string' ? row.username.trim() : '';
   const publicId = typeof row?.public_id === 'string' ? row.public_id.trim() : '';
   const displayName = typeof row?.display_name === 'string' ? row.display_name.trim() : '';
+  if (idOnly) return publicId || (role === 'mentor' ? 'Mentor' : 'Student');
   if (role === 'mentor') {
     const mentorName = displayName || username;
     if (mentorName && publicId && mentorName !== publicId) return `${mentorName}（${publicId}）`;
@@ -1567,7 +1569,13 @@ const sendAppointmentNotificationSafely = async ({
     const to = typeof recipient?.email === 'string' ? recipient.email.trim() : '';
     if (!to) return;
 
-    const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId);
+    const isLessonHoursNotification = kind.startsWith('hours_');
+    const actorDisplayName = await getAppointmentActorDisplayName(
+      actorUserId,
+      studentUserId,
+      mentorUserId,
+      isLessonHoursNotification
+    );
     const copy = getAppointmentNotificationCopy(kind, actorDisplayName, preferences.locale, hours);
     const recipientRole = getUserRoleInThread(recipientUserId, studentUserId, mentorUserId);
     const recipientTimeZone = await getRecipientTimeZone(recipientUserId, recipientRole);
@@ -1581,6 +1589,7 @@ const sendAppointmentNotificationSafely = async ({
       messageUrl: buildMessagesPageUrl(recipientRole),
       description: copy.description,
       locale: preferences.locale,
+      showActorDetails: !isLessonHoursNotification,
     });
   } catch (error) {
     console.error('Appointment notification mail error:', error);

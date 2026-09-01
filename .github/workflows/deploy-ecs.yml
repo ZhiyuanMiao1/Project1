@@ -15,7 +15,7 @@ jobs:                                                                # 任务集
 
     steps:                                                           # 步骤列表
       - name: Checkout code                                          # 拉取代码
-        uses: actions/checkout@v4                                    # 使用官方 checkout
+        uses: actions/checkout@v5                                    # 使用基于 Node.js 24 的官方 checkout
 
       - name: Deploy via SSH                                         # 通过 SSH 部署
         uses: appleboy/ssh-action@v1.0.3                             # SSH Action
@@ -103,10 +103,42 @@ jobs:                                                                # 任务集
           set -euo pipefail
           : "${ESA_SITE_ID:?Missing GitHub secret ESA_SITE_ID}"
 
+          run_esa_with_retry() {
+            local description="$1"
+            shift
+            local attempt=1
+            local max_attempts=4
+            local delay_seconds=5
+            local output
+            local status
+
+            while true; do
+              set +e
+              output="$("$@" 2>&1)"
+              status=$?
+              set -e
+              printf '%s\n' "$output"
+
+              if [ "$status" -eq 0 ]; then
+                return 0
+              fi
+
+              if [ "$attempt" -ge "$max_attempts" ] || ! printf '%s\n' "$output" | grep -Eqi 'TooManyRequests|PreloadQueueFull|system load|try again later|request(s)? (are )?too frequent'; then
+                echo "${description} failed with exit code ${status}."
+                return "$status"
+              fi
+
+              echo "${description} hit a transient ESA error; retrying in ${delay_seconds}s (${attempt}/${max_attempts})."
+              sleep "$delay_seconds"
+              attempt=$((attempt + 1))
+              delay_seconds=$((delay_seconds * 2))
+            done
+          }
+
           # React Router 的页面由同一个 index.html 响应；ESA 按 URL 缓存时，
           # 只清理 / 会让 /student 等入口继续引用上一版的懒加载分包，进而白屏。
           purge_content="$(python3 -c 'import json; print(json.dumps({"Files":["https://mentory.cc/","https://mentory.cc/index.html","https://mentory.cc/student","https://mentory.cc/student/course-request","https://mentory.cc/student/favorites","https://mentory.cc/student/recent-visits","https://mentory.cc/student/courses","https://mentory.cc/student/messages","https://mentory.cc/student/wallet","https://mentory.cc/student/settings","https://mentory.cc/student/help","https://mentory.cc/mentor","https://mentory.cc/mentor/courses","https://mentory.cc/mentor/messages","https://mentory.cc/mentor/settings","https://mentory.cc/mentor/help"]}, separators=(",",":")))')"
-          aliyun esa PurgeCaches \
+          run_esa_with_retry "Route cache purge" aliyun esa PurgeCaches \
             --SiteId "$ESA_SITE_ID" \
             --Type file \
             --Content "$purge_content"
@@ -121,17 +153,12 @@ jobs:                                                                # 任务集
           for batch in preload-batch-*; do
             batch_urls="$(cat "$batch")"
             batch_content="$(python3 -c 'import json, sys; print(json.dumps([line.strip() for line in open(sys.argv[1], encoding="utf-8") if line.strip()], separators=(",",":")))' "$batch")"
-            purge_batch_content="$(python3 -c 'import json, sys; print(json.dumps({"Files":[line.strip() for line in open(sys.argv[1], encoding="utf-8") if line.strip()]}, separators=(",",":")))' "$batch")"
-
-            echo "Purging static assets before preload:"
-            printf '%s\n' "$batch_urls"
-            aliyun esa PurgeCaches \
-              --SiteId "$ESA_SITE_ID" \
-              --Type file \
-              --Content "$purge_batch_content"
 
             echo "Preloading static assets:"
-            aliyun esa PreloadCaches \
-              --SiteId "$ESA_SITE_ID" \
-              --Content "$batch_content"
+            printf '%s\n' "$batch_urls"
+            if ! run_esa_with_retry "Static asset preload" aliyun esa PreloadCaches \
+                --SiteId "$ESA_SITE_ID" \
+                --Content "$batch_content"; then
+              echo "::warning::Static asset preloading failed after deployment. The release is live and assets will be cached on first request."
+            fi
           done

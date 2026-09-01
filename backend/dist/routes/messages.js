@@ -1191,7 +1191,7 @@ const buildMessagesPageUrl = (role) => {
     const path = role === 'mentor' ? '/mentor/messages' : '/student/messages';
     return `${(0, mailService_1.getPublicAppUrl)()}${path}`;
 };
-const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentorUserId) => {
+const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentorUserId, idOnly = false) => {
     const role = getUserRoleInThread(actorUserId, studentUserId, mentorUserId);
     const rows = role === 'mentor'
         ? await (0, db_1.query)(`
@@ -1215,6 +1215,8 @@ const getAppointmentActorDisplayName = async (actorUserId, studentUserId, mentor
     const username = typeof row?.username === 'string' ? row.username.trim() : '';
     const publicId = typeof row?.public_id === 'string' ? row.public_id.trim() : '';
     const displayName = typeof row?.display_name === 'string' ? row.display_name.trim() : '';
+    if (idOnly)
+        return publicId || (role === 'mentor' ? 'Mentor' : 'Student');
     if (role === 'mentor') {
         const mentorName = displayName || username;
         if (mentorName && publicId && mentorName !== publicId)
@@ -1241,7 +1243,8 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
         const to = typeof recipient?.email === 'string' ? recipient.email.trim() : '';
         if (!to)
             return;
-        const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId);
+        const isLessonHoursNotification = kind.startsWith('hours_');
+        const actorDisplayName = await getAppointmentActorDisplayName(actorUserId, studentUserId, mentorUserId, isLessonHoursNotification);
         const copy = getAppointmentNotificationCopy(kind, actorDisplayName, preferences.locale, hours);
         const recipientRole = getUserRoleInThread(recipientUserId, studentUserId, mentorUserId);
         const recipientTimeZone = await getRecipientTimeZone(recipientUserId, recipientRole);
@@ -1255,6 +1258,7 @@ const sendAppointmentNotificationSafely = async ({ kind, actorUserId, recipientU
             messageUrl: buildMessagesPageUrl(recipientRole),
             description: copy.description,
             locale: preferences.locale,
+            showActorDetails: !isLessonHoursNotification,
         });
     }
     catch (error) {
