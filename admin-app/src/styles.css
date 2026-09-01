@@ -3910,7 +3910,7 @@ tr:last-child td {
 }
 
 .email-compose-field + .email-compose-field {
-  margin-top: -4px;
+  margin-top: 4px;
 }
 
 .email-compose-field > span {

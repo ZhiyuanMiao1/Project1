@@ -3365,7 +3365,6 @@ function EmailBroadcastsPage() {
                 maxLength={120}
                 placeholder="例如：Mentory 课程服务更新通知"
               />
-              <small>{subject.length} / 120</small>
             </label>
             <label className="email-compose-field">
               <span>邮件正文</span>
@@ -3375,7 +3374,6 @@ function EmailBroadcastsPage() {
                 maxLength={10000}
                 placeholder={'直接填写要发送的内容。\n\n可以使用换行分段，邮件模板会自动保持排版。'}
               />
-              <small>{body.length.toLocaleString('zh-CN')} / 10,000</small>
             </label>
           </fieldset>
 
