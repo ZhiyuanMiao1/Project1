@@ -152,6 +152,7 @@ const ensureAdminSchema = async () => {
       mentor_user_id INT NOT NULL,
       hourly_rate_cny DECIMAL(10,2) NOT NULL DEFAULT 400.00,
       china_tax_resident TINYINT(1) NOT NULL DEFAULT 1,
+      settlement_method ENUM('alipay','wechat','overseas') NOT NULL DEFAULT 'alipay',
       updated_by_admin_id BIGINT NULL,
       created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -159,6 +160,7 @@ const ensureAdminSchema = async () => {
       CONSTRAINT fk_mentor_payroll_profiles_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+    await addColumnIfMissing("ALTER TABLE mentor_payroll_profiles ADD COLUMN settlement_method ENUM('alipay','wechat','overseas') NOT NULL DEFAULT 'alipay' AFTER china_tax_resident");
     await (0, db_1.query)(`
     CREATE TABLE IF NOT EXISTS mentor_payroll_payments (
       id BIGINT NOT NULL AUTO_INCREMENT,

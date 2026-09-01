@@ -662,9 +662,19 @@ function Shell({ onLogout }) {
   const location = useLocation();
   const topbarTitle = getTopbarTitle(location.pathname);
   const isDashboard = location.pathname === '/dashboard';
-  const navigationStats = useAsync(() => api('/api/admin/navigation-stats'), [location.pathname]);
+  const [navigationStatsReload, setNavigationStatsReload] = useState(0);
+  useEffect(() => {
+    const reloadNavigationStats = () => setNavigationStatsReload((value) => value + 1);
+    window.addEventListener('admin-navigation-stats:reload', reloadNavigationStats);
+    return () => window.removeEventListener('admin-navigation-stats:reload', reloadNavigationStats);
+  }, []);
+  const navigationStats = useAsync(
+    () => api('/api/admin/navigation-stats'),
+    [location.pathname, navigationStatsReload]
+  );
   const navCounts = {
     '/mentors/reviews': navigationStats.data?.mentors,
+    '/mentor-payroll': navigationStats.data?.payroll,
     '/orders': navigationStats.data?.orders,
     '/course-disputes': navigationStats.data?.disputes,
   };
@@ -1255,6 +1265,67 @@ function StatusFilterHeader({ value, options, onChange, defaultLabel = '状态',
           </button>
         ))}
       </span>
+    </span>
+  );
+}
+
+function SettlementMethodPicker({ value, options, onChange, disabled, ariaLabel }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const pickerRef = useRef(null);
+  const activeOption = options.find((option) => option.value === value) || options[0];
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const closeOnOutsideInteraction = (event) => {
+      if (!pickerRef.current?.contains(event.target)) setIsOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideInteraction);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isOpen]);
+
+  const selectMethod = (nextValue) => {
+    setIsOpen(false);
+    if (nextValue !== value) onChange(nextValue);
+  };
+
+  return (
+    <span className={`settlement-method-picker${isOpen ? ' open' : ''}`} ref={pickerRef}>
+      <button
+        className="settlement-method-trigger"
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+      >
+        <span className={`badge badge-settlement-${activeOption.value}`}>
+          {disabled ? '保存中…' : activeOption.label}
+        </span>
+      </button>
+      {isOpen ? (
+        <span className="settlement-method-menu" role="menu" aria-label={ariaLabel}>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={option.value === value ? 'active' : ''}
+              onClick={() => selectMethod(option.value)}
+              role="menuitemradio"
+              aria-checked={option.value === value}
+            >
+              <span className={`badge badge-settlement-${option.value}`}>{option.label}</span>
+            </button>
+          ))}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -2203,6 +2274,7 @@ function MentorPayrollPage() {
   const [taxStatus, setTaxStatus] = useState('');
   const [reload, setReload] = useState(0);
   const [updatingMentorId, setUpdatingMentorId] = useState(null);
+  const [updatingSettlementMethodId, setUpdatingSettlementMethodId] = useState(null);
   const [actionError, setActionError] = useState('');
   const { loading, error, data } = useAsync(() => api('/api/admin/mentor-payroll', { params: { month } }), [month, reload]);
   const payroll = useMemo(() => (data?.payroll || []).filter((item) => {
@@ -2221,6 +2293,27 @@ function MentorPayrollPage() {
     { value: 'yes', label: '是' },
     { value: 'no', label: '否' },
   ];
+  const settlementMethodOptions = [
+    { value: 'alipay', label: '支付宝' },
+    { value: 'wechat', label: '微信' },
+    { value: 'overseas', label: '海外支付' },
+  ];
+  const updateSettlementMethod = async (item, settlementMethod) => {
+    if (!item?.mentorUserId || updatingSettlementMethodId || item.settlementMethod === settlementMethod) return;
+    setUpdatingSettlementMethodId(item.mentorUserId);
+    setActionError('');
+    try {
+      await api(`/api/admin/mentor-payroll/${item.mentorUserId}/settlement-method`, {
+        method: 'PATCH',
+        body: { settlementMethod },
+      });
+      setReload((value) => value + 1);
+    } catch (requestError) {
+      setActionError(requestError.message || '结算方式保存失败');
+    } finally {
+      setUpdatingSettlementMethodId(null);
+    }
+  };
   const togglePaymentStatus = async (item) => {
     if (!item?.mentorUserId || updatingMentorId) return;
     setUpdatingMentorId(item.mentorUserId);
@@ -2231,6 +2324,7 @@ function MentorPayrollPage() {
         body: { month, status: item.status === 'paid' ? 'pending' : 'paid' },
       });
       setReload((value) => value + 1);
+      window.dispatchEvent(new Event('admin-navigation-stats:reload'));
     } catch (requestError) {
       setActionError(requestError.message || '发放状态更新失败');
     } finally {
@@ -2244,8 +2338,8 @@ function MentorPayrollPage() {
       <Toolbar><MonthPicker value={month} onChange={setMonth} ariaLabel="薪资月份" /><SearchBox value={q} onChange={setQ} placeholder="搜索导师姓名、邮箱、MentorID" /></Toolbar>
       {actionError ? <div className="page-action-error" role="alert">{actionError}</div> : null}
       <State loading={loading} error={error}>
-        <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', <StatusFilterHeader value={taxStatus} options={taxStatusOptions} onChange={setTaxStatus} defaultLabel="中国纳税" ariaLabel="中国纳税状态筛选" />, '预扣个税', '实际到手', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
-          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, <button className="payroll-status-toggle" type="button" onClick={() => togglePaymentStatus(item)} disabled={updatingMentorId === item.mentorUserId} title={item.status === 'paid' ? '点击改为待发放' : '点击改为已发放'}><span className={`badge badge-${item.status === 'paid' ? 'paid' : 'pending'}`}>{updatingMentorId === item.mentorUserId ? '更新中…' : item.status === 'paid' ? '已发放' : '待发放'}</span></button>,
+        <DataTable className="payroll-table" columns={['导师', '结算课时', '税前收入', <StatusFilterHeader value={taxStatus} options={taxStatusOptions} onChange={setTaxStatus} defaultLabel="中国纳税" ariaLabel="中国纳税状态筛选" />, '预扣个税', '实际到手', '结算方式', <StatusFilterHeader value={status} options={statusOptions} onChange={setStatus} defaultLabel="发放状态" ariaLabel="薪资发放状态筛选" />]} rows={payroll.map((item) => [
+          <div className="payroll-mentor"><strong>{item.mentorName || item.mentorId}</strong><span>{item.mentorId} · {item.email}</span></div>, `${item.settledHours}h`, <strong>¥{formatPayrollCurrency(item.grossIncomeCny)}</strong>, item.chinaTaxResident ? <span className="tax-resident yes">是</span> : <span className="tax-resident no">否</span>, item.chinaTaxResident ? `¥${formatPayrollCurrency(item.withheldTaxCny)}` : '-', <strong className="payroll-net">¥{formatPayrollCurrency(item.netIncomeCny)}</strong>, <SettlementMethodPicker value={item.settlementMethod || 'alipay'} options={settlementMethodOptions} onChange={(settlementMethod) => updateSettlementMethod(item, settlementMethod)} disabled={updatingSettlementMethodId === item.mentorUserId} ariaLabel={`${item.mentorName || item.mentorId}的结算方式`} />, <button className="payroll-status-toggle" type="button" onClick={() => togglePaymentStatus(item)} disabled={updatingMentorId === item.mentorUserId} title={item.status === 'paid' ? '点击改为待发放' : '点击改为已发放'}><span className={`badge badge-${item.status === 'paid' ? 'paid' : 'pending'}`}>{updatingMentorId === item.mentorUserId ? '更新中…' : item.status === 'paid' ? '已发放' : '待发放'}</span></button>,
         ])} />
       </State>
       <div className="payroll-tax-note"><strong>税额口径</strong>中国纳税导师按居民个人劳务报酬预扣预缴估算：单月收入不超过 4,000 元减除 800 元，超过 4,000 元减除 20%；预扣率 20% / 30% / 40%，速算扣除数 0 / 2,000 / 7,000 元。年度汇算结果可能不同。</div>

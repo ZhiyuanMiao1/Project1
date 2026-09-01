@@ -2192,6 +2192,7 @@ router.get('/mentor-payroll', adminAuth_1.requireAdminAuth, async (req, res) => 
               COALESCE(NULLIF(mp.display_name, ''), NULLIF(u.username, ''), u.email) AS mentor_name,
               COALESCE(mpp.hourly_rate_cny, ?) AS configured_hourly_rate_cny,
               COALESCE(mcs.china_tax_resident, mpp.china_tax_resident, 1) AS configured_china_tax_resident,
+              COALESCE(mpp.settlement_method, 'alipay') AS configured_settlement_method,
               COALESCE(earned.settled_hours, 0) AS current_settled_hours,
               pay.id AS payment_id, pay.settled_hours AS paid_settled_hours,
               pay.hourly_rate_cny AS paid_hourly_rate_cny, pay.gross_income_cny AS paid_gross_income_cny,
@@ -2241,6 +2242,9 @@ router.get('/mentor-payroll', adminAuth_1.requireAdminAuth, async (req, res) => 
                 hourlyRateCny,
                 grossIncomeCny,
                 chinaTaxResident,
+                settlementMethod: ['alipay', 'wechat', 'overseas'].includes(String(row.configured_settlement_method))
+                    ? String(row.configured_settlement_method)
+                    : 'alipay',
                 taxableIncomeCny: paid ? toNumber(row.paid_taxable_income_cny) : calculated.taxableIncomeCny,
                 withheldTaxCny: paid ? toNumber(row.paid_withheld_tax_cny) : calculated.withheldTaxCny,
                 netIncomeCny: paid ? toNumber(row.paid_net_income_cny) : calculated.netIncomeCny,
@@ -2297,6 +2301,39 @@ router.put('/mentor-payroll/:mentorUserId/profile', adminAuth_1.requireAdminAuth
     catch (error) {
         console.error('Admin mentor payroll profile update error:', error);
         return res.status(500).json({ error: '薪资配置保存失败' });
+    }
+});
+router.patch('/mentor-payroll/:mentorUserId/settlement-method', adminAuth_1.requireAdminAuth, async (req, res) => {
+    const mentorUserId = toPositiveInt(req.params.mentorUserId, 0);
+    const settlementMethod = safeString(req.body?.settlementMethod, 20).toLowerCase();
+    if (!mentorUserId)
+        return res.status(400).json({ error: '导师 ID 无效' });
+    if (!['alipay', 'wechat', 'overseas'].includes(settlementMethod)) {
+        return res.status(400).json({ error: '结算方式无效' });
+    }
+    try {
+        const mentors = await (0, db_1.query)("SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'mentor' AND mentor_approved = 1 LIMIT 1", [mentorUserId]);
+        if (!mentors?.length)
+            return res.status(404).json({ error: '未找到已通过审核的导师' });
+        const beforeRows = await (0, db_1.query)('SELECT settlement_method FROM mentor_payroll_profiles WHERE mentor_user_id = ? LIMIT 1', [mentorUserId]);
+        await (0, db_1.query)(`INSERT INTO mentor_payroll_profiles (mentor_user_id, settlement_method, updated_by_admin_id)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE settlement_method = VALUES(settlement_method),
+         updated_by_admin_id = VALUES(updated_by_admin_id)`, [mentorUserId, settlementMethod, req.admin?.adminId || null]);
+        const after = { mentorUserId, settlementMethod };
+        await audit({
+            req,
+            action: 'mentor_payroll.settlement_method.update',
+            targetType: 'mentor',
+            targetId: mentorUserId,
+            before: { settlementMethod: safeString(beforeRows?.[0]?.settlement_method, 20) || 'alipay' },
+            after,
+        });
+        return res.json({ profile: after });
+    }
+    catch (error) {
+        console.error('Admin mentor payroll settlement method update error:', error);
+        return res.status(500).json({ error: '结算方式保存失败' });
     }
 });
 router.patch('/mentor-payroll/:mentorUserId/status', adminAuth_1.requireAdminAuth, async (req, res) => {
@@ -2444,12 +2481,38 @@ router.post('/mentor-payroll/:mentorUserId/pay', adminAuth_1.requireAdminAuth, a
 router.get('/navigation-stats', adminAuth_1.requireAdminAuth, async (_req, res) => {
     try {
         await (0, billingOrderExpiry_1.expireStaleBillingOrders)();
-        const [mentorRows, orderRows, disputeRows] = await Promise.all([
+        const defaultHourlyRate = getDefaultMentorHourlyRate();
+        const [mentorRows, payrollRows, orderRows, disputeRows] = await Promise.all([
             (0, db_1.query)(`SELECT COUNT(*) AS count
          FROM user_roles
          WHERE role = 'mentor'
            AND mentor_approved = 0
            AND mentor_review_status IN ('pending', 'interview_pending')`),
+            (0, db_1.query)(`SELECT COUNT(*) AS count
+         FROM user_roles ur
+         JOIN (
+           SELECT lhc.mentor_user_id,
+                  DATE_FORMAT(COALESCE(lhc.settled_at, lhc.updated_at), '%Y-%m') AS payroll_month,
+                  SUM(lhc.final_hours) AS settled_hours
+           FROM lesson_hour_confirmations lhc
+           WHERE lhc.final_hours IS NOT NULL
+             AND lhc.status IN ('confirmed', 'dispute_confirmed')
+             AND COALESCE(lhc.settled_at, lhc.updated_at) < DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01 00:00:00')
+             AND lhc.id = (
+               SELECT MAX(latest.id) FROM lesson_hour_confirmations latest
+               WHERE latest.course_session_id = lhc.course_session_id
+             )
+           GROUP BY lhc.mentor_user_id,
+                    DATE_FORMAT(COALESCE(lhc.settled_at, lhc.updated_at), '%Y-%m')
+         ) earned ON earned.mentor_user_id = ur.user_id
+         LEFT JOIN mentor_payroll_profiles mpp ON mpp.mentor_user_id = ur.user_id
+         LEFT JOIN mentor_payroll_payments pay
+           ON pay.mentor_user_id = ur.user_id
+          AND pay.payroll_month = earned.payroll_month
+         WHERE ur.role = 'mentor'
+           AND ur.mentor_approved = 1
+           AND earned.settled_hours * COALESCE(mpp.hourly_rate_cny, ?) > 0
+           AND COALESCE(pay.status, 'pending') <> 'paid'`, [defaultHourlyRate]),
             (0, db_1.query)(`SELECT COUNT(DISTINCT bo.id) AS count
          FROM billing_orders bo
          WHERE (
@@ -2467,6 +2530,7 @@ router.get('/navigation-stats', adminAuth_1.requireAdminAuth, async (_req, res) 
         ]);
         return res.json({
             mentors: Number(mentorRows?.[0]?.count || 0),
+            payroll: Number(payrollRows?.[0]?.count || 0),
             orders: Number(orderRows?.[0]?.count || 0),
             disputes: Number(disputeRows?.[0]?.count || 0),
         });

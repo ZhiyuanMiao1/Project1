@@ -1131,12 +1131,26 @@ CREATE TABLE IF NOT EXISTS `mentor_payroll_profiles` (
   `mentor_user_id` INT NOT NULL,
   `hourly_rate_cny` DECIMAL(10,2) NOT NULL DEFAULT 400.00,
   `china_tax_resident` TINYINT(1) NOT NULL DEFAULT 1,
+  `settlement_method` ENUM('alipay','wechat','overseas') NOT NULL DEFAULT 'alipay',
   `updated_by_admin_id` BIGINT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`mentor_user_id`),
   CONSTRAINT `fk_mentor_payroll_profiles_mentor` FOREIGN KEY (`mentor_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET @__mx_has_payroll_settlement_method := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mentor_payroll_profiles' AND COLUMN_NAME = 'settlement_method'
+);
+SET @__mx_sql := IF(
+  @__mx_has_payroll_settlement_method = 0,
+  'ALTER TABLE `mentor_payroll_profiles` ADD COLUMN `settlement_method` ENUM(''alipay'',''wechat'',''overseas'') NOT NULL DEFAULT ''alipay'' AFTER `china_tax_resident`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
 
 CREATE TABLE IF NOT EXISTS `mentor_payroll_payments` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
