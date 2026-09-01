@@ -3812,14 +3812,14 @@ tr:last-child td {
   display: grid;
   gap: 16px;
   margin: 0;
-  padding: 22px;
+  padding: 22px 0;
   border: 0;
   border-bottom: 1px solid #edf0f5;
 }
 
 .email-broadcast-form legend {
   width: 100%;
-  margin: 0 0 14px;
+  margin: 0;
   padding: 0;
   color: #172033;
   font-size: 16px;
@@ -3838,7 +3838,7 @@ tr:last-child td {
   align-content: start;
   gap: 8px;
   min-width: 0;
-  min-height: 130px;
+  min-height: 92px;
   padding: 14px;
   border: 1px solid #d9e0e9;
   border-radius: 8px;
@@ -3859,18 +3859,20 @@ tr:last-child td {
 
 .email-audience-option input {
   position: absolute;
-  top: 15px;
-  right: 14px;
-  width: 17px;
-  min-height: 17px;
-  margin: 0;
-  accent-color: #176b87;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .email-audience-option > span {
   display: grid;
   gap: 3px;
-  padding-right: 24px;
 }
 
 .email-audience-option > span strong {
@@ -3936,7 +3938,7 @@ tr:last-child td {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 18px 22px;
+  padding: 18px 0;
 }
 
 .email-form-actions > span {
@@ -3955,7 +3957,7 @@ tr:last-child td {
 .email-send-result {
   display: grid;
   gap: 4px;
-  margin: 18px 22px 0;
+  margin: 18px 0 0;
   padding: 13px 14px;
   border: 1px solid #a7d7c5;
   border-radius: 7px;
@@ -3974,7 +3976,7 @@ tr:last-child td {
 }
 
 .email-broadcast-form > .error {
-  margin: 18px 22px 0;
+  margin: 18px 0 0;
 }
 
 .email-broadcast-preview {

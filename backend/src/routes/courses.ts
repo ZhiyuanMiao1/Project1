@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { Request, Response, Router } from 'express';
+import type { ResultSetHeader } from 'mysql2/promise';
 import { pool, query } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { buildContentDisposition, getRecordingOssClient } from '../services/ossClient';
@@ -49,9 +50,11 @@ const COURSE_DISPUTE_RESOLUTION_CODES = new Set([
 ]);
 const REPLAY_SIGNED_URL_EXPIRE_SECONDS = 60 * 60;
 const REPLAY_LIST_MAX_OBJECTS = 500;
+const COURSE_REVIEW_REWARD_HOURS = 0.25;
 
 let mentorRatingColumnsEnsured = false;
 let courseReviewSchemaEnsured = false;
+let courseReviewRewardSchemaEnsured = false;
 let courseDisputeSchemaEnsured = false;
 let courseAlertColumnsEnsured = false;
 
@@ -304,8 +307,80 @@ const ensureCourseReviewSchema = async () => {
     'ALTER TABLE course_session_reviews ADD COLUMN comment_text TEXT NULL AFTER punctuality_score'
   );
 
-  courseReviewSchemaEnsured = commentColumnReady;
+  const ensureIndex = async (sql: string) => {
+    try {
+      await query(sql);
+      return true;
+    } catch (e: any) {
+      const code = String(e?.code || '');
+      const message = String(e?.message || '');
+      if (code === 'ER_DUP_KEYNAME' || message.includes('Duplicate key name')) return true;
+      return false;
+    }
+  };
+  const pairIndexReady = await ensureIndex(
+    'ALTER TABLE course_session_reviews ADD KEY idx_course_reviews_student_mentor (student_user_id, mentor_user_id)'
+  );
+
+  courseReviewSchemaEnsured = commentColumnReady && pairIndexReady;
   return courseReviewSchemaEnsured;
+};
+
+const ensureCourseReviewRewardSchema = async () => {
+  if (courseReviewRewardSchemaEnsured) return true;
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS platform_lesson_hour_grants (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      public_id VARCHAR(40) NOT NULL,
+      user_id INT NOT NULL,
+      dispute_id BIGINT NULL,
+      granted_hours DECIMAL(10,2) NOT NULL,
+      remaining_hours DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_platform_grant_public_id (public_id),
+      UNIQUE KEY uniq_platform_grant_dispute (dispute_id),
+      KEY idx_platform_grants_user_remaining (user_id, remaining_hours),
+      CONSTRAINT fk_platform_grants_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_platform_grants_dispute FOREIGN KEY (dispute_id) REFERENCES course_session_disputes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  const grantColumns = await query<Array<{ Null?: string; null?: string }>>(
+    "SHOW COLUMNS FROM platform_lesson_hour_grants LIKE 'dispute_id'"
+  );
+  const disputeIdNullable = String(grantColumns?.[0]?.Null || grantColumns?.[0]?.null || '').toUpperCase() === 'YES';
+  if (!disputeIdNullable) {
+    await query('ALTER TABLE platform_lesson_hour_grants MODIFY COLUMN dispute_id BIGINT NULL');
+  }
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS course_review_reward_grants (
+      id BIGINT NOT NULL AUTO_INCREMENT,
+      student_user_id INT NOT NULL,
+      mentor_user_id INT NOT NULL,
+      course_session_id BIGINT NOT NULL,
+      review_id BIGINT NOT NULL,
+      platform_grant_id BIGINT NULL,
+      reward_hours DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uniq_course_review_reward_student_mentor (student_user_id, mentor_user_id),
+      UNIQUE KEY uniq_course_review_reward_review (review_id),
+      UNIQUE KEY uniq_course_review_reward_platform_grant (platform_grant_id),
+      KEY idx_course_review_reward_created (created_at),
+      CONSTRAINT fk_course_review_reward_student FOREIGN KEY (student_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_review_reward_mentor FOREIGN KEY (mentor_user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_review_reward_session FOREIGN KEY (course_session_id) REFERENCES course_sessions(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_review_reward_review FOREIGN KEY (review_id) REFERENCES course_session_reviews(id) ON DELETE CASCADE,
+      CONSTRAINT fk_course_review_reward_platform_grant FOREIGN KEY (platform_grant_id) REFERENCES platform_lesson_hour_grants(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  courseReviewRewardSchemaEnsured = true;
+  return true;
 };
 
 const ensureCourseDisputeSchema = async () => {
@@ -496,6 +571,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       }
       await ensureCourseReviewSchema();
       await ensureCourseDisputeSchema();
+      await ensureCourseReviewRewardSchema();
     }
 
     const sql = view === 'student'
@@ -521,6 +597,23 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
           csr.punctuality_score AS review_punctuality_score,
           csr.comment_text AS review_comment,
           csr.overall_score AS review_overall_score,
+          CASE
+            WHEN csr.id IS NULL
+              AND NOT EXISTS (
+                SELECT 1
+                FROM course_session_reviews prior_review
+                WHERE prior_review.student_user_id = cs.student_user_id
+                  AND prior_review.mentor_user_id = cs.mentor_user_id
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM course_review_reward_grants prior_reward
+                WHERE prior_reward.student_user_id = cs.student_user_id
+                  AND prior_reward.mentor_user_id = cs.mentor_user_id
+              )
+            THEN 1
+            ELSE 0
+          END AS review_reward_eligible,
           csd.public_id AS dispute_public_id,
           csd.reason_code AS dispute_reason_code,
           csd.description_text AS dispute_description,
@@ -591,6 +684,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
           NULL AS review_punctuality_score,
           NULL AS review_comment,
           NULL AS review_overall_score,
+          0 AS review_reward_eligible,
           latest_lhc.message_item_id AS latest_lesson_hours_message_id,
           latest_lhc.proposed_hours AS latest_lesson_hours_proposed_hours,
           latest_lhc.final_hours AS latest_lesson_hours_final_hours,
@@ -642,6 +736,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         counterpartPublicId: typeof row?.counterpart_public_id === 'string' ? row.counterpart_public_id.trim() : '',
         counterpartAvatarUrl: typeof row?.counterpart_avatar_url === 'string' ? row.counterpart_avatar_url.trim() : '',
         counterpartRating: toNumber(row?.counterpart_rating),
+        reviewRewardEligible: Number(row?.review_reward_eligible) === 1,
+        reviewRewardHours: COURSE_REVIEW_REWARD_HOURS,
         latestLessonHoursMessageId: row?.latest_lesson_hours_message_id == null
           ? ''
           : String(row.latest_lesson_hours_message_id),
@@ -932,6 +1028,8 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
       return res.status(500).json({ error: 'mentor_rating_init_failed' });
     }
     await ensureCourseReviewSchema();
+    await ensureCourseDisputeSchema();
+    await ensureCourseReviewRewardSchema();
   } catch (e) {
     console.error('Ensure course review schema error:', e);
     return res.status(500).json({ error: 'course_review_schema_init_failed' });
@@ -948,6 +1046,7 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
         FROM course_sessions
         WHERE id = ?
         LIMIT 1
+        FOR UPDATE
       `,
       [courseId]
     );
@@ -978,6 +1077,22 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
     const existing = existingRows?.[0];
     const overallScore = getOverallScore(scores);
     const mentorUserId = Number(session.mentor_user_id);
+    let hadPriorMentorReview = false;
+
+    if (!existing) {
+      const [priorReviewRowsRaw] = await connection.query(
+        `
+          SELECT id
+          FROM course_session_reviews
+          WHERE student_user_id = ? AND mentor_user_id = ?
+          LIMIT 1
+        `,
+        [req.user.id, mentorUserId]
+      );
+      hadPriorMentorReview = Boolean((priorReviewRowsRaw as any[])?.[0]);
+    }
+
+    let reviewId = Number(existing?.id || 0);
 
     if (existing) {
       await connection.query(
@@ -1005,7 +1120,7 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
         ]
       );
     } else {
-      await connection.query(
+      const [insertResult] = await connection.query<ResultSetHeader>(
         `
           INSERT INTO course_session_reviews (
             course_session_id,
@@ -1033,6 +1148,63 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
           overallScore,
         ]
       );
+      reviewId = Number(insertResult.insertId);
+    }
+
+    let reviewRewardGranted = false;
+    let lessonBalanceHours: number | null = null;
+
+    if (!existing && !hadPriorMentorReview && reviewId > 0) {
+      let rewardClaimId = 0;
+      try {
+        const [claimResult] = await connection.query<ResultSetHeader>(
+          `
+            INSERT INTO course_review_reward_grants (
+              student_user_id,
+              mentor_user_id,
+              course_session_id,
+              review_id,
+              reward_hours
+            ) VALUES (?, ?, ?, ?, ?)
+          `,
+          [req.user.id, mentorUserId, courseId, reviewId, COURSE_REVIEW_REWARD_HOURS]
+        );
+        rewardClaimId = Number(claimResult.insertId);
+      } catch (claimError: any) {
+        if (String(claimError?.code || '') !== 'ER_DUP_ENTRY') throw claimError;
+      }
+
+      if (rewardClaimId > 0) {
+        const grantPublicId = `review-${crypto.randomBytes(12).toString('hex')}`;
+        const [grantResult] = await connection.query<ResultSetHeader>(
+          `
+            INSERT INTO platform_lesson_hour_grants (
+              public_id,
+              user_id,
+              dispute_id,
+              granted_hours,
+              remaining_hours
+            ) VALUES (?, ?, NULL, ?, ?)
+          `,
+          [grantPublicId, req.user.id, COURSE_REVIEW_REWARD_HOURS, COURSE_REVIEW_REWARD_HOURS]
+        );
+        const platformGrantId = Number(grantResult.insertId);
+
+        await connection.query(
+          'UPDATE course_review_reward_grants SET platform_grant_id = ? WHERE id = ?',
+          [platformGrantId, rewardClaimId]
+        );
+        await connection.query(
+          'UPDATE users SET lesson_balance_hours = lesson_balance_hours + ? WHERE id = ?',
+          [COURSE_REVIEW_REWARD_HOURS, req.user.id]
+        );
+        const [balanceRowsRaw] = await connection.query(
+          'SELECT lesson_balance_hours FROM users WHERE id = ? LIMIT 1',
+          [req.user.id]
+        );
+        lessonBalanceHours = toNumber((balanceRowsRaw as any[])?.[0]?.lesson_balance_hours);
+        reviewRewardGranted = true;
+      }
     }
 
     const { mentorRating, mentorReviewCount } = await recalculateMentorRating(connection, mentorUserId);
@@ -1061,6 +1233,10 @@ router.post('/:courseId/review', requireAuth, async (req: Request, res: Response
       reviewComment: typeof saved.review_comment === 'string' ? saved.review_comment.trim() : '',
       mentorRating,
       mentorReviewCount,
+      reviewRewardEligible: false,
+      reviewRewardGranted,
+      reviewRewardHours: reviewRewardGranted ? COURSE_REVIEW_REWARD_HOURS : 0,
+      lessonBalanceHours,
     });
   } catch (e: any) {
     try {

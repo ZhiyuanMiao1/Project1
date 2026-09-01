@@ -3349,7 +3349,6 @@ function EmailBroadcastsPage() {
                     <strong>{option.label}</strong>
                     <em>{countsState.loading ? '统计中…' : countsState.error ? '人数暂不可用' : `${Number(counts[option.value] || 0).toLocaleString('zh-CN')} 人`}</em>
                   </span>
-                  <small>{option.description}</small>
                 </label>
               ))}
             </div>

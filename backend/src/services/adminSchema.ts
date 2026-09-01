@@ -147,7 +147,7 @@ export const ensureAdminSchema = async () => {
       id BIGINT NOT NULL AUTO_INCREMENT,
       public_id VARCHAR(40) NOT NULL,
       user_id INT NOT NULL,
-      dispute_id BIGINT NOT NULL,
+      dispute_id BIGINT NULL,
       granted_hours DECIMAL(10,2) NOT NULL,
       remaining_hours DECIMAL(10,2) NOT NULL,
       created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,

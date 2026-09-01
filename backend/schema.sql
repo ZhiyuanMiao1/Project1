@@ -934,6 +934,7 @@ CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
   `responded_by_user_id` INT NULL,
   `responded_at` TIMESTAMP NULL DEFAULT NULL,
   `settled_at` TIMESTAMP NULL DEFAULT NULL,
+  `auto_confirm_attempted_at` TIMESTAMP NULL DEFAULT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -942,6 +943,7 @@ CREATE TABLE IF NOT EXISTS `lesson_hour_confirmations` (
   KEY `idx_lesson_hour_confirmations_course` (`course_session_id`, `created_at`),
   KEY `idx_lesson_hour_confirmations_student` (`student_user_id`, `status`),
   KEY `idx_lesson_hour_confirmations_mentor` (`mentor_user_id`, `status`),
+  KEY `idx_lesson_hour_confirmations_auto_scan` (`status`, `auto_confirm_attempted_at`, `created_at`),
   CONSTRAINT `fk_lesson_hour_confirmations_message` FOREIGN KEY (`message_item_id`) REFERENCES `message_items`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_lesson_hour_confirmations_thread` FOREIGN KEY (`thread_id`) REFERENCES `message_threads`(`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_lesson_hour_confirmations_course` FOREIGN KEY (`course_session_id`) REFERENCES `course_sessions`(`id`) ON DELETE CASCADE,
@@ -960,6 +962,38 @@ SET @__mx_has_lesson_disputed_hours := (
 SET @__mx_sql := IF(
   @__mx_has_lesson_disputed_hours = 0,
   'ALTER TABLE `lesson_hour_confirmations` ADD COLUMN `disputed_hours` DECIMAL(6,2) NULL AFTER `proposed_hours`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_lesson_auto_confirm_attempted_at := (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'lesson_hour_confirmations'
+    AND COLUMN_NAME = 'auto_confirm_attempted_at'
+);
+SET @__mx_sql := IF(
+  @__mx_has_lesson_auto_confirm_attempted_at = 0,
+  'ALTER TABLE `lesson_hour_confirmations` ADD COLUMN `auto_confirm_attempted_at` TIMESTAMP NULL DEFAULT NULL AFTER `settled_at`',
+  'SELECT 1'
+);
+PREPARE __mx_stmt FROM @__mx_sql;
+EXECUTE __mx_stmt;
+DEALLOCATE PREPARE __mx_stmt;
+
+SET @__mx_has_lesson_auto_scan_index := (
+  SELECT COUNT(*)
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'lesson_hour_confirmations'
+    AND INDEX_NAME = 'idx_lesson_hour_confirmations_auto_scan'
+);
+SET @__mx_sql := IF(
+  @__mx_has_lesson_auto_scan_index = 0,
+  'ALTER TABLE `lesson_hour_confirmations` ADD KEY `idx_lesson_hour_confirmations_auto_scan` (`status`, `auto_confirm_attempted_at`, `created_at`)',
   'SELECT 1'
 );
 PREPARE __mx_stmt FROM @__mx_sql;

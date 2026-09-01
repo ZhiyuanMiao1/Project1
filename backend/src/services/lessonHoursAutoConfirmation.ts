@@ -2,6 +2,11 @@ import { pool } from '../db';
 import { recomputeMentorCompletedSessionCount } from './mentorRecommendation';
 import { isWalletHoursError } from './walletHours';
 import { ensureLessonHourReservationSchema, settleLessonHours } from './lessonHourReservations';
+import {
+  getEmailNotificationPreferencesForUser,
+  getPublicAppUrl,
+  sendAppointmentNotificationMail,
+} from './mailService';
 
 export const LESSON_HOURS_AUTO_CONFIRM_DAYS = 7;
 export const LESSON_HOURS_AUTO_CONFIRM_MS = LESSON_HOURS_AUTO_CONFIRM_DAYS * 24 * 60 * 60 * 1000;
@@ -13,6 +18,99 @@ type AutoConfirmationResult = {
   confirmed: number;
   insufficientHours: number;
   skipped: number;
+};
+
+type AutoConfirmationOutcome = 'confirmed' | 'insufficient_hours';
+
+let autoConfirmationSchemaPromise: Promise<void> | null = null;
+
+const ensureLessonHoursAutoConfirmationSchema = async () => {
+  if (!autoConfirmationSchemaPromise) {
+    autoConfirmationSchemaPromise = (async () => {
+      try {
+        await pool.execute(
+          `ALTER TABLE lesson_hour_confirmations
+           ADD COLUMN auto_confirm_attempted_at TIMESTAMP NULL DEFAULT NULL AFTER settled_at`
+        );
+      } catch (error: any) {
+        const code = String(error?.code || '');
+        const message = String(error?.message || '');
+        if (code !== 'ER_DUP_FIELDNAME' && !message.includes('Duplicate column name')) throw error;
+      }
+      try {
+        await pool.execute(
+          `ALTER TABLE lesson_hour_confirmations
+           ADD KEY idx_lesson_hour_confirmations_auto_scan
+             (status, auto_confirm_attempted_at, created_at)`
+        );
+      } catch (error: any) {
+        const code = String(error?.code || '');
+        const message = String(error?.message || '');
+        if (code !== 'ER_DUP_KEYNAME' && !message.includes('Duplicate key name')) throw error;
+      }
+    })().catch((error) => {
+        autoConfirmationSchemaPromise = null;
+        throw error;
+    });
+  }
+  return autoConfirmationSchemaPromise;
+};
+
+const sendAutoConfirmationResultMailSafely = async ({
+  studentUserId,
+  mentorUserId,
+  proposedHours,
+  outcome,
+}: {
+  studentUserId: number;
+  mentorUserId: number;
+  proposedHours: number;
+  outcome: AutoConfirmationOutcome;
+}) => {
+  try {
+    const preferences = await getEmailNotificationPreferencesForUser(studentUserId);
+    if (!preferences.enabled) return;
+    const [rows] = await pool.execute<any[]>(
+      `SELECT su.email,
+              COALESCE(NULLIF(mp.display_name, ''), NULLIF(mu.username, ''), mr.public_id, '') AS mentor_name
+       FROM users su
+       INNER JOIN users mu ON mu.id = ?
+       LEFT JOIN mentor_profiles mp ON mp.user_id = mu.id
+       LEFT JOIN user_roles mr ON mr.user_id = mu.id AND mr.role = 'mentor'
+       WHERE su.id = ?
+       LIMIT 1`,
+      [mentorUserId, studentUserId]
+    );
+    const to = String(rows?.[0]?.email || '').trim();
+    if (!to) return;
+    const isEnglish = preferences.locale === 'en';
+    const mentorName = String(rows?.[0]?.mentor_name || '').trim()
+      || (isEnglish ? 'Your mentor' : '您的导师');
+    const hourText = Number(proposedHours.toFixed(2));
+    const confirmed = outcome === 'confirmed';
+    await sendAppointmentNotificationMail({
+      recipientUserId: studentUserId,
+      to,
+      subject: isEnglish
+        ? (confirmed ? 'Mentory: Lesson hours automatically confirmed' : 'Mentory: Lesson-hour balance insufficient')
+        : (confirmed ? 'Mentory 课时已自动确认' : 'Mentory 课时余额不足，请及时处理'),
+      eventTitle: isEnglish
+        ? (confirmed ? 'Lesson hours automatically confirmed' : 'Automatic confirmation not completed')
+        : (confirmed ? '课时已自动确认' : '课时自动确认未完成'),
+      actorDisplayName: mentorName,
+      messageUrl: `${getPublicAppUrl()}/student/messages`,
+      description: isEnglish
+        ? (confirmed
+          ? `You did not respond within the 7-day confirmation period. Mentory automatically confirmed ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorName} and deducted the hours from your balance.`
+          : `You did not respond within the 7-day confirmation period. Mentory could not automatically confirm the ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorName} because your lesson-hour balance is insufficient. No hours were deducted, and this item is still awaiting your response. Mentory will not retry the automatic deduction. Please top up and confirm it manually, or respond in Messages promptly if you disagree with the submitted hours.`)
+        : (confirmed
+          ? `您在 7 天确认期内未处理。Mentory 已自动确认 ${mentorName} 提交的 ${hourText} 小时课时，并从您的课时余额中扣除。`
+          : `您在 7 天确认期内未处理。由于课时余额不足，Mentory 未能自动确认 ${mentorName} 提交的 ${hourText} 小时课时；本次未扣除，当前仍待您处理，系统不会重复自动扣除。请充值后手动确认；如对课时有异议，请尽快前往消息页面处理。`),
+      locale: preferences.locale,
+    });
+  } catch (error) {
+    console.error('Lesson hours auto-confirmation result mail error:', error);
+  }
 };
 
 export const getLessonHoursAutoConfirmAt = (createdAt: unknown) => {
@@ -36,6 +134,7 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
         lhc.mentor_user_id,
         lhc.proposed_hours,
         lhc.status,
+        lhc.auto_confirm_attempted_at,
         lhc.created_at
       FROM lesson_hour_confirmations lhc
       WHERE lhc.id = ?
@@ -45,7 +144,11 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
       [confirmationId]
     );
     const row = rows?.[0];
-    if (!row || String(row.status || '').toLowerCase() !== 'pending') {
+    if (
+      !row
+      || String(row.status || '').toLowerCase() !== 'pending'
+      || row.auto_confirm_attempted_at
+    ) {
       await conn.rollback();
       return 'skipped';
     }
@@ -71,12 +174,32 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
       return 'skipped';
     }
 
-    await settleLessonHours(
-      conn,
-      Number(row.student_user_id),
-      Number(row.course_session_id),
-      proposedHours
-    );
+    await conn.query('SAVEPOINT auto_confirm_settlement');
+    try {
+      await settleLessonHours(
+        conn,
+        Number(row.student_user_id),
+        Number(row.course_session_id),
+        proposedHours
+      );
+    } catch (error) {
+      if (!isWalletHoursError(error) || error.code !== 'INSUFFICIENT_HOURS') throw error;
+      await conn.query('ROLLBACK TO SAVEPOINT auto_confirm_settlement');
+      await conn.execute(
+        `UPDATE lesson_hour_confirmations
+         SET auto_confirm_attempted_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status = 'pending' AND auto_confirm_attempted_at IS NULL`,
+        [confirmationId]
+      );
+      await conn.commit();
+      await sendAutoConfirmationResultMailSafely({
+        studentUserId: Number(row.student_user_id),
+        mentorUserId: Number(row.mentor_user_id),
+        proposedHours,
+        outcome: 'insufficient_hours',
+      });
+      return 'insufficient_hours';
+    }
 
     await conn.execute(
       `
@@ -86,7 +209,8 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
           final_hours = ?,
           responded_by_user_id = NULL,
           responded_at = CURRENT_TIMESTAMP,
-          settled_at = CURRENT_TIMESTAMP
+          settled_at = CURRENT_TIMESTAMP,
+          auto_confirm_attempted_at = CURRENT_TIMESTAMP
       WHERE id = ? AND status = 'pending'
       `,
       [proposedHours, confirmationId]
@@ -97,12 +221,15 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
     );
     await recomputeMentorCompletedSessionCount(conn, Number(row.mentor_user_id));
     await conn.commit();
+    await sendAutoConfirmationResultMailSafely({
+      studentUserId: Number(row.student_user_id),
+      mentorUserId: Number(row.mentor_user_id),
+      proposedHours,
+      outcome: 'confirmed',
+    });
     return 'confirmed';
   } catch (error) {
     try { await conn.rollback(); } catch {}
-    if (isWalletHoursError(error) && error.code === 'INSUFFICIENT_HOURS') {
-      return 'insufficient_hours';
-    }
     throw error;
   } finally {
     try { conn.release(); } catch {}
@@ -111,6 +238,7 @@ const autoConfirmOne = async (confirmationId: number): Promise<'confirmed' | 'in
 
 export const runLessonHoursAutoConfirmation = async (): Promise<AutoConfirmationResult> => {
   await ensureLessonHourReservationSchema();
+  await ensureLessonHoursAutoConfirmationSchema();
   const [candidateRows] = await pool.execute<any[]>(
     `
     SELECT lhc.id
@@ -121,6 +249,7 @@ export const runLessonHoursAutoConfirmation = async (): Promise<AutoConfirmation
       GROUP BY course_session_id
     ) latest ON latest.latest_id = lhc.id
     WHERE lhc.status = 'pending'
+      AND lhc.auto_confirm_attempted_at IS NULL
       AND lhc.created_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL ${LESSON_HOURS_AUTO_CONFIRM_DAYS} DAY)
     ORDER BY lhc.created_at ASC
     LIMIT ${AUTO_CONFIRM_BATCH_SIZE}
