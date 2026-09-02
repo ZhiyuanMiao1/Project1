@@ -5,12 +5,9 @@ import './StudentWelcomePopup.css';
 import Button from '../common/Button/Button';
 import { useI18n } from '../../i18n/language';
 
-const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, onNavigate }) => {
+const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose }) => {
   const { t } = useI18n();
   const isMentor = role === 'mentor';
-  const handleNavigate = (path) => {
-    if (typeof onNavigate === 'function') onNavigate(path);
-  };
 
   return (
     <div
@@ -28,8 +25,6 @@ const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, o
         <button type="button" className="register-modal-close" onClick={onClose} aria-label={t('common.close', '关闭')}>
           <FiX aria-hidden="true" />
         </button>
-        <h2>{t('auth.registerTitle', '注册')}</h2>
-        <div className="register-modal-divider" />
         <h3>{isMentor ? t('auth.mentorWelcomeTitle', '欢迎成为 Mentory 导师！') : t('auth.studentWelcomeTitle', '欢迎来到 Mentory！')}</h3>
 
         <div className="student-welcome-body">
@@ -64,7 +59,7 @@ const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, o
                   <h5>{t('welcome.mentorEfficiencyTitle', '提高效率')}</h5>
                   <p>
                     {t('welcome.mentorEfficiencyPrefix', '建议在')}
-                    <button type="button" className="student-welcome-inline-link" onClick={() => handleNavigate('/mentor/settings?section=profile')}>{t('welcome.settingsLink', '设置')}</button>
+                    <a className="student-welcome-inline-link" href="/mentor/settings?section=profile" target="_blank" rel="noopener noreferrer">{t('welcome.settingsLink', '设置')}</a>
                     {t('welcome.mentorEfficiencyBody', '个人信息页面提前设置可授课的时间段，提高预约效率；可微信搜索“曼途”，关注官方服务号，及时获得与你专业相关的课程需求推送')}
                   </p>
                 </div>
@@ -84,7 +79,7 @@ const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, o
                 <div>
                   <h5>{t('welcome.studentProfileTitle', '完善个人信息')}</h5>
                   <p>
-                    <button type="button" className="student-welcome-inline-link" onClick={() => handleNavigate('/student/settings?section=profile')}>{t('welcome.profileLink', '个人信息')}</button>
+                    <a className="student-welcome-inline-link" href="/student/settings?section=profile" target="_blank" rel="noopener noreferrer">{t('welcome.profileLink', '个人信息')}</a>
                     {t('welcome.studentProfileBody', '有助于导师了解你的学习背景与需求')}
                   </p>
                 </div>
@@ -95,7 +90,7 @@ const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, o
                   <h5>{t('welcome.studentReviewRewardTitle', '评价导师得课时')}</h5>
                   <p>
                     {t('welcome.studentReviewRewardPrefix', '限时活动：完成课程后，在')}
-                    <button type="button" className="student-welcome-inline-link" onClick={() => handleNavigate('/student/courses')}>{t('welcome.coursesLink', '课程')}</button>
+                    <a className="student-welcome-inline-link" href="/student/courses" target="_blank" rel="noopener noreferrer">{t('welcome.coursesLink', '课程')}</a>
                     {t('welcome.studentReviewRewardBody', '页面评价导师，即可免费获得课时')}
                   </p>
                 </div>
@@ -106,7 +101,7 @@ const StudentWelcomePopup = ({ publicId, role = 'student', onConfirm, onClose, o
                   <h5>{t('welcome.studentSafetyTitle', '保障交易安全')}</h5>
                   <p>
                     {t('welcome.studentSafetyPrefix', 'Mentory 对导师代写、私下接触等行为零容忍。如发现相关行为或对教学质量不满意，可在')}
-                    <button type="button" className="student-welcome-inline-link" onClick={() => handleNavigate('/student/courses')}>{t('welcome.coursesLink', '课程')}</button>
+                    <a className="student-welcome-inline-link" href="/student/courses" target="_blank" rel="noopener noreferrer">{t('welcome.coursesLink', '课程')}</a>
                     {t('welcome.studentSafetyBody', '页面进行投诉，平台会给予充分的奖励')}
                   </p>
                 </div>

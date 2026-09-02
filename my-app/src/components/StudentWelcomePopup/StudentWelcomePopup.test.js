@@ -25,15 +25,13 @@ describe('StudentWelcomePopup', () => {
     container.remove();
   });
 
-  test('shows student guidance and routes inline links', () => {
-    const onNavigate = jest.fn();
+  test('shows student guidance and opens inline links in new tabs', () => {
     act(() => root.render(
       <StudentWelcomePopup
         publicId="s57"
         role="student"
         onClose={jest.fn()}
         onConfirm={jest.fn()}
-        onNavigate={onNavigate}
       />,
     ));
 
@@ -44,14 +42,22 @@ describe('StudentWelcomePopup', () => {
     expect(container.textContent).toContain('垃圾邮件箱');
     expect(container.textContent).not.toContain('提高效率');
 
-    const profileLink = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent === '个人信息');
-    act(() => profileLink.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(onNavigate).toHaveBeenCalledWith('/student/settings?section=profile');
+    const profileLink = [...container.querySelectorAll('a')]
+      .find((link) => link.textContent === '个人信息');
+    expect(profileLink.getAttribute('href')).toBe('/student/settings?section=profile');
+    expect(profileLink.getAttribute('target')).toBe('_blank');
+    expect(profileLink.getAttribute('rel')).toContain('noopener');
+
+    const courseLinks = [...container.querySelectorAll('a')]
+      .filter((link) => link.textContent === '课程');
+    expect(courseLinks).toHaveLength(2);
+    courseLinks.forEach((link) => {
+      expect(link.getAttribute('href')).toBe('/student/courses');
+      expect(link.getAttribute('target')).toBe('_blank');
+    });
   });
 
   test('shows mentor-specific guidance and actions', () => {
-    const onNavigate = jest.fn();
     const onConfirm = jest.fn();
     act(() => root.render(
       <StudentWelcomePopup
@@ -59,7 +65,6 @@ describe('StudentWelcomePopup', () => {
         role="mentor"
         onClose={jest.fn()}
         onConfirm={onConfirm}
-        onNavigate={onNavigate}
       />,
     ));
 
@@ -69,10 +74,10 @@ describe('StudentWelcomePopup', () => {
     expect(container.textContent).toContain('导师行为规范');
     expect(container.textContent).not.toContain('评价导师得课时');
 
-    const settingsLink = [...container.querySelectorAll('button')]
-      .find((button) => button.textContent === '设置');
-    act(() => settingsLink.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(onNavigate).toHaveBeenCalledWith('/mentor/settings?section=profile');
+    const settingsLink = [...container.querySelectorAll('a')]
+      .find((link) => link.textContent === '设置');
+    expect(settingsLink.getAttribute('href')).toBe('/mentor/settings?section=profile');
+    expect(settingsLink.getAttribute('target')).toBe('_blank');
 
     const action = [...container.querySelectorAll('button')]
       .find((button) => button.textContent === '编辑个人名片');

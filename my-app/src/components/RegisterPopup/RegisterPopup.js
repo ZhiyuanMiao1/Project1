@@ -530,7 +530,6 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
           role={role}
           onConfirm={() => completeWelcome(role === 'mentor' ? '/mentor/profile-editor' : '/student')}
           onClose={() => completeWelcome()}
-          onNavigate={completeWelcome}
         />
       )}
       {showEmailCodePopup && (
