@@ -1033,9 +1033,6 @@ const respondMentorReviewDecision = async (req, res, stage, decision) => {
     if (stage === 'resume' && decision === 'reject' && (!note || note.length < 2)) {
         return res.status(400).json({ error: '请填写至少 2 个字的驳回原因' });
     }
-    if (stage === 'interview' && (!note || note.length < 5)) {
-        return res.status(400).json({ error: '请填写简短面评' });
-    }
     let result;
     try {
         result = await executeMentorReviewDecision({

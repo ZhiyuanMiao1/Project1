@@ -2176,9 +2176,9 @@ function MentorReviewsPage() {
         config={dialog ? {
           title: dialog.title,
           description: `目标导师：${dialog.mentor.email} (${dialog.mentor.public_id})`,
-          reasonRequired: !(dialog.stage === 'resume' && dialog.decision === 'pass'),
+          reasonRequired: dialog.stage === 'resume' && dialog.decision === 'reject',
           hideReason: dialog.stage === 'resume' && dialog.decision === 'pass',
-          minLength: dialog.stage === 'interview' ? 5 : 2,
+          minLength: 2,
           maxLength: 500,
           placeholder: dialog.stage === 'interview' ? '填写简短面评' : '填写简历驳回原因',
           showQsTop100: dialog.stage === 'interview' && dialog.decision === 'pass',
