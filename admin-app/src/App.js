@@ -652,7 +652,7 @@ const getTopbarTitle = (pathname) => {
   if (pathname === '/classrooms') return { title: '课堂管理' };
   if (pathname === '/course-disputes') return { title: '异议管理' };
   if (pathname === '/email-broadcasts') return { title: '统一邮件' };
-  if (pathname === '/audit-logs') return { title: '审计日志', subtitle: '后台写操作记录' };
+  if (pathname === '/audit-logs') return { title: '审计日志' };
   const watchMatch = pathname.match(/^\/classrooms\/(\d+)\/watch$/);
   if (watchMatch) return { title: `课堂旁观 #${watchMatch[1]}`, subtitle: '只读模式，不会触发学生或导师操作' };
   return { title: 'Dashboard' };
@@ -3516,7 +3516,7 @@ function AuditLogsPage() {
   );
   return (
     <section>
-      <PageTitle title="审计日志" subtitle="后台写操作记录" />
+      <PageTitle title="审计日志" />
       <Toolbar>
         <input value={action} onChange={(event) => setAction(event.target.value)} placeholder="action" />
         <input value={targetType} onChange={(event) => setTargetType(event.target.value)} placeholder="target type" />
