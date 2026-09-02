@@ -77,11 +77,18 @@
   font-weight: 600;
 }
 
+.email-code-delivery-tip {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .email-code-input-wrap {
   width: min(360px, 100%);
   margin-left: auto;
   margin-right: auto;
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 .email-code-input-grid {

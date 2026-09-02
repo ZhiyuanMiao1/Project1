@@ -181,6 +181,9 @@ function EmailCodePopup({
             {resending ? <LoadingText text={t('emailCode.resending', '发送中...')} /> : t('emailCode.resend', '重新发送')}
           </button>
         </div>
+        <p className="email-code-delivery-tip">
+          {t('emailCode.checkSpamTip', '若未收到邮件，请检查垃圾邮件箱')}
+        </p>
 
         <div className="email-code-input-wrap">
           <div

@@ -146,6 +146,7 @@ const en = {
   'emailCode.title': 'Email Verification Code',
   'emailCode.sentToPrefix': 'Code sent to',
   'emailCode.sentTo': 'Code sent to {email}',
+  'emailCode.checkSpamTip': "If you don't receive the email, please check your spam folder.",
   'emailCode.resending': 'Sending...',
   'emailCode.resend': 'Resend',
   'emailCode.invalidCode': 'Enter the 6-digit code',
