@@ -6,6 +6,7 @@ import { buildShortUTC, getDefaultTimeZone, getZonedParts, mergeBlocksList } fro
 import { buildAvailabilityDaySet, mergeAvailabilityBlocks, normalizeBlockMap } from '../../utils/availabilityBusy';
 import { useI18n } from '../../i18n/language';
 import useMediaQuery from '../../hooks/useMediaQuery';
+import './AvailabilityEditor.css';
 
 const toNoonDate = (dateLike) => {
   if (!dateLike) return dateLike;

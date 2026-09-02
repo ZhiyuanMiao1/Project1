@@ -1,0 +1,344 @@
+/*
+ * Desktop availability controls are shared with the course-request flow, but
+ * Account Settings must own its styles so rendering does not depend on which
+ * route (and CSS chunk) the user visited first.
+ */
+.settings-availability .schedule-sidebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(190px, 0.7fr);
+  gap: 14px;
+  min-width: 0;
+}
+
+.settings-availability .calendar-card {
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.settings-availability .calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 14px;
+}
+
+.settings-availability .calendar-header .month-label {
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.settings-availability .calendar-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-availability .nav-btn {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #000000;
+  -webkit-text-fill-color: #000000;
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-availability .nav-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.settings-availability .nav-btn:disabled {
+  background: transparent;
+  color: #9ca3af;
+  -webkit-text-fill-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.settings-availability .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px 8px;
+}
+
+.settings-availability .calendar-grid .day-name {
+  padding: 4px 0 8px;
+  color: #6b7280;
+  font-size: 12px;
+  text-align: center;
+}
+
+.settings-availability .date-cell {
+  position: relative;
+  display: flex;
+  height: 54px;
+  min-width: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #111827;
+  -webkit-text-fill-color: currentColor;
+  cursor: default;
+}
+
+.settings-availability .date-cell:not(.past):not(.outside) {
+  cursor: pointer;
+}
+
+.settings-availability .date-cell.outside {
+  pointer-events: none;
+}
+
+.settings-availability .date-cell:not(.past):not(.outside):hover,
+.settings-availability .date-cell.range-preview:not(.past):not(.outside) {
+  outline: 2px solid #111827;
+  outline-offset: -2px;
+}
+
+.settings-availability .date-cell.selected,
+.settings-availability .date-cell.multi-selected {
+  background: #111827;
+  color: #ffffff;
+}
+
+.settings-availability .date-cell.past {
+  pointer-events: none;
+}
+
+.settings-availability .date-number {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settings-availability .date-cell.past .date-number {
+  color: #9ca3af;
+}
+
+.settings-availability .date-cell.has-busy:not(.selected):not(.multi-selected) .date-number {
+  color: #f59e0b;
+}
+
+.settings-availability .date-marker {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #e531c7;
+  pointer-events: none;
+}
+
+.settings-availability .date-cell.selected .date-marker,
+.settings-availability .date-cell.multi-selected .date-marker {
+  background: #ffffff;
+}
+
+.settings-availability .schedule-times-panel {
+  display: flex;
+  height: 520px;
+  min-width: 0;
+  padding-left: 16px;
+  flex-direction: column;
+  border-left: 1px solid #e5e7eb;
+}
+
+.settings-availability .times-panel-header {
+  display: flex;
+  padding: 10px 8px 18px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-availability .day-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-availability .duration-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-availability .duration-input .stepper-btn {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #8a8b8d;
+  border-radius: 999px;
+  background: transparent;
+  color: #6a6a6a;
+  -webkit-text-fill-color: #6a6a6a;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settings-availability .duration-input .stepper-btn:hover:not(:disabled) {
+  border-color: #000000;
+}
+
+.settings-availability .duration-input .stepper-btn:disabled {
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  -webkit-text-fill-color: #9ca3af;
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.settings-availability .duration-input .duration-value {
+  min-width: 30px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.settings-availability .duration-input .unit {
+  color: #000000;
+  font-size: 14px;
+}
+
+.settings-availability .duration-input input,
+.settings-availability .duration-input input + .unit {
+  display: none;
+}
+
+.settings-availability .times-list {
+  height: clamp(360px, 52vh, 520px);
+  padding-right: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: none;
+}
+
+.settings-availability .times-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-availability .times-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.settings-availability .time-slot {
+  display: flex;
+  width: 180px;
+  margin: 8px 2px;
+  padding: 10px 12px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  color: #111827;
+  -webkit-text-fill-color: #111827;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-availability .time-slot:hover {
+  border-color: #111827;
+}
+
+.settings-availability .time-slot .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #22c55e;
+}
+
+.settings-availability .time-slot .time-text {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settings-availability .time-slot.selected {
+  border-color: #111827;
+  border-width: 2px;
+}
+
+.settings-availability .time-slot.selected .dot {
+  background: #111827;
+}
+
+.settings-availability .time-slot.disabled,
+.settings-availability .time-slot:disabled {
+  border-color: #e5e7eb;
+  border-width: 1px;
+  background: #ffffff;
+  color: #9ca3af;
+  -webkit-text-fill-color: #9ca3af;
+  pointer-events: none;
+  cursor: default;
+}
+
+.settings-availability .time-slot.disabled .dot,
+.settings-availability .time-slot:disabled .dot {
+  background: #9ca3af;
+}
+
+.settings-availability .time-slot.occupied,
+.settings-availability .time-slot.occupied:disabled {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(255, 247, 237, 0.98);
+  color: #9a3412;
+  -webkit-text-fill-color: #9a3412;
+}
+
+.settings-availability .time-slot.occupied .dot,
+.settings-availability .time-slot.occupied:disabled .dot {
+  background: #f59e0b;
+}
+
+@media (max-width: 960px) and (min-width: 900px) {
+  .settings-availability .schedule-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings-availability .schedule-times-panel {
+    height: auto;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .settings-availability .time-slot {
+    width: calc(100% - 4px);
+  }
+}
