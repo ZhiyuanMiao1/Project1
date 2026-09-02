@@ -3418,27 +3418,36 @@ function EmailBroadcastsPage() {
           {!historyState.loading && !historyState.error ? <span>共 {historyTotal.toLocaleString('zh-CN')} 条</span> : null}
         </div>
         <State loading={historyState.loading} error={historyState.error}>
-          <div className="email-history-list">
-            {historyItems.map((item) => {
-              const option = emailAudienceOptions.find((entry) => entry.value === item.details.audience);
-              const recipients = Number(item.details.recipients || 0);
-              const sent = Number(item.details.sent || 0);
-              const failed = Number(item.details.failed || 0);
-              return (
-                <article className="email-history-item" key={item.id}>
-                  <div className="email-history-meta">
+          <div className="email-history-table-wrap">
+            <div className="email-history-table">
+              <div className="email-history-row email-history-table-head" role="row">
+                <span>时间</span>
+                <span>对象</span>
+                <span>成功情况</span>
+                <span>内容</span>
+              </div>
+              {historyItems.map((item) => {
+                const option = emailAudienceOptions.find((entry) => entry.value === item.details.audience);
+                const recipients = Number(item.details.recipients || 0);
+                const sent = Number(item.details.sent || 0);
+                const failed = Number(item.details.failed || 0);
+                return (
+                  <article className="email-history-row" key={item.id}>
                     <time>{formatDate(item.created_at)}</time>
-                    <strong>{option?.label || item.details.audience || '-'}</strong>
-                    <span>收件人 {recipients.toLocaleString('zh-CN')} · 成功 {sent.toLocaleString('zh-CN')} · 失败 {failed.toLocaleString('zh-CN')}</span>
-                  </div>
-                  <div className="email-history-content">
-                    <strong>{item.details.subject || '-'}</strong>
-                    <p>{item.details.body || '-'}</p>
-                  </div>
-                </article>
-              );
-            })}
-            {!historyItems.length ? <div className="empty">暂无发送记录</div> : null}
+                    <div><strong className="email-history-audience">{option?.label || item.details.audience || '-'}</strong></div>
+                    <div className="email-history-delivery">
+                      <strong>成功 {sent.toLocaleString('zh-CN')}</strong>
+                      <span>失败 {failed.toLocaleString('zh-CN')} · 共 {recipients.toLocaleString('zh-CN')}</span>
+                    </div>
+                    <div className="email-history-content">
+                      <strong>{item.details.subject || '-'}</strong>
+                      <p>{item.details.body || '-'}</p>
+                    </div>
+                  </article>
+                );
+              })}
+              {!historyItems.length ? <div className="empty">暂无发送记录</div> : null}
+            </div>
           </div>
           {historyTotalPages > 1 ? (
             <div className="email-history-pagination">
