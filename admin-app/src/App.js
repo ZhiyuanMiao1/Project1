@@ -2205,6 +2205,7 @@ function MentorDrawer({ userId, onClose }) {
   const { loading, error, data } = useAsync(() => api(`/api/admin/mentors/${userId}/review`), [userId, reload]);
   const mentor = data?.mentor || {};
   const resumeUrl = parseUrlList(mentor.resumeUrls || mentor.mentor_resume_url)[0] || '';
+  const contract = mentor.contract || {};
   const reviewStatus = String(mentor.mentor_review_status || '');
   const resumeResult = reviewStatus === 'pending'
     ? '待审核'
@@ -2226,6 +2227,15 @@ function MentorDrawer({ userId, onClose }) {
       return;
     }
     window.open(buildAdminPreviewUrl(`/api/admin/mentors/${userId}/resume-preview`, token), '_blank');
+  };
+  const openContract = () => {
+    if (!contract.hasSignedPdf) return;
+    const token = getToken();
+    if (!token) {
+      window.alert('后台登录已失效');
+      return;
+    }
+    window.open(buildAdminPreviewUrl(`/api/admin/mentors/${userId}/contract-preview`, token), '_blank');
   };
   return (
     <aside className="drawer wide-drawer">
@@ -2259,6 +2269,17 @@ function MentorDrawer({ userId, onClose }) {
           reviews={data?.reviews || []}
           counterpartLabel="评价学生"
           onCommentDeleted={() => setReload((value) => value + 1)}
+        />
+        <h3>与平台签署的合同文件</h3>
+        <DetailGrid
+          items={contract.hasSignedPdf ? [
+            ['合同文件', <button type="button" className="link-button" onClick={openContract}>打开已签署合同</button>],
+            ['合同编号', contract.contractNumber],
+            ['合同版本', contract.contractVersion],
+            ['签署时间', formatDate(contract.signedAt)],
+          ] : [
+            ['合同文件', '暂无已签署合同'],
+          ]}
         />
       </State>
     </aside>

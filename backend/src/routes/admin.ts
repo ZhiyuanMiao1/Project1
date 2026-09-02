@@ -1412,11 +1412,17 @@ router.get('/mentors/:userId/review', requireAdminAuth, async (req: Request, res
          mp.display_name, mp.gender, mp.degree, mp.school, mp.timezone, mp.courses_json,
          mp.teaching_languages_json, mp.rating, mp.review_count, mp.avatar_url, mp.created_at AS profile_created_at,
          mp.updated_at AS profile_updated_at,
-         s.mentor_resume_url, s.availability_json
+         s.mentor_resume_url, s.availability_json,
+         mcs.status AS mentor_contract_status, mcs.contract_number AS mentor_contract_number,
+         mcs.contract_version AS mentor_contract_version, mcs.signed_at AS mentor_contract_signed_at,
+         mcs.final_pdf_oss_key AS mentor_contract_pdf_oss_key
        FROM user_roles ur
        JOIN users u ON u.id = ur.user_id
        LEFT JOIN mentor_profiles mp ON mp.user_id = ur.user_id
        LEFT JOIN account_settings s ON s.user_id = ur.user_id
+       LEFT JOIN mentor_contract_signatures mcs
+         ON mcs.mentor_user_id = ur.user_id
+        AND mcs.contract_type = 'mentor_cooperation'
        LEFT JOIN admin_users resume_admin ON resume_admin.id = ur.mentor_reviewed_by_admin_id
        LEFT JOIN admin_users interview_admin ON interview_admin.id = ur.mentor_interviewed_by_admin_id
        WHERE ur.user_id = ? AND ur.role = 'mentor'
@@ -1450,6 +1456,18 @@ router.get('/mentors/:userId/review', requireAdminAuth, async (req: Request, res
     mentor.availability = maybeParseJson(mentor.availability_json, null);
     mentor.resumeUrls = parseUrlList(mentor.mentor_resume_url);
     mentor.mentor_resume_url = mentor.resumeUrls[0] || null;
+    mentor.contract = {
+      status: safeString(mentor.mentor_contract_status, 20),
+      contractNumber: safeString(mentor.mentor_contract_number, 64),
+      contractVersion: safeString(mentor.mentor_contract_version, 40),
+      signedAt: mentor.mentor_contract_signed_at || null,
+      hasSignedPdf: mentor.mentor_contract_status === 'signed' && Boolean(mentor.mentor_contract_pdf_oss_key),
+    };
+    delete mentor.mentor_contract_status;
+    delete mentor.mentor_contract_number;
+    delete mentor.mentor_contract_version;
+    delete mentor.mentor_contract_signed_at;
+    delete mentor.mentor_contract_pdf_oss_key;
     return res.json({ mentor, reviews: reviews || [] });
   } catch (error) {
     console.error('Admin mentor review detail error:', error);
@@ -1553,6 +1571,58 @@ router.get('/mentors/:userId/resume-preview', async (req: Request, res: Response
     return result.stream.pipe(res);
   } catch (error) {
     console.error('Admin mentor resume preview error:', error);
+    return res.status(500).json({ error: '服务器错误，请稍后再试' });
+  }
+});
+
+router.get('/mentors/:userId/contract-preview', async (req: Request, res: Response) => {
+  const userId = toPositiveInt(req.params.userId, 0);
+  if (!userId) return res.status(400).json({ error: '无效导师ID' });
+
+  try {
+    const auth = req.headers.authorization || '';
+    const bearerToken = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const admin = await authenticateAdminToken(bearerToken || req.query.token);
+    if (!admin) return res.status(401).json({ error: '后台登录已失效' });
+
+    const rows = await query<any[]>(
+      `SELECT mcs.id, mcs.contract_number, mcs.template_file_name, mcs.final_pdf_oss_key
+       FROM user_roles ur
+       JOIN mentor_contract_signatures mcs
+         ON mcs.mentor_user_id = ur.user_id
+        AND mcs.contract_type = 'mentor_cooperation'
+        AND mcs.status = 'signed'
+       WHERE ur.user_id = ? AND ur.role = 'mentor'
+       LIMIT 1`,
+      [userId]
+    );
+    const contract = rows?.[0];
+    if (!contract?.final_pdf_oss_key) return res.status(404).json({ error: '未找到已签署合同' });
+
+    const client = getOssClient();
+    if (!client) return res.status(500).json({ error: 'OSS 未配置' });
+
+    const templateBaseName = safeString(contract.template_file_name, 255).replace(/\.docx$/i, '');
+    const fileName = `${safeString(contract.contract_number, 64) || `mentor-contract-${userId}`}-${templateBaseName || 'Mentory导师合作协议'}.pdf`;
+    const result = await client.getStream(String(contract.final_pdf_oss_key));
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', buildContentDisposition(fileName, 'inline'));
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Admin-User', admin.username);
+
+    result.stream.on('error', (error: Error) => {
+      console.error('Admin mentor contract preview stream error:', error);
+      if (!res.headersSent) {
+        res.status(500).end('预览失败');
+      } else {
+        res.end();
+      }
+    });
+
+    return result.stream.pipe(res);
+  } catch (error) {
+    console.error('Admin mentor contract preview error:', error);
     return res.status(500).json({ error: '服务器错误，请稍后再试' });
   }
 });

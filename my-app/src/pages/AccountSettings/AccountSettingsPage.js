@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   FiAward,
   FiBell,
@@ -148,6 +149,7 @@ const countCompletedCourses = (courses) => {
 
 function AccountSettingsPage({ mode = 'student' }) {
   const { t } = useI18n();
+  const location = useLocation();
   const isMentorView = mode === 'mentor';
   const homeHref = isMentorView ? '/mentor' : '/student';
   const menuAnchorRef = useRef(null);
@@ -220,6 +222,13 @@ function AccountSettingsPage({ mode = 'student' }) {
     })),
     [t],
   );
+
+  useEffect(() => {
+    const requestedSectionId = new URLSearchParams(location.search).get('section');
+    if (!requestedSectionId || !SETTINGS_SECTIONS.some((section) => section.id === requestedSectionId)) return;
+    setActiveSectionId(requestedSectionId);
+    setMobileDetailOpen(true);
+  }, [location.search]);
 
   useEffect(() => {
     const handler = (e) => {

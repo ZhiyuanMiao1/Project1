@@ -77,6 +77,20 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
   );
   const normalizeEmailValue = (value) => String(value || '').trim().toLowerCase();
 
+  const completeWelcome = (targetPath) => {
+    const defaultTarget = role === 'mentor' ? '/mentor' : '/student';
+    const target = targetPath || consumePostLoginRedirect() || defaultTarget;
+    setShowWelcome(false);
+    if (typeof onSuccess === 'function') {
+      try { onSuccess({ autoLoggedIn: true, role, publicId }); } catch {}
+    }
+    try { onClose && onClose(); } catch {}
+    try { navigate(target, { replace: true }); } catch {}
+    if (target === '/student') {
+      try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
+    }
+  };
+
   const validate = () => {
     if (!email) return { message: t('auth.emailRequired', '请输入邮箱'), field: 'email' };
     if (!/^\S+@\S+\.\S+$/.test(email)) return { message: t('auth.emailInvalid', '邮箱格式不正确'), field: 'email' };
@@ -145,7 +159,7 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
         }
       }
 
-      // 导师注册：自动登录并跳转导师页；导师卡片将因未审核而显示“审核中”
+      // 导师注册：自动登录，先展示导师欢迎与行为提示，再进入导师端
       if (role === 'mentor') {
         try {
           const loginRes = await api.post('/api/login', { email, password, role: 'mentor' });
@@ -159,13 +173,12 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
               window.dispatchEvent(new CustomEvent('auth:changed', { detail: { isLoggedIn: true, role: 'mentor', user } }));
             } catch {}
           }
+          const pid = (user && user.public_id) || res?.data?.public_id || '';
+          setPublicId(pid || '');
           setOk(t('auth.mentorApplicationSubmitted', '账号已创建，导师申请已提交'));
-          // 三点动画 2 秒后，关闭弹窗并进入导师页
+          // 三点动画 2 秒后展示导师欢迎弹窗
           setTimeout(() => {
-            try { onClose && onClose(); } catch {}
-            try { onSuccess && onSuccess({ autoLoggedIn: true, role: 'mentor' }); } catch {}
-            const target = consumePostLoginRedirect() || '/mentor';
-            try { navigate(target, { replace: true }); } catch {}
+            setShowWelcome(true);
           }, 2000);
           return;
         } catch (loginErr) {
@@ -514,32 +527,10 @@ const RegisterPopup = ({ onClose, onSuccess, initialRole = 'student' }) => {
       {showWelcome && (
         <StudentWelcomePopup
           publicId={publicId}
-          onConfirm={() => {
-            // 关闭欢迎弹窗与注册弹窗，进入学生首页，并触发入场动画
-            setShowWelcome(false);
-            if (typeof onSuccess === 'function') {
-              try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
-            }
-            try { onClose && onClose(); } catch {}
-            const target = consumePostLoginRedirect() || '/student';
-            try { navigate(target, { replace: true }); } catch {}
-            if (target === '/student') {
-              try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
-            }
-          }}
-          onClose={() => {
-            // 行为同“我知道了”
-            setShowWelcome(false);
-            if (typeof onSuccess === 'function') {
-              try { onSuccess({ autoLoggedIn: true, role: 'student', publicId }); } catch {}
-            }
-            try { onClose && onClose(); } catch {}
-            const target = consumePostLoginRedirect() || '/student';
-            try { navigate(target, { replace: true }); } catch {}
-            if (target === '/student') {
-              try { setTimeout(() => window.dispatchEvent(new Event('home:enter')), 0); } catch {}
-            }
-          }}
+          role={role}
+          onConfirm={() => completeWelcome(role === 'mentor' ? '/mentor/profile-editor' : '/student')}
+          onClose={() => completeWelcome()}
+          onNavigate={completeWelcome}
         />
       )}
       {showEmailCodePopup && (
