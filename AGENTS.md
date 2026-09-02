@@ -47,6 +47,16 @@ from `admin-app`.
 - Include newly introduced backend-provided display copy, configuration-driven content, and public SEO/share content when they are part of the experience. Keep internal logs, developer comments, identifiers, and admin-only technical data unchanged unless localization is explicitly required.
 - Treat Chinese and English as part of the same definition of done: verify both language states and check that longer English text does not cause clipping, overflow, broken wrapping, or layout regressions at the relevant viewport sizes.
 
+## Outbound Email Guidelines (`backend`)
+
+- Every user-facing email sent by Mentory, including transactional messages, verification codes, account/security messages, appointment and course notifications, dispute or review results, and admin broadcasts, must use the shared standard Mentory email card. Do not introduce a standalone or plain custom HTML layout for an individual email.
+- The standard HTML layout must include all three of these visible elements: the Mentory Logo, a clear body title beside or immediately associated with the Logo, and a shortcut button below the main content that opens Mentory. An email is not compliant if the shortcut is absent or is rendered only as an inline text link.
+- The shortcut must be a visually button-like HTML link with a valid absolute `https://` URL. Link to the most relevant in-product destination when one exists; otherwise use the public Mentory home URL. The default localized labels are `打开 Mentory` for Chinese and `Open Mentory` for English, unless a more specific localized action label better describes the destination.
+- Keep the Logo, header/title, content card, and shortcut button in shared helpers in `backend/src/services/mailService.ts` so new and existing email types inherit the same structure and email-client-safe inline styling. Do not rely on CSS classes, JavaScript, relative URLs, or external stylesheets in email HTML.
+- Apply the recipient's Mentory language preference to the subject, body title, body copy, action label, and plain-text fallback whenever the email is tied to a user account. Chinese and English variants must remain functionally equivalent.
+- Every email must retain a useful plain-text alternative. Include the same destination URL in that alternative because a button cannot be rendered in plain text.
+- When adding or changing an email, audit every send path that uses the affected template and add or update automated coverage that asserts the rendered HTML contains the Logo, non-empty body title, and bottom shortcut button with an absolute URL in both supported language variants where applicable.
+
 ## Modal Guidelines (`my-app`)
 
 - New or updated modal close buttons must follow the established Mentory style used by `LoginPopup` and `CourseReviewModal`: use the `FiX` icon from `react-icons/fi` inside a `40px × 40px` button with `12px` border radius, no border, white background, `#0f172a` icon color, centered `inline-flex` layout, an `18px × 18px` icon, and `rgba(15, 23, 42, 0.04)` hover background.

@@ -113,13 +113,12 @@ function CourseReviewModal({
 
         <div className="course-review-modal__head">
           <h2 className="course-review-modal__title">{course?.mentorName || t('lessonHours.mentor', '导师')}</h2>
+          {!hasExistingReview && course?.reviewRewardEligible ? (
+            <span className="course-review-modal__reward-note">
+              {t('courseReview.rewardDescription', '首次评价该导师，提交后奖励 0.25 课时')}
+            </span>
+          ) : null}
         </div>
-
-        {!hasExistingReview && course?.reviewRewardEligible ? (
-          <div className="course-review-modal__reward-note">
-            {t('courseReview.rewardDescription', '首次评价该导师，提交后奖励 0.25 课时')}
-          </div>
-        ) : null}
 
         <div className="course-review-modal__list">
           {REVIEW_CATEGORY_SPECS.map(({ key, fallback, Icon }) => {

@@ -35,6 +35,7 @@ describe('CourseReviewModal reward notice', () => {
     ));
 
     expect(container.textContent).toContain('首次评价该导师，提交后奖励 0.25 课时');
+    expect(container.querySelector('.course-review-modal__head .course-review-modal__reward-note')).not.toBeNull();
 
     act(() => root.render(
       <CourseReviewModal

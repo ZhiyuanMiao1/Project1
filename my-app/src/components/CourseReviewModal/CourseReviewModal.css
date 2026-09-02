@@ -50,6 +50,10 @@
 }
 
 .course-review-modal__head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   padding-right: 44px;
   margin-bottom: 14px;
 }
@@ -62,13 +66,10 @@
 }
 
 .course-review-modal__reward-note {
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border-left: 3px solid #f59e0b;
-  background: #fffbeb;
-  color: #92400e;
-  font-size: 14px;
-  line-height: 1.5;
+  color: #b45309;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .course-review-modal__list {
@@ -268,9 +269,7 @@
   }
 
   .course-review-modal__reward-note {
-    margin-bottom: 8px;
-    padding: 9px 10px;
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .course-review-modal__close {
