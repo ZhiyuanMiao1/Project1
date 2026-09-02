@@ -377,7 +377,7 @@ const en = {
   'courses.reviewUpdatedDesc': 'Your review has been updated and the new scores replaced the previous record.',
   'courses.reviewSubmittedTitle': 'Thanks for your feedback',
   'courses.reviewSubmittedDesc': 'Your review has been submitted. We will use your feedback to improve mentor service.',
-  'courses.reviewRewardBadge': 'Review & earn hours',
+  'courses.reviewRewardBadge': 'Earn hours',
   'courses.reviewRewardGrantedTitle': 'Review Submitted',
   'courses.reviewRewardGrantedDesc': '0.25 lesson hours have been added to your balance.',
   'courses.mentorLoginRequired': 'Please log in with a mentor account',

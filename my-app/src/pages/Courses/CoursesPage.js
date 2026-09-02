@@ -1174,7 +1174,7 @@ function CoursesPage({ entryRole = 'student' }) {
                     <div className="course-detail-review-action">
                       {!isReviewed && activeCourse.reviewRewardEligible ? (
                         <span className="course-detail-review-corner-tag">
-                          {t('courses.reviewRewardBadge', '评价送课时')}
+                          {t('courses.reviewRewardBadge', '送课时')}
                         </span>
                       ) : null}
                       <Button
