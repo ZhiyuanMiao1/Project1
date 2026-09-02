@@ -54,7 +54,10 @@ const parsePort = (value: any, fallback = 465) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-Mentory-standard-removebg.png';
+// Keep the complete Mentory email logo independent from the configured
+// application base URL. MAIL_PUBLIC_BASE_URL may point at a route-prefixed or
+// preview deployment where static brand assets are not published.
+export const DEFAULT_BRAND_LOGO_URL = 'https://mentory.cc/Logo-Mentory-standard-removebg.png';
 const DEFAULT_PUBLIC_APP_URL = 'https://mentory.cc';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
@@ -66,14 +69,9 @@ export const getPublicAppUrl = () => {
 
 const getBrandLogoHtml = () => {
   const explicitLogoUrl = String(process.env.MAIL_BRAND_LOGO_URL || '').trim();
-  const publicBaseUrl = getPublicAppUrl();
-  const logoUrl = explicitLogoUrl || (publicBaseUrl
-    ? `${trimTrailingSlash(publicBaseUrl)}/Logo-Mentory-standard-removebg.png`
-    : DEFAULT_BRAND_LOGO_URL);
+  const logoUrl = /^https:\/\//i.test(explicitLogoUrl) ? explicitLogoUrl : DEFAULT_BRAND_LOGO_URL;
 
-  if (!/^https?:\/\//i.test(logoUrl)) return '';
-
-  return `<img src="${logoUrl}" alt="Mentory" width="88" style="display: block; width: 88px; max-width: 100%; height: auto; border: 0;" />`;
+  return `<img src="${escapeHtml(logoUrl)}" alt="Mentory" width="72" height="72" style="display: block; width: 72px; height: 72px; max-width: 100%; object-fit: contain; border: 0;" />`;
 };
 
 const escapeHtml = (value: unknown) =>
@@ -91,7 +89,7 @@ const buildMailHeaderHtml = (title: string) => {
     ? `
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 18px;">
           <tr>
-            <td style="vertical-align: middle; padding-right: 14px;">${brandLogoHtml}</td>
+            <td style="vertical-align: middle; padding-right: 12px;">${brandLogoHtml}</td>
             <td style="vertical-align: middle; font-size: 22px; font-weight: 700; color: #0f172a;">${safeTitle}</td>
           </tr>
         </table>
@@ -99,12 +97,25 @@ const buildMailHeaderHtml = (title: string) => {
     : `<div style="font-size: 22px; font-weight: 700; margin-bottom: 10px;">${safeTitle}</div>`;
 };
 
-const buildMailCardHtml = (title: string, contentHtml: string) => `
+export const buildMailCardHtml = (title: string, contentHtml: string) => `
   <div style="font-family: Arial, Helvetica, sans-serif; color: #0f172a; line-height: 1.6;">
     <div style="max-width: 520px; margin: 0 auto; padding: 28px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff;">
       ${buildMailHeaderHtml(title)}
       ${contentHtml}
     </div>
+  </div>
+`;
+
+const getSafeHttpsUrl = (candidate = '') => {
+  const normalized = String(candidate || '').trim();
+  if (/^https:\/\//i.test(normalized)) return normalized;
+  const publicAppUrl = getPublicAppUrl();
+  return /^https:\/\//i.test(publicAppUrl) ? publicAppUrl : DEFAULT_PUBLIC_APP_URL;
+};
+
+const buildMailActionHtml = (url: string, label: string) => `
+  <div style="margin-top: 18px;">
+    <a href="${escapeHtml(getSafeHttpsUrl(url))}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">${escapeHtml(label)}</a>
   </div>
 `;
 
@@ -162,18 +173,13 @@ export const buildAdminBroadcastMail = ({
 }: Omit<AdminBroadcastMailInput, 'to'>) => {
   const isEnglish = locale === 'en';
   const safeBody = escapeHtml(body).replace(/\r?\n/g, '<br />');
-  const publicAppUrl = getPublicAppUrl();
-  const safeAppUrl = /^https:\/\//i.test(publicAppUrl)
-    ? escapeHtml(publicAppUrl)
-    : DEFAULT_PUBLIC_APP_URL;
+  const safeAppUrl = getSafeHttpsUrl(getPublicAppUrl());
   const appLinkLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
   const html = buildMailCardHtml(
     subject,
     `
       <div style="font-size: 15px; color: #334155; line-height: 1.8; overflow-wrap: anywhere;">${safeBody}</div>
-      <div style="margin-top: 18px;">
-        <a href="${safeAppUrl}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">${appLinkLabel}</a>
-      </div>
+      ${buildMailActionHtml(safeAppUrl, appLinkLabel)}
     `
   );
   const text = `${body}\n\n${appLinkLabel}: ${safeAppUrl}`;
@@ -252,6 +258,32 @@ export const sendNotificationMail = async ({
   return true;
 };
 
+export const buildRegisterEmailCodeMail = ({
+  code,
+  expiresMinutes,
+}: {
+  code: string;
+  expiresMinutes: number;
+}) => {
+  const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
+  const appUrl = getSafeHttpsUrl(getPublicAppUrl());
+  const subject = 'Mentory 注册验证码';
+  const text = `您的 Mentory 注册验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。\n\n打开 Mentory: ${appUrl}`;
+  const html = buildMailCardHtml(
+    '欢迎注册Mentory',
+    `
+      <div style="font-size: 14px; color: #475569; margin-bottom: 18px;">您正在进行 Mentory 邮箱注册验证。</div>
+      <div style="padding: 18px 20px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: 8px; color: #111827;">${escapeHtml(code)}</div>
+      </div>
+      <div style="margin-top: 18px; font-size: 14px; color: #475569;">验证码 ${safeMinutes} 分钟内有效，仅可使用一次。如非本人操作，请直接忽略此邮件。</div>
+      ${buildMailActionHtml(appUrl, '打开 Mentory')}
+    `
+  );
+
+  return { subject, text, html };
+};
+
 export const sendRegisterEmailCodeMail = async ({
   to,
   code,
@@ -261,21 +293,7 @@ export const sendRegisterEmailCodeMail = async ({
   code: string;
   expiresMinutes: number;
 }) => {
-  const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
-  const subject = 'Mentory 注册验证码';
-  const text = `您的 Mentory 注册验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。`;
-  const html = buildMailCardHtml(
-    '欢迎注册Mentory',
-    `
-      <div style="font-size: 14px; color: #475569; margin-bottom: 18px;">您正在进行 Mentory 邮箱注册验证。</div>
-      <div style="padding: 18px 20px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0; text-align: center;">
-        <div style="font-size: 30px; font-weight: 700; letter-spacing: 8px; color: #111827;">${escapeHtml(code)}</div>
-      </div>
-      <div style="margin-top: 18px; font-size: 14px; color: #475569;">验证码 ${safeMinutes} 分钟内有效，仅可使用一次。如非本人操作，请直接忽略此邮件。</div>
-    `
-  );
-
-  await sendMail({ to, subject, text, html });
+  await sendMail({ to, ...buildRegisterEmailCodeMail({ code, expiresMinutes }) });
 };
 
 export const sendPasswordResetEmailCodeMail = async ({
@@ -288,8 +306,9 @@ export const sendPasswordResetEmailCodeMail = async ({
   expiresMinutes: number;
 }) => {
   const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
+  const appUrl = getSafeHttpsUrl(getPublicAppUrl());
   const subject = 'Mentory 重置密码验证码';
-  const text = `您的 Mentory 重置密码验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。`;
+  const text = `您的 Mentory 重置密码验证码为 ${code}，${safeMinutes} 分钟内有效。如非本人操作，请忽略此邮件。\n\n打开 Mentory: ${appUrl}`;
   const html = buildMailCardHtml(
     '重置Mentory密码',
     `
@@ -298,10 +317,49 @@ export const sendPasswordResetEmailCodeMail = async ({
         <div style="font-size: 30px; font-weight: 700; letter-spacing: 8px; color: #111827;">${escapeHtml(code)}</div>
       </div>
       <div style="margin-top: 18px; font-size: 14px; color: #475569;">验证码 ${safeMinutes} 分钟内有效，仅可使用一次。如非本人操作，请直接忽略此邮件。</div>
+      ${buildMailActionHtml(appUrl, '打开 Mentory')}
     `
   );
 
   await sendMail({ to, subject, text, html });
+};
+
+export const buildMentorContractEmailCodeMail = ({
+  code,
+  contractNumber,
+  expiresMinutes,
+  locale = 'zh-CN',
+}: {
+  code: string;
+  contractNumber: string;
+  expiresMinutes: number;
+  locale?: 'zh-CN' | 'en';
+}) => {
+  const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
+  const isEnglish = locale === 'en';
+  const contractUrl = getSafeHttpsUrl(`${getPublicAppUrl()}/mentor/contract`);
+  const actionLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
+  const subject = isEnglish ? 'Mentory mentor agreement verification code' : 'Mentory 导师协议签署验证码';
+  const title = isEnglish ? 'Confirm mentor agreement signing' : '确认签署导师合作协议';
+  const text = isEnglish
+    ? `Your verification code for Mentory agreement ${contractNumber} is ${code}. It expires in ${safeMinutes} minutes and can only be used for this agreement.\n\n${actionLabel}: ${contractUrl}`
+    : `您正在签署 Mentory 导师合作协议（合同编号：${contractNumber}）。验证码为 ${code}，${safeMinutes} 分钟内有效，仅可用于本合同。\n\n${actionLabel}: ${contractUrl}`;
+  const html = buildMailCardHtml(
+    title,
+    `
+      <div style="font-size:14px;color:#475569;margin-bottom:8px;">${isEnglish ? 'Agreement number' : '合同编号'}：${escapeHtml(contractNumber)}</div>
+      <div style="font-size:14px;color:#475569;margin-bottom:18px;">${isEnglish ? 'Enter this code on Mentory to confirm your signing intent.' : '请在 Mentory 签署页面输入以下验证码，以确认本人签署意愿。'}</div>
+      <div style="padding:18px 20px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;text-align:center;">
+        <div style="font-size:30px;font-weight:700;letter-spacing:8px;color:#111827;">${escapeHtml(code)}</div>
+      </div>
+      <div style="margin-top:18px;font-size:14px;color:#475569;">${isEnglish
+        ? `The code expires in ${safeMinutes} minutes, can be used once, and is bound to this agreement. Do not share it with anyone.`
+        : `验证码 ${safeMinutes} 分钟内有效、仅可使用一次，并与本合同绑定。请勿向任何人泄露验证码。`}</div>
+      ${buildMailActionHtml(contractUrl, actionLabel)}
+    `
+  );
+
+  return { subject, text, html };
 };
 
 export const sendMentorContractEmailCodeMail = async ({
@@ -317,28 +375,10 @@ export const sendMentorContractEmailCodeMail = async ({
   expiresMinutes: number;
   locale?: 'zh-CN' | 'en';
 }) => {
-  const safeMinutes = Math.max(1, Math.floor(expiresMinutes));
-  const isEnglish = locale === 'en';
-  const subject = isEnglish ? 'Mentory mentor agreement verification code' : 'Mentory 导师协议签署验证码';
-  const title = isEnglish ? 'Confirm mentor agreement signing' : '确认签署导师合作协议';
-  const text = isEnglish
-    ? `Your verification code for Mentory agreement ${contractNumber} is ${code}. It expires in ${safeMinutes} minutes and can only be used for this agreement.`
-    : `您正在签署 Mentory 导师合作协议（合同编号：${contractNumber}）。验证码为 ${code}，${safeMinutes} 分钟内有效，仅可用于本合同。`;
-  const html = buildMailCardHtml(
-    title,
-    `
-      <div style="font-size:14px;color:#475569;margin-bottom:8px;">${isEnglish ? 'Agreement number' : '合同编号'}：${escapeHtml(contractNumber)}</div>
-      <div style="font-size:14px;color:#475569;margin-bottom:18px;">${isEnglish ? 'Enter this code on Mentory to confirm your signing intent.' : '请在 Mentory 签署页面输入以下验证码，以确认本人签署意愿。'}</div>
-      <div style="padding:18px 20px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;text-align:center;">
-        <div style="font-size:30px;font-weight:700;letter-spacing:8px;color:#111827;">${escapeHtml(code)}</div>
-      </div>
-      <div style="margin-top:18px;font-size:14px;color:#475569;">${isEnglish
-        ? `The code expires in ${safeMinutes} minutes, can be used once, and is bound to this agreement. Do not share it with anyone.`
-        : `验证码 ${safeMinutes} 分钟内有效、仅可使用一次，并与本合同绑定。请勿向任何人泄露验证码。`}</div>
-    `
-  );
-
-  await sendMail({ to, subject, text, html });
+  await sendMail({
+    to,
+    ...buildMentorContractEmailCodeMail({ code, contractNumber, expiresMinutes, locale }),
+  });
 };
 
 export const sendAppointmentNotificationMail = async ({
@@ -356,7 +396,9 @@ export const sendAppointmentNotificationMail = async ({
   const isEnglish = locale === 'en';
   const safeActor = actorDisplayName.trim() || (isEnglish ? 'The other participant' : '对方');
   const safeWindowText = windowText.trim();
-  const safeMessageUrl = /^https?:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
+  const safeMessageUrl = /^https:\/\//i.test(messageUrl.trim()) ? messageUrl.trim() : '';
+  const actionUrl = getSafeHttpsUrl(safeMessageUrl);
+  const actionLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
 
   const details = [
     ...(showActorDetails ? [{ label: isEnglish ? 'From' : '操作人', value: safeActor }] : []),
@@ -370,6 +412,7 @@ export const sendAppointmentNotificationMail = async ({
     safeMessageUrl
       ? `${isEnglish ? 'Messages' : '消息页面'}：${safeMessageUrl}`
       : (isEnglish ? 'Sign in to Mentory to view the full update.' : '请登录 Mentory 查看完整消息。'),
+    `${actionLabel}: ${actionUrl}`,
   ].join('\n');
 
   const detailRowsHtml = details.map((item) => `
@@ -389,11 +432,7 @@ export const sendAppointmentNotificationMail = async ({
         </table>
       </div>
       <div style="margin-top: 18px; font-size: 14px; color: #475569;">${isEnglish ? 'Sign in to Mentory to view the full update.' : '请登录 Mentory 查看完整消息。'}</div>
-      ${safeMessageUrl ? `
-        <div style="margin-top: 18px;">
-          <a href="${escapeHtml(safeMessageUrl)}" style="display: inline-block; padding: 10px 16px; border-radius: 10px; background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; font-size: 14px; font-weight: 700; text-decoration: none;">${isEnglish ? 'Open Mentory' : '打开 Mentory'}</a>
-        </div>
-      ` : ''}
+      ${buildMailActionHtml(actionUrl, actionLabel)}
     `
   );
 
@@ -427,6 +466,8 @@ export const sendCourseDisputeResultMail = async ({
   const preferences = await getEmailNotificationPreferencesForUser(recipientUserId);
   if (!preferences.enabled) return false;
   const isEnglish = preferences.locale === 'en';
+  const appUrl = getSafeHttpsUrl(getPublicAppUrl());
+  const actionLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
   const isStudent = recipientRole === 'student';
   const safeCourseName = courseName.trim() || (isEnglish ? 'the course' : '相关课程');
   const date = startsAt instanceof Date ? startsAt : new Date(startsAt);
@@ -515,6 +556,8 @@ export const sendCourseDisputeResultMail = async ({
     '',
     thanks,
     isEnglish ? 'Mentory Team' : 'Mentory 团队',
+    '',
+    `${actionLabel}: ${appUrl}`,
   ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n');
   const detailRowsHtml = details.map((item) => `
     <tr>
@@ -532,7 +575,8 @@ export const sendCourseDisputeResultMail = async ({
      <div style="padding:14px 18px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0;color:#0f172a;font-size:14px;">${safeResultMessage}</div>
      ${closingText ? `<div style="font-size:14px;color:#475569;margin-top:16px;">${escapeHtml(closingText)}</div>` : ''}
      <div style="font-size:14px;color:#475569;margin-top:16px;">${escapeHtml(thanks)}</div>
-     <div style="font-size:14px;color:#0f172a;margin-top:4px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>`
+     <div style="font-size:14px;color:#0f172a;margin-top:4px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>
+     ${buildMailActionHtml(appUrl, actionLabel)}`
   );
   await sendMail({ to, subject, text, html });
   return true;
@@ -563,6 +607,8 @@ export const sendLessonHoursFinalDecisionMail = async ({
   if (!to) return false;
 
   const isEnglish = preferences.locale === 'en';
+  const appUrl = getSafeHttpsUrl(getPublicAppUrl());
+  const actionLabel = isEnglish ? 'Open Mentory' : '打开 Mentory';
   const hours = Number(finalHours.toFixed(2));
   const hoursText = Number.isInteger(hours) ? String(hours) : String(hours);
   const decisionText = decision === 'mentor_proposed'
@@ -591,6 +637,8 @@ export const sendLessonHoursFinalDecisionMail = async ({
       ? 'The final lesson hours have been applied to the course and deducted from the student lesson balance.'
       : '最终课时已计入课程，并从学生课时余额中扣除。',
     isEnglish ? 'Mentory Team' : 'Mentory 团队',
+    '',
+    `${actionLabel}: ${appUrl}`,
   ].join('\n');
   const detailRowsHtml = details.map((item) => `
     <tr>
@@ -608,7 +656,8 @@ export const sendLessonHoursFinalDecisionMail = async ({
      <div style="font-size:14px;color:#475569;margin-top:16px;">${isEnglish
        ? 'The final lesson hours have been applied to the course and deducted from the student lesson balance.'
        : '最终课时已计入课程，并从学生课时余额中扣除。'}</div>
-     <div style="font-size:14px;color:#0f172a;margin-top:16px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>`
+     <div style="font-size:14px;color:#0f172a;margin-top:16px;">${isEnglish ? 'Mentory Team' : 'Mentory 团队'}</div>
+     ${buildMailActionHtml(appUrl, actionLabel)}`
   );
 
   await sendMail({ to, subject, text, html });
