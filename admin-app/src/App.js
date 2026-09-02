@@ -3284,11 +3284,33 @@ function EmailBroadcastsPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [result, setResult] = useState(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyReload, setHistoryReload] = useState(0);
   const countsState = useAsync(() => api('/api/admin/email-broadcasts/audiences'), []);
+  const historyState = useAsync(
+    () => api('/api/admin/audit-logs', {
+      params: {
+        action: 'email_broadcast.send',
+        targetType: 'email_broadcast',
+        page: historyPage,
+        limit: 20,
+      },
+    }),
+    [historyPage, historyReload]
+  );
   const counts = countsState.data?.audiences || {};
   const selectedOption = emailAudienceOptions.find((option) => option.value === audience);
   const selectedCount = Number(counts[audience] || 0);
   const canSubmit = subject.trim().length >= 2 && body.trim().length >= 2 && !sending;
+  const historyItems = (historyState.data?.logs || []).map((log) => {
+    let details = {};
+    try {
+      details = typeof log.after_json === 'string' ? JSON.parse(log.after_json) : (log.after_json || {});
+    } catch {}
+    return { ...log, details };
+  });
+  const historyTotal = Number(historyState.data?.total || 0);
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotal / 20));
 
   const requestConfirmation = (event) => {
     event.preventDefault();
@@ -3308,6 +3330,8 @@ function EmailBroadcastsPage() {
       });
       setResult(data);
       setConfirming(false);
+      setHistoryPage(1);
+      setHistoryReload((value) => value + 1);
     } catch (error) {
       setSendError(error.message || '邮件发送失败，请稍后再试');
     } finally {
@@ -3387,6 +3411,44 @@ function EmailBroadcastsPage() {
           <EmailBroadcastPreview subject={subject} body={body} />
         </aside>
       </div>
+
+      <section className="email-broadcast-history" aria-labelledby="email-history-title">
+        <div className="email-history-heading">
+          <h2 id="email-history-title">发送记录</h2>
+          {!historyState.loading && !historyState.error ? <span>共 {historyTotal.toLocaleString('zh-CN')} 条</span> : null}
+        </div>
+        <State loading={historyState.loading} error={historyState.error}>
+          <div className="email-history-list">
+            {historyItems.map((item) => {
+              const option = emailAudienceOptions.find((entry) => entry.value === item.details.audience);
+              const recipients = Number(item.details.recipients || 0);
+              const sent = Number(item.details.sent || 0);
+              const failed = Number(item.details.failed || 0);
+              return (
+                <article className="email-history-item" key={item.id}>
+                  <div className="email-history-meta">
+                    <time>{formatDate(item.created_at)}</time>
+                    <strong>{option?.label || item.details.audience || '-'}</strong>
+                    <span>收件人 {recipients.toLocaleString('zh-CN')} · 成功 {sent.toLocaleString('zh-CN')} · 失败 {failed.toLocaleString('zh-CN')}</span>
+                  </div>
+                  <div className="email-history-content">
+                    <strong>{item.details.subject || '-'}</strong>
+                    <p>{item.details.body || '-'}</p>
+                  </div>
+                </article>
+              );
+            })}
+            {!historyItems.length ? <div className="empty">暂无发送记录</div> : null}
+          </div>
+          {historyTotalPages > 1 ? (
+            <div className="email-history-pagination">
+              <button type="button" className="ghost" disabled={historyPage <= 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}>上一页</button>
+              <span>第 {historyPage} / {historyTotalPages} 页</span>
+              <button type="button" className="ghost" disabled={historyPage >= historyTotalPages} onClick={() => setHistoryPage((page) => Math.min(historyTotalPages, page + 1))}>下一页</button>
+            </div>
+          ) : null}
+        </State>
+      </section>
 
       {confirming ? (
         <div className="modal-backdrop" role="presentation">
