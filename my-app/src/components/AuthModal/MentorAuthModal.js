@@ -34,7 +34,8 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!getAuthToken();
   });
-  const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 审核中/非导师
+  const [canEditProfile, setCanEditProfile] = useState(null); // null: 未知/未登录, true: 可编辑, false: 非导师
+  const [mentorApproved, setMentorApproved] = useState(null); // 独立控制审核期内仍受限的导师功能
   const navigate = useNavigate();
   const { totalUnreadCount: internalUnreadCount } = useMessageUnreadSummary(isLoggedIn);
   const { newCourseCount: internalCourseCount } = useCourseAlertSummary({ enabled: isLoggedIn, view: 'mentor' });
@@ -106,15 +107,22 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!isLoggedIn) { setCanEditProfile(null); return; }
+      if (!isLoggedIn) { setCanEditProfile(null); setMentorApproved(null); return; }
       try {
         const res = await api.get('/api/mentor/permissions');
         if (!alive) return;
         setCanEditProfile(!!res?.data?.canEditProfile);
+        setMentorApproved(!!res?.data?.mentorApproved);
       } catch (e) {
         if (!alive) return;
         const status = e?.response?.status;
-        if (status === 403) setCanEditProfile(false); else setCanEditProfile(null);
+        if (status === 403) {
+          setCanEditProfile(false);
+          setMentorApproved(false);
+        } else {
+          setCanEditProfile(null);
+          setMentorApproved(null);
+        }
       }
     })();
     return () => { alive = false; };
@@ -145,7 +153,7 @@ const MentorAuthModal = ({ onClose, anchorRef, leftAlignRef, forceLogin = false,
       alert(msg || t('auth.actionFailed', '操作失败，请稍后再试'));
     }
   };
-  const isPendingMentor = isLoggedIn && canEditProfile === false;
+  const isPendingMentor = isLoggedIn && mentorApproved === false;
   const handleAuthAction = (action) => {
     switch (action) {
       case 'register':

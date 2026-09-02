@@ -335,8 +335,14 @@ function MentorCoursesPage() {
         const res = await api.get('/api/mentor/permissions');
         if (!alive) return;
 
-        if (res?.data?.canEditProfile) {
+        if (res?.data?.mentorApproved) {
           setStatus('ok');
+          setErrorMessage('');
+          return;
+        }
+
+        if (res?.data?.canEditProfile && res?.data?.mentorApproved === false) {
+          setStatus('pending');
           setErrorMessage('');
           return;
         }

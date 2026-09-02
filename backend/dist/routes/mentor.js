@@ -11,7 +11,8 @@ const availabilityBusy_1 = require("../services/availabilityBusy");
 const courseRequestAccess_1 = require("../services/courseRequestAccess");
 const router = (0, express_1.Router)();
 // GET /api/mentor/permissions
-// Check mentor permissions (e.g., can edit profile card)
+// Editing a private mentor profile is available before approval. Public discovery
+// and teaching features continue to use mentor_approved as their visibility gate.
 router.get('/permissions', auth_1.requireAuth, async (req, res) => {
     const role = req.user?.role;
     if (role !== 'mentor') {
@@ -19,11 +20,11 @@ router.get('/permissions', auth_1.requireAuth, async (req, res) => {
     }
     try {
         const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
-        const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
-        if (!approved) {
-            return res.status(403).json({ error: '导师审核中，暂不可编辑个人名片', canEditProfile: false, reason: 'pending_review' });
+        if (!rows?.[0]) {
+            return res.status(403).json({ error: '未开通导师身份', canEditProfile: false, mentorApproved: false, reason: 'not_mentor' });
         }
-        return res.json({ canEditProfile: true });
+        const mentorApproved = rows[0].mentor_approved === 1 || rows[0].mentor_approved === true;
+        return res.json({ canEditProfile: true, mentorApproved });
     }
     catch (e) {
         return res.status(500).json({ error: '服务器错误，请稍后再试', canEditProfile: false });
@@ -304,10 +305,6 @@ router.get('/profile', auth_1.requireAuth, async (req, res) => {
     if (req.user?.role !== 'mentor')
         return res.status(403).json({ error: '仅导师可访问' });
     try {
-        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
-        const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
-        if (!approved)
-            return res.status(403).json({ error: '导师审核中' });
         const loadProfile = async () => (0, db_1.query)('SELECT user_id, display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url, updated_at FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);
         let prof = [];
         try {
@@ -372,11 +369,6 @@ router.put('/profile', auth_1.requireAuth, [
         return res.status(400).json({ errors: errors.array() });
     }
     try {
-        // 审核 gating
-        const rows = await (0, db_1.query)("SELECT mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
-        const approved = rows?.[0]?.mentor_approved === 1 || rows?.[0]?.mentor_approved === true;
-        if (!approved)
-            return res.status(403).json({ error: '导师审核中，暂不可保存' });
         const { displayName, gender, degree, school, timezone, courses, teachingLanguages, avatarUrl, } = req.body;
         // Merge update: unspecified fields keep existing values.
         const loadExisting = async () => (0, db_1.query)('SELECT display_name, gender, degree, school, timezone, courses_json, teaching_languages_json, avatar_url FROM mentor_profiles WHERE user_id = ? LIMIT 1', [req.user.id]);

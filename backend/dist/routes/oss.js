@@ -162,12 +162,11 @@ router.post('/policy', [
         let dir = '';
         let maxBytes = MAX_AVATAR_BYTES;
         if (scope === 'mentorAvatar') {
-            // 审核 gating + 获取 mentor public_id 作为业务 mentorId
-            const roleRows = await (0, db_1.query)("SELECT public_id, mentor_approved FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
+            // 未审核导师也可完善私人名片；公开展示仍由导师查询接口审核状态控制。
+            const roleRows = await (0, db_1.query)("SELECT public_id FROM user_roles WHERE user_id = ? AND role = 'mentor' LIMIT 1", [req.user.id]);
             const row = roleRows?.[0];
-            const approved = row?.mentor_approved === 1 || row?.mentor_approved === true;
-            if (!approved)
-                return res.status(403).json({ error: '导师审核中，暂不可上传头像' });
+            if (!row)
+                return res.status(403).json({ error: '未开通导师身份' });
             businessId = typeof row?.public_id === 'string' && row.public_id.trim() ? row.public_id.trim() : String(req.user.id);
         }
         else if (scope === 'studentAvatar') {
