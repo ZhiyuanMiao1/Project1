@@ -3372,7 +3372,6 @@ function EmailBroadcastsPage() {
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
                 maxLength={10000}
-                placeholder={'直接填写要发送的内容。\n\n可以使用换行分段，邮件模板会自动保持排版。'}
               />
             </label>
           </fieldset>

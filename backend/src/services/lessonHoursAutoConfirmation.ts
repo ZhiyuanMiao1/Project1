@@ -95,14 +95,14 @@ const sendAutoConfirmationResultMailSafely = async ({
         ? (confirmed ? 'Lesson hours automatically confirmed' : 'Automatic confirmation not completed')
         : (confirmed ? '课时已自动确认' : '课时自动确认未完成'),
       actorDisplayName: mentorId,
-      messageUrl: `${getPublicAppUrl()}/student/messages`,
+      messageUrl: `${getPublicAppUrl()}${confirmed ? '/student/messages' : '/student/wallet'}`,
       description: isEnglish
         ? (confirmed
           ? `You did not respond within the 7-day confirmation period. Mentory automatically confirmed ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorId} and deducted the hours from your balance.`
-          : `You did not respond within the 7-day confirmation period. Mentory could not automatically confirm the ${hourText} lesson hour${hourText === 1 ? '' : 's'} submitted by ${mentorId} because your lesson-hour balance is insufficient. No hours were deducted, and this item is still awaiting your response. Mentory will not retry the automatic deduction. After topping up, open Messages and confirm these ${hourText} lesson hour${hourText === 1 ? '' : 's'} to complete the deduction and settlement. If you disagree with the submitted hours, respond in Messages promptly.`)
+          : 'You did not respond within the 7-day confirmation period. Your lesson-hour balance is insufficient. Please top up on Mentory as soon as possible; otherwise, your access to Mentory services may be affected. Thank you.')
         : (confirmed
           ? `您在 7 天确认期内未处理。Mentory 已自动确认 ${mentorId} 提交的 ${hourText} 小时课时，并从您的课时余额中扣除。`
-          : `您在 7 天确认期内未处理。由于课时余额不足，Mentory 未能自动确认 ${mentorId} 提交的 ${hourText} 小时课时；本次未扣除，当前仍待您处理，系统不会重复自动扣除。充值后，请前往消息页面确认这笔 ${hourText} 小时课时，以完成扣除和结算；如对课时有异议，请尽快在消息页面处理。`),
+          : '您在 7 天确认期内未处理。由于课时余额不足，请尽快前往 Mentory 页面进行充值，否则将影响您在 Mentory 平台的正常服务，谢谢！'),
       locale: preferences.locale,
       showActorDetails: false,
     });
