@@ -10,6 +10,7 @@
     "db:migrate:refunds": "npm run build && node dist/scripts/migrate-refunds.js",
     "test:refunds": "node -r ts-node/register src/services/refundPricing.test.ts",
     "test:fx": "node -r ts-node/register src/services/fx.test.ts",
+    "test:mail-template": "node -r ts-node/register src/services/mailService.test.ts",
     "test:embeddings": "node -r ts-node/register src/services/embeddingConfig.test.ts",
     "test:mentor-contract-render": "npm run build && node dist/scripts/test-mentor-contract-render.js",
     "test:mentor-payroll": "node -r ts-node/register src/services/mentorPayroll.test.ts",

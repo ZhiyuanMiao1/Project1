@@ -3261,30 +3261,18 @@ const emailAudienceOptions = [
 
 function EmailBroadcastPreview({ subject, body }) {
   return (
-    <div className="email-preview-shell">
-      <div className="email-preview-toolbar">
-        <span />
-        <span />
-        <span />
-        <strong>邮件预览</strong>
+    <article className="email-preview-card">
+      <div className="email-preview-brand">
+        <img src="/Logo-Mentory-standard-removebg.png" alt="Mentory" />
+        <span>{subject.trim() || '邮件主题会显示在这里'}</span>
       </div>
-      <div className="email-preview-canvas">
-        <article className="email-preview-card">
-          <div className="email-preview-brand">
-            <strong>Mentory</strong>
-            <span>{subject.trim() || '邮件主题会显示在这里'}</span>
-          </div>
-          <em>Mentory 通知</em>
-          <div className={`email-preview-body ${body.trim() ? '' : 'is-placeholder'}`}>
-            {body.trim() || '在左侧填写正文后，这里会实时显示邮件效果。换行和段落会被完整保留。'}
-          </div>
-          <footer>
-            此邮件由 Mentory 团队发送。您可以前往设置管理邮件通知。
-            <span> 打开 Mentory</span>
-          </footer>
-        </article>
+      <div className={`email-preview-body ${body.trim() ? '' : 'is-placeholder'}`}>
+        {body.trim() || '在左侧填写正文后，这里会实时显示邮件效果。换行和段落会被完整保留。'}
       </div>
-    </div>
+      <a className="email-preview-action" href="https://mentory.cc" onClick={(event) => event.preventDefault()}>
+        打开 Mentory
+      </a>
+    </article>
   );
 }
 
@@ -3385,7 +3373,6 @@ function EmailBroadcastsPage() {
           {sendError ? <div className="error" role="alert">{sendError}</div> : null}
 
           <div className="email-form-actions">
-            <span>发送后无法撤回，请在右侧确认最终效果。</span>
             <button type="submit" disabled={!canSubmit || countsState.loading}>
               <FontAwesomeIcon icon={faEnvelope} />
               检查并发送
@@ -3395,10 +3382,7 @@ function EmailBroadcastsPage() {
 
         <aside className="email-broadcast-preview">
           <div className="email-preview-heading">
-            <div>
-              <strong>实时预览</strong>
-            </div>
-            <em>{selectedOption?.label || '-'}</em>
+            <strong>实时预览</strong>
           </div>
           <EmailBroadcastPreview subject={subject} body={body} />
         </aside>
@@ -3419,9 +3403,9 @@ function EmailBroadcastsPage() {
             <div className="email-confirm-warning">此操作无法撤回。发送过程中请保持当前页面开启。</div>
             {sendError ? <div className="error" role="alert">{sendError}</div> : null}
             <div className="modal-actions">
-              <button className="ghost" type="button" onClick={() => setConfirming(false)} disabled={sending}>返回修改</button>
+              <button className="ghost" type="button" onClick={() => setConfirming(false)} disabled={sending}>返回</button>
               <button type="button" onClick={sendBroadcast} disabled={sending}>
-                {sending ? '正在发送…' : `确认发送给 ${selectedOption?.label}`}
+                {sending ? '正在发送…' : '确认发送'}
               </button>
             </div>
           </div>
