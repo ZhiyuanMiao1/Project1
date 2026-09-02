@@ -356,7 +356,6 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
         <header className="mentor-contract-modal-header">
           <div>
             <h1 id="mentor-contract-modal-title">{status?.signed ? t('mentorContract.signedTitle', '我的导师合作协议') : t('mentorContract.modalTitle', '阅读并签署导师合作协议')}</h1>
-            {status?.signed ? <p>{t('mentorContract.signedSubtitle', '你可以随时查看或下载已冻结归档的最终合同 PDF。')}</p> : null}
           </div>
           <button className="mentor-contract-modal-close" type="button" onClick={onClose} aria-label={closeLabel} title={closeLabel} disabled={signing}>
             <FiX aria-hidden="true" />
@@ -381,9 +380,8 @@ function MentorContractModal({ initialStatus = null, onClose, onStatusChange }) 
                 <section className="mentor-contract-success" role="status">
                   <FiCheckCircle aria-hidden="true" />
                   <div>
-                    <h2>{t('mentorContract.signed', '已签署并冻结归档')}</h2>
+                    <h2>{t('mentorContract.signed', '已签署')}</h2>
                     <p>{t('mentorContract.signedAt', '签署时间')}：{signedAt || '-'}</p>
-                    <p className="mentor-contract-hash">SHA-256：{status?.pdfSha256 || '-'}</p>
                   </div>
                   <button type="button" onClick={handleDownload}><FiDownload /> {t('mentorContract.downloadPdf', '下载最终合同 PDF')}</button>
                 </section>

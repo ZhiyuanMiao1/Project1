@@ -81,7 +81,6 @@
 .mentor-contract-success > svg { width: 26px; height: 26px; color: #16a34a; }
 .mentor-contract-success h2 { margin: 0 0 4px; font-size: 17px; }
 .mentor-contract-success p { margin: 2px 0; color: #475569; font-size: 13px; }
-.mentor-contract-hash { overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .mentor-contract-success button,
 .mentor-contract-primary,
